@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 31</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hereditary%20Elliptocytosis"
@@ -4007,7 +4049,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4028,7 +4070,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">29</div>
+                <div class="stat-value">31</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4037,7 +4079,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4510,6 +4552,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                EPB41
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:3377" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:3377</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in EPB41 (hgnc:3377). hgnc:3377 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">EPB41-related hereditary elliptocytosis, involving quantitative or qualitative defects of erythrocyte protein 4.1R.
@@ -4571,6 +4632,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                SPTA1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11272" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11272</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SPTA1 (hgnc:11272). hgnc:11272 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4708,6 +4788,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                SLC4A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11027" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11027</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SLC4A1 (hgnc:11027). hgnc:11027 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">SLC4A1-related ovalocytic red-cell membrane disorder classified by MONDO as both hereditary elliptocytosis and hereditary stomatocytosis.
@@ -4716,6 +4815,43 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32411010" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32411010" target="_blank">PMID:32411010</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SAO is caused by the heterozygous deletion of codons 400–408 in SLC4A1."</div>
+
+
+                <div class="evidence-explanation">Names SLC4A1 as the gene and gives the specific heterozygous in-frame deletion that defines this subtype. The quote restates the founding genetic reports rather than this paper&#39;s own culture experiments, hence quote_role BACKGROUND.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4805,11 +4941,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-red-cell-cytoskeleton-protein-defects" data-dismech-node="Red Cell Cytoskeleton Protein Defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Red Cell Cytoskeleton Protein Defects</div>
+
 
                 <div class="item-desc">Pathogenic variants in erythrocyte membrane-skeleton genes affect spectrin, protein 4.1R, or glycophorin C components that maintain red cell membrane shape and mechanical resilience.
 </div>
@@ -4826,11 +4963,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000232</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4868,11 +5005,11 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
         EPB41
 
 
-    <a href="https://bioregistry.io/hgnc:3377" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3377</a>
+    <a href="https://bioregistry.io/hgnc:3377" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:3377</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves EPB41 (hgnc:3377). hgnc:3377 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4907,11 +5044,11 @@ This pathophysiological event involves EPB41 (hgnc:3377). hgnc:3377 is a gene fr
         GYPC
 
 
-    <a href="https://bioregistry.io/hgnc:4704" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4704</a>
+    <a href="https://bioregistry.io/hgnc:4704" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:4704</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves GYPC (hgnc:4704). hgnc:4704 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4946,11 +5083,11 @@ This pathophysiological event involves GYPC (hgnc:4704). hgnc:4704 is a gene fro
         SPTA1
 
 
-    <a href="https://bioregistry.io/hgnc:11272" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11272</a>
+    <a href="https://bioregistry.io/hgnc:11272" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:11272</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves SPTA1 (hgnc:11272). hgnc:11272 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4985,11 +5122,11 @@ This pathophysiological event involves SPTA1 (hgnc:11272). hgnc:11272 is a gene 
         SPTB
 
 
-    <a href="https://bioregistry.io/hgnc:11274" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11274</a>
+    <a href="https://bioregistry.io/hgnc:11274" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:11274</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves SPTB (hgnc:11274). hgnc:11274 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5027,11 +5164,11 @@ This pathophysiological event involves SPTB (hgnc:11274). hgnc:11274 is a gene f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030866" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030866</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030866" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030866</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal cortical actin cytoskeleton organization (GO:0030866). GO:0030866 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5066,11 +5203,11 @@ This pathophysiological event involves abnormal cortical actin cytoskeleton orga
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0005200</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0005200</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves abnormal structural constituent of cytoskeleton (GO:0005200). GO:0005200 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -5209,6 +5346,7 @@ This pathophysiological event involves abnormal structural constituent of cytosk
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-weakened-horizontal-cytoskeletal-associations" data-dismech-node="Weakened Horizontal Cytoskeletal Associations" data-dismech-type="pathophysiology">
                 <div class="item-name">Weakened Horizontal Cytoskeletal Associations</div>
 
+
                 <div class="item-desc">Mutations affecting spectrin self-association or protein 4.1R-mediated junctional complexes weaken horizontal links in the erythrocyte cytoskeleton.
 </div>
 
@@ -5224,11 +5362,11 @@ This pathophysiological event involves abnormal structural constituent of cytosk
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000232</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5265,11 +5403,11 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030866" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030866</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030866" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030866</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal cortical actin cytoskeleton organization (GO:0030866). GO:0030866 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5409,6 +5547,7 @@ This pathophysiological event involves abnormal cortical actin cytoskeleton orga
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-erythrocyte-deformability-and-stability" data-dismech-node="Reduced Erythrocyte Deformability and Stability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Erythrocyte Deformability and Stability</div>
 
+
                 <div class="item-desc">Defective cytoskeletal mechanics decrease erythrocyte deformability and mechanical stability, reducing red-cell survival and producing abnormal osmotic-gradient ektacytometry profiles.
 </div>
 
@@ -5424,11 +5563,11 @@ This pathophysiological event involves abnormal cortical actin cytoskeleton orga
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000232</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5465,11 +5604,11 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0034101</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0034101</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal erythrocyte homeostasis (GO:0034101). GO:0034101 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5588,8 +5727,268 @@ This pathophysiological event involves abnormal erythrocyte homeostasis (GO:0034
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-sao-band-3-over-association-and-increased-membrane-rigidity" data-dismech-node="SAO Band 3 Over-Association and Increased Membrane Rigidity" data-dismech-type="pathophysiology">
+                <div class="item-name">SAO Band 3 Over-Association and Increased Membrane Rigidity</div>
+
+
+                <div class="item-desc">The Southeast Asian ovalocytosis arm of this entry does not run through the horizontal membrane-skeleton chain above. The SAO allele of SLC4A1 deletes nine residues at the junction of the cytoplasmic and transmembrane domains of band 3; the mutant protein forms higher-order oligomers and binds the underlying skeleton more tightly than wild-type band 3. The mechanical consequence is an over-stiffened membrane, which is the opposite direction of change from the weakened spectrin and protein 4.1R linkages that produce the other subtypes, even though both routes reduce deformability and both end in an abnormally shaped red cell.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        erythrocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000232</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SLC4A1
+
+
+    <a href="https://bioregistry.io/hgnc:11027" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:11027</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLC4A1 (hgnc:11027). hgnc:11027 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        band 3 homooligomerization
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0051260" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0051260</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased band 3 homooligomerization, annotated with protein homooligomerization (GO:0051260). GO:0051260 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        structural constituent of cytoskeleton
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0005200</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal structural constituent of cytoskeleton (GO:0005200). GO:0005200 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Elliptocytic and Poikilocytic Red Cell Morphology</span>
+
+	                            <span class="crosslink-desc">The rigid, over-cross-linked SAO membrane produces the ovalocytic red-cell morphology the subtype is named for.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32411010" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32411010" target="_blank">PMID:32411010</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SAO band 3 is believed to form higher oligomers and associate with the underlying erythrocyte cytoskeleton more readily than wild type band 3, offering an explanation for the observed increase in membrane rigidity in these cells"</div>
+
+
+                <div class="evidence-explanation">States the oligomerization and skeletal over-association that this node asserts, and the increased membrane rigidity that follows from it. The sentence summarises earlier biophysical work on patient red cells rather than this paper&#39;s own experiments, hence quote_role BACKGROUND.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32411010" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32411010" target="_blank">PMID:32411010</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The deletion occurs at the boundary between the cytoplasmic N-terminal domain and the transport-active transmembrane domain. This mutation abolishes the anion exchange activity of band 3"</div>
+
+
+                <div class="evidence-explanation">Locates the deleted residues at the cytoplasmic/transmembrane boundary, as this node&#39;s description states, and records that the mutant protein no longer exchanges anions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elliptocytic-and-poikilocytic-red-cell-morphology" data-dismech-node="Elliptocytic and Poikilocytic Red Cell Morphology" data-dismech-type="pathophysiology">
                 <div class="item-name">Elliptocytic and Poikilocytic Red Cell Morphology</div>
+
 
                 <div class="item-desc">Destabilized red-cell membrane architecture produces elliptical erythrocytes and, in more severe forms, poikilocytosis and red-cell fragmentation on peripheral smear.
 </div>
@@ -5606,11 +6005,11 @@ This pathophysiological event involves abnormal erythrocyte homeostasis (GO:0034
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000232</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5647,11 +6046,11 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0034101</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0034101</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal erythrocyte homeostasis (GO:0034101). GO:0034101 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5762,6 +6161,7 @@ This pathophysiological event involves abnormal erythrocyte homeostasis (GO:0034
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shortened-red-cell-survival-and-hemolysis" data-dismech-node="Shortened Red Cell Survival and Hemolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Shortened Red Cell Survival and Hemolysis</div>
 
+
                 <div class="item-desc">Reduced membrane stability and deformability shorten erythrocyte survival. This drives variable hemolysis, ranging from compensated or asymptomatic disease to severe transfusion-dependent anemia.
 </div>
 
@@ -5777,11 +6177,11 @@ This pathophysiological event involves abnormal erythrocyte homeostasis (GO:0034
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000232</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5818,11 +6218,11 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0034101</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0034101</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal erythrocyte homeostasis (GO:0034101). GO:0034101 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6028,7 +6428,7 @@ This pathophysiological event involves abnormal erythrocyte homeostasis (GO:0034
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Erythrocyte Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural erythrocyte abnormalities are an obligate feature of the disorder, with elliptocytes and other abnormal forms detected on blood smear or related laboratory assessment.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001877\"}}, {\"id\": \"Cholelithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pigment gallstones may occur as a rare complication of chronic hemolysis and bilirubin turnover.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001081\"}}, {\"id\": \"Congenital Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe forms can present in infancy or the neonatal period with congenital hemolysis, particularly when biallelic or modifying alleles produce hereditary pyropoikilocytosis-like severity.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004804\"}}, {\"id\": \"EPB41\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"EPB41\"], \"gene_terms\": [{\"label\": \"EPB41\", \"id\": \"hgnc:3377\"}], \"association\": \"Causative\"}}, {\"id\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destabilized red-cell membrane architecture produces elliptical erythrocytes and, in more severe forms, poikilocytosis and red-cell fragmentation on peripheral smear.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"erythrocyte homeostasis\"]}}, {\"id\": \"Elliptocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elliptical or oval erythrocytes on peripheral smear, the defining red-cell morphology for hereditary elliptocytosis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004445\"}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise intolerance is an occasional symptom in hereditary elliptocytosis, likely reflecting reduced oxygen delivery during symptomatic anemia or hemolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatigue can occur in symptomatic individuals with anemia or compensated hemolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"GYPC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GYPC\"], \"gene_terms\": [{\"label\": \"GYPC\", \"id\": \"hgnc:4704\"}], \"association\": \"Causative\"}}, {\"id\": \"Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable hemolytic anemia may occur, from mild compensated hemolysis to severe transfusion-dependent disease in severe or biallelic presentations.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001878\"}}, {\"id\": \"Hydrops fetalis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe fetal or neonatal hereditary elliptocytosis-spectrum presentations can rarely include hydrops fetalis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001789\"}}, {\"id\": \"Hyperbilirubinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemolysis can elevate bilirubin outside the neonatal period, contributing to jaundice and gallstone risk.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002904\"}}, {\"id\": \"Increased Red Cell Osmotic Fragility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal osmotic fragility or osmotic-gradient ektacytometry reflects impaired red-cell membrane biomechanical properties.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005502\"}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Jaundice can accompany bilirubin elevation from hemolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000952\"}}, {\"id\": \"Neonatal Hyperbilirubinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal hyperbilirubinemia can occur in infants with hereditary elliptocytosis or more severe HE/HPP-spectrum disease.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003265\"}}, {\"id\": \"Poikilocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally shaped erythrocytes beyond elliptocytes can occur, especially in severe hereditary pyropoikilocytosis-spectrum presentations.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004447\"}}, {\"id\": \"Prolonged neonatal jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prolonged neonatal jaundice can occur in infants with hereditary elliptocytosis-spectrum hemolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006579\"}}, {\"id\": \"Red Blood Cell Transfusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Red-cell transfusion is supportive therapy for severe congenital or transfusion-dependent hemolytic anemia in the severe HE/HPP spectrum.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Red Cell Cytoskeleton Protein Defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in erythrocyte membrane-skeleton genes affect spectrin, protein 4.1R, or glycophorin C components that maintain red cell membrane shape and mechanical resilience.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"cortical actin cytoskeleton organization\"], \"molecular_functions\": [\"structural constituent of cytoskeleton\"], \"genes\": [\"EPB41\", \"GYPC\", \"SPTA1\", \"SPTB\"], \"gene_terms\": [{\"label\": \"EPB41\", \"id\": \"hgnc:3377\"}, {\"label\": \"GYPC\", \"id\": \"hgnc:4704\"}, {\"label\": \"SPTA1\", \"id\": \"hgnc:11272\"}, {\"label\": \"SPTB\", \"id\": \"hgnc:11274\"}]}}, {\"id\": \"Reduced Erythrocyte Deformability and Stability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective cytoskeletal mechanics decrease erythrocyte deformability and mechanical stability, reducing red-cell survival and producing abnormal osmotic-gradient ektacytometry profiles.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"erythrocyte homeostasis\"]}}, {\"id\": \"Reticulocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased reticulocytes can accompany compensated hemolysis as marrow output rises to replace shortened-survival erythrocytes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001923\"}}, {\"id\": \"SPTA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SPTA1\"], \"gene_terms\": [{\"label\": \"SPTA1\", \"id\": \"hgnc:11272\"}], \"association\": \"Causative\"}}, {\"id\": \"SPTB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SPTB\"], \"gene_terms\": [{\"label\": \"SPTB\", \"id\": \"hgnc:11274\"}], \"association\": \"Causative\"}}, {\"id\": \"Shortened Red Cell Survival and Hemolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced membrane stability and deformability shorten erythrocyte survival. This drives variable hemolysis, ranging from compensated or asymptomatic disease to severe transfusion-dependent anemia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"erythrocyte homeostasis\"]}}, {\"id\": \"Skin ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skin ulceration is an occasional complication reported in the Orphanet phenotype record for hereditary elliptocytosis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0200042\"}}, {\"id\": \"Splenectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Splenectomy can ameliorate anemia in selected symptomatic patients with red-cell membrane structural disorders by increasing circulating red-cell lifespan; patient selection must consider severity and long-term risks.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenic enlargement can occur with chronic hemolysis and erythrocyte clearance in symptomatic patients.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Stomatocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stomatocytic red cells can be present in a subset, especially overlapping ovalocytosis or stomatocytic elliptocytosis presentations.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004446\"}}, {\"id\": \"Weakened Horizontal Cytoskeletal Associations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations affecting spectrin self-association or protein 4.1R-mediated junctional complexes weaken horizontal links in the erythrocyte cytoskeleton.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"cortical actin cytoskeleton organization\"]}}], \"edges\": [{\"source\": \"Red Cell Cytoskeleton Protein Defects\", \"target\": \"Weakened Horizontal Cytoskeletal Associations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spectrin, protein 4.1R, and related membrane-skeleton defects weaken the horizontal cytoskeletal network underlying the erythrocyte membrane.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Weakened Horizontal Cytoskeletal Associations\", \"target\": \"Reduced Erythrocyte Deformability and Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Horizontal cytoskeletal weakness reduces mechanical stability and red-cell deformability.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Erythrocyte Deformability and Stability\", \"target\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced membrane stability contributes to elliptocytic and poikilocytic red-cell morphology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Erythrocyte Deformability and Stability\", \"target\": \"Shortened Red Cell Survival and Hemolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Decreased deformability and stability shorten erythrocyte survival and produce hemolysis in symptomatic cases.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"target\": \"Abnormal Erythrocyte Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"target\": \"Elliptocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"target\": \"Increased Red Cell Osmotic Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"target\": \"Poikilocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"target\": \"Stomatocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Reticulocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Congenital Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Hydrops fetalis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Neonatal Hyperbilirubinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Prolonged neonatal jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Hyperbilirubinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Cholelithiasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Skin ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Splenectomy\", \"target\": \"Shortened Red Cell Survival and Hemolysis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Red Blood Cell Transfusion\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"EPB41\", \"target\": \"Red Cell Cytoskeleton Protein Defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GYPC\", \"target\": \"Red Cell Cytoskeleton Protein Defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPTA1\", \"target\": \"Red Cell Cytoskeleton Protein Defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPTB\", \"target\": \"Red Cell Cytoskeleton Protein Defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Erythrocyte Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural erythrocyte abnormalities are an obligate feature of the disorder, with elliptocytes and other abnormal forms detected on blood smear or related laboratory assessment.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001877\"}}, {\"id\": \"Cholelithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pigment gallstones may occur as a rare complication of chronic hemolysis and bilirubin turnover.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001081\"}}, {\"id\": \"Congenital Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe forms can present in infancy or the neonatal period with congenital hemolysis, particularly when biallelic or modifying alleles produce hereditary pyropoikilocytosis-like severity.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004804\"}}, {\"id\": \"EPB41\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"EPB41\"], \"gene_terms\": [{\"label\": \"EPB41\", \"id\": \"hgnc:3377\"}], \"association\": \"Causative\"}}, {\"id\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destabilized red-cell membrane architecture produces elliptical erythrocytes and, in more severe forms, poikilocytosis and red-cell fragmentation on peripheral smear.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"erythrocyte homeostasis\"]}}, {\"id\": \"Elliptocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elliptical or oval erythrocytes on peripheral smear, the defining red-cell morphology for hereditary elliptocytosis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004445\"}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise intolerance is an occasional symptom in hereditary elliptocytosis, likely reflecting reduced oxygen delivery during symptomatic anemia or hemolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatigue can occur in symptomatic individuals with anemia or compensated hemolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"GYPC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GYPC\"], \"gene_terms\": [{\"label\": \"GYPC\", \"id\": \"hgnc:4704\"}], \"association\": \"Causative\"}}, {\"id\": \"Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable hemolytic anemia may occur, from mild compensated hemolysis to severe transfusion-dependent disease in severe or biallelic presentations.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001878\"}}, {\"id\": \"Hydrops fetalis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe fetal or neonatal hereditary elliptocytosis-spectrum presentations can rarely include hydrops fetalis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001789\"}}, {\"id\": \"Hyperbilirubinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemolysis can elevate bilirubin outside the neonatal period, contributing to jaundice and gallstone risk.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002904\"}}, {\"id\": \"Increased Red Cell Osmotic Fragility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal osmotic fragility or osmotic-gradient ektacytometry reflects impaired red-cell membrane biomechanical properties.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005502\"}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Jaundice can accompany bilirubin elevation from hemolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000952\"}}, {\"id\": \"Neonatal Hyperbilirubinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal hyperbilirubinemia can occur in infants with hereditary elliptocytosis or more severe HE/HPP-spectrum disease.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003265\"}}, {\"id\": \"Poikilocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally shaped erythrocytes beyond elliptocytes can occur, especially in severe hereditary pyropoikilocytosis-spectrum presentations.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004447\"}}, {\"id\": \"Prolonged neonatal jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prolonged neonatal jaundice can occur in infants with hereditary elliptocytosis-spectrum hemolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006579\"}}, {\"id\": \"Red Blood Cell Transfusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Red-cell transfusion is supportive therapy for severe congenital or transfusion-dependent hemolytic anemia in the severe HE/HPP spectrum.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Red Cell Cytoskeleton Protein Defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in erythrocyte membrane-skeleton genes affect spectrin, protein 4.1R, or glycophorin C components that maintain red cell membrane shape and mechanical resilience.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"cortical actin cytoskeleton organization\"], \"molecular_functions\": [\"structural constituent of cytoskeleton\"], \"genes\": [\"EPB41\", \"GYPC\", \"SPTA1\", \"SPTB\"], \"gene_terms\": [{\"label\": \"EPB41\", \"id\": \"hgnc:3377\"}, {\"label\": \"GYPC\", \"id\": \"hgnc:4704\"}, {\"label\": \"SPTA1\", \"id\": \"hgnc:11272\"}, {\"label\": \"SPTB\", \"id\": \"hgnc:11274\"}]}}, {\"id\": \"Reduced Erythrocyte Deformability and Stability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective cytoskeletal mechanics decrease erythrocyte deformability and mechanical stability, reducing red-cell survival and producing abnormal osmotic-gradient ektacytometry profiles.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"erythrocyte homeostasis\"]}}, {\"id\": \"Reticulocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased reticulocytes can accompany compensated hemolysis as marrow output rises to replace shortened-survival erythrocytes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001923\"}}, {\"id\": \"SAO Band 3 Over-Association and Increased Membrane Rigidity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Southeast Asian ovalocytosis arm of this entry does not run through the horizontal membrane-skeleton chain above. The SAO allele of SLC4A1 deletes nine residues at the junction of the cytoplasmic and transmembrane domains of band 3; the mutant protein forms higher-order oligomers and binds the underlying skeleton more tightly than wild-type band 3. The mechanical consequence is an over-stiffened membrane, which is the opposite direction of change from the weakened spectrin and protein 4.1R linkages that produce the other subtypes, even though both routes reduce deformability and both end in an abnormally shaped red cell.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"band 3 homooligomerization\"], \"molecular_functions\": [\"structural constituent of cytoskeleton\"], \"genes\": [\"SLC4A1\"], \"gene_terms\": [{\"label\": \"SLC4A1\", \"id\": \"hgnc:11027\"}]}}, {\"id\": \"SLC4A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC4A1\"], \"gene_terms\": [{\"label\": \"SLC4A1\", \"id\": \"hgnc:11027\"}], \"subtypes\": [\"SAO\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SPTA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SPTA1\"], \"gene_terms\": [{\"label\": \"SPTA1\", \"id\": \"hgnc:11272\"}], \"association\": \"Causative\"}}, {\"id\": \"SPTB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SPTB\"], \"gene_terms\": [{\"label\": \"SPTB\", \"id\": \"hgnc:11274\"}], \"association\": \"Causative\"}}, {\"id\": \"Shortened Red Cell Survival and Hemolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced membrane stability and deformability shorten erythrocyte survival. This drives variable hemolysis, ranging from compensated or asymptomatic disease to severe transfusion-dependent anemia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"erythrocyte homeostasis\"]}}, {\"id\": \"Skin ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skin ulceration is an occasional complication reported in the Orphanet phenotype record for hereditary elliptocytosis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0200042\"}}, {\"id\": \"Splenectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Splenectomy can ameliorate anemia in selected symptomatic patients with red-cell membrane structural disorders by increasing circulating red-cell lifespan; patient selection must consider severity and long-term risks.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenic enlargement can occur with chronic hemolysis and erythrocyte clearance in symptomatic patients.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Stomatocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stomatocytic red cells can be present in a subset, especially overlapping ovalocytosis or stomatocytic elliptocytosis presentations.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004446\"}}, {\"id\": \"Weakened Horizontal Cytoskeletal Associations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations affecting spectrin self-association or protein 4.1R-mediated junctional complexes weaken horizontal links in the erythrocyte cytoskeleton.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"cortical actin cytoskeleton organization\"]}}], \"edges\": [{\"source\": \"Red Cell Cytoskeleton Protein Defects\", \"target\": \"Weakened Horizontal Cytoskeletal Associations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spectrin, protein 4.1R, and related membrane-skeleton defects weaken the horizontal cytoskeletal network underlying the erythrocyte membrane.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Weakened Horizontal Cytoskeletal Associations\", \"target\": \"Reduced Erythrocyte Deformability and Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Horizontal cytoskeletal weakness reduces mechanical stability and red-cell deformability.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Erythrocyte Deformability and Stability\", \"target\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced membrane stability contributes to elliptocytic and poikilocytic red-cell morphology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Erythrocyte Deformability and Stability\", \"target\": \"Shortened Red Cell Survival and Hemolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Decreased deformability and stability shorten erythrocyte survival and produce hemolysis in symptomatic cases.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SAO Band 3 Over-Association and Increased Membrane Rigidity\", \"target\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The rigid, over-cross-linked SAO membrane produces the ovalocytic red-cell morphology the subtype is named for.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"target\": \"Abnormal Erythrocyte Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"target\": \"Elliptocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"target\": \"Increased Red Cell Osmotic Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"target\": \"Poikilocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elliptocytic and Poikilocytic Red Cell Morphology\", \"target\": \"Stomatocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Reticulocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Congenital Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Hydrops fetalis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Neonatal Hyperbilirubinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Prolonged neonatal jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Hyperbilirubinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Cholelithiasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Shortened Red Cell Survival and Hemolysis\", \"target\": \"Skin ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Splenectomy\", \"target\": \"Shortened Red Cell Survival and Hemolysis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Red Blood Cell Transfusion\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"EPB41\", \"target\": \"Red Cell Cytoskeleton Protein Defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GYPC\", \"target\": \"Red Cell Cytoskeleton Protein Defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPTA1\", \"target\": \"Red Cell Cytoskeleton Protein Defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPTB\", \"target\": \"Red Cell Cytoskeleton Protein Defects\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC4A1\", \"target\": \"SAO Band 3 Over-Association and Increased Membrane Rigidity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6086,15 +6486,18 @@ This pathophysiological event involves abnormal erythrocyte homeostasis (GO:0034
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001877" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001877</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001877" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001877</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is abnormal erythrocyte morphology (HP:0001877). HP:0001877 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6157,15 +6560,18 @@ This clinical feature is abnormal erythrocyte morphology (HP:0001877). HP:000187
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004445" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004445</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004445" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004445</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is elliptocytosis (HP:0004445). HP:0004445 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6253,15 +6659,18 @@ This clinical feature is elliptocytosis (HP:0004445). HP:0004445 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0005502</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0005502</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is increased red cell osmotic fragility (HP:0005502). HP:0005502 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6349,15 +6758,18 @@ This clinical feature is increased red cell osmotic fragility (HP:0005502). HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6445,15 +6857,18 @@ This clinical feature is hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001923" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001923</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001923" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001923</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is reticulocytosis (HP:0001923). HP:0001923 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6516,15 +6931,18 @@ This clinical feature is reticulocytosis (HP:0001923). HP:0001923 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004804</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004804</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is congenital hemolytic anemia (HP:0004804). HP:0004804 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6612,15 +7030,18 @@ This clinical feature is congenital hemolytic anemia (HP:0004804). HP:0004804 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004447" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004447</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004447" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004447</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is poikilocytosis (HP:0004447). HP:0004447 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6708,15 +7129,18 @@ This clinical feature is poikilocytosis (HP:0004447). HP:0004447 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004446" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004446</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004446" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0004446</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is stomatocytosis (HP:0004446). HP:0004446 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6788,15 +7212,18 @@ This clinical feature is stomatocytosis (HP:0004446). HP:0004446 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6868,15 +7295,18 @@ This clinical feature is splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0006579</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0006579</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Prolonged neonatal jaundice (HP:0006579). HP:0006579 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6939,15 +7369,18 @@ This clinical feature is Prolonged neonatal jaundice (HP:0006579). HP:0006579 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000952</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000952</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7010,15 +7443,18 @@ This clinical feature is jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001081" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001081</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001081" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001081</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is cholelithiasis (HP:0001081). HP:0001081 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7090,15 +7526,18 @@ This clinical feature is cholelithiasis (HP:0001081). HP:0001081 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0200042</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0200042</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7170,15 +7609,18 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001789</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001789</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7241,15 +7683,18 @@ This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003265</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003265</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7337,15 +7782,18 @@ This clinical feature is neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002904" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002904</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002904" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002904</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is hyperbilirubinemia (HP:0002904). HP:0002904 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7417,15 +7865,18 @@ This clinical feature is hyperbilirubinemia (HP:0002904). HP:0002904 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7488,15 +7939,18 @@ This clinical feature is fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0003546</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7579,7 +8033,7 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-epb41" data-dismech-node="EPB41" data-dismech-type="genetic">
@@ -7600,10 +8054,10 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
                         Gene: EPB41
 
 
-    <a href="https://bioregistry.io/hgnc:3377" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:3377</a>
+    <a href="https://bioregistry.io/hgnc:3377" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:3377</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is EPB41 (hgnc:3377). hgnc:3377 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7611,6 +8065,9 @@ This disease-associated gene is EPB41 (hgnc:3377). hgnc:3377 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7703,10 +8160,10 @@ This disease-associated gene is EPB41 (hgnc:3377). hgnc:3377 is a gene from the 
                         Gene: GYPC
 
 
-    <a href="https://bioregistry.io/hgnc:4704" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:4704</a>
+    <a href="https://bioregistry.io/hgnc:4704" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:4704</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GYPC (hgnc:4704). hgnc:4704 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7714,6 +8171,9 @@ This disease-associated gene is GYPC (hgnc:4704). hgnc:4704 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -7800,10 +8260,10 @@ This disease-associated gene is GYPC (hgnc:4704). hgnc:4704 is a gene from the H
                         Gene: SPTA1
 
 
-    <a href="https://bioregistry.io/hgnc:11272" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:11272</a>
+    <a href="https://bioregistry.io/hgnc:11272" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:11272</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SPTA1 (hgnc:11272). hgnc:11272 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7811,6 +8271,9 @@ This disease-associated gene is SPTA1 (hgnc:11272). hgnc:11272 is a gene from th
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7905,10 +8368,10 @@ This disease-associated gene is SPTA1 (hgnc:11272). hgnc:11272 is a gene from th
                         Gene: SPTB
 
 
-    <a href="https://bioregistry.io/hgnc:11274" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:11274</a>
+    <a href="https://bioregistry.io/hgnc:11274" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:11274</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SPTB (hgnc:11274). hgnc:11274 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7916,6 +8379,9 @@ This disease-associated gene is SPTB (hgnc:11274). hgnc:11274 is a gene from the
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7979,6 +8445,91 @@ This disease-associated gene is SPTB (hgnc:11274). hgnc:11274 is a gene from the
 
 
                 <div class="evidence-explanation">This series supports SPTB as a causative gene in the HE/HPP spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-slc4a1" data-dismech-node="SLC4A1" data-dismech-type="genetic">
+                <div class="item-name">
+                    SLC4A1
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SLC4A1
+
+
+    <a href="https://bioregistry.io/hgnc:11027" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:11027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC4A1 (hgnc:11027). hgnc:11027 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                </div>
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32411010" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32411010" target="_blank">PMID:32411010</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SAO is caused by the heterozygous deletion of codons 400–408 in SLC4A1."</div>
+
+
+                <div class="evidence-explanation">Establishes SLC4A1 as the causative gene of Southeast Asian ovalocytosis and the heterozygous in-frame deletion allele responsible.</div>
 
 
 
@@ -8144,7 +8695,7 @@ This disease-associated gene is SPTB (hgnc:11274). hgnc:11274 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">splenectomy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">splenectomy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is splenectomy (NCIT:C15328). NCIT:C15328 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8263,7 +8814,7 @@ This treatment is splenectomy (NCIT:C15328). NCIT:C15328 is a clinical intervent
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">blood transfusion<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">blood transfusion<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8326,11 +8877,11 @@ This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001878</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8611,11 +9162,11 @@ This treatment targets hemolytic anemia (HP:0001878). HP:0001878 is a phenotype 
         clinical assessment
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C124351</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8702,11 +9253,11 @@ This treatment targets hemolytic anemia (HP:0001878). HP:0001878 is a phenotype 
         clinical assessment
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C124351</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8818,11 +9369,11 @@ This treatment targets hemolytic anemia (HP:0001878). HP:0001878 is a phenotype 
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9162,6 +9713,11 @@ has_subtypes:
   description: &gt;
     EPB41-related hereditary elliptocytosis, involving quantitative or
     qualitative defects of erythrocyte protein 4.1R.
+  genes:
+  - preferred_term: EPB41
+    term:
+      id: hgnc:3377
+      label: EPB41
   evidence:
   - reference: ORPHA:288
     reference_title: &#34;Hereditary elliptocytosis&#34;
@@ -9180,6 +9736,11 @@ has_subtypes:
     SPTA1-related hereditary elliptocytosis, often involving alpha-spectrin
     self-association defects and variable severity depending on allele
     combination.
+  genes:
+  - preferred_term: SPTA1
+    term:
+      id: hgnc:11272
+      label: SPTA1
   evidence:
   - reference: ORPHA:288
     reference_title: &#34;Hereditary elliptocytosis&#34;
@@ -9214,6 +9775,23 @@ has_subtypes:
   description: &gt;
     SLC4A1-related ovalocytic red-cell membrane disorder classified by MONDO
     as both hereditary elliptocytosis and hereditary stomatocytosis.
+  genes:
+  - preferred_term: SLC4A1
+    term:
+      id: hgnc:11027
+      label: SLC4A1
+  evidence:
+  - reference: PMID:32411010
+    reference_title: &#34;Expression of South East Asian Ovalocytic Band 3 Disrupts Erythroblast Cytokinesis and Reticulocyte Maturation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &#34;SAO is caused by the heterozygous deletion of codons 400–408 in SLC4A1.&#34;
+    explanation: &gt;-
+      Names SLC4A1 as the gene and gives the specific heterozygous in-frame
+      deletion that defines this subtype. The quote restates the founding
+      genetic reports rather than this paper&#39;s own culture experiments, hence
+      quote_role BACKGROUND.
 - name: Thermal-sensitive HE
   display_name: Hemolytic anemia with thermal sensitivity of red cells
   subtype_term:
@@ -9425,6 +10003,77 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The typical HE ektacytometry curve is trapezoidal with decreased RBC deformability&#34;
     explanation: The ektacytometry finding supports reduced deformability as a characteristic biomechanical abnormality.
+- name: SAO Band 3 Over-Association and Increased Membrane Rigidity
+  description: &gt;-
+    The Southeast Asian ovalocytosis arm of this entry does not run through the
+    horizontal membrane-skeleton chain above. The SAO allele of SLC4A1 deletes
+    nine residues at the junction of the cytoplasmic and transmembrane domains
+    of band 3; the mutant protein forms higher-order oligomers and binds the
+    underlying skeleton more tightly than wild-type band 3. The mechanical
+    consequence is an over-stiffened membrane, which is the opposite direction
+    of change from the weakened spectrin and protein 4.1R linkages that produce
+    the other subtypes, even though both routes reduce deformability and both
+    end in an abnormally shaped red cell.
+  genes:
+  - preferred_term: SLC4A1
+    term:
+      id: hgnc:11027
+      label: SLC4A1
+  cell_types:
+  - preferred_term: erythrocyte
+    term:
+      id: CL:0000232
+      label: erythrocyte
+  biological_processes:
+  - preferred_term: band 3 homooligomerization
+    modifier: INCREASED
+    term:
+      id: GO:0051260
+      label: protein homooligomerization
+  molecular_functions:
+  - preferred_term: structural constituent of cytoskeleton
+    modifier: ABNORMAL
+    term:
+      id: GO:0005200
+      label: structural constituent of cytoskeleton
+  evidence:
+  - reference: PMID:32411010
+    reference_title: &#34;Expression of South East Asian Ovalocytic Band 3 Disrupts Erythroblast Cytokinesis and Reticulocyte Maturation.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    quote_role: BACKGROUND
+    snippet: &#34;SAO band 3 is believed to form higher oligomers and associate with the underlying erythrocyte cytoskeleton more readily than wild type band 3, offering an explanation for the observed increase in membrane rigidity in these cells&#34;
+    explanation: &gt;-
+      States the oligomerization and skeletal over-association that this node
+      asserts, and the increased membrane rigidity that follows from it. The
+      sentence summarises earlier biophysical work on patient red cells rather
+      than this paper&#39;s own experiments, hence quote_role BACKGROUND.
+  - reference: PMID:32411010
+    reference_title: &#34;Expression of South East Asian Ovalocytic Band 3 Disrupts Erythroblast Cytokinesis and Reticulocyte Maturation.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    quote_role: BACKGROUND
+    snippet: &#34;The deletion occurs at the boundary between the cytoplasmic N-terminal domain and the transport-active transmembrane domain. This mutation abolishes the anion exchange activity of band 3&#34;
+    explanation: &gt;-
+      Locates the deleted residues at the cytoplasmic/transmembrane boundary, as
+      this node&#39;s description states, and records that the mutant protein no
+      longer exchanges anions.
+  downstream:
+  - target: Elliptocytic and Poikilocytic Red Cell Morphology
+    description: &gt;-
+      The rigid, over-cross-linked SAO membrane produces the ovalocytic red-cell
+      morphology the subtype is named for.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32411010
+      reference_title: &#34;Expression of South East Asian Ovalocytic Band 3 Disrupts Erythroblast Cytokinesis and Reticulocyte Maturation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: BACKGROUND
+      snippet: &#34;Southeast Asian Ovalocytosis results from a heterozygous deletion of 9 amino acids in the erythrocyte anion exchange protein AE1 (band 3).&#34;
+      explanation: &gt;-
+        Links the band 3 lesion directly to the ovalocytic phenotype that names
+        the subtype.
 - name: Elliptocytic and Poikilocytic Red Cell Morphology
   description: &gt;
     Destabilized red-cell membrane architecture produces elliptical erythrocytes
@@ -10005,6 +10654,36 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;one in SPTB, one was compound heterozygous for mutations affecting both α- and β-spectrin and one had a mutation in EPB41.&#34;
     explanation: This series supports SPTB as a causative gene in the HE/HPP spectrum.
+- name: SLC4A1
+  association: Causative
+  relationship_type: CAUSATIVE
+  subtype: SAO
+  gene_term:
+    preferred_term: SLC4A1
+    term:
+      id: hgnc:11027
+      label: SLC4A1
+  inheritance:
+  - name: Autosomal dominant
+  notes: &gt;-
+    SLC4A1 encodes band 3 (anion exchanger 1), a transmembrane protein, and is
+    the gene of the Southeast Asian ovalocytosis subtype only. It is scoped to
+    that subtype rather than listed alongside the other four genes because its
+    lesion is not of the horizontal membrane-skeleton kind those genes share:
+    the SAO allele is a single defined in-frame deletion whose product
+    over-associates with the skeleton and stiffens the membrane, which is why
+    this entry models it on its own pathophysiology node. The same gene appears
+    under Hereditary_Spherocytosis for a different, band 3 deficiency route.
+  evidence:
+  - reference: PMID:32411010
+    reference_title: &#34;Expression of South East Asian Ovalocytic Band 3 Disrupts Erythroblast Cytokinesis and Reticulocyte Maturation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &#34;SAO is caused by the heterozygous deletion of codons 400–408 in SLC4A1.&#34;
+    explanation: &gt;-
+      Establishes SLC4A1 as the causative gene of Southeast Asian ovalocytosis
+      and the heterozygous in-frame deletion allele responsible.
 diagnosis:
 - name: Peripheral blood smear morphology
   diagnosis_term:
@@ -10498,7 +11177,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Elliptocytosis", "mondoId": "MONDO:0017319", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Elliptocytosis", "yamlRevision": "d59bb9e76b00"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Elliptocytosis", "mondoId": "MONDO:0017319", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Elliptocytosis", "yamlRevision": "c9eb4e29c773"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

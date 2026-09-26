@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5182,6 +5224,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-amnion-rupture-or-detachment" data-dismech-node="Amnion Rupture or Detachment" data-dismech-type="pathophysiology">
                 <div class="item-name">Amnion Rupture or Detachment</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Rupture or separation of the amnion is the proposed initiating event in the extrinsic model. It is provisional because rupture is not demonstrated in every case and ABS remains etiologically heterogeneous.</div>
 
 
@@ -5326,6 +5375,13 @@ This pathophysiological event occurs in amnion (UBERON:0000305). UBERON:0000305 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibrous-amniotic-strand-formation-or-exposure" data-dismech-node="Fibrous Amniotic Strand Formation or Exposure" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibrous Amniotic Strand Formation or Exposure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Fibrous strands in the amniotic cavity are the physical substrate of the extrinsic band-positive model. Their formation or exposure is provisional because fetal-placental bands are associated with, rather than present in, every clinically labeled case.</div>
 
 
@@ -5444,6 +5500,13 @@ This pathophysiological event occurs in amnion (UBERON:0000305). UBERON:0000305 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-part-entanglement-and-focal-tethering" data-dismech-node="Fetal-Part Entanglement and Focal Tethering" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal-Part Entanglement and Focal Tethering</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">A limb, digit, craniofacial structure, or umbilical cord may become caught by a strand. The resulting focal tether transmits abnormal mechanical force and can progress to circumferential compression.</div>
 
@@ -5580,6 +5643,13 @@ This pathophysiological event occurs in amnion (UBERON:0000305). UBERON:0000305 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-circumferential-tissue-compression" data-dismech-node="Circumferential Tissue Compression" data-dismech-type="pathophysiology">
                 <div class="item-name">Circumferential Tissue Compression</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Circumferential band pressure creates the defining ring indentation and can obstruct distal fluid drainage, blood flow, or nerve integrity. This node represents mechanical compression, not a universal cause for band-negative cases.</div>
 
@@ -5818,6 +5888,13 @@ This pathophysiological event occurs in amnion (UBERON:0000305). UBERON:0000305 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-venous-lymphatic-obstruction" data-dismech-node="Distal Venous-Lymphatic Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Venous-Lymphatic Obstruction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Compression that preferentially impairs venous and lymphatic return causes swelling distal to a ring. The specific drainage sequence is clinically plausible but not directly measured in the available ABS series.</div>
 
 
@@ -5934,6 +6011,13 @@ This pathophysiological event occurs in amnion (UBERON:0000305). UBERON:0000305 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-perfusion-compromise" data-dismech-node="Distal Perfusion Compromise" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Perfusion Compromise</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">More severe or persistent constriction can reduce distal perfusion. Reversibility after fetoscopic release and edema/necrosis after experimental fetal-limb ligation support compression as the proximal lesion.</div>
 
@@ -6096,6 +6180,13 @@ This pathophysiological event involves decreased blood circulation (GO:0008015).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-local-neural-compression" data-dismech-node="Local Neural Compression" data-dismech-type="pathophysiology">
                 <div class="item-name">Local Neural Compression</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Deep constriction rings can compromise local nerves. This is kept separate from perfusion failure because the available structured evidence establishes only that neural compromise can occur, not its frequency or relationship to tissue ischemia.</div>
 
 
@@ -6156,6 +6247,13 @@ This pathophysiological event involves decreased blood circulation (GO:0008015).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ischemic-tissue-loss" data-dismech-node="Ischemic Tissue Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Ischemic Tissue Loss</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Irreversible distal injury can yield transverse terminal reduction or intrauterine amputation. The tissue-loss mechanism is strongly supported by mechanical modeling and clinical limb-reduction patterns, although not every limb defect follows this route.</div>
 
@@ -6273,6 +6371,13 @@ This pathophysiological event involves decreased blood circulation (GO:0008015).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mechanical-deformation-of-developing-limbs" data-dismech-node="Mechanical Deformation of Developing Limbs" data-dismech-type="pathophysiology">
                 <div class="item-name">Mechanical Deformation of Developing Limbs</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Tethering, crowding, and altered movement can deform limb position or relationships without requiring complete vascular interruption. This branch covers talipes, contracture, scoliosis, and syndactyly-like presentations.</div>
 
@@ -6429,6 +6534,13 @@ This pathophysiological event involves decreased blood circulation (GO:0008015).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-primary-vascular-disruption" data-dismech-node="Primary Vascular Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Primary Vascular Disruption</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Fetopathologic observations propose a vascular disruption sequence for many encephaloceles and facial clefts occurring in fetuses with amniotic bands, with or without a broad cephalo-amniotic adhesion. This alternative is not treated as a downstream consequence of limb-band compression.</div>
 
 
@@ -6546,6 +6658,13 @@ This pathophysiological event involves decreased blood circulation (GO:0008015).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-umbilical-cord-constriction" data-dismech-node="Umbilical-Cord Constriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Umbilical-Cord Constriction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Cord involvement may threaten fetal survival, but available treatment data come from a very small, highly selected fetoscopy series and should not be generalized to all ABS pregnancies.</div>
 
 
@@ -6629,7 +6748,7 @@ This pathophysiological event involves decreased blood circulation (GO:0008015).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Amnion Rupture or Detachment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rupture or separation of the amnion is the proposed initiating event in the extrinsic model. It is provisional because rupture is not demonstrated in every case and ABS remains etiologically heterogeneous.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"locations\": [\"amnion\"]}}, {\"id\": \"Amniotic constriction ring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A frequent defining manifestation in band-positive ABS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009775\"}}, {\"id\": \"Amniotic constriction rings of arms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An occasional arm localization of a constriction ring.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010483\"}}, {\"id\": \"Amniotic constriction rings of legs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A frequent leg localization of a constriction ring.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010495\"}}, {\"id\": \"Circumferential Tissue Compression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circumferential band pressure creates the defining ring indentation and can obstruct distal fluid drainage, blood flow, or nerve integrity. This node represents mechanical compression, not a universal cause for band-negative cases.\", \"meta\": {\"evidence_count\": 2, \"role\": \"central_effector\"}}, {\"id\": \"Congenital contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An occasional consequence of restricted motion or tethering.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002803\"}}, {\"id\": \"Craniofacial cleft\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atypical craniofacial clefting belongs to the early severe disruption spectrum rather than the late limb-compression branch.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:5201015\"}}, {\"id\": \"Digital constriction ring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A frequent distal manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010491\"}}, {\"id\": \"Distal Perfusion Compromise\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"More severe or persistent constriction can reduce distal perfusion. Reversibility after fetoscopic release and edema/necrosis after experimental fetal-limb ligation support compression as the proximal lesion.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood circulation\"], \"role\": \"consequence\"}}, {\"id\": \"Distal Venous-Lymphatic Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Compression that preferentially impairs venous and lymphatic return causes swelling distal to a ring. The specific drainage sequence is clinically plausible but not directly measured in the available ABS series.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Edema of the upper limbs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal upper-limb edema can occur below a constriction ring.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010742\"}}, {\"id\": \"Encephalocele\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An occasional neural defect retained only for early severe multisystem presentations.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002084\"}}, {\"id\": \"Fetal-Part Entanglement and Focal Tethering\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A limb, digit, craniofacial structure, or umbilical cord may become caught by a strand. The resulting focal tether transmits abnormal mechanical force and can progress to circumferential compression.\", \"meta\": {\"evidence_count\": 1, \"role\": \"central_effector\"}}, {\"id\": \"Fetoscopic amniotic band release\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fetoscopic division is reserved for selected pregnancies with a threatened limb or umbilical cord and potentially salvageable distal tissue. It releases tethering and compression but carries substantial membrane-rupture and preterm-birth risk; the published evidence remains a heterogeneous collection of case reports and case series and does not establish comparative efficacy.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"Fibrous Amniotic Strand Formation or Exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibrous strands in the amniotic cavity are the physical substrate of the extrinsic band-positive model. Their formation or exposure is provisional because fetal-placental bands are associated with, rather than present in, every clinically labeled case.\", \"meta\": {\"evidence_count\": 1, \"role\": \"central_effector\", \"locations\": [\"amnion\"]}}, {\"id\": \"Intrauterine amputation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced constriction can cause limb or digit amputation before birth; no human frequency is inferred from the experimental percentage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6001389\"}}, {\"id\": \"Ischemic Tissue Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Irreversible distal injury can yield transverse terminal reduction or intrauterine amputation. The tissue-loss mechanism is strongly supported by mechanical modeling and clinical limb-reduction patterns, although not every limb defect follows this route.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"Local Neural Compression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deep constriction rings can compromise local nerves. This is kept separate from perfusion failure because the available structured evidence establishes only that neural compromise can occur, not its frequency or relationship to tissue ischemia.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Mechanical Deformation of Developing Limbs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tethering, crowding, and altered movement can deform limb position or relationships without requiring complete vascular interruption. This branch covers talipes, contracture, scoliosis, and syndactyly-like presentations.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Multiple gestation or twinning\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Twinning is a population-level risk context, not a sufficient cause and not evidence that either fetus must be affected.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor\"}}, {\"id\": \"Pedal edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal edema can occur below a constriction ring.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010741\"}}, {\"id\": \"Postnatal constriction-ring release and reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Postnatal surgery is directed to a persistent constriction ring, distal compromise, or reconstructable limb deformity. Repair is phenotype-specific and cannot reverse established intrauterine tissue loss.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Primary Vascular Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fetopathologic observations propose a vascular disruption sequence for many encephaloceles and facial clefts occurring in fetuses with amniotic bands, with or without a broad cephalo-amniotic adhesion. This alternative is not treated as a downstream consequence of limb-band compression.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\"}}, {\"id\": \"Prior uterine procedure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A small retrospective series found more prior uterine surgery among ABS pregnancies than controls. The association is recorded cautiously and does not establish causation.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Candidate risk factor\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An occasional skeletal deformation association.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Syndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syndactyly or band-related pseudosyndactyly occurs within the distal limb spectrum. The generic HPO syndactyly term is used because no dedicated pseudosyndactyly term is available locally.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001159\"}}, {\"id\": \"Talipes equinovarus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An occasional limb-deformation manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001762\"}}, {\"id\": \"Transverse terminal limb defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A terminal limb-reduction pattern is a characteristic tissue-loss outcome; no frequency is assigned from the available evidence.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6000818\"}}, {\"id\": \"Umbilical-Cord Constriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cord involvement may threaten fetal survival, but available treatment data come from a very small, highly selected fetoscopy series and should not be generalized to all ABS pregnancies.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}], \"edges\": [{\"source\": \"Amnion Rupture or Detachment\", \"target\": \"Fibrous Amniotic Strand Formation or Exposure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rupture or detachment can expose fibrous amniotic strands to fetal parts.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fibrous Amniotic Strand Formation or Exposure\", \"target\": \"Fetal-Part Entanglement and Focal Tethering\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contact between a fibrous strand and a fetal part can produce tethering or entanglement.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal-Part Entanglement and Focal Tethering\", \"target\": \"Circumferential Tissue Compression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A tightening tether acts as a focal or circumferential ligature.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal-Part Entanglement and Focal Tethering\", \"target\": \"Mechanical Deformation of Developing Limbs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tethering and crowding alter fetal limb position and developing structure.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal-Part Entanglement and Focal Tethering\", \"target\": \"Umbilical-Cord Constriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A band can involve the umbilical cord in a small, highly selected fetoscopy series.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Distal Venous-Lymphatic Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ring compression can impair distal drainage and produce edema.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Distal Perfusion Compromise\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe compression can reduce distal perfusion.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increasing band pressure across distal vessels\", \"Reduced distal limb perfusion\"]}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Local Neural Compression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe ring compression can compromise local nerves.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Amniotic constriction ring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circumferential compression produces the defining ring.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Amniotic constriction rings of arms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compression can localize to an arm.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Digital constriction ring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compression commonly localizes to digits.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Amniotic constriction rings of legs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compression can localize to a leg.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal Venous-Lymphatic Obstruction\", \"target\": \"Pedal edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal drainage obstruction can manifest as pedal edema.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal Venous-Lymphatic Obstruction\", \"target\": \"Edema of the upper limbs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal drainage obstruction can manifest as upper-limb edema.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal Perfusion Compromise\", \"target\": \"Ischemic Tissue Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained perfusion compromise can culminate in distal tissue loss.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Persistent reduction of distal blood flow\", \"Progressive tissue necrosis and separation\"]}, {\"source\": \"Ischemic Tissue Loss\", \"target\": \"Transverse terminal limb defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal tissue loss produces a transverse terminal reduction pattern.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ischemic Tissue Loss\", \"target\": \"Intrauterine amputation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced constriction can culminate in amputation before birth.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mechanical Deformation of Developing Limbs\", \"target\": \"Talipes equinovarus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tethering and crowding can deform foot position.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mechanical Deformation of Developing Limbs\", \"target\": \"Congenital contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent tethering and restricted motion can produce contracture.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mechanical Deformation of Developing Limbs\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Asymmetric fetal tethering can contribute to spinal deformation.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mechanical Deformation of Developing Limbs\", \"target\": \"Syndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Band-related fusion or pseudosyndactyly is part of the distal limb spectrum.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Primary Vascular Disruption\", \"target\": \"Craniofacial cleft\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The alternative vascular-disruption model includes facial clefts.\", \"hypothesis_groups\": [\"vascular_disruption_adhesion_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Primary Vascular Disruption\", \"target\": \"Encephalocele\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The alternative vascular-disruption model includes encephaloceles.\", \"hypothesis_groups\": [\"vascular_disruption_adhesion_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multiple gestation or twinning\", \"target\": \"Amnion Rupture or Detachment\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Pointed at the initiating event of the extrinsic model, which is the only node an antenatal risk context can honestly reach in this entry, everything downstream of it being mechanical consequence. The exposure\u0027s own description is careful that twinning is a population-level risk context rather than a sufficient cause, and that neither twin need be affected; the grade carries that caution rather than overriding it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prior uterine procedure\", \"target\": \"Amnion Rupture or Detachment\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The more mechanistically suggestive of the two exposures here, since prior surgery plausibly weakens the membranes that this node has rupturing, and the weaker of the two evidentially. Graded with the twinning link rather than above it for that reason: the study is ten pregnancies, and this entry\u0027s own description says the association does not establish causation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fetoscopic amniotic band release\", \"target\": \"Fetal-Part Entanglement and Focal Tethering\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fetoscopic amniotic band release\", \"target\": \"Circumferential Tissue Compression\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fetoscopic amniotic band release\", \"target\": \"Amniotic constriction ring\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fetoscopic amniotic band release\", \"target\": \"Intrauterine amputation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Postnatal constriction-ring release and reconstruction\", \"target\": \"Circumferential Tissue Compression\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Postnatal constriction-ring release and reconstruction\", \"target\": \"Amniotic constriction ring\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Amnion Rupture or Detachment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rupture or separation of the amnion is the proposed initiating event in the extrinsic model. It is provisional because rupture is not demonstrated in every case and ABS remains etiologically heterogeneous.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"locations\": [\"amnion\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Amniotic constriction ring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A frequent defining manifestation in band-positive ABS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009775\"}}, {\"id\": \"Amniotic constriction rings of arms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An occasional arm localization of a constriction ring.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010483\"}}, {\"id\": \"Amniotic constriction rings of legs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A frequent leg localization of a constriction ring.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010495\"}}, {\"id\": \"Circumferential Tissue Compression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circumferential band pressure creates the defining ring indentation and can obstruct distal fluid drainage, blood flow, or nerve integrity. This node represents mechanical compression, not a universal cause for band-negative cases.\", \"meta\": {\"evidence_count\": 2, \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Congenital contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An occasional consequence of restricted motion or tethering.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002803\"}}, {\"id\": \"Craniofacial cleft\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atypical craniofacial clefting belongs to the early severe disruption spectrum rather than the late limb-compression branch.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:5201015\"}}, {\"id\": \"Digital constriction ring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A frequent distal manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010491\"}}, {\"id\": \"Distal Perfusion Compromise\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"More severe or persistent constriction can reduce distal perfusion. Reversibility after fetoscopic release and edema/necrosis after experimental fetal-limb ligation support compression as the proximal lesion.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood circulation\"], \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Distal Venous-Lymphatic Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Compression that preferentially impairs venous and lymphatic return causes swelling distal to a ring. The specific drainage sequence is clinically plausible but not directly measured in the available ABS series.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Edema of the upper limbs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal upper-limb edema can occur below a constriction ring.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010742\"}}, {\"id\": \"Encephalocele\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An occasional neural defect retained only for early severe multisystem presentations.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002084\"}}, {\"id\": \"Fetal-Part Entanglement and Focal Tethering\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A limb, digit, craniofacial structure, or umbilical cord may become caught by a strand. The resulting focal tether transmits abnormal mechanical force and can progress to circumferential compression.\", \"meta\": {\"evidence_count\": 1, \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Fetoscopic amniotic band release\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fetoscopic division is reserved for selected pregnancies with a threatened limb or umbilical cord and potentially salvageable distal tissue. It releases tethering and compression but carries substantial membrane-rupture and preterm-birth risk; the published evidence remains a heterogeneous collection of case reports and case series and does not establish comparative efficacy.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"Fibrous Amniotic Strand Formation or Exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibrous strands in the amniotic cavity are the physical substrate of the extrinsic band-positive model. Their formation or exposure is provisional because fetal-placental bands are associated with, rather than present in, every clinically labeled case.\", \"meta\": {\"evidence_count\": 1, \"role\": \"central_effector\", \"locations\": [\"amnion\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Intrauterine amputation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced constriction can cause limb or digit amputation before birth; no human frequency is inferred from the experimental percentage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6001389\"}}, {\"id\": \"Ischemic Tissue Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Irreversible distal injury can yield transverse terminal reduction or intrauterine amputation. The tissue-loss mechanism is strongly supported by mechanical modeling and clinical limb-reduction patterns, although not every limb defect follows this route.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Local Neural Compression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deep constriction rings can compromise local nerves. This is kept separate from perfusion failure because the available structured evidence establishes only that neural compromise can occur, not its frequency or relationship to tissue ischemia.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Mechanical Deformation of Developing Limbs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tethering, crowding, and altered movement can deform limb position or relationships without requiring complete vascular interruption. This branch covers talipes, contracture, scoliosis, and syndactyly-like presentations.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Multiple gestation or twinning\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Twinning is a population-level risk context, not a sufficient cause and not evidence that either fetus must be affected.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor\"}}, {\"id\": \"Pedal edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal edema can occur below a constriction ring.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010741\"}}, {\"id\": \"Postnatal constriction-ring release and reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Postnatal surgery is directed to a persistent constriction ring, distal compromise, or reconstructable limb deformity. Repair is phenotype-specific and cannot reverse established intrauterine tissue loss.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Primary Vascular Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fetopathologic observations propose a vascular disruption sequence for many encephaloceles and facial clefts occurring in fetuses with amniotic bands, with or without a broad cephalo-amniotic adhesion. This alternative is not treated as a downstream consequence of limb-band compression.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Prior uterine procedure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A small retrospective series found more prior uterine surgery among ABS pregnancies than controls. The association is recorded cautiously and does not establish causation.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Candidate risk factor\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An occasional skeletal deformation association.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Syndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syndactyly or band-related pseudosyndactyly occurs within the distal limb spectrum. The generic HPO syndactyly term is used because no dedicated pseudosyndactyly term is available locally.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001159\"}}, {\"id\": \"Talipes equinovarus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An occasional limb-deformation manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001762\"}}, {\"id\": \"Transverse terminal limb defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A terminal limb-reduction pattern is a characteristic tissue-loss outcome; no frequency is assigned from the available evidence.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6000818\"}}, {\"id\": \"Umbilical-Cord Constriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cord involvement may threaten fetal survival, but available treatment data come from a very small, highly selected fetoscopy series and should not be generalized to all ABS pregnancies.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"Amnion Rupture or Detachment\", \"target\": \"Fibrous Amniotic Strand Formation or Exposure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rupture or detachment can expose fibrous amniotic strands to fetal parts.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fibrous Amniotic Strand Formation or Exposure\", \"target\": \"Fetal-Part Entanglement and Focal Tethering\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contact between a fibrous strand and a fetal part can produce tethering or entanglement.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal-Part Entanglement and Focal Tethering\", \"target\": \"Circumferential Tissue Compression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A tightening tether acts as a focal or circumferential ligature.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal-Part Entanglement and Focal Tethering\", \"target\": \"Mechanical Deformation of Developing Limbs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tethering and crowding alter fetal limb position and developing structure.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal-Part Entanglement and Focal Tethering\", \"target\": \"Umbilical-Cord Constriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A band can involve the umbilical cord in a small, highly selected fetoscopy series.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Distal Venous-Lymphatic Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ring compression can impair distal drainage and produce edema.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Distal Perfusion Compromise\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe compression can reduce distal perfusion.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increasing band pressure across distal vessels\", \"Reduced distal limb perfusion\"]}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Local Neural Compression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe ring compression can compromise local nerves.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Amniotic constriction ring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circumferential compression produces the defining ring.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Amniotic constriction rings of arms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compression can localize to an arm.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Digital constriction ring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compression commonly localizes to digits.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circumferential Tissue Compression\", \"target\": \"Amniotic constriction rings of legs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compression can localize to a leg.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal Venous-Lymphatic Obstruction\", \"target\": \"Pedal edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal drainage obstruction can manifest as pedal edema.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal Venous-Lymphatic Obstruction\", \"target\": \"Edema of the upper limbs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal drainage obstruction can manifest as upper-limb edema.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal Perfusion Compromise\", \"target\": \"Ischemic Tissue Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained perfusion compromise can culminate in distal tissue loss.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Persistent reduction of distal blood flow\", \"Progressive tissue necrosis and separation\"]}, {\"source\": \"Ischemic Tissue Loss\", \"target\": \"Transverse terminal limb defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal tissue loss produces a transverse terminal reduction pattern.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ischemic Tissue Loss\", \"target\": \"Intrauterine amputation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced constriction can culminate in amputation before birth.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mechanical Deformation of Developing Limbs\", \"target\": \"Talipes equinovarus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tethering and crowding can deform foot position.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mechanical Deformation of Developing Limbs\", \"target\": \"Congenital contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent tethering and restricted motion can produce contracture.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mechanical Deformation of Developing Limbs\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Asymmetric fetal tethering can contribute to spinal deformation.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mechanical Deformation of Developing Limbs\", \"target\": \"Syndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Band-related fusion or pseudosyndactyly is part of the distal limb spectrum.\", \"hypothesis_groups\": [\"extrinsic_amnion_rupture_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Primary Vascular Disruption\", \"target\": \"Craniofacial cleft\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The alternative vascular-disruption model includes facial clefts.\", \"hypothesis_groups\": [\"vascular_disruption_adhesion_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Primary Vascular Disruption\", \"target\": \"Encephalocele\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The alternative vascular-disruption model includes encephaloceles.\", \"hypothesis_groups\": [\"vascular_disruption_adhesion_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multiple gestation or twinning\", \"target\": \"Amnion Rupture or Detachment\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Pointed at the initiating event of the extrinsic model, which is the only node an antenatal risk context can honestly reach in this entry, everything downstream of it being mechanical consequence. The exposure\u0027s own description is careful that twinning is a population-level risk context rather than a sufficient cause, and that neither twin need be affected; the grade carries that caution rather than overriding it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prior uterine procedure\", \"target\": \"Amnion Rupture or Detachment\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The more mechanistically suggestive of the two exposures here, since prior surgery plausibly weakens the membranes that this node has rupturing, and the weaker of the two evidentially. Graded with the twinning link rather than above it for that reason: the study is ten pregnancies, and this entry\u0027s own description says the association does not establish causation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fetoscopic amniotic band release\", \"target\": \"Fetal-Part Entanglement and Focal Tethering\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fetoscopic amniotic band release\", \"target\": \"Circumferential Tissue Compression\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fetoscopic amniotic band release\", \"target\": \"Amniotic constriction ring\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fetoscopic amniotic band release\", \"target\": \"Intrauterine amputation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Postnatal constriction-ring release and reconstruction\", \"target\": \"Circumferential Tissue Compression\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Postnatal constriction-ring release and reconstruction\", \"target\": \"Amniotic constriction ring\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6702,6 +6821,9 @@ This clinical feature is Ectopia cordis (HP:0001683). HP:0001683 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6787,6 +6909,9 @@ This clinical feature is Omphalocele (HP:0001539). HP:0001539 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6858,6 +6983,9 @@ This clinical feature is Gastroschisis (HP:0001543). HP:0001543 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6924,6 +7052,9 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7009,6 +7140,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7075,6 +7209,9 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7160,6 +7297,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7226,6 +7366,9 @@ This clinical feature is Encephalocele (HP:0002084). HP:0002084 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7302,6 +7445,9 @@ This clinical feature is Cleft lip (HP:0410030). HP:0410030 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7373,6 +7519,9 @@ This clinical feature is Craniofacial cleft (HP:5201015). HP:5201015 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7439,6 +7588,9 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7524,6 +7676,9 @@ This clinical feature is Abnormal hair whorl (HP:0010721). HP:0010721 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7604,6 +7759,9 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7670,6 +7828,9 @@ This clinical feature is Amniotic constriction rings of arms (HP:0010483). HP:00
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7746,6 +7907,9 @@ This clinical feature is Amniotic constriction rings of legs (HP:0010495). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7812,6 +7976,9 @@ This clinical feature is Pedal edema (HP:0010741). HP:0010741 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7888,6 +8055,9 @@ This clinical feature is Edema of the upper limbs (HP:0010742). HP:0010742 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7952,6 +8122,9 @@ This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8051,6 +8224,9 @@ This clinical feature is Transverse terminal limb defect (HP:6000818). HP:600081
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8131,6 +8307,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8202,6 +8381,9 @@ This clinical feature is Congenital contracture (HP:0002803). HP:0002803 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8266,6 +8448,9 @@ This clinical feature is Intrauterine amputation (HP:6001389). HP:6001389 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8351,6 +8536,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8422,6 +8610,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8488,6 +8679,9 @@ This clinical feature is Aplasia/Hypoplasia of the corpus callosum (HP:0007370).
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8573,6 +8767,9 @@ This clinical feature is Amniotic constriction ring (HP:0009775). HP:0009775 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8639,6 +8836,9 @@ This clinical feature is Digital constriction ring (HP:0010491). HP:0010491 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8715,6 +8915,9 @@ This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8781,6 +8984,9 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10207,10 +10413,10 @@ This environmental factor is surgical procedure exposure, annotated with exposur
 
                 </div>
 
-                <div class="evidence-snippet">"These abnormalities included: (1) upper limb defects: syndactyly, amputation at the level of phalanges or first metacarpal or forearm; (2) inferior extremities defects: tallus equinovarus and flexed knee, and constriction ring; (3) umbilical cord strangulation, and (4) acrania."</div>
+                <div class="evidence-snippet">"To describe the spectrum of clinical deformities related to amniotic band sequence (ABS), ranging from mild to severe. ... Retrospective evaluation of 9 cases of ABS managed during a 4-year period (February 2006 to April 2010) in a tertiary hospital. ... The median gestational age at prenatal..."</div>
 
 
-                <div class="evidence-explanation">This exact case-series list bounds the imaging description.</div>
+                <div class="evidence-explanation">Restores the ABS cohort and prenatal-diagnosis context, including diagnosis based on structural findings when rupture evidence was absent. The report describes a small series, not a sensitivity estimate.</div>
 
 
 
@@ -12251,8 +12457,20 @@ imaging_findings:
     reference_title: &#34;Revisiting amniotic band sequence: a wide spectrum of manifestations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;These abnormalities included: (1) upper limb defects: syndactyly, amputation at the level of phalanges or first metacarpal or forearm; (2) inferior extremities defects: tallus equinovarus and flexed knee, and constriction ring; (3) umbilical cord strangulation, and (4) acrania.&#34;
-    explanation: This exact case-series list bounds the imaging description.
+    snippet: &gt;-
+      To describe the spectrum of clinical deformities related to amniotic band sequence (ABS),
+      ranging from mild to severe. ... Retrospective evaluation of 9 cases of ABS managed during a
+      4-year period (February 2006 to April 2010) in a tertiary hospital. ... The median gestational
+      age at prenatal diagnosis was 15 weeks (range 11-26). Only 2 patients had clinical prenatal
+      evidence of amnion rupture. In the other 5 cases the diagnosis of ABS was established
+      prenatally based on fetal structural abnormalities. These abnormalities included: (1) upper
+      limb defects: syndactyly, amputation at the level of phalanges or first metacarpal or forearm;
+      (2) inferior extremities defects: tallus equinovarus and flexed knee, and constriction ring;
+      (3) umbilical cord strangulation, and (4) acrania.
+    explanation: &gt;-
+      Restores the ABS cohort and prenatal-diagnosis context, including diagnosis based on
+      structural findings when rupture evidence was absent. The report describes a small series, not
+      a sensitivity estimate.
 - name: Ultrasonic vestige at the distal amputated limb
   modality: ULTRASOUND
   description: &gt;-
@@ -14559,7 +14777,7 @@ series/reviews.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Amniotic Band Syndrome", "mondoId": "MONDO:0015167", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Amniotic_Band_Syndrome", "yamlRevision": "4cd7f2fb3821"};
+        const OS_CONFIG = {"diseaseName": "Amniotic Band Syndrome", "mondoId": "MONDO:0015167", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Amniotic_Band_Syndrome", "yamlRevision": "93c5c52798fe"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

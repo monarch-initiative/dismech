@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4534,6 +4576,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-ppp2r3c-pp2a-b-gamma-regulatory-subunit-function" data-dismech-node="Loss of PPP2R3C PP2A B&#39;&#39;gamma Regulatory Subunit Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of PPP2R3C PP2A B&#39;&#39;gamma Regulatory Subunit Function</div>
 
+
                 <div class="item-desc">PPP2R3C encodes the B&#39;&#39;gamma regulatory subunit of protein phosphatase 2A, a serine/threonine phosphatase holoenzyme whose substrate specificity and subcellular targeting are set by its exchangeable regulatory subunit. Biallelic missense or in-frame PPP2R3C variants impair that regulatory function, so PP2A activity is misdirected rather than globally abolished. The gene is most abundantly expressed in testis, matching the gonadal predominance of the phenotype.</div>
 
 
@@ -4703,6 +4746,7 @@ This pathophysiological event involves PP2A holoenzyme, annotated with protein p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-sox9-phospho-signaling-in-the-developing-gonad" data-dismech-node="Impaired SOX9 Phospho-Signaling in the Developing Gonad" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired SOX9 Phospho-Signaling in the Developing Gonad</div>
+
 
                 <div class="item-desc">Immunohistochemistry of dysgenetic gonads from individuals with homozygous PPP2R3C variants shows reduced phosphorylated SOX9, implicating defective phospho-regulation of the SOX9 testis-determination program. Because both 46,XY and 46,XX individuals are affected, PPP2R3C is proposed to act in the early, chromosomal-sex-independent signaling cascade that commits the bipotential gonad, upstream of the SRY/SOX9 versus ovarian branch point.</div>
 
@@ -4909,6 +4953,7 @@ This pathophysiological event involves abnormal sex determination (GO:0007530). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ppp2r3c-map3k1-centrosomal-phospho-regulatory-imbalance" data-dismech-node="PPP2R3C-MAP3K1 Centrosomal Phospho-Regulatory Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">PPP2R3C-MAP3K1 Centrosomal Phospho-Regulatory Imbalance</div>
 
+
                 <div class="item-desc">Cell-biological work identifies PPP2R3C as a distal centriole protein and functional partner of the centriolar proteins CEP350 and FOP, whose key job is to counteract the kinase MAP3K1. A syndromic PPP2R3C variant fails to localize to the centriole and to bind FOP. Because activating MAP3K1 variants cause a separate gonadal dysgenesis syndrome, the proposal is that an imbalanced centrosomal kinase-phosphatase pair is the shared cause of both disorders. This is a mechanistic proposal from cultured human cells; it has not been demonstrated in patient gonadal tissue.</div>
 
 
@@ -5094,6 +5139,7 @@ stress-induced JNK signaling."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-jnk-mediated-b-cell-survival" data-dismech-node="Impaired JNK-Mediated B Cell Survival" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired JNK-Mediated B Cell Survival</div>
+
 
                 <div class="item-desc">PPP2R3C (G5PR) is highly expressed in lymphocytes, and conditional CD19-Cre Ppp2r3c knockout mice have a B-cell survival deficit with fewer mature B cells; the proposed mechanism is regulation of the JNK-mediated apoptosis signal. This is the candidate mechanistic arm for the reduced CD19+ B-cell and CD4+ T-cell subsets measured in one reported patient. It is deliberately modeled as a terminal, non-gonadal branch and is NOT asserted to be a syndrome-level feature: previously reported patients had normal lymphocyte counts, and the open question is recorded in the ppp2r3c_immunodeficiency_n_of_1 discussion.</div>
 
@@ -5311,6 +5357,7 @@ This pathophysiological event involves decreased B cell homeostasis (GO:0001782)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gonadal-dysgenesis-with-hypergonadotropic-hypogonadism" data-dismech-node="Gonadal Dysgenesis with Hypergonadotropic Hypogonadism" data-dismech-type="pathophysiology">
                 <div class="item-name">Gonadal Dysgenesis with Hypergonadotropic Hypogonadism</div>
+
 
                 <div class="item-desc">Failure of gonad development yields dysgenetic or non-visualized gonads in both chromosomal sexes. Absent gonadal steroid and anti-Mullerian hormone output removes negative feedback on the pituitary, producing the hypergonadotropic pattern of low androgens and low AMH with elevated FSH and LH, and clinically manifesting as absent puberty and primary amenorrhea. In 46,XY individuals the external genital phenotype ranges from complete female through ambiguous.</div>
 
@@ -5561,6 +5608,9 @@ This clinical feature is Decreased CD19+ B cells, annotated with Decreased total
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5625,6 +5675,9 @@ This clinical feature is Decreased CD4+ T cells, annotated with Decreased CD4+ T
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5707,6 +5760,9 @@ This clinical feature is Cardiac defect, annotated with Abnormal heart morpholog
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5819,6 +5875,9 @@ This clinical feature is Gastrointestinal dysfunction, annotated with Abnormalit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5888,6 +5947,9 @@ This clinical feature is Anal atresia (HP:0002023). HP:0002023 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5952,6 +6014,9 @@ This clinical feature is Omphalocele (HP:0001539). HP:0001539 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6032,6 +6097,9 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6141,6 +6209,9 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6205,6 +6276,9 @@ This clinical feature is Elevated circulating follicle stimulating hormone level
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6276,6 +6350,9 @@ This clinical feature is Decreased circulating anti-Mullerian hormone, annotated
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6356,6 +6433,9 @@ This clinical feature is Impaired vision, annotated with Visual impairment (HP:0
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6455,6 +6535,9 @@ This clinical feature is Rod and cone dystrophy, annotated with Rod-cone dystrop
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6531,6 +6614,9 @@ This clinical feature is Gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6655,6 +6741,9 @@ This clinical feature is Streak gonads, annotated with Streak gonad (HP:0025733)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6724,6 +6813,9 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6788,6 +6880,9 @@ This clinical feature is Hypoplastic uterus, annotated with Hypoplasia of the ut
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6890,6 +6985,9 @@ This clinical feature is Renal agenesis (HP:0000104). HP:0000104 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6979,6 +7077,9 @@ This clinical feature is Abnormal sperm morphology (HP:0012864). HP:0012864 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7091,6 +7192,9 @@ This clinical feature is Recognizable facial gestalt, annotated with Abnormal fa
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7194,6 +7298,9 @@ This clinical feature is Dry and scaly skin, annotated with Dry skin (HP:0000958
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7272,6 +7379,9 @@ This clinical feature is Cubitus valgus (HP:0002967). HP:0002967 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7336,6 +7446,9 @@ This clinical feature is Limited elbow extension (HP:0001377). HP:0001377 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7421,6 +7534,9 @@ This clinical feature is Retardation of bone age, annotated with Delayed skeleta
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7487,6 +7603,9 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7597,6 +7716,9 @@ This clinical feature is Delayed development of the nervous system, annotated wi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7691,6 +7813,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7769,6 +7894,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7836,6 +7964,9 @@ This clinical feature is Low birth weight, annotated with Small for gestational 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7950,6 +8081,9 @@ This disease-associated gene is PPP2R3C (hgnc:17485). hgnc:17485 is a gene from 
 
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4371,6 +4413,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-barefoot-contact-with-alkalic-volcanic-clay-soil" data-dismech-node="Chronic Barefoot Contact with Alkalic Volcanic Clay Soil" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Barefoot Contact with Alkalic Volcanic Clay Soil</div>
 
+
                 <div class="item-desc">The necessary exposure. Subsistence farmers working barefoot on red clay weathered from alkalic volcanic bedrock accumulate contact over years to decades. The soil is the operative agent, not the terrain: endemicity tracks bedrock geochemistry and the pedogenic conditions that produce these clays - high altitude and high rainfall - rather than any vector distribution.</div>
 
 
@@ -4495,6 +4538,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-transdermal-entry-of-silicate-mineral-particles" data-dismech-node="Transdermal Entry of Silicate Mineral Particles" data-dismech-type="pathophysiology">
                 <div class="item-name">Transdermal Entry of Silicate Mineral Particles</div>
 
+
                 <div class="item-desc">Colloid-sized silicate particles cross the plantar and dorsal skin of the foot and lodge in the dermis. Their identity is partly known and partly not: kaolinite predominates in lymph node microanalysis at 0.2-2 micrometres, and endemic soils are enriched in smectite, mica, quartz, iron oxides, beryllium and zirconium - but which constituent is the operative trigger has never been established.</div>
 
 
@@ -4614,6 +4658,7 @@ This pathophysiological event occurs in dermis of the foot, annotated with dermi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-phagocytosis-of-mineral-particles" data-dismech-node="Macrophage Phagocytosis of Mineral Particles" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage Phagocytosis of Mineral Particles</div>
+
 
                 <div class="item-desc">Dermal macrophages engulf the silicate particles. This step is not itself pathological - particles are found in the lymph nodes of unaffected residents of endemic areas too, which is why the entry treats deposition as necessary and the host response as what separates disease from exposure.</div>
 
@@ -4807,6 +4852,7 @@ This pathophysiological event occurs in dermis of the foot, annotated with dermi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphatic-transport-of-particle-laden-macrophages" data-dismech-node="Lymphatic Transport of Particle-Laden Macrophages" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphatic Transport of Particle-Laden Macrophages</div>
 
+
                 <div class="item-desc">Particle-laden macrophages migrate into the lower-limb lymphatic vessels and on to the regional lymph nodes, where the silicates are recoverable by microanalysis. From here the chain forks: one arm needs the HLA class II susceptibility, the other does not.</div>
 
 
@@ -4936,6 +4982,7 @@ This pathophysiological event occurs in lower-limb lymphatic vessel, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hla-class-ii-restricted-cd4-t-cell-response" data-dismech-node="HLA Class II-Restricted CD4 T-Cell Response" data-dismech-type="pathophysiology">
                 <div class="item-name">HLA Class II-Restricted CD4 T-Cell Response</div>
+
 
                 <div class="item-desc">The susceptibility step. Genome-wide association in Ethiopian populations places the signal squarely in the HLA class II region, replicated across three ethnic groups and with no other locus reaching significance in a better-powered second study. A class II association in a non-communicable disease is read as a CD4 T-cell-mediated response - but the antigen itself is unidentified, and whether the mineral is presented, modifies a self peptide, or binds the groove directly is unknown. Berylliosis is the explicit comparator.</div>
 
@@ -5258,6 +5305,7 @@ This pathophysiological event involves increased antigen processing and presenta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-systemic-immune-activation" data-dismech-node="Chronic Systemic Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Systemic Immune Activation</div>
 
+
                 <div class="item-desc">Patients carry a measurably activated immune system at rest: raised HLA-DR on circulating CD4 and CD8 T cells, raised CD40 and CD86 on monocytes and dendritic cells, lower CD62L, and higher unstimulated TNF-alpha and IL-1beta than endemic controls. The activation is systemic, not confined to the affected limb.</div>
 
 
@@ -5488,6 +5536,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endolymphangitis" data-dismech-node="Endolymphangitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Endolymphangitis</div>
 
+
                 <div class="item-desc">Inflammation of the lymphatic vessel wall, with subendothelial oedema and a lymphoplasmacytic infiltrate. This is the lesion the two upstream arms - the HLA-restricted response and the direct particle effect - converge on.</div>
 
 
@@ -5689,6 +5738,7 @@ This pathophysiological event occurs in lymphatic vessel of the lower limb, anno
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphatic-vessel-wall-collagenization" data-dismech-node="Lymphatic Vessel Wall Collagenization" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphatic Vessel Wall Collagenization</div>
 
+
                 <div class="item-desc">Sustained inflammation lays down collagen in and around the lymphatic vessel wall. This is the fibrogenic process; the closed lumen it produces is the next node.</div>
 
 
@@ -5828,6 +5878,7 @@ This pathophysiological event involves increased collagen fibril organization (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-luminal-obliteration-and-loss-of-conducting-lymphatics" data-dismech-node="Luminal Obliteration and Loss of Conducting Lymphatics" data-dismech-type="pathophysiology">
                 <div class="item-name">Luminal Obliteration and Loss of Conducting Lymphatics</div>
 
+
                 <div class="item-desc">The end state of the fibrosis: vessels that no longer carry lymph. Biopsy series count fewer lymphatic vessels in affected skin, and a subdermal conducting lymphatic in an affected foot was shown to be fibrosed and impermeable to injected dye - the functional proof, not just the histological one.</div>
 
 
@@ -5926,6 +5977,7 @@ This pathophysiological event involves increased collagen fibril organization (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphatic-obstruction-and-lymph-stasis" data-dismech-node="Lymphatic Obstruction and Lymph Stasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphatic Obstruction and Lymph Stasis</div>
+
 
                 <div class="item-desc">Lymph cannot leave the limb. The clinical result is swelling that begins at the feet and progressively involves the legs, bilateral in about seven of eight patients, frequently asymmetric between them, and in almost all cases staying below the knee.</div>
 
@@ -6046,6 +6098,7 @@ This pathophysiological event occurs in lower limb, annotated with lower limb se
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dermal-sclerosis-and-nodule-formation" data-dismech-node="Dermal Sclerosis and Nodule Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dermal Sclerosis and Nodule Formation</div>
+
 
                 <div class="item-desc">Chronic stasis lays down collagen in the dermis, producing thickened sclerotic bundles and the firm nodules of established disease. Nodules are present in about two fifths of patients and are what nodulectomy removes.</div>
 
@@ -6205,6 +6258,7 @@ This pathophysiological event occurs in skin of the lower leg and foot, annotate
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epidermal-hyperkeratosis-and-barrier-failure" data-dismech-node="Epidermal Hyperkeratosis and Barrier Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Epidermal Hyperkeratosis and Barrier Failure</div>
 
+
                 <div class="item-desc">The epidermis thickens into verrucous acanthosis and the warty &#34;mossy&#34; plaques the disease is named for, present in about three quarters of patients. Curated separately from the dermal change because it is a different tissue layer and, more importantly, a different claim: this is where the skin stops being a barrier, and it is the node that leads to the acute attacks.</div>
 
 
@@ -6351,6 +6405,7 @@ This pathophysiological event occurs in skin of the lower leg and foot, annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-dermatolymphangioadenitis" data-dismech-node="Acute Dermatolymphangioadenitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Dermatolymphangioadenitis</div>
+
 
                 <div class="item-desc">Recurrent episodes of fever, pain, erythema and abrupt worsening of the swelling, precipitated by bacteria entering through fissured skin. Each episode damages the lymphatics further, so the entry models it as feeding back into the fibrotic lesion rather than as a terminal complication. It is also the outcome every trial in this disease is powered on, because it is what patients lose working days to.</div>
 
@@ -6746,6 +6801,9 @@ This clinical feature is mossy warty hyperkeratotic plaques of the foot and lowe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6837,6 +6895,9 @@ This clinical feature is woody fibrotic nodules of the foot and lower leg, annot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6935,6 +6996,9 @@ This clinical feature is bilateral below-knee lymphoedema of the lower limbs, an
 
 
                     </div>
+
+
+
 
 
 
@@ -7092,6 +7156,9 @@ This clinical feature is recurrent acute dermatolymphangioadenitis, annotated wi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -7210,6 +7277,9 @@ This clinical feature is ankylosis of the ankle joint, annotated with Ankylosis 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated without a frequency: the cited series bands its patients as stage 1-2 versus stage 3-5 and does not report how many reach stage 5. It is attached to the lymph-stasis node rather than to the skin node because the fibrosis that fixes the joint is periarticular, and this entry has no periarticular node - the reader should not infer that skin change causes the ankylosis.</div>
 
 
@@ -7326,6 +7396,9 @@ This disease-associated gene is HLA-DQA1 (hgnc:4942). hgnc:4942 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

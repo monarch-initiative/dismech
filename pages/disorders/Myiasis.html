@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5855,6 +5897,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-larval-deposition-on-host-skin-wound-or-body-orifice" data-dismech-node="Larval deposition on host skin, wound, or body orifice" data-dismech-type="pathophysiology">
                 <div class="item-name">Larval deposition on host skin, wound, or body orifice</div>
 
+
                 <div class="item-desc">The initiating event is mechanical delivery of eggs or first-instar larvae to the host surface, by direct oviposition, larviposition, a phoretic arthropod vector, contaminated clothing or soil, or ingestion.</div>
 
 
@@ -5951,6 +5994,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-larval-penetration-and-burrowing-into-host-tissue" data-dismech-node="Larval penetration and burrowing into host tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Larval penetration and burrowing into host tissue</div>
+
 
                 <div class="item-desc">Larvae breach the epidermis or mucosa and burrow into the dermis, subcutis, or submucosa, creating the cavity in which they will feed. This is a mechanical invasion by a metazoan parasite, not colonization by a replicating microbe, and the depth reached is what separates a self-limited furuncular lesion from progressive destruction by an obligate species.</div>
 
@@ -6093,6 +6137,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-larval-excretory-secretory-protease-release" data-dismech-node="Larval excretory-secretory protease release" data-dismech-type="pathophysiology">
                 <div class="item-name">Larval excretory-secretory protease release</div>
+
 
                 <div class="item-desc">Parasitic-stage larvae secrete abundant serine proteases and collagenases in their salivary and excretory-secretory products. These enzymes are the principal molecular effectors of myiasis, serving both larval nutrition and the digestion of host structural proteins.</div>
 
@@ -6337,6 +6382,7 @@ This pathophysiological event involves increased serine-type endopeptidase activ
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proteolytic-digestion-of-host-tissue" data-dismech-node="Proteolytic digestion of host tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Proteolytic digestion of host tissue</div>
 
+
                 <div class="item-desc">Larval collagenases and proteases digest the structural components of skin and connective tissue, liquefying the feeding site and producing the characteristic exudate. This enzymatic destruction, not an inflammatory response, generates the primary lesion.</div>
 
 
@@ -6539,6 +6585,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tissue-necrosis-and-cavity-formation" data-dismech-node="Tissue necrosis and cavity formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Tissue necrosis and cavity formation</div>
 
+
                 <div class="item-desc">The feeding larvae enlarge a necrotic cavity within the host. In furuncular disease this remains a closed nodule with a breathing punctum; in obligate wound and cavitary disease it extends into surrounding living tissue and can destroy palate, orbit, or bone.</div>
 
 
@@ -6668,6 +6715,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-larval-modulation-of-the-host-immune-response" data-dismech-node="Larval modulation of the host immune response" data-dismech-type="pathophysiology">
                 <div class="item-name">Larval modulation of the host immune response</div>
+
 
                 <div class="item-desc">Larval secretions cleave immunoglobulin and complement and suppress lymphocyte proliferation, allowing a large metazoan parasite to persist in tissue for days to weeks without being expelled.</div>
 
@@ -6802,6 +6850,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-host-inflammatory-and-eosinophilic-response" data-dismech-node="Host inflammatory and eosinophilic response" data-dismech-type="pathophysiology">
                 <div class="item-name">Host inflammatory and eosinophilic response</div>
+
 
                 <div class="item-desc">Larval antigens and tissue injury drive a local inflammatory infiltrate with prominent eosinophils and neutrophils, and in some patients a systemic eosinophilia with elevated acute-phase reactants that resolves after the larvae are removed.</div>
 
@@ -7050,6 +7099,7 @@ This pathophysiological event involves increased eosinophil chemotaxis (GO:00482
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-bacterial-superinfection" data-dismech-node="Secondary bacterial superinfection" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary bacterial superinfection</div>
 
+
                 <div class="item-desc">Necrotic tissue, exudate, and a breached epithelial barrier permit bacterial colonization and invasive soft-tissue infection. This is the principal mechanism by which myiasis becomes life-threatening. Most isolates are the ordinary wound flora - Staphylococcus aureus, Streptococcus pyogenes - but the larvae also carry their own: Wohlfahrtiimonas chitiniclastica is a chitinolytic gram-negative rod associated with the larvae themselves rather than with the host&#39;s skin, first isolated from Wohlfahrtia magnifica, and it is reported almost exclusively in myiasis. That makes it a myiasis-specific superinfection risk rather than generic wound contamination, and it is easily missed without MALDI-TOF or 16S sequencing.</div>
 
 
@@ -7216,6 +7266,7 @@ This pathophysiological event involves increased neutrophil chemotaxis (GO:00305
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-sepsis-and-progressive-tissue-destruction" data-dismech-node="Systemic sepsis and progressive tissue destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic sepsis and progressive tissue destruction</div>
 
+
                 <div class="item-desc">Untreated or neglected infestation, particularly by obligate screwworms and in patients unable to seek care, progresses to extensive tissue loss, disfigurement, sepsis, and death.</div>
 
 
@@ -7326,6 +7377,7 @@ This pathophysiological event involves increased neutrophil chemotaxis (GO:00305
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-larval-maturation-and-emergence-from-the-host" data-dismech-node="Larval maturation and emergence from the host" data-dismech-type="pathophysiology">
                 <div class="item-name">Larval maturation and emergence from the host</div>
+
 
                 <div class="item-desc">In accidental and self-limited forms the mature larva leaves the host to pupate, after which the lesion heals. Because disease depends on the physical presence of the larva rather than on a replicating pathogen, removal or spontaneous departure is curative.</div>
 
@@ -7570,6 +7622,9 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7634,6 +7689,9 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7717,6 +7775,9 @@ This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7786,6 +7847,9 @@ This clinical feature is Conjunctival hyperemia (HP:0030953). HP:0030953 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7850,6 +7914,9 @@ This clinical feature is Vulvar erythema, annotated with Erythema (HP:0010783). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7985,6 +8052,9 @@ This clinical feature is Acute otitis media (HP:0000371). HP:0000371 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8090,6 +8160,9 @@ This clinical feature is Corneal foreign body sensation (HP:0034804). HP:0034804
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8163,6 +8236,9 @@ This clinical feature is Oral ulcer (HP:0000155). HP:0000155 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8271,6 +8347,9 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8374,6 +8453,9 @@ This clinical feature is Skin nodule (HP:0200036). HP:0200036 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8468,6 +8550,9 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8534,6 +8619,9 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8635,6 +8723,9 @@ This clinical feature is Pruritus vulvae (HP:0032004). HP:0032004 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8708,6 +8799,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8807,6 +8901,9 @@ This clinical feature is Pleural effusion (HP:0002202). HP:0002202 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8873,6 +8970,9 @@ This clinical feature is Elevated circulating C-reactive protein concentration (
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8951,6 +9051,9 @@ This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9077,6 +9180,9 @@ This clinical feature is Ear pain (HP:0030766). HP:0030766 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9160,6 +9266,9 @@ This clinical feature is Ear pain (HP:0030766). HP:0030766 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately left without a phenotype_term. HPO has no term for a sensation of movement within a lesion, and the available skin-lesion terms describe the nodule rather than the symptom, so no binding is better than a misleading one.</div>
 
 
@@ -9239,6 +9348,9 @@ This clinical feature is Ear pain (HP:0030766). HP:0030766 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately left unbound. HPO has no term for ear discharge or otorrhea - searches for &#39;otorrhea&#39;, &#39;ear discharge&#39;, and &#39;aural&#39; all return nothing, and the nearest available terms (Otitis media, Abnormal tympanic membrane morphology) name a different finding. No term beats a bad one.</div>
 
 
@@ -9291,6 +9403,9 @@ This clinical feature is Ear pain (HP:0030766). HP:0030766 is a phenotype from t
 
 
                     </div>
+
+
+
 
 
 

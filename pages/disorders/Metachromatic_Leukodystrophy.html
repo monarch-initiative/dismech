@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Metachromatic%20Leukodystrophy"
@@ -3866,7 +3908,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Metachromatic leukodystrophy (MLD) is an autosomal recessive lysosomal storage leukodystrophy caused by arylsulfatase A deficiency, leading to sulfatide accumulation, progressive central and peripheral demyelination, and worsening motor and cognitive dysfunction.
+                Metachromatic leukodystrophy (MLD) is an autosomal recessive lysosomal storage leukodystrophy in which sulfatide degradation fails, leading to sulfatide accumulation, progressive central and peripheral demyelination, and worsening motor and cognitive dysfunction. The common cause is arylsulfatase A deficiency from biallelic ARSA variants; an uncommon form instead loses the activator protein saposin B through biallelic PSAP variants, leaving the enzyme itself intact.
 
             </p>
 
@@ -3976,7 +4018,7 @@
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
@@ -3987,7 +4029,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4008,7 +4050,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4017,7 +4059,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4036,7 +4078,7 @@
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
@@ -4054,6 +4096,14 @@
 
 
 
+
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#literature-summaries">
@@ -4080,6 +4130,47 @@
 
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0009590" target="_blank" class="missing-ontology-link">MONDO:0009590</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">metachromatic leukodystrophy due to saposin B deficiency</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">is_a the MONDO:0018868 anchor of this entry. This entry now curates PSAP (hgnc:9498) and models this form explicitly as the &#34;Saposin B-Deficient MLD&#34; has_subtypes entry, with its own pathophysiology node for the loss of the activator protein. narrowMatch because the anchor also subsumes the arylsulfatase A-deficient forms.
+</div>
+
+                </div>
 
 
 
@@ -4225,8 +4316,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
+
+
+
+
 
 
 
@@ -4268,6 +4363,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                ARSA
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:713" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:713</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ARSA (hgnc:713). hgnc:713 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Earliest-onset form with rapid neurologic decline.</div>
@@ -4278,9 +4392,36 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301309" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301309" target="_blank">PMID:20301309</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arylsulfatase A deficiency (also known as metachromatic leukodystrophy or MLD) is characterized by three clinical subtypes: late-infantile, juvenile, and adult MLD."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews baseline chapter treats the onset subtypes as forms of arylsulfatase A deficiency, supporting the ARSA binding on this row.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:40577679" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -4331,6 +4472,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                ARSA
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:713" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:713</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ARSA (hgnc:713). hgnc:713 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Juvenile-onset form with intermediate tempo of progression.</div>
@@ -4341,9 +4501,36 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301309" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301309" target="_blank">PMID:20301309</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arylsulfatase A deficiency (also known as metachromatic leukodystrophy or MLD) is characterized by three clinical subtypes: late-infantile, juvenile, and adult MLD."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews baseline chapter treats the onset subtypes as forms of arylsulfatase A deficiency, supporting the ARSA binding on this row.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:40577679" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -4394,6 +4581,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                ARSA
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:713" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:713</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ARSA (hgnc:713). hgnc:713 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Later childhood form with slower progression than early-onset disease.</div>
@@ -4404,9 +4610,36 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301309" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301309" target="_blank">PMID:20301309</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arylsulfatase A deficiency (also known as metachromatic leukodystrophy or MLD) is characterized by three clinical subtypes: late-infantile, juvenile, and adult MLD."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews baseline chapter treats the onset subtypes as forms of arylsulfatase A deficiency, supporting the ARSA binding on this row.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:40577679" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -4457,6 +4690,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                ARSA
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:713" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:713</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ARSA (hgnc:713). hgnc:713 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Later-onset form, often with slower neurologic progression.</div>
@@ -4467,9 +4719,36 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301309" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301309" target="_blank">PMID:20301309</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arylsulfatase A deficiency (also known as metachromatic leukodystrophy or MLD) is characterized by three clinical subtypes: late-infantile, juvenile, and adult MLD."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews baseline chapter treats the onset subtypes as forms of arylsulfatase A deficiency, supporting the ARSA binding on this row.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:40577679" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -4504,6 +4783,140 @@
                 </div>
 
 
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-saposin-b-deficient-mld">
+
+                    <div class="item-name">
+                        Saposin B-deficient MLD (PSAP)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009590" target="_blank">MONDO:0009590</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                PSAP
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9498" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:9498</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PSAP (hgnc:9498). hgnc:9498 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Uncommon form of MLD in which the lesion is in the sphingolipid activator protein rather than in the enzyme. Biallelic PSAP variants affecting the saposin B domain block sulfatide degradation while leaving arylsulfatase A itself intact, so a reported case had ARSA activity within normal limits and was diagnosed on the gene panel rather than by enzyme assay. This is an axis orthogonal to the four age-at-onset rows above, which are all arylsulfatase A deficiency.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31319425" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31319425" target="_blank">PMID:31319425</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, an uncommon form of MLD caused by saposin B deficiency is also described"</div>
+
+
+                <div class="evidence-explanation">Establishes saposin B deficiency as a recognized, uncommon form of MLD distinct from the arylsulfatase A-deficient forms.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31319425" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31319425" target="_blank">PMID:31319425</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ARSA levels were within normal limits. Leukodystrophy gene panel revealed a homozygous pathogenic deletion (Lys227del variant) in prosaposin (PSAP) gene."</div>
+
+
+                <div class="evidence-explanation">A worked case with normal ARSA activity and a biallelic PSAP variant, which is why this subtype can be missed by enzyme assay alone.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z" target="_blank">CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PSAP | HGNC:9498 | metachromatic leukodystrophy due to saposin B deficiency | MONDO:0009590 | AR | Definitive"</div>
+
+
+                <div class="evidence-explanation">ClinGen&#39;s Lysosomal Diseases GCEP classifies the PSAP-saposin B MLD gene-disease relationship as Definitive with autosomal recessive inheritance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
         </div>
 
 
@@ -4522,11 +4935,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arylsulfatase-a-deficiency" data-dismech-node="Arylsulfatase A Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Arylsulfatase A Deficiency</div>
+
 
                 <div class="item-desc">Disease-causing ARSA variants reduce arylsulfatase A activity in MLD.
 </div>
@@ -4551,11 +4965,11 @@
         ARSA
 
 
-    <a href="https://bioregistry.io/hgnc:713" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:713</a>
+    <a href="https://bioregistry.io/hgnc:713" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:713</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves ARSA (hgnc:713). hgnc:713 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4593,11 +5007,11 @@ This pathophysiological event involves ARSA (hgnc:713). hgnc:713 is a gene from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030149" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030149</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030149" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030149</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated sphingolipid catabolic process (GO:0030149). GO:0030149 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4632,11 +5046,11 @@ This pathophysiological event involves dysregulated sphingolipid catabolic proce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004065" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0004065</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004065" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0004065</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased arylsulfatase activity (GO:0004065). GO:0004065 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -4671,11 +5085,11 @@ This pathophysiological event involves decreased arylsulfatase activity (GO:0004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0005764</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this cellular component
 This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.</span>
                     </span>
@@ -4750,8 +5164,213 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-saposin-b-deficiency" data-dismech-node="Saposin B Deficiency" data-dismech-type="pathophysiology">
+                <div class="item-name">Saposin B Deficiency</div>
+
+
+                <div class="item-desc">A second, distinct entry point into the same pathograph. PSAP encodes prosaposin, the precursor of the four sphingolipid activator proteins; point mutations in its saposin B domain result in loss of mature saposin B, the non-enzymatic protein that stimulates degradation of sulfatide by arylsulfatase A in vivo. The hydrolase gene is untouched, but the catabolic step still fails and sulfatide accumulates. This is a cofactor lesion, not an enzyme lesion, and is the reason this node is separate from Arylsulfatase A Deficiency rather than merged into it.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PSAP
+
+
+    <a href="https://bioregistry.io/hgnc:9498" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:9498</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PSAP (hgnc:9498). hgnc:9498 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        enzyme activator activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008047" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0008047</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased enzyme activator activity (GO:0008047). GO:0008047 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-component">
+                        lysosome
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0005764</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sulfatide Accumulation</span>
+
+	                            <span class="crosslink-desc">Loss of mature saposin B blocks arylsulfatase A-mediated sulfatide degradation in vivo, so sulfatide accumulates despite normal enzyme levels.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10682309" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10682309" target="_blank">PMID:10682309</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In vivo SAP-B stimulates in particular the degradation of sulphatides by arylsulphatase A."</div>
+
+
+                <div class="evidence-explanation">Establishes saposin B as the activator of the arylsulfatase A step, which is what makes its loss a cofactor deficiency at this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z" target="_blank">CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Saposin B activates the hydrolysis of cerebroside sulfate (sulfatide) by arylsulphatase A (ARSA)."</div>
+
+
+                <div class="evidence-explanation">ClinGen&#39;s curation summary states the same activator relationship, and curates PSAP separately from ARSA on the strength of it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sulfatide-accumulation" data-dismech-node="Sulfatide Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sulfatide Accumulation</div>
+
 
                 <div class="item-desc">Pathologic sulfatide storage is the immediate biochemical consequence of arylsulfatase A deficiency in MLD.
 </div>
@@ -4775,11 +5394,11 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030149" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030149</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030149" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0030149</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated sphingolipid catabolic process (GO:0030149). GO:0030149 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4901,6 +5520,7 @@ This pathophysiological event involves dysregulated sphingolipid catabolic proce
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-demyelination" data-dismech-node="Central Nervous System Demyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Nervous System Demyelination</div>
 
+
                 <div class="item-desc">MLD causes progressive demyelination within the central nervous system, driving cognitive and developmental decline.
 </div>
 
@@ -4916,11 +5536,11 @@ This pathophysiological event involves dysregulated sphingolipid catabolic proce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000128</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4957,11 +5577,11 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022010" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0022010</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022010" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0022010</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated central nervous system myelination (GO:0022010). GO:0022010 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5058,6 +5678,7 @@ This pathophysiological event involves dysregulated central nervous system myeli
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-demyelinating-polyneuropathy" data-dismech-node="Demyelinating Polyneuropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Demyelinating Polyneuropathy</div>
 
+
                 <div class="item-desc">MLD also causes demyelinating disease in the peripheral nervous system, producing a clinically important polyneuropathy burden.
 </div>
 
@@ -5073,11 +5694,11 @@ This pathophysiological event involves dysregulated central nervous system myeli
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0002573</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5114,11 +5735,11 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022011" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0022011</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022011" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0022011</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated peripheral nervous system myelination, annotated with myelination in peripheral nervous system (GO:0022011). GO:0022011 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5206,6 +5827,7 @@ This pathophysiological event involves dysregulated peripheral nervous system my
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-neurodegeneration" data-dismech-node="Progressive Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Neurodegeneration</div>
+
 
                 <div class="item-desc">Alongside demyelination, MLD includes a broader neurodegenerative process that contributes to progressive neurologic disability.
 </div>
@@ -5322,7 +5944,7 @@ This pathophysiological event involves dysregulated peripheral nervous system my
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARSA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ARSA\"], \"gene_terms\": [{\"label\": \"ARSA\", \"id\": \"hgnc:713\"}], \"presence\": \"Positive\", \"association\": \"Pathogenic Mutations\"}}, {\"id\": \"Arylsulfatase A Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease-causing ARSA variants reduce arylsulfatase A activity in MLD.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sphingolipid catabolic process\"], \"molecular_functions\": [\"arylsulfatase activity\"], \"genes\": [\"ARSA\"], \"gene_terms\": [{\"label\": \"ARSA\", \"id\": \"hgnc:713\"}]}}, {\"id\": \"Atidarsagene Autotemcel\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Autologous hematopoietic stem cell gene therapy using arsa-cel preserves motor and cognitive development in selected early-onset patients.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Central Nervous System Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MLD causes progressive demyelination within the central nervous system, driving cognitive and developmental decline.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"central nervous system myelination\"]}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cognitive decline is a major clinical manifestation of MLD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Demyelinating Polyneuropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MLD also causes demyelinating disease in the peripheral nervous system, producing a clinically important polyneuropathy burden.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"peripheral nervous system myelination\"]}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor skill regression is typical of early-onset MLD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Late-Infantile MLD\"], \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bulbar dysfunction with dysphagia develops as late-infantile MLD progresses.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Late-Infantile MLD\"], \"term_id\": \"HP:0002015\"}}, {\"id\": \"Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HSCT is most useful before disease onset or in very early disease stages.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia develops during progression of late-infantile MLD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Late-Infantile MLD\"], \"term_id\": \"HP:0001252\"}}, {\"id\": \"Peripheral Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive demyelinating polyneuropathy contributes substantially to disability in MLD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Progressive Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alongside demyelination, MLD includes a broader neurodegenerative process that contributes to progressive neurologic disability.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced arylsulfatase A activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Arylsulfatase A Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced ARSA enzyme activity reports the proximal enzyme deficiency that initiates MLD.\"}]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in the progressive late-infantile disease course.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Late-Infantile MLD\"], \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sulfatide Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathologic sulfatide storage is the immediate biochemical consequence of arylsulfatase A deficiency in MLD.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sphingolipid catabolic process\"]}}, {\"id\": \"Sulfatide storage burden\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:18318\", \"term_label\": \"galactosylceramide sulfate\", \"readouts\": [{\"target\": \"Sulfatide Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased sulfatide burden reports the core lysosomal storage lesion in MLD.\"}]}}, {\"id\": \"Urinary sulfatide excretion\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:18318\", \"term_label\": \"galactosylceramide sulfate\", \"readouts\": [{\"target\": \"Sulfatide Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary sulfatide excretion is a diagnostic readout of the sulfatide storage mechanism.\"}]}}], \"edges\": [{\"source\": \"Arylsulfatase A Deficiency\", \"target\": \"Reduced arylsulfatase A activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ARSA pathogenic variants reduce arylsulfatase A enzyme activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arylsulfatase A Deficiency\", \"target\": \"Sulfatide Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of arylsulfatase A activity leads directly to pathologic sulfatide storage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Sulfatide storage burden\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stored sulfatides are the core chemical biomarker of the lysosomal storage lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Urinary sulfatide excretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess sulfatides are excreted in urine and provide a diagnostic biochemical readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Central Nervous System Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sulfatide accumulation contributes directly to demyelination within the CNS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Demyelinating Polyneuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sulfatide storage also contributes to demyelinating peripheral nerve disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Progressive Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sulfatide storage initiates the MLD disease cascade that includes broader neurodegeneration of the central and peripheral nervous systems.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central Nervous System Demyelination\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive CNS demyelination contributes to worsening cognitive dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Nervous System Demyelination\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early-onset demyelinating disease leads to loss of acquired motor abilities in childhood forms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Demyelinating Polyneuropathy\", \"target\": \"Peripheral Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nerve demyelination produces the polyneuropathy phenotype seen in MLD.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neurologic deterioration leads to bulbar dysfunction and dysphagia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing neurodegeneration contributes to seizures in early-onset MLD.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive late-infantile neurologic deterioration includes hypotonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hematopoietic Stem Cell Transplantation\", \"target\": \"Arylsulfatase A Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atidarsagene Autotemcel\", \"target\": \"Central Nervous System Demyelination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atidarsagene Autotemcel\", \"target\": \"Cognitive Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Atidarsagene Autotemcel\", \"target\": \"Developmental Regression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Arylsulfatase A Deficiency\", \"target\": \"Reduced arylsulfatase A activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced ARSA enzyme activity reports the proximal enzyme deficiency that initiates MLD.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Sulfatide storage burden\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased sulfatide burden reports the core lysosomal storage lesion in MLD.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Urinary sulfatide excretion\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary sulfatide excretion is a diagnostic readout of the sulfatide storage mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ARSA\", \"target\": \"Arylsulfatase A Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARSA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ARSA\"], \"gene_terms\": [{\"label\": \"ARSA\", \"id\": \"hgnc:713\"}], \"presence\": \"Positive\", \"association\": \"Pathogenic Mutations\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Arylsulfatase A Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease-causing ARSA variants reduce arylsulfatase A activity in MLD.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sphingolipid catabolic process\"], \"molecular_functions\": [\"arylsulfatase activity\"], \"genes\": [\"ARSA\"], \"gene_terms\": [{\"label\": \"ARSA\", \"id\": \"hgnc:713\"}]}}, {\"id\": \"Atidarsagene Autotemcel\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Autologous hematopoietic stem cell gene therapy using arsa-cel preserves motor and cognitive development in selected early-onset patients.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Central Nervous System Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MLD causes progressive demyelination within the central nervous system, driving cognitive and developmental decline.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"central nervous system myelination\"]}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cognitive decline is a major clinical manifestation of MLD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Demyelinating Polyneuropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MLD also causes demyelinating disease in the peripheral nervous system, producing a clinically important polyneuropathy burden.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"peripheral nervous system myelination\"]}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor skill regression is typical of early-onset MLD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Late-Infantile MLD\"], \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bulbar dysfunction with dysphagia develops as late-infantile MLD progresses.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Late-Infantile MLD\"], \"term_id\": \"HP:0002015\"}}, {\"id\": \"Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HSCT is most useful before disease onset or in very early disease stages.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia develops during progression of late-infantile MLD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Late-Infantile MLD\"], \"term_id\": \"HP:0001252\"}}, {\"id\": \"PSAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"PSAP\"], \"gene_terms\": [{\"label\": \"PSAP\", \"id\": \"hgnc:9498\"}], \"subtypes\": [\"Saposin B-Deficient MLD\"], \"presence\": \"Positive\", \"association\": \"Pathogenic Mutations\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Peripheral Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive demyelinating polyneuropathy contributes substantially to disability in MLD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Progressive Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alongside demyelination, MLD includes a broader neurodegenerative process that contributes to progressive neurologic disability.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced arylsulfatase A activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Arylsulfatase A Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced ARSA enzyme activity reports the proximal enzyme deficiency that initiates MLD.\"}]}}, {\"id\": \"Saposin B Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, distinct entry point into the same pathograph. PSAP encodes prosaposin, the precursor of the four sphingolipid activator proteins; point mutations in its saposin B domain result in loss of mature saposin B, the non-enzymatic protein that stimulates degradation of sulfatide by arylsulfatase A in vivo. The hydrolase gene is untouched, but the catabolic step still fails and sulfatide accumulates. This is a cofactor lesion, not an enzyme lesion, and is the reason this node is separate from Arylsulfatase A Deficiency rather than merged into it.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"enzyme activator activity\"], \"genes\": [\"PSAP\"], \"gene_terms\": [{\"label\": \"PSAP\", \"id\": \"hgnc:9498\"}]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in the progressive late-infantile disease course.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Late-Infantile MLD\"], \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sulfatide Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathologic sulfatide storage is the immediate biochemical consequence of arylsulfatase A deficiency in MLD.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sphingolipid catabolic process\"]}}, {\"id\": \"Sulfatide storage burden\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:18318\", \"term_label\": \"galactosylceramide sulfate\", \"readouts\": [{\"target\": \"Sulfatide Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased sulfatide burden reports the core lysosomal storage lesion in MLD.\"}]}}, {\"id\": \"Urinary sulfatide excretion\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:18318\", \"term_label\": \"galactosylceramide sulfate\", \"readouts\": [{\"target\": \"Sulfatide Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary sulfatide excretion is a diagnostic readout of the sulfatide storage mechanism.\"}]}}], \"edges\": [{\"source\": \"Arylsulfatase A Deficiency\", \"target\": \"Reduced arylsulfatase A activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ARSA pathogenic variants reduce arylsulfatase A enzyme activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arylsulfatase A Deficiency\", \"target\": \"Sulfatide Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of arylsulfatase A activity leads directly to pathologic sulfatide storage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Saposin B Deficiency\", \"target\": \"Sulfatide Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of mature saposin B blocks arylsulfatase A-mediated sulfatide degradation in vivo, so sulfatide accumulates despite normal enzyme levels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Sulfatide storage burden\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stored sulfatides are the core chemical biomarker of the lysosomal storage lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Urinary sulfatide excretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess sulfatides are excreted in urine and provide a diagnostic biochemical readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Central Nervous System Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sulfatide accumulation contributes directly to demyelination within the CNS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Demyelinating Polyneuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sulfatide storage also contributes to demyelinating peripheral nerve disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Progressive Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sulfatide storage initiates the MLD disease cascade that includes broader neurodegeneration of the central and peripheral nervous systems.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Central Nervous System Demyelination\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive CNS demyelination contributes to worsening cognitive dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Nervous System Demyelination\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early-onset demyelinating disease leads to loss of acquired motor abilities in childhood forms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Demyelinating Polyneuropathy\", \"target\": \"Peripheral Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nerve demyelination produces the polyneuropathy phenotype seen in MLD.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neurologic deterioration leads to bulbar dysfunction and dysphagia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing neurodegeneration contributes to seizures in early-onset MLD.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Neurodegeneration\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive late-infantile neurologic deterioration includes hypotonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hematopoietic Stem Cell Transplantation\", \"target\": \"Arylsulfatase A Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atidarsagene Autotemcel\", \"target\": \"Central Nervous System Demyelination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atidarsagene Autotemcel\", \"target\": \"Cognitive Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Atidarsagene Autotemcel\", \"target\": \"Developmental Regression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Arylsulfatase A Deficiency\", \"target\": \"Reduced arylsulfatase A activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced ARSA enzyme activity reports the proximal enzyme deficiency that initiates MLD.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Sulfatide storage burden\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased sulfatide burden reports the core lysosomal storage lesion in MLD.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Sulfatide Accumulation\", \"target\": \"Urinary sulfatide excretion\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary sulfatide excretion is a diagnostic readout of the sulfatide storage mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ARSA\", \"target\": \"Arylsulfatase A Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PSAP\", \"target\": \"Saposin B Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5372,15 +5994,18 @@ This pathophysiological event involves dysregulated peripheral nervous system my
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002015</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5450,15 +6075,18 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5528,15 +6156,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0100543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5597,15 +6228,18 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002376</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5666,15 +6300,18 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5735,15 +6372,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0009830</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5826,7 +6466,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-arsa" data-dismech-node="ARSA" data-dismech-type="genetic">
@@ -5847,17 +6487,24 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                         Gene: ARSA
 
 
-    <a href="https://bioregistry.io/hgnc:713" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:713</a>
+    <a href="https://bioregistry.io/hgnc:713" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:713</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ARSA (hgnc:713). hgnc:713 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -5932,6 +6579,143 @@ This disease-associated gene is ARSA (hgnc:713). hgnc:713 is a gene from the HUG
 
             </div>
 
+            <div class="item-box genetic-box anchor-target" id="genetic-psap" data-dismech-node="PSAP" data-dismech-type="genetic">
+                <div class="item-name">
+                    PSAP
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Mutations)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PSAP
+
+
+    <a href="https://bioregistry.io/hgnc:9498" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:9498</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PSAP (hgnc:9498). hgnc:9498 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z" target="_blank">CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PSAP | HGNC:9498 | metachromatic leukodystrophy due to saposin B deficiency | MONDO:0009590 | AR | Definitive"</div>
+
+
+                <div class="evidence-explanation">ClinGen classifies the PSAP-saposin B MLD gene-disease relationship as Definitive with autosomal recessive inheritance.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z" target="_blank">CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Because the location and type of different variants within PSAP determines which specific saposin is impacted, PSAP will be curated separately for four different conditions"</div>
+
+
+                <div class="evidence-explanation">Supports restricting this entry&#39;s PSAP claim to the saposin B domain rather than to prosaposin deficiency generally.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10682309" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10682309" target="_blank">PMID:10682309</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"So far, four different point mutations have been identified on the SAP-B domain of the SAP-precursor gene."</div>
+
+
+                <div class="evidence-explanation">Locates the MLD-causing lesions in the saposin B domain of the prosaposin (SAP-precursor) gene, which is the claim this genetic entry makes.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+
+            </div>
+
         </div>
 
 
@@ -5958,7 +6742,7 @@ This disease-associated gene is ARSA (hgnc:713). hgnc:713 is a gene from the HUG
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6088,7 +6872,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6215,11 +6999,11 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100543</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6232,11 +7016,11 @@ This treatment targets Cognitive impairment (HP:0100543). HP:0100543 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002376</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6844,9 +7628,12 @@ This treatment targets Developmental regression (HP:0002376). HP:0002376 is a ph
 creation_date: &#39;2026-03-30T18:20:00Z&#39;
 description: &gt;
   Metachromatic leukodystrophy (MLD) is an autosomal recessive lysosomal
-  storage leukodystrophy caused by arylsulfatase A deficiency, leading to
+  storage leukodystrophy in which sulfatide degradation fails, leading to
   sulfatide accumulation, progressive central and peripheral demyelination, and
-  worsening motor and cognitive dysfunction.
+  worsening motor and cognitive dysfunction. The common cause is arylsulfatase A
+  deficiency from biallelic ARSA variants; an uncommon form instead loses the
+  activator protein saposin B through biallelic PSAP variants, leaving the enzyme
+  itself intact.
 category: Genetic
 disease_term:
   preferred_term: metachromatic leukodystrophy
@@ -6855,6 +7642,17 @@ disease_term:
     label: metachromatic leukodystrophy
 mappings:
   mondo_mappings:
+  - term:
+      id: MONDO:0009590
+      label: metachromatic leukodystrophy due to saposin B deficiency
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;
+      is_a the MONDO:0018868 anchor of this entry. This entry now curates PSAP
+      (hgnc:9498) and models this form explicitly as the &#34;Saposin B-Deficient
+      MLD&#34; has_subtypes entry, with its own pathophysiology node for the loss of
+      the activator protein. narrowMatch because the anchor also subsumes the
+      arylsulfatase A-deficient forms.
   - term:
       id: MONDO:0009591
       label: metachromatic leukodystrophy, juvenile form
@@ -6894,7 +7692,21 @@ parents:
 has_subtypes:
 - name: Late-Infantile MLD
   description: Earliest-onset form with rapid neurologic decline.
+  genes:
+  - preferred_term: ARSA
+    term:
+      id: hgnc:713
+      label: ARSA
   evidence:
+  - reference: PMID:20301309
+    reference_title: Arylsulfatase A Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Arylsulfatase A deficiency (also known as metachromatic leukodystrophy or MLD) is characterized by three clinical subtypes: late-infantile, juvenile, and adult MLD.&#34;
+    explanation: &gt;-
+      The GeneReviews baseline chapter treats the onset subtypes as forms of
+      arylsulfatase A deficiency, supporting the ARSA binding on this row.
   - reference: PMID:40577679
     reference_title: &#34;Metachromatic Leukodystrophy: New Therapy Advancements and Emerging Research Directions.&#34;
     supports: SUPPORT
@@ -6903,7 +7715,21 @@ has_subtypes:
     explanation: This review explicitly recognizes late-infantile MLD as one of the major age-defined disease forms.
 - name: Early-Juvenile MLD
   description: Juvenile-onset form with intermediate tempo of progression.
+  genes:
+  - preferred_term: ARSA
+    term:
+      id: hgnc:713
+      label: ARSA
   evidence:
+  - reference: PMID:20301309
+    reference_title: Arylsulfatase A Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Arylsulfatase A deficiency (also known as metachromatic leukodystrophy or MLD) is characterized by three clinical subtypes: late-infantile, juvenile, and adult MLD.&#34;
+    explanation: &gt;-
+      The GeneReviews baseline chapter treats the onset subtypes as forms of
+      arylsulfatase A deficiency, supporting the ARSA binding on this row.
   - reference: PMID:40577679
     reference_title: &#34;Metachromatic Leukodystrophy: New Therapy Advancements and Emerging Research Directions.&#34;
     supports: SUPPORT
@@ -6912,7 +7738,21 @@ has_subtypes:
     explanation: This review explicitly recognizes early-juvenile MLD as a major age-defined subtype.
 - name: Late-Juvenile MLD
   description: Later childhood form with slower progression than early-onset disease.
+  genes:
+  - preferred_term: ARSA
+    term:
+      id: hgnc:713
+      label: ARSA
   evidence:
+  - reference: PMID:20301309
+    reference_title: Arylsulfatase A Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Arylsulfatase A deficiency (also known as metachromatic leukodystrophy or MLD) is characterized by three clinical subtypes: late-infantile, juvenile, and adult MLD.&#34;
+    explanation: &gt;-
+      The GeneReviews baseline chapter treats the onset subtypes as forms of
+      arylsulfatase A deficiency, supporting the ARSA binding on this row.
   - reference: PMID:40577679
     reference_title: &#34;Metachromatic Leukodystrophy: New Therapy Advancements and Emerging Research Directions.&#34;
     supports: SUPPORT
@@ -6921,13 +7761,72 @@ has_subtypes:
     explanation: This review explicitly recognizes late-juvenile MLD as a major age-defined subtype.
 - name: Adult MLD
   description: Later-onset form, often with slower neurologic progression.
+  genes:
+  - preferred_term: ARSA
+    term:
+      id: hgnc:713
+      label: ARSA
   evidence:
+  - reference: PMID:20301309
+    reference_title: Arylsulfatase A Deficiency.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Arylsulfatase A deficiency (also known as metachromatic leukodystrophy or MLD) is characterized by three clinical subtypes: late-infantile, juvenile, and adult MLD.&#34;
+    explanation: &gt;-
+      The GeneReviews baseline chapter treats the onset subtypes as forms of
+      arylsulfatase A deficiency, supporting the ARSA binding on this row.
   - reference: PMID:40577679
     reference_title: &#34;Metachromatic Leukodystrophy: New Therapy Advancements and Emerging Research Directions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Traditionally, MLD has been classified according to age at onset (late-infantile, early-juvenile and late-juvenile, and adult MLD), with earlier forms leading to more rapid neurologic decline.&#34;
     explanation: This review explicitly recognizes adult MLD as the latest-onset major disease subtype.
+- name: Saposin B-Deficient MLD
+  display_name: Saposin B-deficient MLD (PSAP)
+  subtype_term:
+    preferred_term: metachromatic leukodystrophy due to saposin B deficiency
+    term:
+      id: MONDO:0009590
+      label: metachromatic leukodystrophy due to saposin B deficiency
+  description: &gt;-
+    Uncommon form of MLD in which the lesion is in the sphingolipid activator
+    protein rather than in the enzyme. Biallelic PSAP variants affecting the
+    saposin B domain block sulfatide degradation while leaving arylsulfatase A
+    itself intact, so a reported case had ARSA activity within normal limits and
+    was diagnosed on the gene panel rather than by enzyme assay. This is an axis
+    orthogonal to the four age-at-onset rows above, which are all arylsulfatase A
+    deficiency.
+  genes:
+  - preferred_term: PSAP
+    term:
+      id: hgnc:9498
+      label: PSAP
+  evidence:
+  - reference: PMID:31319425
+    reference_title: &#34;Saposin B-Deficient Metachromatic Leukodystrophy Mimicking Acute Flaccid Paralysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;However, an uncommon form of MLD caused by saposin B deficiency is also described&#34;
+    explanation: &gt;-
+      Establishes saposin B deficiency as a recognized, uncommon form of MLD
+      distinct from the arylsulfatase A-deficient forms.
+  - reference: PMID:31319425
+    reference_title: &#34;Saposin B-Deficient Metachromatic Leukodystrophy Mimicking Acute Flaccid Paralysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;ARSA levels were within normal limits. Leukodystrophy gene panel revealed a homozygous pathogenic deletion (Lys227del variant) in prosaposin (PSAP) gene.&#34;
+    explanation: &gt;-
+      A worked case with normal ARSA activity and a biallelic PSAP variant, which
+      is why this subtype can be missed by enzyme assay alone.
+  - reference: CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z
+    reference_title: &#34;PSAP / metachromatic leukodystrophy due to saposin B deficiency (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;PSAP | HGNC:9498 | metachromatic leukodystrophy due to saposin B deficiency | MONDO:0009590 | AR | Definitive&#34;
+    explanation: &gt;-
+      ClinGen&#39;s Lysosomal Diseases GCEP classifies the PSAP-saposin B MLD
+      gene-disease relationship as Definitive with autosomal recessive inheritance.
 progression:
 - phase: Early-onset rapidly progressive disease
   notes: &gt;
@@ -7006,6 +7905,69 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Metachromatic leukodystrophy (MLD) is a rare autosomal recessive lysosomal storage disorder caused by disease-causing variants in the gene coding for arylsulfatase A, leading to deficient enzyme activity and subsequent accumulation of sulfatides.&#34;
     explanation: This review directly links ARSA pathogenic variants to deficient enzyme activity in MLD.
+- name: Saposin B Deficiency
+  conforms_to: &#34;lysosomal_substrate_accumulation#Lysosomal Hydrolase or Cofactor Deficiency&#34;
+  biological_scale: MOLECULAR
+  description: &gt;-
+    A second, distinct entry point into the same pathograph. PSAP encodes
+    prosaposin, the precursor of the four sphingolipid activator proteins;
+    point mutations in its saposin B domain result in loss of mature saposin B,
+    the non-enzymatic protein that stimulates degradation of sulfatide by
+    arylsulfatase A in vivo. The hydrolase gene is untouched, but the catabolic
+    step still fails and sulfatide accumulates. This is a cofactor lesion, not an
+    enzyme lesion, and is the reason this node is separate from Arylsulfatase A
+    Deficiency rather than merged into it.
+  genes:
+  - preferred_term: PSAP
+    term:
+      id: hgnc:9498
+      label: PSAP
+  gene_products:
+  - preferred_term: saposin B
+    modifier: DECREASED
+  molecular_functions:
+  - preferred_term: enzyme activator activity
+    modifier: DECREASED
+    term:
+      id: GO:0008047
+      label: enzyme activator activity
+  cellular_components:
+  - preferred_term: lysosome
+    term:
+      id: GO:0005764
+      label: lysosome
+  downstream:
+  - target: Sulfatide Accumulation
+    description: &gt;-
+      Loss of mature saposin B blocks arylsulfatase A-mediated sulfatide
+      degradation in vivo, so sulfatide accumulates despite normal enzyme levels.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:10682309
+      reference_title: &#34;A non-glycosylated and functionally deficient mutant (N215H) of the sphingolipid activator protein B (SAP-B) in a novel case of metachromatic leukodystrophy (MLD).&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;The mutations result in a loss of mature SAP-B, causing the lysosomal accumulation of sulphatides and other sphingolipids, resulting in variant forms of metachromatic leukodystrophy (MLD).&#34;
+      explanation: &gt;-
+        States the causal step this edge asserts: loss of mature saposin B leads
+        to lysosomal sulfatide accumulation and an MLD phenotype.
+  evidence:
+  - reference: PMID:10682309
+    reference_title: &#34;A non-glycosylated and functionally deficient mutant (N215H) of the sphingolipid activator protein B (SAP-B) in a novel case of metachromatic leukodystrophy (MLD).&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;In vivo SAP-B stimulates in particular the degradation of sulphatides by arylsulphatase A.&#34;
+    explanation: &gt;-
+      Establishes saposin B as the activator of the arylsulfatase A step, which is
+      what makes its loss a cofactor deficiency at this node.
+  - reference: CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z
+    reference_title: &#34;PSAP / metachromatic leukodystrophy due to saposin B deficiency (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Saposin B activates the hydrolysis of cerebroside sulfate (sulfatide) by arylsulphatase A (ARSA).&#34;
+    explanation: &gt;-
+      ClinGen&#39;s curation summary states the same activator relationship, and
+      curates PSAP separately from ARSA on the strength of it.
 - name: Sulfatide Accumulation
   conforms_to: &#34;lysosomal_substrate_accumulation#Lysosomal Substrate Accumulation&#34;
   description: &gt;
@@ -7377,10 +8339,13 @@ genetic:
       id: hgnc:713
       label: ARSA
   association: Pathogenic Mutations
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   presence: Positive
   notes: &gt;
     MLD is caused by pathogenic variants affecting arylsulfatase A and resulting
-    in deficient enzymatic activity.
+    in deficient enzymatic activity. ARSA is the more common of the two MLD genes;
+    the rarer cofactor route is curated separately as PSAP below.
   inheritance:
   - name: Autosomal Recessive
   evidence:
@@ -7396,6 +8361,58 @@ genetic:
     evidence_source: OTHER
     snippet: &#34;ARSA | HGNC:713 | metachromatic leukodystrophy | MONDO:0018868 | AR | Definitive&#34;
     explanation: ClinGen classifies the ARSA-metachromatic leukodystrophy gene-disease relationship as definitive with autosomal recessive inheritance.
+- name: PSAP
+  gene_term:
+    preferred_term: PSAP
+    term:
+      id: hgnc:9498
+      label: PSAP
+  association: Pathogenic Mutations
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
+  presence: Positive
+  subtype: Saposin B-Deficient MLD
+  notes: &gt;-
+    PSAP is not a second arylsulfatase A. It encodes prosaposin, the precursor of
+    saposins A-D; only variants affecting the saposin B domain give MLD, while
+    other domains of the same gene give saposin A-deficient Krabbe disease,
+    saposin C-deficient Gaucher disease, or combined prosaposin deficiency. Those
+    three are separate diseases and are deliberately not curated in this entry.
+  inheritance:
+  - name: Autosomal Recessive
+  evidence:
+  - reference: CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z
+    reference_title: &#34;PSAP / metachromatic leukodystrophy due to saposin B deficiency (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;PSAP | HGNC:9498 | metachromatic leukodystrophy due to saposin B deficiency | MONDO:0009590 | AR | Definitive&#34;
+    explanation: &gt;-
+      ClinGen classifies the PSAP-saposin B MLD gene-disease relationship as
+      Definitive with autosomal recessive inheritance.
+  - reference: CGGV:assertion_4e24c4e4-a97d-4d08-abd9-e190fb001b9d-2023-07-20T160000.000Z
+    reference_title: &#34;PSAP / metachromatic leukodystrophy due to saposin B deficiency (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Because the location and type of different variants within PSAP determines which specific saposin is impacted, PSAP will be curated separately for four different conditions&#34;
+    explanation: &gt;-
+      Supports restricting this entry&#39;s PSAP claim to the saposin B domain rather
+      than to prosaposin deficiency generally.
+  - reference: PMID:10682309
+    reference_title: &#34;A non-glycosylated and functionally deficient mutant (N215H) of the sphingolipid activator protein B (SAP-B) in a novel case of metachromatic leukodystrophy (MLD).&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;So far, four different point mutations have been identified on the SAP-B domain of the SAP-precursor gene.&#34;
+    explanation: &gt;-
+      Locates the MLD-causing lesions in the saposin B domain of the prosaposin
+      (SAP-precursor) gene, which is the claim this genetic entry makes.
+  - reference: PMID:31319425
+    reference_title: &#34;Saposin B-Deficient Metachromatic Leukodystrophy Mimicking Acute Flaccid Paralysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Leukodystrophy gene panel revealed a homozygous pathogenic deletion (Lys227del variant) in prosaposin (PSAP) gene. Hence, a final diagnosis of saposin B-deficient MLD was established.&#34;
+    explanation: &gt;-
+      A human case in which a biallelic PSAP variant established the saposin
+      B-deficient MLD diagnosis.
 treatments:
 - name: Hematopoietic Stem Cell Transplantation
   description: &gt;
@@ -7490,6 +8507,12 @@ datasets:
   sample_count: 8
   publication: PMID:40536808
   notes: Identified by GEO DataSets index search for Metachromatic Leukodystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+references:
+- reference: PMID:20301309
+  title: Arylsulfatase A Deficiency.
+  tags:
+  - GeneReviews
+  findings: []
 </pre>
             </div>
         </div>
@@ -7500,6 +8523,31 @@ datasets:
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">1</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301309" target="_blank">PMID:20301309</a>
+                            </div>
+
+                            <div class="reference-title">Arylsulfatase A Deficiency.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
             </div>
 
 
@@ -7918,7 +8966,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Metachromatic Leukodystrophy", "mondoId": "MONDO:0018868", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metachromatic_Leukodystrophy", "yamlRevision": "89d7c594b914"};
+        const OS_CONFIG = {"diseaseName": "Metachromatic Leukodystrophy", "mondoId": "MONDO:0018868", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metachromatic_Leukodystrophy", "yamlRevision": "b328b5779f95"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Rienhoff%20Syndrome"
@@ -4044,7 +4086,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -5506,6 +5548,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgfb3-ligand-variant" data-dismech-node="TGFB3 Ligand Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">TGFB3 Ligand Variant</div>
 
+
                 <div class="item-desc">Heterozygous variants in TGFB3 alter the transforming growth factor beta 3 ligand. The index p.Cys409Tyr substitution removes the penultimate cysteine of the mature ligand, a residue conserved across the whole TGF-beta family that forms the cysteine knot required for ligand activity. Other reported alleles cluster in the latency-associated peptide domain (p.Arg300Gln, p.Arg300Gly). This is the conserved genetic trigger for the syndrome.</div>
 
 
@@ -5558,6 +5601,8 @@ This genetic context concerns TGFB3 (hgnc:11769). hgnc:11769 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5570,6 +5615,9 @@ This genetic context concerns TGFB3 (hgnc:11769). hgnc:11769 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous TGFB3 ligand alleles. Recorded as PARTIAL_LOSS_OF_FUNCTION: the founding allele is hypomorphic, reducing canonical and non-canonical TGF-beta signalling. Co-expression with wild-type ligand in Xenopus also showed a dominant-negative effect, so some alleles may act by more than one mechanism; the hypomorphic reading is the one the authors adopt for the phenotype.</div>
 
@@ -5730,6 +5778,7 @@ This pathophysiological event involves abnormal transforming growth factor beta 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-tgf-beta-signal-transduction" data-dismech-node="Altered TGF-beta Signal Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered TGF-beta Signal Transduction</div>
+
 
                 <div class="item-desc">TGFB3 variants perturb canonical (SMAD2/3) and non-canonical (ERK1/2) TGF-beta signal transduction. The direction of the perturbation is allele- and tissue-dependent and is the central unresolved issue of the syndrome. In the index case the mutant ligand was signalling-dead and behaved as a dominant negative, reducing SMAD2 and ERK1/2 phosphorylation to roughly 40% and 60% of wild-type levels. In contrast, aortic wall tissue from patients with TGFB3-related aortic aneurysm shows paradoxical up-regulation of both canonical and non-canonical TGF-beta signalling, exactly as seen for variants in TGFBR1/2, SMAD3 and TGFB2.</div>
 
@@ -5943,6 +5992,7 @@ This pathophysiological event involves abnormal SMAD protein signal transduction
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mesenchymal-development" data-dismech-node="Impaired Mesenchymal Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mesenchymal Development</div>
 
+
                 <div class="item-desc">TGF-beta 3 is the most abundant TGF-beta isoform in developing skeletal muscle and is required for the epithelial-to-mesenchymal transition of the dermomyotome that generates myogenic precursors, and for confluence of the palatal shelves. Insufficient TGFB3 signalling at these stages is proposed to reduce the pool of embryonic muscle precursor cells - producing hypomyoplasia with normal muscle architecture rather than a myopathy - and to prevent complete palatal fusion.</div>
 
 
@@ -6090,6 +6140,7 @@ This pathophysiological event involves decreased epithelial to mesenchymal trans
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypomyoplasia-and-growth-failure" data-dismech-node="Hypomyoplasia and Growth Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypomyoplasia and Growth Failure</div>
 
+
                 <div class="item-desc">The muscular phenotype is a developmental deficiency of muscle mass (hypomyoplasia) rather than a degenerative myopathy. Muscle biopsy in the index patient showed essentially normal fibre size and architecture with no dystrophic, inflammatory or fibrotic change, sharply distinguishing it from the myopathy of Marfan syndrome. Reduced fetal movement from this deficit is the proposed origin of the distal arthrogryposis present at birth.</div>
 
 
@@ -6151,6 +6202,7 @@ This pathophysiological event involves decreased epithelial to mesenchymal trans
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-palatal-and-craniofacial-malformation" data-dismech-node="Palatal and Craniofacial Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Palatal and Craniofacial Malformation</div>
 
+
                 <div class="item-desc">Failure of complete palatal fusion produces the bifid uvula and cleft palate that are among the most consistent findings across the TGFB3 phenotypic spectrum, together with hypertelorism and other craniofacial features shared with Loeys-Dietz and Shprintzen-Goldberg syndromes.</div>
 
 
@@ -6211,6 +6263,7 @@ This pathophysiological event involves decreased epithelial to mesenchymal trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortic-medial-degeneration-and-wall-weakening" data-dismech-node="Aortic Medial Degeneration and Wall Weakening" data-dismech-type="pathophysiology">
                 <div class="item-name">Aortic Medial Degeneration and Wall Weakening</div>
+
 
                 <div class="item-desc">In the vascular presentation, dysregulated TGF-beta signalling in the aortic wall drives medial degeneration and loss of wall integrity, the shared tissue-level lesion of the TGF-beta vasculopathies. Notably, and unlike other Loeys-Dietz subtypes, striking aortic or arterial tortuosity is not part of the TGFB3 phenotype.</div>
 
@@ -6288,6 +6341,7 @@ This pathophysiological event involves decreased epithelial to mesenchymal trans
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-aortic-dilation-and-aneurysm" data-dismech-node="Progressive Aortic Dilation and Aneurysm" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Aortic Dilation and Aneurysm</div>
 
+
                 <div class="item-desc">Aneurysmal dilation affects the thoracic and/or abdominal aorta and carries a risk of dissection and rupture, making early recognition of TGFB3 carriers clinically important.</div>
 
 
@@ -6363,6 +6417,7 @@ This pathophysiological event involves decreased epithelial to mesenchymal trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortic-dissection-and-rupture" data-dismech-node="Aortic Dissection and Rupture" data-dismech-type="pathophysiology">
                 <div class="item-name">Aortic Dissection and Rupture</div>
+
 
                 <div class="item-desc">Dissection or rupture of the dilated aorta is the principal cause of mortality in the vascular presentation of the syndrome, and the reason early molecular diagnosis and surveillance matter.</div>
 
@@ -6504,7 +6559,7 @@ This pathophysiological event involves decreased epithelial to mesenchymal trans
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Altered TGF-beta Signal Transduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TGFB3 variants perturb canonical (SMAD2/3) and non-canonical (ERK1/2) TGF-beta signal transduction. The direction of the perturbation is allele- and tissue-dependent and is the central unresolved issue of the syndrome. In the index case the mutant ligand was signalling-dead and behaved as a dominant negative, reducing SMAD2 and ERK1/2 phosphorylation to roughly 40% and 60% of wild-type levels. In contrast, aortic wall tissue from patients with TGFB3-related aortic aneurysm shows paradoxical up-regulation of both canonical and non-canonical TGF-beta signalling, exactly as seen for variants in TGFBR1/2, SMAD3 and TGFB2.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"SMAD protein signal transduction\"]}}, {\"id\": \"Aortic Dissection and Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dissection or rupture of the dilated aorta is the principal cause of mortality in the vascular presentation of the syndrome, and the reason early molecular diagnosis and surveillance matter.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Aortic Medial Degeneration and Wall Weakening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the vascular presentation, dysregulated TGF-beta signalling in the aortic wall drives medial degeneration and loss of wall integrity, the shared tissue-level lesion of the TGF-beta vasculopathies. Notably, and unlike other Loeys-Dietz subtypes, striking aortic or arterial tortuosity is not part of the TGFB3 phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypomyoplasia and Growth Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The muscular phenotype is a developmental deficiency of muscle mass (hypomyoplasia) rather than a degenerative myopathy. Muscle biopsy in the index patient showed essentially normal fibre size and architecture with no dystrophic, inflammatory or fibrotic change, sharply distinguishing it from the myopathy of Marfan syndrome. Reduced fetal movement from this deficit is the proposed origin of the distal arthrogryposis present at birth.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Mesenchymal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TGF-beta 3 is the most abundant TGF-beta isoform in developing skeletal muscle and is required for the epithelial-to-mesenchymal transition of the dermomyotome that generates myogenic precursors, and for confluence of the palatal shelves. Insufficient TGFB3 signalling at these stages is proposed to reduce the pool of embryonic muscle precursor cells - producing hypomyoplasia with normal muscle architecture rather than a myopathy - and to prevent complete palatal fusion.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"epithelial to mesenchymal transition\"]}}, {\"id\": \"Palatal and Craniofacial Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of complete palatal fusion produces the bifid uvula and cleft palate that are among the most consistent findings across the TGFB3 phenotypic spectrum, together with hypertelorism and other craniofacial features shared with Loeys-Dietz and Shprintzen-Goldberg syndromes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Aortic Dilation and Aneurysm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aneurysmal dilation affects the thoracic and/or abdominal aorta and carries a risk of dissection and rupture, making early recognition of TGFB3 carriers clinically important.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TGFB3 Ligand Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous variants in TGFB3 alter the transforming growth factor beta 3 ligand. The index p.Cys409Tyr substitution removes the penultimate cysteine of the mature ligand, a residue conserved across the whole TGF-beta family that forms the cysteine knot required for ligand activity. Other reported alleles cluster in the latency-associated peptide domain (p.Arg300Gln, p.Arg300Gly). This is the conserved genetic trigger for the syndrome.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Heterozygous TGFB3 ligand alleles. Recorded as PARTIAL_LOSS_OF_FUNCTION: the founding allele is hypomorphic, reducing canonical and non-canonical TGF-beta signalling. Co-expression with wild-type ligand in Xenopus also showed a dominant-negative effect, so some alleles may act by more than one mechanism; the hypomorphic reading is the one the authors adopt for the phenotype.\", \"gene_terms\": [{\"label\": \"TGFB3\", \"id\": \"hgnc:11769\"}]}}}], \"edges\": [{\"source\": \"TGFB3 Ligand Variant\", \"target\": \"Altered TGF-beta Signal Transduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variant ligand changes the amount of TGF-beta signal delivered to target tissues.\"}, {\"source\": \"Altered TGF-beta Signal Transduction\", \"target\": \"Impaired Mesenchymal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced TGF-beta 3 signalling during early mesenchymal development impairs myogenesis and palatogenesis.\", \"hypothesis_groups\": [\"reduced_tgfb3_signaling\"]}, {\"source\": \"Altered TGF-beta Signal Transduction\", \"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated TGF-beta signalling in the aortic wall drives medial degeneration in the vascular presentation of the syndrome.\", \"hypothesis_groups\": [\"paradoxical_aortic_tgfb_upregulation\"]}, {\"source\": \"Impaired Mesenchymal Development\", \"target\": \"Hypomyoplasia and Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A reduced embryonic muscle precursor pool yields low post-natal muscle mass and impaired somatic growth.\"}, {\"source\": \"Impaired Mesenchymal Development\", \"target\": \"Palatal and Craniofacial Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of palatal shelf confluence produces bifid uvula and cleft palate.\"}, {\"source\": \"Aortic Medial Degeneration and Wall Weakening\", \"target\": \"Progressive Aortic Dilation and Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A weakened media dilates progressively under haemodynamic load.\"}, {\"source\": \"Progressive Aortic Dilation and Aneurysm\", \"target\": \"Aortic Dissection and Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive dilation culminates in dissection or rupture.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Altered TGF-beta Signal Transduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TGFB3 variants perturb canonical (SMAD2/3) and non-canonical (ERK1/2) TGF-beta signal transduction. The direction of the perturbation is allele- and tissue-dependent and is the central unresolved issue of the syndrome. In the index case the mutant ligand was signalling-dead and behaved as a dominant negative, reducing SMAD2 and ERK1/2 phosphorylation to roughly 40% and 60% of wild-type levels. In contrast, aortic wall tissue from patients with TGFB3-related aortic aneurysm shows paradoxical up-regulation of both canonical and non-canonical TGF-beta signalling, exactly as seen for variants in TGFBR1/2, SMAD3 and TGFB2.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"SMAD protein signal transduction\"]}}, {\"id\": \"Aortic Dissection and Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dissection or rupture of the dilated aorta is the principal cause of mortality in the vascular presentation of the syndrome, and the reason early molecular diagnosis and surveillance matter.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Aortic Medial Degeneration and Wall Weakening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the vascular presentation, dysregulated TGF-beta signalling in the aortic wall drives medial degeneration and loss of wall integrity, the shared tissue-level lesion of the TGF-beta vasculopathies. Notably, and unlike other Loeys-Dietz subtypes, striking aortic or arterial tortuosity is not part of the TGFB3 phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypomyoplasia and Growth Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The muscular phenotype is a developmental deficiency of muscle mass (hypomyoplasia) rather than a degenerative myopathy. Muscle biopsy in the index patient showed essentially normal fibre size and architecture with no dystrophic, inflammatory or fibrotic change, sharply distinguishing it from the myopathy of Marfan syndrome. Reduced fetal movement from this deficit is the proposed origin of the distal arthrogryposis present at birth.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Mesenchymal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TGF-beta 3 is the most abundant TGF-beta isoform in developing skeletal muscle and is required for the epithelial-to-mesenchymal transition of the dermomyotome that generates myogenic precursors, and for confluence of the palatal shelves. Insufficient TGFB3 signalling at these stages is proposed to reduce the pool of embryonic muscle precursor cells - producing hypomyoplasia with normal muscle architecture rather than a myopathy - and to prevent complete palatal fusion.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"epithelial to mesenchymal transition\"]}}, {\"id\": \"Palatal and Craniofacial Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of complete palatal fusion produces the bifid uvula and cleft palate that are among the most consistent findings across the TGFB3 phenotypic spectrum, together with hypertelorism and other craniofacial features shared with Loeys-Dietz and Shprintzen-Goldberg syndromes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Aortic Dilation and Aneurysm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aneurysmal dilation affects the thoracic and/or abdominal aorta and carries a risk of dissection and rupture, making early recognition of TGFB3 carriers clinically important.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TGFB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"TGFB3\"], \"gene_terms\": [{\"label\": \"TGFB3\", \"id\": \"hgnc:11769\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"TGFB3 Ligand Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous variants in TGFB3 alter the transforming growth factor beta 3 ligand. The index p.Cys409Tyr substitution removes the penultimate cysteine of the mature ligand, a residue conserved across the whole TGF-beta family that forms the cysteine knot required for ligand activity. Other reported alleles cluster in the latency-associated peptide domain (p.Arg300Gln, p.Arg300Gly). This is the conserved genetic trigger for the syndrome.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Heterozygous TGFB3 ligand alleles. Recorded as PARTIAL_LOSS_OF_FUNCTION: the founding allele is hypomorphic, reducing canonical and non-canonical TGF-beta signalling. Co-expression with wild-type ligand in Xenopus also showed a dominant-negative effect, so some alleles may act by more than one mechanism; the hypomorphic reading is the one the authors adopt for the phenotype.\", \"gene_terms\": [{\"label\": \"TGFB3\", \"id\": \"hgnc:11769\"}]}}}], \"edges\": [{\"source\": \"TGFB3 Ligand Variant\", \"target\": \"Altered TGF-beta Signal Transduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variant ligand changes the amount of TGF-beta signal delivered to target tissues.\"}, {\"source\": \"Altered TGF-beta Signal Transduction\", \"target\": \"Impaired Mesenchymal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced TGF-beta 3 signalling during early mesenchymal development impairs myogenesis and palatogenesis.\", \"hypothesis_groups\": [\"reduced_tgfb3_signaling\"]}, {\"source\": \"Altered TGF-beta Signal Transduction\", \"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated TGF-beta signalling in the aortic wall drives medial degeneration in the vascular presentation of the syndrome.\", \"hypothesis_groups\": [\"paradoxical_aortic_tgfb_upregulation\"]}, {\"source\": \"Impaired Mesenchymal Development\", \"target\": \"Hypomyoplasia and Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A reduced embryonic muscle precursor pool yields low post-natal muscle mass and impaired somatic growth.\"}, {\"source\": \"Impaired Mesenchymal Development\", \"target\": \"Palatal and Craniofacial Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of palatal shelf confluence produces bifid uvula and cleft palate.\"}, {\"source\": \"Aortic Medial Degeneration and Wall Weakening\", \"target\": \"Progressive Aortic Dilation and Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A weakened media dilates progressively under haemodynamic load.\"}, {\"source\": \"Progressive Aortic Dilation and Aneurysm\", \"target\": \"Aortic Dissection and Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive dilation culminates in dissection or rupture.\"}, {\"source\": \"TGFB3\", \"target\": \"TGFB3 Ligand Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6571,6 +6626,9 @@ This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6645,6 +6703,9 @@ This clinical feature is Abdominal aortic aneurysm (HP:0005112). HP:0005112 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6709,6 +6770,9 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6787,6 +6851,9 @@ This clinical feature is Aortic root aneurysm (HP:0002616). HP:0002616 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6855,6 +6922,9 @@ This clinical feature is Abnormal mitral valve morphology (HP:0001633). HP:00016
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6963,6 +7033,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7027,6 +7100,9 @@ This clinical feature is Blue sclerae (HP:0000592). HP:0000592 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7105,6 +7181,9 @@ This clinical feature is Bifid uvula (HP:0000193). HP:0000193 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7204,6 +7283,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7298,6 +7380,9 @@ This clinical feature is Retrognathia (HP:0000278). HP:0000278 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7364,6 +7449,9 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7447,6 +7535,9 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7513,6 +7604,9 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7637,6 +7731,9 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7715,6 +7812,9 @@ This clinical feature is Distal arthrogryposis (HP:0005684). HP:0005684 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7779,6 +7879,9 @@ This clinical feature is Decreased muscle mass (HP:0003199). HP:0003199 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7878,6 +7981,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7949,6 +8055,9 @@ This clinical feature is Cervical instability (HP:0008462). HP:0008462 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8015,6 +8124,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8118,6 +8230,9 @@ This clinical feature is Abnormal sternum morphology (HP:0000766). HP:0000766 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8187,6 +8302,9 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8251,6 +8369,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8329,6 +8450,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8437,6 +8561,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8501,6 +8628,9 @@ This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8617,6 +8747,9 @@ This disease-associated gene is TGFB3 (hgnc:11769). hgnc:11769 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

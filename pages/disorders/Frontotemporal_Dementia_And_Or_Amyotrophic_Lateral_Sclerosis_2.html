@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5074,6 +5116,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chchd10-missense-variant" data-dismech-node="CHCHD10 Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">CHCHD10 Missense Variant</div>
 
+
                 <div class="item-desc">A heterozygous missense variant in CHCHD10 (22q11.23), encoding a coiled-coil-helix-coiled-coil-helix domain protein of the mitochondrial intermembrane space that is enriched at cristae junctions. p.Ser59Leu is the allele of the founding French and Spanish FTD-ALS families; p.Gly66Val is a Finnish founder allele causing the lower-motor-neuron-restricted SMAJ/LOSMoN phenotype. The variants act dominantly.</div>
 
 
@@ -5168,6 +5211,8 @@ This genetic context concerns CHCHD10 (hgnc:15559). hgnc:15559 is a gene from th
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -5181,6 +5226,9 @@ This genetic context concerns CHCHD10 (hgnc:15559). hgnc:15559 is a gene from th
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Monoallelic missense change. The functional impact is assigned GAIN_OF_FUNCTION on the strength of the knock-in mouse comparison, in which CHCHD10 ablation produces neither pathology nor a stress response while the point mutant does. The slot is single-valued and the literature is not unanimous: dominant-negative activity is separately demonstrated for these alleles, and DOMINANT_NEGATIVE is an available value. See the `gof_versus_dominant_negative` discussion for why GAIN_OF_FUNCTION is recorded here rather than that.</div>
 
@@ -5303,6 +5351,7 @@ This genetic context concerns CHCHD10 (hgnc:15559). hgnc:15559 is a gene from th
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mutant-chchd10-and-chchd2-co-aggregation" data-dismech-node="Mutant CHCHD10 and CHCHD2 Co-Aggregation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mutant CHCHD10 and CHCHD2 Co-Aggregation</div>
+
 
                 <div class="item-desc">Mutant CHCHD10 becomes insoluble within the intermembrane space and co-aggregates with CHCHD2. It is a toxic gain of function rather than a loss of the normal protein, and the insoluble fraction extends well beyond CHCHD10 itself to other intermembrane-space proteins including those required for cytochrome c biogenesis.</div>
 
@@ -5448,6 +5497,7 @@ This pathophysiological event involves protein aggregation in the mitochondrial 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oma1-activation-and-l-opa1-cleavage" data-dismech-node="OMA1 Activation and L-OPA1 Cleavage" data-dismech-type="pathophysiology">
                 <div class="item-name">OMA1 Activation and L-OPA1 Cleavage</div>
 
+
                 <div class="item-desc">The stress-induced inner-membrane peptidase OMA1 is activated and cleaves the long form of OPA1, the protein that shapes cristae. This supplies the missing proteolytic step between the CHCHD10 aggregate and the cristae lesion, and it is shared with the CHCHD2/CHCHD10 double knockout, which phenocopies the point mutant down to the cardiomyopathy and the stress response. Note that the same peptidase carries the maladaptive stress signal through DELE1 and HRI, so OMA1 sits at the branch point of both arms of this mechanism.</div>
 
 
@@ -5553,6 +5603,7 @@ This pathophysiological event involves increased OMA1 metallopeptidase activity.
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-micos-disassembly-and-loss-of-cristae-junctions" data-dismech-node="MICOS Disassembly and Loss of Cristae Junctions" data-dismech-type="pathophysiology">
                 <div class="item-name">MICOS Disassembly and Loss of Cristae Junctions</div>
+
 
                 <div class="item-desc">CHCHD10 sits in the mitochondrial contact site and cristae organizing system (MICOS) alongside mitofilin, CHCHD3 and CHCHD6. Mutant protein disassembles the complex, cristae junctions are lost and the inner-membrane architecture dilates and disorganizes, with nucleoids reduced in number and disorganized.</div>
 
@@ -5783,6 +5834,7 @@ This pathophysiological event involves decreased mitochondrion organization (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dna-instability-with-multiple-deletions" data-dismech-node="Mitochondrial DNA Instability with Multiple Deletions" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial DNA Instability with Multiple Deletions</div>
 
+
                 <div class="item-desc">Repair of the mitochondrial genome after oxidative stress fails, and multiple mitochondrial DNA deletions accumulate in post-mitotic tissue, most conspicuously skeletal muscle. This places FTDALS2 formally within the mitochondrial DNA instability disorders — the feature that separates it from every proteostasis-driven form of ALS or FTD.</div>
 
 
@@ -5921,6 +5973,7 @@ This pathophysiological event involves decreased mitochondrial DNA repair (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-respiratory-chain-deficiency" data-dismech-node="Combined Respiratory Chain Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Respiratory Chain Deficiency</div>
+
 
                 <div class="item-desc">Oxidative phosphorylation fails, with combined respiratory-chain deficiency and abnormal assembly of complex V in patient muscle and respiratory-chain deficiency in patient fibroblasts. In the knock-in mouse the muscle OXPHOS defect is present at three months of age, before any spinal motor neuron has been lost.</div>
 
@@ -6098,6 +6151,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intermembrane-space-proteostasis-failure-and-impaired-cytochrome-c-oxidation" data-dismech-node="Intermembrane-Space Proteostasis Failure and Impaired Cytochrome c Oxidation" data-dismech-type="pathophysiology">
                 <div class="item-name">Intermembrane-Space Proteostasis Failure and Impaired Cytochrome c Oxidation</div>
 
+
                 <div class="item-desc">A second, bioenergetic arm distinct from the stress-signalling arm. Insoluble mutant CHCHD10 disrupts intermembrane-space proteostasis broadly, including proteins of cytochrome c biogenesis, and impairs mitochondrial copper homeostasis and cytochrome c oxidation. That the respiratory defect in mutant mitochondria is corrected by simply adding cytochrome c is what identifies intermembrane-space proteostasis as a proximate lesion rather than a downstream consequence. The rescue was done in cardiac mitochondria, whereas the respiratory-chain deficiency this node feeds is documented in patient skeletal muscle and fibroblasts, so the arm is well evidenced in heart and carried into muscle by mechanism rather than by direct measurement.</div>
 
 
@@ -6171,6 +6225,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maladaptive-mitochondrial-integrated-stress-response" data-dismech-node="Maladaptive Mitochondrial Integrated Stress Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Maladaptive Mitochondrial Integrated Stress Response</div>
+
 
                 <div class="item-desc">Aggregated CHCHD10 triggers a mitochondrial integrated stress response signalled through the OMA1-DELE1-HRI axis and mTORC1, with stress-induced transcription factors, myokine secretion, upregulated serine and one-carbon metabolism, and downregulated respiratory-chain enzymes. The response is maladaptive rather than protective: genetically blunting it delays cardiomyopathy onset. It also does not act upstream of the structural lesion, since blunting it leaves CHCHD10 insolubility, the cristae defect and the OXPHOS impairment untouched.</div>
 
@@ -6359,6 +6414,7 @@ This pathophysiological event involves increased integrated stress response sign
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blocked-cytochrome-c-release-and-impaired-apoptosis" data-dismech-node="Blocked Cytochrome c Release and Impaired Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Blocked Cytochrome c Release and Impaired Apoptosis</div>
 
+
                 <div class="item-desc">Cristae-junction loss traps cytochrome c, and mutant alleles inhibit apoptosis by preventing its release. This runs counter to the usual expectation that neurodegeneration follows excess apoptosis, and it sits alongside the observation that patient iPSC-derived motor neurons are nonetheless hypersensitive to caspase activation by an applied stressor.</div>
 
 
@@ -6507,6 +6563,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-myopathy-with-ragged-red-and-cox-negative-fibres" data-dismech-node="Mitochondrial Myopathy with Ragged-Red and COX-Negative Fibres" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Myopathy with Ragged-Red and COX-Negative Fibres</div>
+
 
                 <div class="item-desc">The muscle lesion of a classical mitochondrial myopathy: ragged-red fibres, cytochrome c oxidase-negative fibres, combined respiratory-chain deficiency and abnormal complex V assembly. In the knock-in mouse this is the earliest tissue to be hit, and it is the finding that would not be expected in ALS or FTD from any other cause.</div>
 
@@ -6725,6 +6782,7 @@ This pathophysiological event involves skeletal myofibre, annotated with skeleta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-axonal-transport" data-dismech-node="Impaired Mitochondrial Axonal Transport" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Axonal Transport</div>
 
+
                 <div class="item-desc">Delivery of mitochondria along the motor axon to the distal compartment fails. The evidence is pharmacological and therefore indirect: a MICOS-directed compound increases axonal mitochondrial movement and degrades syntaphilin (the protein that anchors mitochondria and holds them stationary) in patient-derived motor neurons, which implies the untreated state is under-transported. This node matters disproportionately for a disease whose lesion is distal: the neuromuscular junction is the furthest point from the soma and the most dependent on trafficked mitochondria.</div>
 
 
@@ -6836,6 +6894,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuromuscular-junction-degeneration" data-dismech-node="Neuromuscular Junction Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuromuscular Junction Degeneration</div>
+
 
                 <div class="item-desc">CHCHD10 is highly expressed in the post-synaptic compartment of the neuromuscular junction, and the motor end plate becomes hyper-fragmented. Abnormal CHCHD10 expression is detectable near junctions that are still morphologically intact, so the molecular lesion at the end plate precedes its structural breakdown.</div>
 
@@ -6982,6 +7041,7 @@ This pathophysiological event involves skeletal myofibre, annotated with skeleta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-neuron-degeneration" data-dismech-node="Motor Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor Neuron Degeneration</div>
+
 
                 <div class="item-desc">Loss of upper and lower motor neurons producing the ALS arm of the phenotype. In the mouse this is moderate and late relative to the muscle lesion, which is the model&#39;s central and most contested claim about human disease: that CHCHD10-related motor neuron disease may be driven from muscle rather than originating in the motor neuron.</div>
 
@@ -7205,6 +7265,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tdp-43-cytoplasmic-aggregation-in-spinal-neurons" data-dismech-node="TDP-43 Cytoplasmic Aggregation in Spinal Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">TDP-43 Cytoplasmic Aggregation in Spinal Neurons</div>
 
+
                 <div class="item-desc">Cytoplasmic TDP-43 aggregates are present in spinal neurons at end stage in the knock-in mouse. This is the one point of contact with the canonical proteostatic model of ALS, and it is a late one — worth recording precisely because it shows the mitochondrial and proteostatic accounts converging downstream rather than the mitochondrial lesion being a variant of the proteostatic one.</div>
 
 
@@ -7326,6 +7387,7 @@ This pathophysiological event involves spinal cord motor neuron (CL:0011001). CL
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-frontotemporal-cortical-and-hippocampal-degeneration" data-dismech-node="Frontotemporal Cortical and Hippocampal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Frontotemporal Cortical and Hippocampal Degeneration</div>
+
 
                 <div class="item-desc">The cognitive arm. In patients this is a frontal lobe syndrome with executive, attentional and behavioural impairment; in the knock-in mouse it is impaired learning and memory with reduced long-term potentiation at perforant-pathway/dentate-gyrus synapses, accompanied by aggregates, integrated stress response activation and neuroinflammation.</div>
 
@@ -7454,6 +7516,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-cardiomyopathy" data-dismech-node="Mitochondrial Cardiomyopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Cardiomyopathy</div>
+
 
                 <div class="item-desc">Cardiac involvement is part of the CHCHD10 phenotype in the mouse, where it is fatal before 14 months and associated with enhanced mitophagy. It is prominent in the model and much less so in reported patients, which is a genuine model-to-human divergence rather than an established feature of FTDALS2.</div>
 
@@ -7712,6 +7775,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7785,6 +7851,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7909,6 +7978,9 @@ This clinical feature is Bulbar palsy (HP:0001283), qualified as course progress
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7989,6 +8061,9 @@ This clinical feature is Mitochondrial myopathy (HP:0003737). HP:0003737 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8058,6 +8133,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8122,6 +8200,9 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8198,6 +8279,9 @@ This clinical feature is Ragged-red muscle fibers (HP:0003200). HP:0003200 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8264,6 +8348,9 @@ This clinical feature is Cytochrome C oxidase-negative muscle fibers (HP:0003688
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8365,6 +8452,9 @@ This clinical feature is Frontotemporal dementia (HP:0002145), qualified as cour
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8447,6 +8537,9 @@ This clinical feature is Amyotrophic lateral sclerosis (HP:0007354), qualified a
 
 
                     </div>
+
+
+
 
 
 
@@ -8546,6 +8639,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8615,6 +8711,9 @@ This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8679,6 +8778,9 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8762,6 +8864,9 @@ This clinical feature is Multiple mitochondrial DNA deletions (HP:0003689). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8835,6 +8940,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8949,6 +9057,9 @@ This disease-associated gene is CHCHD10 (hgnc:15559). hgnc:15559 is a gene from 
 
 
                 </div>
+
+
+
 
 
 

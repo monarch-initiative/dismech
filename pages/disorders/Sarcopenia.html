@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5448,6 +5490,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-motor-neuron-loss-and-muscle-fiber-denervation" data-dismech-node="Alpha Motor Neuron Loss and Muscle Fiber Denervation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha Motor Neuron Loss and Muscle Fiber Denervation</div>
 
+
                 <div class="item-desc">Progressive age-related attrition of spinal alpha motor neurons withdraws innervation from the muscle fibers of the lost motor units. Denervated fibers are either rescued by collateral sprouting from a surviving neighbouring motor neuron or are lost, so motor neuron number sets an upper bound on how much contractile tissue can be maintained. Fast-twitch (type II) fibers are preferentially affected.</div>
 
 
@@ -5705,6 +5748,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuromuscular-junction-transmission-failure" data-dismech-node="Neuromuscular Junction Transmission Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuromuscular Junction Transmission Failure</div>
 
+
                 <div class="item-desc">Transmission across the neuromuscular junction fails intermittently in weak older people and in aged rodents, in proportion to the severity of weakness. The lesion is postsynaptic and electrical rather than cholinergic: the skeletal-muscle voltage-gated sodium channel NaV1.4 is locally depleted from the post-synaptic membrane, so the endplate potential less reliably reaches threshold for a propagated action potential. Pharmacological NaV1.4 blockade in young adult rats reproduces the phenotype, and lowering the competing chloride conductance by inhibiting ClC-1 restores it — making this a reversible driver of weakness rather than a downstream marker of fiber loss.</div>
 
 
@@ -5912,6 +5956,7 @@ This pathophysiological event involves neuromuscular junction (GO:0031594). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postsynaptic-nav1-4-depletion" data-dismech-node="Postsynaptic NaV1.4 Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Postsynaptic NaV1.4 Depletion</div>
 
+
                 <div class="item-desc">Immunohistochemistry across humans and rodents shows a localized reduction of the skeletal-muscle voltage-gated sodium channel NaV1.4 (SCN4A) at the post-synaptic membrane of the neuromuscular junction. Acute pharmacological inhibition of NaV1.4 in adult rats is sufficient to reproduce the aged transmission phenotype, establishing the channel loss as a cause of the excitability defect rather than a correlate.</div>
 
 
@@ -6023,6 +6068,7 @@ This pathophysiological event involves decreased voltage-gated sodium channel ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-compensatory-motor-unit-remodeling" data-dismech-node="Failure of Compensatory Motor Unit Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Compensatory Motor Unit Remodeling</div>
+
 
                 <div class="item-desc">Healthy ageing muscle offsets motor neuron loss by collateral reinnervation, enlarging the surviving motor units — measurable as larger motor unit potentials. Sarcopenic muscle does not: motor unit potentials in sarcopenic older men resemble those of young men rather than those of healthy or pre-sarcopenic older men. The distinguishing lesion in sarcopenia is therefore not denervation itself, which is near-universal with age, but the failure of the rescue mechanism.</div>
 
@@ -6145,6 +6191,7 @@ This pathophysiological event occurs in musculature of limb (UBERON:0004480). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction-and-oxidative-stress" data-dismech-node="Mitochondrial Dysfunction and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Dysfunction and Oxidative Stress</div>
+
 
                 <div class="item-desc">Ageing myofibers accumulate mitochondrial damage with reduced biogenesis, impaired oxidative phosphorylation, defective mitophagy, and excess reactive oxygen species. Because mitochondria are enriched on both sides of the neuromuscular junction and support its transmission, this deficit both destabilises the junction and lowers the ATP available for contraction and for protein synthesis, placing it upstream of several other arms of the chain.</div>
 
@@ -6370,6 +6417,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-low-grade-inflammation" data-dismech-node="Chronic Low-Grade Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Low-Grade Inflammation</div>
 
+
                 <div class="item-desc">Persistent sterile elevation of circulating IL-6 and TNF-alpha (&#34;inflammaging&#34;) activates NF-kappaB signalling in myofibers, which drives the atrogene program and suppresses myogenic differentiation. It is a systemic input to muscle rather than a muscle-intrinsic lesion, which is why it links sarcopenia to the wider multimorbidity of ageing.</div>
 
 
@@ -6512,6 +6560,7 @@ This pathophysiological event involves increased positive regulation of NF-kappa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-muscle-satellite-cell-exhaustion" data-dismech-node="Muscle Satellite Cell Exhaustion" data-dismech-type="pathophysiology">
                 <div class="item-name">Muscle Satellite Cell Exhaustion</div>
+
 
                 <div class="item-desc">Skeletal muscle satellite cells — the resident stem cells that repair and regenerate myofibers — decline in number and in proliferative and differentiative capacity with age, in a niche degraded by chronic inflammation, mitochondrial dysfunction, and accumulating senescent cells. Regenerative failure converts what would be recoverable injury into permanent fiber loss.</div>
 
@@ -6699,6 +6748,7 @@ This pathophysiological event involves decreased skeletal muscle tissue regenera
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-declining-anabolic-hormone-signalling" data-dismech-node="Declining Anabolic Hormone Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Declining Anabolic Hormone Signalling</div>
 
+
                 <div class="item-desc">Circulating growth hormone, IGF-1, testosterone, and estrogen fall with age (the sex-hormone half of that claim is what the cited evidence covers directly; the GH/IGF-1 decline is stated by the same reviews but is not separately quoted here). Because IGF-1 signalling through PI3K/AKT is the principal positive regulator of muscle protein content — driving mTOR-dependent synthesis while restraining FOXO-driven atrogene transcription — its withdrawal simultaneously weakens synthesis and releases the brake on degradation.</div>
 
 
@@ -6803,6 +6853,7 @@ This pathophysiological event involves decreased skeletal muscle tissue regenera
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anabolic-resistance" data-dismech-node="Anabolic Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Anabolic Resistance</div>
+
 
                 <div class="item-desc">Ageing muscle mounts a blunted muscle-protein-synthesis response to the same anabolic stimulus — dietary protein and leucine, or a bout of resistance exercise — so that a larger dose is needed to reach the same synthetic rate. Systems-level analysis indicates that no single age-related impairment accounts for it; the resistant phenotype emerges only when several dysregulated nutrient-sensing and signalling processes act together, which is why single-target interventions under-perform.</div>
 
@@ -7000,6 +7051,7 @@ This pathophysiological event involves decreased TORC1 signaling (GO:0038202). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myostatin-and-activin-receptor-signalling" data-dismech-node="Myostatin and Activin Receptor Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Myostatin and Activin Receptor Signalling</div>
 
+
                 <div class="item-desc">Myostatin (GDF8) and activins signal through the type II activin receptors (ActRIIA/ActRIIB) and SMAD2/3 to restrain muscle growth, opposing IGF-1/AKT/mTOR anabolic signalling and reinforcing atrogene expression. The axis is the leading pharmacological target class in sarcopenia. Antibody blockade of the receptors increased thigh muscle volume and lean body mass in a phase-1 study of 24 healthy older and obese adults, which is the available evidence that the pathway restrains mass in ageing muscle — though that study did not reach significance on appendicular lean mass specifically, and no trial has yet shown the pathway is over-active in sarcopenia rather than merely blockable.</div>
 
 
@@ -7141,6 +7193,7 @@ This pathophysiological event involves activin receptor activity (GO:0017002). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ubiquitin-proteasome-myofibrillar-proteolysis" data-dismech-node="Ubiquitin-Proteasome Myofibrillar Proteolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Ubiquitin-Proteasome Myofibrillar Proteolysis</div>
 
+
                 <div class="item-desc">FOXO3, de-repressed by weakened IGF-1/PI3K/AKT signalling and driven further by NF-kappaB, transcribes the muscle-specific E3 ubiquitin ligases atrogin-1 (FBXO32) and MuRF1 (TRIM63), which ubiquitinate myofibrillar proteins for proteasomal destruction. This is the dominant degradative route in skeletal muscle atrophy, acting alongside autophagy-lysosomal, calpain, and caspase systems.</div>
 
 
@@ -7278,6 +7331,7 @@ This pathophysiological event involves increased proteasome-mediated ubiquitin-d
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-negative-net-muscle-protein-balance" data-dismech-node="Negative Net Muscle Protein Balance" data-dismech-type="pathophysiology">
                 <div class="item-name">Negative Net Muscle Protein Balance</div>
 
+
                 <div class="item-desc">The convergence point of the anabolic and catabolic arms: when degradation persistently exceeds synthesis, myofiber protein content falls and atrophy follows. Muscle mass is maintained only while this balance is neutral, so both a blunted synthetic response and an accelerated degradative one produce the same result.</div>
 
 
@@ -7385,6 +7439,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-ii-myofiber-atrophy-and-fiber-type-shift" data-dismech-node="Type II Myofiber Atrophy and Fiber-Type Shift" data-dismech-type="pathophysiology">
                 <div class="item-name">Type II Myofiber Atrophy and Fiber-Type Shift</div>
+
 
                 <div class="item-desc">Fast-twitch type II fibers lose cross-sectional area preferentially, while fibers rescued by collateral reinnervation from slow motor neurons take on type I properties, producing fiber-type grouping and a net shift toward slow phenotype. Because type II fibers generate the highest power, this disproportionately costs explosive strength — the capacity needed to arrest a stumble — which is part of why strength declines faster than mass.</div>
 
@@ -7553,6 +7608,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myosteatosis-and-intramuscular-fibro-adipogenic-infiltration" data-dismech-node="Myosteatosis and Intramuscular Fibro-Adipogenic Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Myosteatosis and Intramuscular Fibro-Adipogenic Infiltration</div>
 
+
                 <div class="item-desc">Space vacated by lost myofibers is filled by adipose and fibrous tissue, and lipid also accumulates ectopically within fibers. Intramuscular ceramide accumulation impairs insulin signalling and suppresses protein synthesis via eIF2-alpha phosphorylation, so myosteatosis is not merely a passive radiological marker of poor muscle quality but feeds back onto anabolic resistance. This arm is amplified in sarcopenic obesity.</div>
 
 
@@ -7653,6 +7709,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-capillary-rarefaction-and-impaired-muscle-perfusion" data-dismech-node="Capillary Rarefaction and Impaired Muscle Perfusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Capillary Rarefaction and Impaired Muscle Perfusion</div>
+
 
                 <div class="item-desc">Skeletal muscle capillary density falls with age and the endothelial glycocalyx regulating exchange across the capillaries that remain is compromised, so less oxygen, substrate, insulin and amino acid reaches the myofiber for a given cardiac output. The proposed proximate cause is a signalling insufficiency rather than an endothelial one: production of the soluble VEGF decoy receptor sFlt-1 rises with age, leaving VEGFA-driven capillary sprouting unable to keep pace. This is a delivery lesion, not a contractile one, which is why it appears here upstream of anabolic resistance and of the bioenergetic deficit rather than alongside them.</div>
 
@@ -7878,6 +7935,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-skeletal-muscle-mass-strength-and-quality" data-dismech-node="Loss of Skeletal Muscle Mass, Strength and Quality" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Skeletal Muscle Mass, Strength and Quality</div>
+
 
                 <div class="item-desc">The clinical convergence node. Reduced contractile tissue, degraded muscle quality, and unreliable neuromuscular transmission together produce the measurable triad on which the diagnosis rests: low strength (the primary criterion), low muscle quantity or quality (confirmatory), and poor physical performance (which grades severity). Strength falls out of proportion to mass, which is why EWGSOP2 moved strength to the front of the definition.</div>
 
@@ -8129,6 +8187,9 @@ This clinical feature is Low muscle strength (grip strength or chair-stand), ann
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8238,6 +8299,9 @@ This clinical feature is Low appendicular skeletal muscle mass index, annotated 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency is recorded. Low muscle mass is confirmatory rather than primary under EWGSOP2, so by construction it is absent in &#34;probable&#34; sarcopenia; the cited snippet gives diagnostic cut-offs, not a frequency.</div>
 
 
@@ -8307,6 +8371,9 @@ This clinical feature is Type 2 muscle fiber atrophy (HP:0003554). HP:0003554 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8392,6 +8459,9 @@ This clinical feature is Slow gait speed and impaired physical performance, anno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8456,6 +8526,9 @@ This clinical feature is Falls (HP:0002527). HP:0002527 is a phenotype from the 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8539,6 +8612,9 @@ This clinical feature is Frailty (HP:0033675). HP:0033675 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8595,6 +8671,9 @@ This clinical feature is Frailty (HP:0033675). HP:0033675 is a phenotype from th
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately unbound. HPO has no term for acquired physical disability or loss of independence in an older adult; the nearest candidates (HP:0012759 Neurodevelopmental abnormality, HP:0001288 Gait disturbance) name something else, and the dismech term contract prefers no term to a wrong one. Revisit if a suitable HP or functional-status term appears.</div>
@@ -8717,6 +8796,9 @@ This disease-associated gene is ACTN3 (hgnc:165). hgnc:165 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8785,6 +8867,9 @@ This disease-associated gene is MSTN (hgnc:4223). hgnc:4223 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -8863,6 +8948,9 @@ This disease-associated gene is SCN4A (hgnc:10591). hgnc:10591 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8933,6 +9021,9 @@ This disease-associated gene is IRS1 (hgnc:6125). hgnc:6125 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -13184,7 +13275,7 @@ This environmental factor is exposure to decreased protein in food (ECTO:0400019
 
                 </div>
 
-                <div class="evidence-snippet">"Nutritional factors are also pivotal: anorexia of aging and reduced dietary protein intake lead to suboptimal nutrient availability."</div>
+                <div class="evidence-snippet">"Nutritional factors are also pivotal: anorexia of aging and reduced dietary protein intake lead to suboptimal nutrient availability. Compounding this is anabolic resistance, a hallmark of aging muscle, in which higher levels of dietary protein and amino acids are required to stimulate muscle..."</div>
 
 
                 <div class="evidence-explanation">Supports reduced dietary protein intake as a nutritional driver in sarcopenia.</div>
@@ -13940,10 +14031,10 @@ This environmental factor is exposure to exercise (ECTO:6000002). ECTO:6000002 i
 
                 </div>
 
-                <div class="evidence-snippet">"Clinically, sarcopenic obese is the most difficult phenotype, as obesity masks low muscle mass."</div>
+                <div class="evidence-snippet">"Sarcopenia diagnostic criteria include muscle mass (MM) and function assessments. ... However, MM requires dual-energy X-ray absorptiometry (DXA) Body Composition (BC) or other costly tools, not readily available. ... This study’s objective was, therefore, to look at two types of practical,..."</div>
 
 
-                <div class="evidence-explanation">Records the diagnostic pitfall specific to has_subtypes#Sarcopenic obesity, where adiposity conceals the muscle deficit.</div>
+                <div class="evidence-explanation">Links sarcopenia muscle-quantity assessment to height-indexed appendicular muscle mass, DXA as the reference method and practical bioimpedance assessment. Ellipses mark omitted text in source order. The excerpt quotes the authors&#39; all-participants conclusion; their discussion separately reports OMRON sensitivity of 93.3%, so that conclusion should not be read as a general sensitivity estimate.</div>
 
 
 
@@ -15575,7 +15666,6 @@ mappings:
     mapping_justification: &gt;-
       ICD-10-CM M62.84 is the billable diagnosis code created for sarcopenia in
       2016; the obsoleted MONDO:0006516 also carried it as an exact match xref.
-
 references:
 - reference: PMID:30312372
   title: &#34;Sarcopenia: revised European consensus on definition and diagnosis.&#34;
@@ -15700,7 +15790,6 @@ prevalence:
     explanation: Source of the severe-sarcopenia prevalence band.
 
 pathophysiology:
-
 - name: Alpha Motor Neuron Loss and Muscle Fiber Denervation
   description: &gt;-
     Progressive age-related attrition of spinal alpha motor neurons withdraws
@@ -16772,7 +16861,11 @@ environmental:
     reference_title: &#34;Molecular constraints of sarcopenia in the ageing muscle.&#34;
     supports: SUPPORT
     evidence_source: OTHER
-    snippet: &#34;Nutritional factors are also pivotal: anorexia of aging and reduced dietary protein intake lead to suboptimal nutrient availability.&#34;
+    snippet: &gt;-
+      Nutritional factors are also pivotal: anorexia of aging and reduced dietary protein
+      intake lead to suboptimal nutrient availability. Compounding this is anabolic
+      resistance, a hallmark of aging muscle, in which higher levels of dietary protein and
+      amino acids are required to stimulate muscle protein synthesis effectively.
     explanation: Supports reduced dietary protein intake as a nutritional driver in sarcopenia.
   influences_mechanisms:
   - target: Anabolic Resistance
@@ -18482,10 +18575,25 @@ diagnosis:
     reference_title: &#34;Addressing the Main Barrier to Sarcopenia Identification: Utility of Practical Office-Based Bioimpedance Tools Vs. Dual Energy X-ray Absorptiometry (DXA) Body Composition for Identification of Low Muscle Mass in Older Adults.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Clinically, sarcopenic obese is the most difficult phenotype, as obesity masks low muscle mass.&#34;
+    snippet: &gt;-
+      Sarcopenia diagnostic criteria include muscle mass (MM) and function assessments. ... However,
+      MM requires dual-energy X-ray absorptiometry (DXA) Body Composition (BC) or other costly
+      tools, not readily available. ... This study’s objective was, therefore, to look at two types
+      of practical, affordable, readily available, direct-to-consumer BIA BC scales, and compare
+      their diagnostic ability for both muscle and fat mass to the current gold-standard of DXA BC.
+      ... Appendicular skeletal muscle mass (ASM) and percentage fat are the only DXA parameters
+      reported in this study. ... Because muscle mass is correlated with body size, once ASM has
+      been calculated it is then adjusted for the height of the individual and reported as
+      ASM/height2, which is the parameter used by EWGSOP to assess muscle mass. ... However, using
+      the manufacturers pre-set algorithms, the OMRON scale (utilising additional hand sensors) was
+      a low-cost, readily available, easy-to-use means to identify all participants found to have
+      low muscle mass by DXA, as well as those with borderline low muscle mass.
     explanation: &gt;-
-      Records the diagnostic pitfall specific to has_subtypes#Sarcopenic obesity,
-      where adiposity conceals the muscle deficit.
+      Links sarcopenia muscle-quantity assessment to height-indexed appendicular muscle mass, DXA as
+      the reference method and practical bioimpedance assessment. Ellipses mark omitted text in
+      source order. The excerpt quotes the authors&#39; all-participants conclusion; their discussion
+      separately reports OMRON sensitivity of 93.3%, so that conclusion should not be read as a
+      general sensitivity estimate.
 - name: SARC-F screening questionnaire
   description: &gt;-
     Five-item self-report screen recommended by EWGSOP2 for case-finding. The
@@ -19452,7 +19560,7 @@ KNOWN GAPS, recorded in review_notes and in discussions. The genetic section is 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Sarcopenia", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sarcopenia", "yamlRevision": "cf4e5298ede5"};
+        const OS_CONFIG = {"diseaseName": "Sarcopenia", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sarcopenia", "yamlRevision": "1549f986a610"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

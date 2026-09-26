@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4871,6 +4913,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-aff4-alf-homology-domain-missense-variant" data-dismech-node="De Novo AFF4 ALF-Homology-Domain Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">De Novo AFF4 ALF-Homology-Domain Missense Variant</div>
 
+
                 <div class="item-desc">A single heterozygous de novo missense variant in AFF4 (chromosome 5q31.1). The reported alleles cluster in a 14-amino-acid stretch (residues ~251-263) of the ALF (AF4/LAF4/FMR2) homology domain: p.Pro253Arg, p.Pro253Leu, p.Thr254Ala, p.Thr254Ser, p.Ala255Thr, p.Ala255Val, p.Arg258Trp, p.Met260Thr and p.Met260Val. p.Arg258Trp is the recurrent allele. This node records the genomic lesion only; no truncating or whole-gene-deletion allele has been implicated, which is itself an argument against haploinsufficiency.</div>
 
 
@@ -4965,6 +5008,8 @@ This genetic context concerns AFF4 (hgnc:17869). hgnc:17869 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4984,6 +5029,9 @@ This genetic context concerns AFF4 (hgnc:17869). hgnc:17869 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">A single de novo heterozygous missense allele in the AFF4 ALF homology domain. The consequence is gain of function - escape from SIAH1-mediated degradation - not haploinsufficiency; no truncating allele has been implicated.</div>
 
@@ -5108,6 +5156,7 @@ This genetic context concerns AFF4 (hgnc:17869). hgnc:17869 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-siah1-mediated-degradation-of-aff4" data-dismech-node="Loss of SIAH1-Mediated Degradation of AFF4" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of SIAH1-Mediated Degradation of AFF4</div>
+
 
                 <div class="item-desc">Wild-type AFF4 is cleared by the SIAH1 ubiquitin E3 ligase through the proteasome. Co-expression experiments in HEK293T cells show that each CHOPS allele resists SIAH1-driven degradation, and proteasome inhibition with MG132 restores wild-type AFF4 levels - confirming the route being escaped is proteasomal. The same escape was demonstrated independently for the later alleles p.Ala255Thr and p.Pro253Arg. This is a protein-turnover defect, distinct from the abundance change it produces.</div>
 
@@ -5347,6 +5396,7 @@ This pathophysiological event involves decreased SIAH1 ubiquitin ligase binding,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-chromatin-associated-aff4-protein" data-dismech-node="Accumulation of Chromatin-Associated AFF4 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Chromatin-Associated AFF4 Protein</div>
+
 
                 <div class="item-desc">AFF4 protein is elevated in patient-derived skin fibroblasts while AFF4 mRNA is unchanged, confirming a post-translational cause. The excess partitions specifically to the chromatin fraction, and the other SEC components ELL2 and CDK9 are not correspondingly increased - so the complex is not simply more abundant; its scaffold is over-represented on chromatin. Deleting the mutant allele in a patient line lowers AFF4 back down, attributing the accumulation to the mutant allele rather than to a trans effect.</div>
 
@@ -5592,6 +5642,7 @@ This pathophysiological event involves super elongation complex (GO:0032783). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-sec-dependent-transcriptional-elongation" data-dismech-node="Dysregulated SEC-Dependent Transcriptional Elongation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated SEC-Dependent Transcriptional Elongation</div>
 
+
                 <div class="item-desc">The super elongation complex mobilises promoter-proximally paused RNA polymerase II, with its P-TEFb (CDK9-cyclin T1) module phosphorylating Ser2 of the RNAP2 C-terminal domain to license productive elongation. With AFF4 over-represented on chromatin, genome-wide binding of AFF4, RNAP2 and cohesin is altered and direct AFF4 target genes are de-repressed: MYC, JUN, TMEM100, ZNF711 and FAM13C are all significantly upregulated in patient fibroblasts. This is the gain-of-function read-out that names the mechanism.</div>
 
 
@@ -5826,6 +5877,7 @@ This pathophysiological event involves increased positive regulation of transcri
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuation-of-enhancer-complexes-and-enhancer-promoter-looping" data-dismech-node="Attenuation of Enhancer Complexes and Enhancer-Promoter Looping" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuation of Enhancer Complexes and Enhancer-Promoter Looping</div>
 
+
                 <div class="item-desc">Chromosome-architecture analysis of CHOPS and CdLS patient cell lines found cohesin, the cohesin loader NIPBL, BRD4 and H3K27ac all reduced at most enhancers, with attenuation of enhancer-promoter loops, while topologically associating domains were preserved. The lesion is therefore at the level of enhancer complex maintenance and looping, not at the level of large-scale genome compartmentalisation - and it is shared with CdLS, which is the structural basis of the two disorders&#39; phenotypic overlap.</div>
 
 
@@ -6045,6 +6097,7 @@ This pathophysiological event involves cohesin complex (GO:0008278). GO:0008278 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-transcriptional-dysregulation-of-developmental-gene-programmes" data-dismech-node="Global Transcriptional Dysregulation of Developmental Gene Programmes" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Transcriptional Dysregulation of Developmental Gene Programmes</div>
 
+
                 <div class="item-desc">Expression profiling of patient fibroblasts identifies hundreds of dysregulated genes. Upregulated genes are enriched for homeobox proteins, skeletal system development and morphogenesis, anterior/posterior pattern formation, and embryonic organ development; downregulated genes are enriched for actin-binding and extracellular-matrix genes. The dysregulated set correlates positively with that of CdLS fibroblasts. This is the disorder-agnostic convergence point that CHOPS syndrome shares with the wider class of transcriptional-regulation disorders.</div>
 
 
@@ -6242,6 +6295,7 @@ This pathophysiological event involves abnormal skeletal system development (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-developmental-malformation-and-growth-dysregulation" data-dismech-node="Multisystem Developmental Malformation and Growth Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Developmental Malformation and Growth Dysregulation</div>
+
 
                 <div class="item-desc">The organism-level convergence node: craniofacial, cardiac, pulmonary, skeletal, genitourinary, ocular and neurodevelopmental structures are all affected, with linear growth failure that is not corrected by a normal growth hormone response. Phenotypes attach here.</div>
 
@@ -6696,6 +6750,7 @@ This pathophysiological event involves abnormal lung development (GO:0030324). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-food-seeking-behaviour-and-impaired-satiety" data-dismech-node="Food-Seeking Behaviour and Impaired Satiety" data-dismech-type="pathophysiology">
                 <div class="item-name">Food-Seeking Behaviour and Impaired Satiety</div>
 
+
                 <div class="item-desc">Excessive food-seeking behaviour with impaired satiety is near-universal and is one of the features that distinguishes CHOPS syndrome from CdLS. On a food-related problems questionnaire originally designed for Prader-Willi syndrome, the impairment-of-satiety items scored highest, every respondent reported their child helping themselves to forbidden food, and most families had found it necessary to lock food away. The node is behavioural and deliberately makes no hypothalamic claim - no mechanism linking AFF4 to appetite regulation has been demonstrated.</div>
 
 
@@ -6958,6 +7013,9 @@ This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7067,6 +7125,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643), qualified as con
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7167,6 +7228,9 @@ This clinical feature is Ventricular septal defect (HP:0001629), qualified as co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7233,6 +7297,9 @@ This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7311,6 +7378,9 @@ This clinical feature is Pulmonary hypertension, annotated with Elevated pulmona
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7384,6 +7454,9 @@ This clinical feature is Dilated aortic root, annotated with Aortic root aneurys
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7448,6 +7521,9 @@ This clinical feature is Moyamoya phenomenon (HP:0011834). HP:0011834 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7585,6 +7661,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7651,6 +7730,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7736,6 +7818,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7814,6 +7899,9 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7880,6 +7968,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7981,6 +8072,9 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8077,6 +8171,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8143,6 +8240,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8226,6 +8326,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8290,6 +8393,9 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8361,6 +8467,9 @@ This clinical feature is Small genitalia, annotated with Hypoplastic male extern
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8466,6 +8575,9 @@ This clinical feature is Horseshoe kidney (HP:0000085), qualified as congenital 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8532,6 +8644,9 @@ This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8635,6 +8750,9 @@ This clinical feature is Coarse facial features (HP:0000280), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8731,6 +8849,9 @@ This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8797,6 +8918,9 @@ This clinical feature is Highly arched eyebrow (HP:0002553). HP:0002553 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8873,6 +8997,9 @@ This clinical feature is Long eyelashes (HP:0000527). HP:0000527 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8937,6 +9064,9 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9013,6 +9143,9 @@ This clinical feature is Wide anterior fontanel (HP:0000260). HP:0000260 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9077,6 +9210,9 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9153,6 +9289,9 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9217,6 +9356,9 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9316,6 +9458,9 @@ This clinical feature is Tooth agenesis (HP:0009804). HP:0009804 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9391,6 +9536,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9476,6 +9624,9 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9551,6 +9702,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9650,6 +9804,9 @@ This clinical feature is Small hand (HP:0200055). HP:0200055 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9727,6 +9884,9 @@ This clinical feature is Abnormal form of the vertebral bodies (HP:0003312). HP:
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9821,6 +9981,9 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9922,6 +10085,9 @@ This clinical feature is Hypoplastic long bones, annotated with Short long bone 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10013,6 +10179,9 @@ This clinical feature is Lipoma of the filum terminale, annotated with Filum ter
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10122,6 +10291,9 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as infa
 
 
                     </div>
+
+
+
 
 
 
@@ -10252,6 +10424,9 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10320,6 +10495,9 @@ This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10421,6 +10599,9 @@ This clinical feature is Disruptive and self-absorbed behaviour, annotated with 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10517,6 +10698,9 @@ This clinical feature is Temper tantrums, annotated with Abnormal temper tantrum
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10585,6 +10769,9 @@ This clinical feature is Over-affectionate behaviour, annotated with Overfriendl
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10661,6 +10848,9 @@ This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10727,6 +10917,9 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10801,6 +10994,9 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10869,6 +11065,9 @@ This clinical feature is Low-lying conus medullaris, annotated with Abnormal con
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10967,6 +11166,9 @@ This clinical feature is Chronic lung disease (HP:0006528), qualified as tempora
 
 
                     </div>
+
+
+
 
 
 
@@ -11097,6 +11299,9 @@ This clinical feature is Laryngomalacia (HP:0001601), qualified as congenital on
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11188,6 +11393,9 @@ This clinical feature is Subglottic stenosis (HP:0001607). HP:0001607 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11286,6 +11494,9 @@ This clinical feature is Short stature (HP:0004322), qualified as course progres
 
 
                     </div>
+
+
+
 
 
 
@@ -11407,6 +11618,9 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11550,6 +11764,9 @@ This disease-associated gene is AFF4 (hgnc:17869). hgnc:17869 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 

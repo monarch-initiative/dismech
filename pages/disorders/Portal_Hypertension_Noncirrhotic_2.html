@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4583,6 +4625,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-gimap5-loss-of-function" data-dismech-node="Biallelic GIMAP5 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic GIMAP5 Loss of Function</div>
 
+
                 <div class="item-desc">Two damaged GIMAP5 alleles leave little or no functional GTPase. GIMAP5 is expressed selectively in lymphocytes and endothelial cells, which is what confines the disease to those two compartments despite the gene being lost everywhere.</div>
 
 
@@ -4593,6 +4636,8 @@
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4612,6 +4657,9 @@
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4750,6 +4798,7 @@ This pathophysiological event involves lysosomal membrane (GO:0005765). GO:00057
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unrestrained-ck2-activation-of-ceramide-synthases" data-dismech-node="Unrestrained CK2 Activation of Ceramide Synthases" data-dismech-type="pathophysiology">
                 <div class="item-name">Unrestrained CK2 Activation of Ceramide Synthases</div>
 
+
                 <div class="item-desc">Without GIMAP5 to attenuate it, protein kinase CK2 over-activates ceramide synthases. This is the shared upstream step proposed for both arms of the disease.</div>
 
 
@@ -4864,6 +4913,7 @@ This pathophysiological event involves increased ceramide metabolic process (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-long-chain-ceramide-accumulation" data-dismech-node="Long-Chain Ceramide Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Long-Chain Ceramide Accumulation</div>
 
+
                 <div class="item-desc">Pathological accumulation of long-chain ceramides, the defining metabolic signature of GIMAP5 deficiency. That inhibiting either CK2 or ceramide synthase rescues the cells is what makes this a causal step rather than a correlate.</div>
 
 
@@ -4939,6 +4989,7 @@ This pathophysiological event involves increased ceramide metabolic process (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cellular-senescence-in-endothelium-and-lymphocytes" data-dismech-node="Cellular Senescence in Endothelium and Lymphocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Cellular Senescence in Endothelium and Lymphocytes</div>
+
 
                 <div class="item-desc">Senescence and organelle dysfunction in the GIMAP5-expressing compartments. From here the disease divides into a hepatic vascular arm and an immune arm, which proceed independently of each other.</div>
 
@@ -5088,6 +5139,7 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-gata4-in-liver-sinusoidal-endothelial-cells" data-dismech-node="Reduced GATA4 in Liver Sinusoidal Endothelial Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced GATA4 in Liver Sinusoidal Endothelial Cells</div>
 
+
                 <div class="item-desc">Loss of GATA4, the transcription factor required to specify liver sinusoidal endothelial cell identity. This is the step that turns a generic endothelial defect into a specifically hepatic one.</div>
 
 
@@ -5235,6 +5287,7 @@ This pathophysiological event involves decreased endothelial cell differentiatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sinusoidal-capillarization" data-dismech-node="Sinusoidal Capillarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Sinusoidal Capillarization</div>
+
 
                 <div class="item-desc">The specialized fenestrated sinusoidal endothelium is replaced by capillarized endothelium, and macrovascular hepatic endothelial cells are reduced. Critically this happens when GIMAP5 is deleted in endothelium alone, which is what establishes the lesion as endothelial-intrinsic rather than a consequence of the immune disease.</div>
 
@@ -5412,6 +5465,7 @@ This pathophysiological event occurs in hepatic sinusoid (UBERON:0001281). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-intrahepatic-vascular-resistance" data-dismech-node="Increased Intrahepatic Vascular Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Intrahepatic Vascular Resistance</div>
 
+
                 <div class="item-desc">Raised resistance to portal venous flow within a liver that is not cirrhotic. This is the defining haemodynamic abnormality, and the absence of cirrhosis, fibrosis and portal vein thrombosis is what makes the entity noncirrhotic portal hypertension rather than ordinary chronic liver disease.</div>
 
 
@@ -5569,6 +5623,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphocyte-apoptosis-and-impaired-proliferation" data-dismech-node="Lymphocyte Apoptosis and Impaired Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphocyte Apoptosis and Impaired Proliferation</div>
+
 
                 <div class="item-desc">Spontaneous T and NK cell apoptosis with impaired proliferation. GIMAP5 has long been recognized as an anti-apoptotic factor required for lymphocyte survival, and this arm of the disease was characterized in rodents well before the human portal hypertension phenotype was described.</div>
 
@@ -6042,6 +6097,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6113,6 +6171,9 @@ This clinical feature is Decreased total lymphocyte count (HP:0001888). HP:00018
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6179,6 +6240,9 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6264,6 +6328,9 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6330,6 +6397,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6440,6 +6510,9 @@ This clinical feature is Esophageal varix (HP:0002040). HP:0002040 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6506,6 +6579,9 @@ This clinical feature is Nodular regenerative hyperplasia of liver (HP:0011954).
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6582,6 +6658,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6653,6 +6732,9 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6719,6 +6801,9 @@ This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6804,6 +6889,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6884,6 +6972,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6950,6 +7041,9 @@ This clinical feature is Elevated gamma-glutamyltransferase level (HP:0030948). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7070,6 +7164,9 @@ This disease-associated gene is GIMAP5 (hgnc:18005). hgnc:18005 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7142,6 +7239,12 @@ This disease-associated gene is GIMAP5 (hgnc:18005). hgnc:18005 is a gene from t
         p.Leu204Pro
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The recurrent allele, seen homozygously and in compound heterozygosity across independent reports. It is the most frequent of the reported variants in population databases, which is why it is the one most likely to be encountered.</div>
@@ -7227,6 +7330,12 @@ This disease-associated gene is GIMAP5 (hgnc:18005). hgnc:18005 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous in two affected siblings of kindred 1, the offspring of a first-cousin union. Absent from gnomAD.</div>
 
 
@@ -7308,6 +7417,12 @@ This disease-associated gene is GIMAP5 (hgnc:18005). hgnc:18005 is a gene from t
         p.Leu223Phe
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous in four affected members of kindred 2, the largest single sibship in the founding cohort. Note the source is internally inconsistent about this residue: the running text and the summary of all four mutations give p.L223F, while the pedigree figure legend gives p.L223P. The text form is used here and the discrepancy is recorded rather than silently resolved.</div>
@@ -7393,6 +7508,12 @@ This disease-associated gene is GIMAP5 (hgnc:18005). hgnc:18005 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous in a child of a first-cousin union with noncirrhotic portal hypertension. Seen once in more than 251,400 sequenced alleles.</div>
 
 
@@ -7474,6 +7595,12 @@ This disease-associated gene is GIMAP5 (hgnc:18005). hgnc:18005 is a gene from t
         p.Arg214Ter
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A nonsense allele reported in compound heterozygosity with p.Leu204Pro, in a combination that leaves no detectable GIMAP5 protein.</div>

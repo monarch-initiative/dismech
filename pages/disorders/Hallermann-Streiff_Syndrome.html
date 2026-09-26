@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4351,6 +4393,13 @@ This entry is therefore deliberately mechanism-light. The pathophysiology sectio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unresolved-etiology" data-dismech-node="Unresolved Etiology" data-dismech-type="pathophysiology">
                 <div class="item-name">Unresolved Etiology</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">No mechanism is known. HSS is suspected to have a genetic basis, and non-recurrent deleterious variants in GJA1, CHD6 and ZMPSTE24 have been noted in individuals carrying the diagnosis, but none recurs across patients and the etiology of almost all cases remains unknown. There is no genetic test and no biomarker, which has itself hampered accurate delineation of the condition. This node exists to record the gap explicitly rather than to leave the pathophysiology section empty or to promote a candidate gene to a causal claim it cannot support.</div>
 
 
@@ -4554,7 +4603,7 @@ This entry is therefore deliberately mechanism-light. The pathophysiology sectio
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anaesthetic Airway Precautions\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recognizing the syndrome should itself change anaesthetic planning. Mandibular hypoplasia and microstomia make intubation difficult, and difficulty maintaining airway patency during induction has been reported. This is a safety instruction attached to any procedure requiring anaesthesia, not a treatment of the disorder.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Congenital cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000519\"}}, {\"id\": \"Cor pulmonale\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Not a primary cardiac feature but the endpoint of untreated upper-airway obstruction: small nares and micrognathia-related glossoptosis produce chronic obstruction, and sustained obstruction loads the right heart. This is the pathway that makes respiratory death a real risk in infancy and the reason airway management is the priority in this disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001648\"}}, {\"id\": \"Dental anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000164\"}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Together with midface hypoplasia, the anatomical basis of both the airway obstruction and the difficult intubation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000347\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Midface hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011800\"}}, {\"id\": \"Multidisciplinary Craniofacial and Dental Reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Staged craniofacial and dental management across the growth period. A 20-year single-patient follow-up reports early genioplasty to improve facial growth and dental implantation before growth completion to provide orthodontic anchorage, with complementary orthognathic surgery. The evidence is one patient followed well, not a cohort.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Natal teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A specific and unusual instance of the dental anomalies, and one of the features that makes the diagnosis recognizable at birth rather than later.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000695\"}}, {\"id\": \"Non-Invasive Ventilation for Obstructive Sleep Apnoea\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management of HSS-related obstructive sleep apnoea is poorly documented, and tracheostomy has been the default when obstruction is severe. Non-invasive ventilation is the alternative worth trying first: in a reported infant with an obstructive apnoea-hypopnoea index of 140 per hour, for whom tracheostomy had been proposed, NIV was chosen after multidisciplinary discussion and succeeded. One case is not a guideline, but it is the best-documented airway option in a disorder where the airway is the main threat in infancy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Obstructive sleep apnoea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The consequence of upper-airway narrowness from midface hypoplasia and micrognathia, and the respiratory issue that dominates infancy. It can be severe: one reported infant reached an obstructive apnoea-hypopnoea index of 140 per hour with 41% of the night below 90% saturation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"Progeroid features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported as an accompanying feature rather than a cardinal one, and the reason HSS is repeatedly compared with the progeroid laminopathies. The source hedges (\\\"might also present with\\\"), so this is curated conservatively.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007495\"}}, {\"id\": \"Recognizable facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The feature that places HSS among the primordial dwarfisms in the ISDS nosology.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skin atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004334\"}}, {\"id\": \"Sparse hair with hypotrichosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008070\"}}, {\"id\": \"Unresolved Etiology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"No mechanism is known. HSS is suspected to have a genetic basis, and non-recurrent deleterious variants in GJA1, CHD6 and ZMPSTE24 have been noted in individuals carrying the diagnosis, but none recurs across patients and the etiology of almost all cases remains unknown. There is no genetic test and no biomarker, which has itself hampered accurate delineation of the condition. This node exists to record the gap explicitly rather than to leave the pathophysiology section empty or to promote a candidate gene to a causal claim it cannot support.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"Unresolved Etiology\", \"target\": \"Congenital cataracts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings. Attached to the etiology node because no mechanism is known - the edge records that the feature belongs to the entity, not that a mechanism explains it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings; see the caveat on the cataract edge.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Recognizable facial features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings; see the caveat on the cataract edge.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Sparse hair with hypotrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings; see the caveat on the cataract edge.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Skin atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings; see the caveat on the cataract edge.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Dental anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings; see the caveat on the cataract edge.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings, and what places the disorder in this nosology group; see the caveat on the cataract edge.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the craniofacial gestalt, and the anatomical basis of the airway obstruction below.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Midface hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the craniofacial gestalt, and with the micrognathia the anatomical basis of the airway obstruction.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Progeroid features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attached here on the same basis as the cardinal findings - the association is recognized, no mechanism is known. Worth noting that one of the three candidate genes named on this node, ZMPSTE24, causes laminopathies with premature aging, so the progeroid overlap is the feature that has most often motivated candidate-gene work.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Natal teeth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A specific instance of the dental anomalies already attached here; the same caveat applies - the edge records membership, not a mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Obstructive sleep apnoea\", \"target\": \"Cor pulmonale\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Chronic upper-airway obstruction produces sustained hypoxaemia and pulmonary vasoconstriction, and the right heart fails under the load. The intermediate steps are standard cor pulmonale physiology rather than anything specific to this disorder, hence INDIRECT_KNOWN_INTERMEDIATES.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Micrognathia\", \"target\": \"Obstructive sleep apnoea\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Mandibular hypoplasia narrows the upper airway; with midface hypoplasia it is the anatomical cause of the obstructive apnoea.\"}, {\"source\": \"Non-Invasive Ventilation for Obstructive Sleep Apnoea\", \"target\": \"Obstructive sleep apnoea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anaesthetic Airway Precautions\", \"target\": \"Micrognathia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Craniofacial and Dental Reconstruction\", \"target\": \"Dental anomalies\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anaesthetic Airway Precautions\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recognizing the syndrome should itself change anaesthetic planning. Mandibular hypoplasia and microstomia make intubation difficult, and difficulty maintaining airway patency during induction has been reported. This is a safety instruction attached to any procedure requiring anaesthesia, not a treatment of the disorder.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Congenital cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000519\"}}, {\"id\": \"Cor pulmonale\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Not a primary cardiac feature but the endpoint of untreated upper-airway obstruction: small nares and micrognathia-related glossoptosis produce chronic obstruction, and sustained obstruction loads the right heart. This is the pathway that makes respiratory death a real risk in infancy and the reason airway management is the priority in this disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001648\"}}, {\"id\": \"Dental anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000164\"}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Together with midface hypoplasia, the anatomical basis of both the airway obstruction and the difficult intubation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000347\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Midface hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011800\"}}, {\"id\": \"Multidisciplinary Craniofacial and Dental Reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Staged craniofacial and dental management across the growth period. A 20-year single-patient follow-up reports early genioplasty to improve facial growth and dental implantation before growth completion to provide orthodontic anchorage, with complementary orthognathic surgery. The evidence is one patient followed well, not a cohort.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Natal teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A specific and unusual instance of the dental anomalies, and one of the features that makes the diagnosis recognizable at birth rather than later.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000695\"}}, {\"id\": \"Non-Invasive Ventilation for Obstructive Sleep Apnoea\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management of HSS-related obstructive sleep apnoea is poorly documented, and tracheostomy has been the default when obstruction is severe. Non-invasive ventilation is the alternative worth trying first: in a reported infant with an obstructive apnoea-hypopnoea index of 140 per hour, for whom tracheostomy had been proposed, NIV was chosen after multidisciplinary discussion and succeeded. One case is not a guideline, but it is the best-documented airway option in a disorder where the airway is the main threat in infancy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Obstructive sleep apnoea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The consequence of upper-airway narrowness from midface hypoplasia and micrognathia, and the respiratory issue that dominates infancy. It can be severe: one reported infant reached an obstructive apnoea-hypopnoea index of 140 per hour with 41% of the night below 90% saturation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"Progeroid features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported as an accompanying feature rather than a cardinal one, and the reason HSS is repeatedly compared with the progeroid laminopathies. The source hedges (\\\"might also present with\\\"), so this is curated conservatively.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007495\"}}, {\"id\": \"Recognizable facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The feature that places HSS among the primordial dwarfisms in the ISDS nosology.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skin atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004334\"}}, {\"id\": \"Sparse hair with hypotrichosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008070\"}}, {\"id\": \"Unresolved Etiology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"No mechanism is known. HSS is suspected to have a genetic basis, and non-recurrent deleterious variants in GJA1, CHD6 and ZMPSTE24 have been noted in individuals carrying the diagnosis, but none recurs across patients and the etiology of almost all cases remains unknown. There is no genetic test and no biomarker, which has itself hampered accurate delineation of the condition. This node exists to record the gap explicitly rather than to leave the pathophysiology section empty or to promote a candidate gene to a causal claim it cannot support.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"mechanism_confidence\": \"HYPOTHETICAL\"}}], \"edges\": [{\"source\": \"Unresolved Etiology\", \"target\": \"Congenital cataracts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings. Attached to the etiology node because no mechanism is known - the edge records that the feature belongs to the entity, not that a mechanism explains it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings; see the caveat on the cataract edge.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Recognizable facial features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings; see the caveat on the cataract edge.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Sparse hair with hypotrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings; see the caveat on the cataract edge.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Skin atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings; see the caveat on the cataract edge.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Dental anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings; see the caveat on the cataract edge.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the seven cardinal findings, and what places the disorder in this nosology group; see the caveat on the cataract edge.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the craniofacial gestalt, and the anatomical basis of the airway obstruction below.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Midface hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the craniofacial gestalt, and with the micrognathia the anatomical basis of the airway obstruction.\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Progeroid features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attached here on the same basis as the cardinal findings - the association is recognized, no mechanism is known. Worth noting that one of the three candidate genes named on this node, ZMPSTE24, causes laminopathies with premature aging, so the progeroid overlap is the feature that has most often motivated candidate-gene work.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Unresolved Etiology\", \"target\": \"Natal teeth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A specific instance of the dental anomalies already attached here; the same caveat applies - the edge records membership, not a mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Obstructive sleep apnoea\", \"target\": \"Cor pulmonale\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Chronic upper-airway obstruction produces sustained hypoxaemia and pulmonary vasoconstriction, and the right heart fails under the load. The intermediate steps are standard cor pulmonale physiology rather than anything specific to this disorder, hence INDIRECT_KNOWN_INTERMEDIATES.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Micrognathia\", \"target\": \"Obstructive sleep apnoea\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Mandibular hypoplasia narrows the upper airway; with midface hypoplasia it is the anatomical cause of the obstructive apnoea.\"}, {\"source\": \"Non-Invasive Ventilation for Obstructive Sleep Apnoea\", \"target\": \"Obstructive sleep apnoea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anaesthetic Airway Precautions\", \"target\": \"Micrognathia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Craniofacial and Dental Reconstruction\", \"target\": \"Dental anomalies\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4621,6 +4670,9 @@ This clinical feature is Cor pulmonale (HP:0001648). HP:0001648 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4708,6 +4760,9 @@ This clinical feature is Congenital cataract, annotated with Developmental catar
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4774,6 +4829,9 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4861,6 +4919,9 @@ This clinical feature is Recognizable facial gestalt (dyscephaly), annotated wit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4934,6 +4995,9 @@ This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5000,6 +5064,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5085,6 +5152,9 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5153,6 +5223,9 @@ This clinical feature is Natal teeth, annotated with Natal tooth (HP:0000695). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5238,6 +5311,9 @@ This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5311,6 +5387,9 @@ This clinical feature is Dermal atrophy (HP:0004334). HP:0004334 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5379,6 +5458,9 @@ This clinical feature is Aspects of premature aging, annotated with Prematurely 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5461,6 +5543,9 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5548,6 +5633,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4633,6 +4675,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nephritogenic-antigen-exposure-and-loss-of-tolerance" data-dismech-node="Nephritogenic Antigen Exposure and Loss of Tolerance" data-dismech-type="pathophysiology">
                 <div class="item-name">Nephritogenic Antigen Exposure and Loss of Tolerance</div>
 
+
                 <div class="item-desc">The initiating step is the appearance of a nephritogenic antigen-antibody pairing. This may be a foreign antigen from infection (streptococcal SpeB or NAPlr, hepatitis B or C, staphylococcal or endocarditis-associated antigen), a self antigen against which tolerance is lost (the alpha-3 chain of type IV collagen in anti-GBM disease, myeloperoxidase or proteinase-3 in ANCA disease, PLA2R1 in membranous nephropathy, nuclear antigens in lupus nephritis), or an aberrantly glycosylated self immunoglobulin (galactose-deficient IgA1). GN is correspondingly grouped by immunopathogenesis rather than by histological pattern, because the lesion pattern does not identify the cause.</div>
 
 
@@ -4915,6 +4958,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glomerular-immune-complex-deposition" data-dismech-node="Glomerular Immune Complex Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Glomerular Immune Complex Deposition</div>
 
+
                 <div class="item-desc">Circulating immune complexes are trapped in the glomerulus, or complexes form in situ when antibody binds an antigen already planted in the capillary wall. Deposit location determines the clinical syndrome: mesangial and subendothelial deposits sit on the blood side of the basement membrane, where they are accessible to circulating inflammatory cells and produce a nephritic, proliferative lesion; subepithelial deposits are separated from the circulation by the basement membrane and instead injure the podocyte.</div>
 
 
@@ -5114,6 +5158,7 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anti-gbm-autoantibody-binding-to-type-iv-collagen" data-dismech-node="Anti-GBM Autoantibody Binding to Type IV Collagen" data-dismech-type="pathophysiology">
                 <div class="item-name">Anti-GBM Autoantibody Binding to Type IV Collagen</div>
 
+
                 <div class="item-desc">In anti-GBM disease, autoantibody binds a conformational epitope on the non-collagenous (NC1) domain of the alpha-3 chain of type IV collagen, an antigen normally sequestered within the hexameric collagen network of the glomerular and alveolar basement membrane. Because the antibody engages a fixed structural antigen along the whole capillary wall, injury is near-simultaneous across all glomeruli, which is why this subtype so characteristically produces widespread crescents and rapidly progressive disease, frequently with concurrent alveolar hemorrhage.</div>
 
 
@@ -5277,6 +5322,7 @@ This pathophysiological event occurs in glomerular basement membrane (UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anca-mediated-neutrophil-activation" data-dismech-node="ANCA-Mediated Neutrophil Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">ANCA-Mediated Neutrophil Activation</div>
+
 
                 <div class="item-desc">In pauci-immune GN, cytokine-primed neutrophils translocate myeloperoxidase and proteinase-3 to their surface, where circulating ANCA engages them and triggers full activation: adhesion to the glomerular endothelium, respiratory burst, degranulation, and release of neutrophil extracellular traps. Because injury is delivered by the activated neutrophil rather than by deposited complexes, immunofluorescence shows little or no immunoglobulin — the defining &#34;pauci-immune&#34; feature. Complement, particularly the C5a-C5aR axis, amplifies the priming loop and is the target of avacopan.</div>
 
@@ -5512,6 +5558,7 @@ This pathophysiological event involves increased neutrophil extracellular trap f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alternative-pathway-complement-dysregulation" data-dismech-node="Alternative Pathway Complement Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alternative Pathway Complement Dysregulation</div>
 
+
                 <div class="item-desc">In C3 glomerulopathy the fluid-phase alternative pathway escapes regulation, through acquired autoantibodies such as C3 nephritic factor that stabilize the C3 convertase, or through rare variants in complement genes (C3, CFH, CFI, CFB, CD46, CFHR1, CFHR5, DGKE). Continuous C3 turnover deposits C3 fragments in the glomerulus without accompanying immunoglobulin, giving the C3-dominant immunofluorescence pattern that defines the entity. This is an autoinflammatory route into GN: no adaptive antigen-antibody pairing is required.</div>
 
 
@@ -5625,6 +5672,7 @@ This pathophysiological event involves increased complement activation, alternat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-activation" data-dismech-node="Complement Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement Activation</div>
+
 
                 <div class="item-desc">Complement is the principal amplifier converting antibody or convertase deposition into tissue injury. Classical-pathway activation by deposited IgG or IgM, lectin-pathway activation, and alternative-pathway amplification all converge on C3 cleavage, generating the anaphylatoxins C3a and C5a and the C5b-9 membrane attack complex. C5a is a potent neutrophil chemoattractant and primer; C5b-9 injures glomerular cells sublytically. Consumption of complement is clinically visible as a depressed serum C3 in post-infectious GN, C3 glomerulopathy, and lupus nephritis.</div>
 
@@ -5773,6 +5821,7 @@ This pathophysiological event involves increased complement activation, classica
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leukocyte-recruitment-and-glomerular-inflammation" data-dismech-node="Leukocyte Recruitment and Glomerular Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Leukocyte Recruitment and Glomerular Inflammation</div>
+
 
                 <div class="item-desc">Complement fragments, Fc-receptor engagement on deposited complexes, and activated resident glomerular cells recruit neutrophils and monocytes into the capillary tuft and mesangium. Infiltrating and resident cells release cytokines, chemokines, reactive oxygen species, and proteases. Effector CD4 T cell (Th1/Th17) and CD8 T cell responses contribute substantially to the severe crescentic phenotype. Mesangial and endothelial cells proliferate, producing the endocapillary and mesangial hypercellularity seen on biopsy.</div>
 
@@ -6096,6 +6145,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glomerular-capillary-wall-injury-and-necrosis" data-dismech-node="Glomerular Capillary Wall Injury and Necrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Glomerular Capillary Wall Injury and Necrosis</div>
 
+
                 <div class="item-desc">The converging effector mechanisms damage the three-layered filtration barrier. Endothelial injury and basement membrane degradation breach the capillary wall, allowing erythrocytes to escape into the urinary space — the dysmorphic hematuria and red cell casts that define a glomerular bleeding source — and permitting protein leak. In severe necrotizing disease, fibrinoid necrosis and frank rupture of the capillary wall spill fibrin and plasma proteins into Bowman&#39;s space.</div>
 
 
@@ -6339,6 +6389,7 @@ This pathophysiological event occurs in glomerular basement membrane (UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subepithelial-immune-deposition-and-podocyte-injury" data-dismech-node="Subepithelial Immune Deposition and Podocyte Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Subepithelial Immune Deposition and Podocyte Injury</div>
 
+
                 <div class="item-desc">The nephrotic arm of GN, exemplified by membranous nephropathy. Antibody against a podocyte surface antigen (PLA2R1, THSD7A, and a growing list of minor antigens) forms immune deposits in the subepithelial space. Because the basement membrane separates these deposits from the circulation, circulating leukocytes are not recruited and the lesion is not inflammatory; instead, locally generated C5b-9 injures the podocyte, disorganizing its actin cytoskeleton. The consequence is nephrotic-range proteinuria without the hematuria-dominant nephritic picture. This node is the point of contact with the conserved podocytopathy module.</div>
 
 
@@ -6511,6 +6562,7 @@ This pathophysiological event involves abnormal actin cytoskeleton organization 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-crescent-formation" data-dismech-node="Crescent Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Crescent Formation</div>
+
 
                 <div class="item-desc">Where the capillary wall has ruptured, fibrin, plasma proteins, and inflammatory cells enter Bowman&#39;s space and drive proliferation of parietal epithelial cells, with recruited macrophages, into the characteristic crescent. Crescents are the histological correlate of rapidly progressive glomerulonephritis: they compress the tuft, obliterate Bowman&#39;s space, and, if they organize into fibrous crescents, render the glomerulus irrecoverable. Crescentic disease is the shared severe endpoint of anti-GBM disease, ANCA-associated GN, and severe immune-complex GN, and is what makes prompt immunosuppression time-critical.</div>
 
@@ -6697,6 +6749,7 @@ This pathophysiological event involves increased epithelial cell proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nephron-loss-and-progressive-kidney-failure" data-dismech-node="Nephron Loss and Progressive Kidney Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Nephron Loss and Progressive Kidney Failure</div>
+
 
                 <div class="item-desc">Glomeruli that are not repaired sclerose. Loss of filtering units imposes hyperfiltration on those remaining, and persistent proteinuria drives tubulointerstitial inflammation and fibrosis. The result is progressive nephron loss and chronic kidney disease, which for a substantial minority of patients ends in kidney failure requiring dialysis or transplantation. This convergent endpoint is why glomerulonephritis collectively accounts for a large share of the global chronic kidney disease burden.</div>
 
@@ -6969,6 +7022,9 @@ This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7042,6 +7098,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7125,6 +7184,9 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7189,6 +7251,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7263,6 +7328,9 @@ This clinical feature is Decreased glomerular filtration rate (HP:0012213). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7327,6 +7395,9 @@ This clinical feature is Oliguria (HP:0100520). HP:0100520 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7401,6 +7472,9 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7465,6 +7539,9 @@ This clinical feature is Crescentic glomerulonephritis (HP:0008653). HP:0008653 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7539,6 +7616,9 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7603,6 +7683,9 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7686,6 +7769,9 @@ This clinical feature is Decreased circulating complement C3 concentration (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7764,6 +7850,9 @@ This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7833,6 +7922,9 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7897,6 +7989,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8017,6 +8112,9 @@ This disease-associated gene is CFH (hgnc:4883). hgnc:4883 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8087,6 +8185,9 @@ This disease-associated gene is C3 (hgnc:1318). hgnc:1318 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
 
@@ -8165,6 +8266,9 @@ This disease-associated gene is CFHR5 (hgnc:24668). hgnc:24668 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8235,6 +8339,9 @@ This disease-associated gene is CFI (hgnc:5394). hgnc:5394 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -8313,6 +8420,9 @@ This disease-associated gene is CFB (hgnc:1037). hgnc:1037 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8383,6 +8493,9 @@ This disease-associated gene is CD46 (hgnc:6953). hgnc:6953 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -8461,6 +8574,9 @@ This disease-associated gene is DGKE (hgnc:2852). hgnc:2852 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8531,6 +8647,9 @@ This disease-associated gene is PRTN3 (hgnc:9495). hgnc:9495 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -8609,6 +8728,9 @@ This disease-associated gene is MPO (hgnc:7218). hgnc:7218 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8679,6 +8801,9 @@ This disease-associated gene is PLA2R1 (hgnc:9042). hgnc:9042 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -8757,6 +8882,9 @@ This disease-associated gene is HLA-DQA1 (hgnc:4942). hgnc:4942 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8827,6 +8955,9 @@ This disease-associated gene is APOL1 (hgnc:618). hgnc:618 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 

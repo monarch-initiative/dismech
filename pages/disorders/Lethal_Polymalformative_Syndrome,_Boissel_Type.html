@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4832,6 +4874,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-fto-missense-variant" data-dismech-node="Biallelic FTO missense variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic FTO missense variant</div>
 
+
                 <div class="item-desc">Five homozygous missense alleles have been reported: R316Q, S319F, R322Q and H271P in the catalytic domain, and R96P in the substrate-recognition lid outside the catalytic site. Four of the five have been characterised biochemically and reduce or abolish FTO demethylase activity, so the characterised alleles converge on the same molecular consequence from two different parts of the protein. H271P has not been assayed for demethylase activity in the report describing it; the case for it rests on homozygosity in a consanguineous patient, absence from population databases, and its location in the catalytic domain.</div>
 
 
@@ -4891,6 +4934,8 @@ This pathophysiological event involves FTO (hgnc:24678). hgnc:24678 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4906,6 +4951,9 @@ This pathophysiological event involves FTO (hgnc:24678). hgnc:24678 is a gene fr
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous missense alleles, four of the five with demonstrated loss of enzymatic function; the fifth (H271P) has not been directly assayed. No truncating or null allele has been reported in this disease, which leaves open whether complete absence of FTO protein is compatible with human life.</div>
 
@@ -5003,6 +5051,7 @@ This pathophysiological event involves FTO (hgnc:24678). hgnc:24678 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-fto-2-oxoglutarate-dependent-demethylase-activity" data-dismech-node="Loss of FTO 2-oxoglutarate-dependent demethylase activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of FTO 2-oxoglutarate-dependent demethylase activity</div>
+
 
                 <div class="item-desc">FTO is an Fe(II)- and 2-oxoglutarate-dependent dioxygenase of the AlkB family. Which of its substrates matters for this disease is not established: the 2009 index report assayed 3-methylthymidine turnover in single-stranded DNA, predating the identification of FTO as the first mRNA m6A demethylase, while the 2023 report assayed m6A. No study has shown which activity the malformation phenotype depends on.</div>
 
@@ -5212,6 +5261,7 @@ This pathophysiological event involves decreased 2-oxoglutarate-dependent dioxyg
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-pathway-imbalance-and-defective-ciliogenesis" data-dismech-node="Wnt pathway imbalance and defective ciliogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Wnt pathway imbalance and defective ciliogenesis</div>
+
 
                 <div class="item-desc">Loss of Fto shifts the balance between the two branches of Wnt signalling - canonical signalling falls because beta-catenin fails to translocate to the nucleus, while the non-canonical Wnt/calcium branch is activated through CaMKII and PKC-delta - and produces short, absent or disorganised cilia. In zebrafish this is accompanied by growth retardation, craniofacial dysmorphism, aberrant neural crest cell migration, microcephaly, situs inversus and renal cystogenesis, and Fto knockout mice show tissue-specific ciliary abnormality. This is the only worked-out route from FTO loss to a developmental phenotype, and it has been shown only in model systems: no patient tissue has been examined for either the Wnt shift or the ciliary defect.</div>
 
@@ -5557,6 +5607,7 @@ This pathophysiological event involves abnormal neural crest cell migration (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-fibroblast-proliferation-and-premature-senescence" data-dismech-node="Impaired fibroblast proliferation and premature senescence" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired fibroblast proliferation and premature senescence</div>
 
+
                 <div class="item-desc">Cultured skin fibroblasts from the index family showed impaired proliferation and accelerated senescence. A later patient&#39;s fibroblasts showed no difference in morphology, proliferation or apoptosis against parental and unrelated controls; that report did not test senescence. The two results are not reconciled, and the second patient also carried a nonsense CETP variant, so this node is retained with both results attached rather than treated as an established step.</div>
 
 
@@ -5748,6 +5799,7 @@ This pathophysiological event involves decreased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-central-nervous-system-development" data-dismech-node="Failure of central nervous system development" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of central nervous system development</div>
+
 
                 <div class="item-desc">The neurological arm of the index report&#39;s conclusion, drawn from the pattern of malformations rather than from a demonstrated developmental mechanism. Nothing published fills in the steps between loss of demethylase activity and a lissencephalic cortex or a posterior fossa anomaly, and this entry does not invent them. The node is asserted at the level of &#34;development of this organ system fails&#34;, which is why every edge leaving it is INDIRECT_UNKNOWN_INTERMEDIATES.</div>
 
@@ -5985,6 +6037,7 @@ This pathophysiological event involves abnormal central nervous system developme
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-cardiovascular-development" data-dismech-node="Failure of cardiovascular development" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of cardiovascular development</div>
 
+
                 <div class="item-desc">The cardiovascular arm of the same conclusion, and an inference from the malformations observed rather than a demonstrated mechanism: no study connects loss of FTO demethylase activity to a septation or outflow-tract defect. The lesions reported across the families are heterogeneous - septal defects, a patent ductus, a hypoplastic mitral valve, an abnormal aortic arch, anomalous pulmonary venous return and ventricular hypertrophy - with no single characteristic lesion. Curated separately from the neurological node because the two arms dissociate in the models: the zebrafish reproduces part of the neurological phenotype and none of this one.</div>
 
 
@@ -6183,6 +6236,7 @@ This pathophysiological event involves abnormal heart development (GO:0007507). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-prenatal-and-postnatal-growth" data-dismech-node="Impaired prenatal and postnatal growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired prenatal and postnatal growth</div>
+
 
                 <div class="item-desc">Growth failure begins before birth and is the one arm of the human phenotype that both animal models reproduce, including the Fto-null mouse, which shows no malformation at all. That dissociation is why growth is curated as its own organism-scale node rather than as a consequence of the neurological or cardiovascular malformations. What connects loss of demethylase activity to reduced growth is not established in any system.</div>
 
@@ -6489,6 +6543,9 @@ This clinical feature is Abnormality of the cardiovascular system (HP:0001626). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6553,6 +6610,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6627,6 +6687,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6691,6 +6754,9 @@ This clinical feature is Secundum atrial septal defect (HP:0001684). HP:0001684 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6765,6 +6831,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6831,6 +6900,9 @@ This clinical feature is Pulmonary hypertension, annotated with Elevated pulmona
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6927,6 +6999,9 @@ This clinical feature is Cutis marmorata (HP:0000965). HP:0000965 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Left with no incoming causal edge deliberately. Cutis marmorata is a cutaneous vascular response and appears once, in a list of features shared with the index pedigree. It is not a structural malformation of the kind the cardiovascular development node covers, and no report offers a mechanism for it in this disease.</div>
 
 
@@ -7005,6 +7080,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Left with no incoming causal edge deliberately. The reported loss is sensorineural, which places it in the cochlea or the eighth nerve rather than in the forebrain malformation the central nervous system development node describes, and no report has examined the inner ear in an FTO-deficient animal or patient. Hearing loss is common in ciliopathies, but drawing an edge from the ciliogenesis node would import that generalisation as if it were an FTO result.</div>
@@ -7087,6 +7165,9 @@ This clinical feature is Abnormality of vision (HP:0000504). HP:0000504 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Left with no incoming causal edge deliberately. The curated basis is unspecified eye abnormalities, with reduced vision in one patient and optic disc abnormality in another. Optic disc abnormality would be a central nervous system structure, but the phenotype as bound also covers ocular lesions that are not, and no consistent lesion has been described across the families. An edge from either the central nervous system node or the ciliogenesis node would be a guess about which.</div>
 
 
@@ -7165,6 +7246,9 @@ This clinical feature is Genital abnormality, annotated with Abnormality of the 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Left with no incoming causal edge deliberately. The reports record genital abnormalities in some members of the index pedigree without naming a lesion, and no pathophysiology node in this entry covers urogenital development: neither the index report&#39;s conclusion, which names the central nervous and cardiovascular systems, nor the zebrafish Wnt and ciliary work touches the genital tract. An edge from either would assert a developmental programme nobody has examined in this disease.</div>
@@ -7250,6 +7334,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7314,6 +7401,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7388,6 +7478,9 @@ This clinical feature is Dandy-Walker malformation (HP:0001305). HP:0001305 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7452,6 +7545,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7526,6 +7622,9 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7590,6 +7689,9 @@ This clinical feature is Gingival overgrowth (HP:0000212). HP:0000212 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Left with no incoming causal edge deliberately. Gingival overgrowth was added to the phenotype by a single report and no mechanism has been proposed for it in this disease. The gingival mesenchyme is craniofacial in origin, so the Wnt and neural crest node is the nearest candidate, but overgrowth is a postnatal tissue response rather than a patterning failure, and nothing reported connects the two here.</div>
@@ -7661,6 +7763,9 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Left with no incoming causal edge deliberately. The review of this entry suggested routing it through the neural crest node with the craniofacial features, but the cervical vertebrae are somite derived rather than neural crest derived, so that route would be wrong in kind. The alternative - a consequence of the generalised growth deficit, alongside the long bones measured below the fifth centile for gestational age in the fifth patient - is plausible, but no report separates a short neck from the dysmorphology it is listed with, so no edge is drawn.</div>
@@ -7743,6 +7848,9 @@ This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Left with no incoming causal edge deliberately. Photosensitivity is of interest because FTO belongs to the AlkB family of nucleic-acid repair dioxygenases, but no study has tested a repair defect in patient cells or connected the photosensitivity to loss of demethylase activity. Drawing an edge from the enzymatic node would assert the repair hypothesis that this entry deliberately does not make.</div>
 
 
@@ -7823,6 +7931,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Left with no incoming causal edge deliberately. Short digits are recorded in one patient among a list of shared features. Limb patterning is Wnt dependent and the fifth patient&#39;s long bones all measured below the fifth centile for gestational age, so both the Wnt and ciliogenesis node and the growth node are candidates; nothing reported distinguishes them, and picking one would be a guess.</div>
 
 
@@ -7892,6 +8003,9 @@ This clinical feature is Digital clubbing, annotated with Clubbing of fingers (H
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Left with no incoming causal edge deliberately. Clubbing is conventionally a consequence of chronic hypoxaemia, and the same patient had a patent ductus arteriosus, but no report in this disease states that connection, and drawing the edge would assert a mechanism nobody has published for these patients.</div>
@@ -7972,6 +8086,9 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8066,6 +8183,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The abstract of PMID:26740239 lists hypotonia for its patient, but that paper&#39;s own case description says &#34;she was hypertonic&#34; and its discussion lists hypertonicity. The abstract is therefore not used as the source for this phenotype; it is cited on the Hypertonia phenotype from the body text instead, and the discrepancy is recorded here so the next reader does not resolve it the other way.</div>
@@ -8176,6 +8296,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8240,6 +8363,9 @@ This clinical feature is Structural brain malformation, annotated with Abnormal 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8339,6 +8465,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8408,6 +8537,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8472,6 +8604,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8550,6 +8685,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8644,6 +8782,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8762,6 +8903,9 @@ This disease-associated gene is FTO (hgnc:24678). hgnc:24678 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -8854,6 +8998,7 @@ This disease-associated gene is FTO (hgnc:24678). hgnc:24678 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8875,7 +9020,13 @@ This variant is in FTO (hgnc:24678). hgnc:24678 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The index allele, homozygous in nine affected children of a consanguineous Palestinian Arab family. It inactivates FTO enzymatic activity.</div>
@@ -8936,6 +9087,7 @@ This variant is in FTO (hgnc:24678). hgnc:24678 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8957,7 +9109,13 @@ This variant is in FTO (hgnc:24678). hgnc:24678 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The second reported allele, in the same functional domain as R316Q, with reduced 2-oxoglutarate turnover and demethylase activity.</div>
@@ -9043,6 +9201,7 @@ This variant is in FTO (hgnc:24678). hgnc:24678 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9064,7 +9223,13 @@ This variant is in FTO (hgnc:24678). hgnc:24678 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous in a consanguineous Yemeni family with a lethal malformation syndrome. The same substitution had earlier been found heterozygously, and shown to be catalytically dead, in a population survey of lean and obese adults without the syndrome.</div>
@@ -9150,6 +9315,7 @@ This variant is in FTO (hgnc:24678). hgnc:24678 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9171,7 +9337,13 @@ This variant is in FTO (hgnc:24678). hgnc:24678 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous in a consanguineous patient with microcephaly, developmental delay, hypotonia and dysmorphism who survived past infancy. It was absent from dbSNP, the Exome Variant Server, 1000 Genomes, and 3,000 in-house exomes, and the same search found no homozygous deleterious FTO alleles anywhere in those databases.</div>
@@ -9257,6 +9429,7 @@ This variant is in FTO (hgnc:24678). hgnc:24678 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9278,7 +9451,13 @@ This variant is in FTO (hgnc:24678). hgnc:24678 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The first reported allele outside the catalytic site, in the substrate recognition lid, with about 90 percent loss of demethylase function. Notably the same residue was independently flagged as an absolutely conserved substrate-lid position by an earlier heterozygote survey, which reported R96H.</div>

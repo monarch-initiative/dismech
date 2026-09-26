@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5287,6 +5329,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atp1a3-p-glu818lys-na-k-atpase-alpha-3-pump-dysfunction" data-dismech-node="ATP1A3 p.Glu818Lys Na+/K+-ATPase Alpha-3 Pump Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">ATP1A3 p.Glu818Lys Na+/K+-ATPase Alpha-3 Pump Dysfunction</div>
 
+
                 <div class="item-desc">The heterozygous ATP1A3 p.Glu818Lys substitution acts on the alpha-3 catalytic subunit of the Na+/K+-ATPase, the isoform expressed selectively in neurons. Glu818 participates in a hydrogen-bonding and salt-bridge network that positions the residues coordinating Na+ at ion-binding site III, the sodium-specific site. The charge-reversing substitution lowers apparent Na+ affinity at both the cytoplasmic-facing and (far more markedly) the extracellular-facing sites, accelerates the E1P-to-E2P phosphoenzyme transition, flattens the voltage dependence of pumping and increases inhibition by cytoplasmic K+. The K+ arm of the cycle and the ATP/E1-E2 equilibrium are spared, and proton-leak currents are not increased, so this is a specific sodium-handling defect rather than a generalised loss of pump protein or a leak channelopathy.</div>
 
 
@@ -5527,6 +5570,7 @@ This pathophysiological event involves decreased sodium:potassium-exchanging ATP
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-transmembrane-ion-gradient-restoration" data-dismech-node="Impaired Neuronal Transmembrane Ion Gradient Restoration" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Transmembrane Ion Gradient Restoration</div>
+
 
                 <div class="item-desc">Because the alpha-3 pump can no longer be properly activated, neurons that depend on it fail to restore the Na+ and K+ gradients that were spent during activity. The alpha-3 isoform is the high-turnover, activity-recruited neuronal pump, so the deficit is expressed as an inability to reset the membrane after firing rather than as a resting-potential collapse. Neurons with high sustained firing rates and long, energetically expensive axons are disproportionately affected, which is the cell-biological basis of the otherwise puzzling CAPOS lesion distribution: cerebellar Purkinje and cerebellar circuit neurons, spiral ganglion neurons of the auditory nerve, retinal ganglion cells projecting through the optic nerve, and dorsal root ganglion sensory neurons.</div>
 
@@ -5879,6 +5923,7 @@ This pathophysiological event involves decreased membrane repolarization (GO:008
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-febrile-illness-unmasking-of-pump-reserve-failure" data-dismech-node="Febrile Illness Unmasking of Pump Reserve Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Febrile Illness Unmasking of Pump Reserve Failure</div>
 
+
                 <div class="item-desc">The mechanistic signature of CAPOS is that neurological decompensation is provoked, essentially without exception, by febrile illness; pregnancy and the immediate postpartum period are the one reported non-febrile trigger (see notes). The proposed mechanism is a reserve failure: a heterozygous carrier retains enough wild-type alpha-3 pump to meet baseline demand, but fever raises metabolic and firing demand on exactly the neurons whose pump reserve is already exhausted, tipping them into a state in which ion gradients cannot be maintained. This makes fever a mechanistically privileged trigger rather than a non-specific stressor, and it is the reason aggressive antipyresis is treated as disease-modifying rather than merely symptomatic. The trigger dependence also explains the episodic, punctuated natural history: patients typically have only one to three episodes in a lifetime, each aligned to a febrile illness.</div>
 
 
@@ -6027,6 +6072,7 @@ This pathophysiological event involves decreased membrane repolarization (GO:008
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-febrile-encephalopathy-and-cerebellar-decompensation" data-dismech-node="Acute Febrile Encephalopathy and Cerebellar Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Febrile Encephalopathy and Cerebellar Decompensation</div>
 
+
                 <div class="item-desc">The acute episode is a combined encephalopathy and cerebellar syndrome: hypotonia and flaccidity, nystagmus and strabismus, ophthalmoparesis, dysarthria or anarthria, motor weakness, lethargy, and in severe cases loss of consciousness or coma. It is this acute phase, not a chronic degenerative process, that carries the clinical risk and that is the target of acute management. It is the node that generates the acute-episode phenotypes curated below (Encephalopathy, Hypotonia, Nystagmus, Strabismus, Ophthalmoparesis, Dysarthria, Lethargy, Episodic ataxia).</div>
 
 
@@ -6100,6 +6146,7 @@ This pathophysiological event involves decreased membrane repolarization (GO:008
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-incomplete-recovery-and-stepwise-deficit-accrual" data-dismech-node="Incomplete Recovery and Stepwise Deficit Accrual" data-dismech-type="pathophysiology">
                 <div class="item-name">Incomplete Recovery and Stepwise Deficit Accrual</div>
+
 
                 <div class="item-desc">This is the node that makes CAPOS mechanistically distinctive. After each febrile episode the patient recovers considerably over days to weeks, but not completely: a residuum of ataxia and of the other cardinal deficits persists. Because episodes are few, the natural history is better described as stepwise than as a steady slope - though the cited sources establish incomplete recovery and slow subsequent progression rather than a formally quantified step function. Modelling this as its own node separates the reversible acute physiology (which antipyresis and trigger avoidance can address) from the irreversible accrued deficit (which they cannot).</div>
 
@@ -6206,6 +6253,7 @@ This pathophysiological event involves decreased membrane repolarization (GO:008
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-multimodal-neurological-deficit" data-dismech-node="Persistent Multimodal Neurological Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent Multimodal Neurological Deficit</div>
 
+
                 <div class="item-desc">The accrued residuum is the CAPOS acronym itself: persistent cerebellar ataxia, generalised areflexia, pes cavus foot deformity, optic atrophy with visual impairment, and auditory-neuropathy-type sensorineural hearing loss. The peripheral components (areflexia, pes cavus) reflect the dorsal root ganglion and peripheral sensory involvement that separates CAPOS from the purely central allelic ATP1A3 phenotypes. This node generates the persistent phenotypes curated below (Cerebellar ataxia, Areflexia, Pes cavus, Optic atrophy).</div>
 
 
@@ -6291,6 +6339,7 @@ This pathophysiological event involves decreased membrane repolarization (GO:008
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-auditory-neuropathy-with-preserved-outer-hair-cell-function" data-dismech-node="Auditory Neuropathy with Preserved Outer Hair Cell Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Auditory Neuropathy with Preserved Outer Hair Cell Function</div>
+
 
                 <div class="item-desc">The CAPOS hearing loss is mechanistically a neural, not a sensory, lesion. Cochlear outer hair cell activity is preserved, demonstrated by intact otoacoustic emissions and cochlear microphonic potentials, while auditory brainstem responses are grossly abnormal, indicating neural dyssynchrony in the cochlear nerve. Speech perception, especially in noise, is disproportionately poor relative to the pure-tone audiogram. This is the classic auditory neuropathy spectrum disorder profile and it is why conventional amplification performs badly and why cochlear implantation became the management question. This node generates the Sensorineural hearing impairment and Abnormal auditory evoked potentials phenotypes.</div>
 
@@ -6531,6 +6580,9 @@ This clinical feature is resting ECG abnormality, annotated with Abnormal EKG (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6620,6 +6672,9 @@ This clinical feature is Wolff-Parkinson-White syndrome (HP:0001716). HP:0001716
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6728,6 +6783,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6831,6 +6889,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6925,6 +6986,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6989,6 +7053,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7081,6 +7148,9 @@ This clinical feature is Ophthalmoparesis (HP:0000597), qualified as temporality
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7163,6 +7233,9 @@ This clinical feature is Visual impairment (HP:0000505), qualified as course pro
 
 
                     </div>
+
+
+
 
 
 
@@ -7268,6 +7341,9 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7419,6 +7495,9 @@ This clinical feature is Hypotonia (HP:0001252), qualified as temporality acute.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7501,6 +7580,9 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as temporality 
 
 
                     </div>
+
+
+
 
 
 
@@ -7638,6 +7720,9 @@ This clinical feature is cerebellar ataxia, annotated with Ataxia (HP:0001251), 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7725,6 +7810,9 @@ This clinical feature is Episodic ataxia (HP:0002131), qualified as temporality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7789,6 +7877,9 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7913,6 +8004,9 @@ This clinical feature is Abnormal auditory evoked potentials (HP:0006958). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8025,6 +8119,9 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8089,6 +8186,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8181,6 +8281,9 @@ This clinical feature is Lethargy (HP:0001254), qualified as temporality acute. 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8245,6 +8348,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8319,6 +8425,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8383,6 +8492,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8454,6 +8566,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8598,6 +8713,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272), qualified as severity 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8680,6 +8798,9 @@ This clinical feature is Coma (HP:0001259), qualified as temporality acute. HP:0
 
 
                     </div>
+
+
+
 
 
 
@@ -8774,6 +8895,9 @@ This clinical feature is hemiplegic migraine, annotated with Migraine (HP:000207
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8892,6 +9016,9 @@ This disease-associated gene is ATP1A3 (hgnc:801). hgnc:801 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8967,6 +9094,7 @@ This disease-associated gene is ATP1A3 (hgnc:801). hgnc:801 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8986,11 +9114,17 @@ This variant is in ATP1A3 (hgnc:801). hgnc:801 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The recurrent, near-exclusive CAPOS allele. Glu818 lies in a hydrogen-bonding/salt-bridge network that positions residues coordinating sodium at the pump&#39;s third, sodium-specific ion-binding site; the glutamate-to-lysine charge reversal disrupts that network.</div>

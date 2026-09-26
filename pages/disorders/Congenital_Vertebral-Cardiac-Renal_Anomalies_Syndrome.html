@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4853,6 +4895,7 @@ This subtype is caused by variation in NADSYN1 (hgnc:29832). hgnc:29832 is a gen
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-nad-synthesis-pathway-enzymatic-block" data-dismech-node="De Novo NAD Synthesis Pathway Enzymatic Block" data-dismech-type="pathophysiology">
                 <div class="item-name">De Novo NAD Synthesis Pathway Enzymatic Block</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants in HAAO, KYNU or NADSYN1 abolish one of three non-redundant enzymatic steps converting L-tryptophan to NAD through the kynurenine pathway. No parallel route bypasses the lost step within de novo synthesis, so flux through the pathway stops at the affected enzyme.</div>
 
 
@@ -5220,6 +5263,7 @@ This pathophysiological event involves NAD+ synthase activity (GO:0008795), qual
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kynurenine-pathway-intermediate-accumulation" data-dismech-node="Kynurenine Pathway Intermediate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Kynurenine Pathway Intermediate Accumulation</div>
 
+
                 <div class="item-desc">Metabolites immediately upstream of the enzymatic block accumulate and spill into plasma and urine. The identity of the accumulating species is gene-specific, which is what makes the circulating NAD metabolome diagnostically informative: HAAO loss raises 3-hydroxyanthranilic acid, KYNU loss raises 3-hydroxykynurenine and its transamination product xanthurenic acid, and NADSYN1 loss raises the terminal precursor deamido-NAD (nicotinate adenine dinucleotide).</div>
 
 
@@ -5305,6 +5349,7 @@ This pathophysiological event involves NAD+ synthase activity (GO:0008795), qual
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insufficient-maternal-nad-precursor-provision" data-dismech-node="Insufficient Maternal NAD Precursor Provision" data-dismech-type="pathophysiology">
                 <div class="item-name">Insufficient Maternal NAD Precursor Provision</div>
+
 
                 <div class="item-desc">NAD available to the conceptus depends on maternal circulating tryptophan and vitamin B3 vitamers, which reach the embryo via the yolk sac before the embryonic liver is functional. Low maternal precursor supply lowers embryonic NAD independently of the embryo&#39;s own genotype, and is the environmental arm of the gene-environment interaction that sets phenotype severity.</div>
 
@@ -5399,6 +5444,7 @@ This pathophysiological event involves NAD+ synthase activity (GO:0008795), qual
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-embryonic-nad-deficiency" data-dismech-node="Embryonic NAD Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Embryonic NAD Deficiency</div>
+
 
                 <div class="item-desc">Embryonic NAD falls below the level required to sustain the several hundred NAD-dependent reactions on which proliferating embryonic tissue depends. This is the convergence point of the disorder: genotype and maternal nutrition are two routes to the same deficit, and it is the deficit, not the variant, that determines outcome. In mice, defect type tracks the timing of the deficit during organogenesis; whether that also explains the variability between human patients, including siblings who share a genotype, has not been shown.</div>
 
@@ -5620,6 +5666,7 @@ This pathophysiological event involves decreased NAD+ biosynthetic process (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-somitogenesis" data-dismech-node="Impaired Somitogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Somitogenesis</div>
 
+
                 <div class="item-desc">Vertebrae and ribs form from somites budding sequentially off the presomitic mesoderm during weeks 4 to 6 of human gestation. NAD deficiency during this window perturbs segmentation, producing the hemivertebrae, vertebral fusions and rib anomalies characteristic of the disorder. The lesion is in the metabolic substrate the forming somites depend on rather than in the segmentation clock itself.</div>
 
 
@@ -5750,6 +5797,7 @@ This pathophysiological event involves abnormal somitogenesis (GO:0001756). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cardiac-morphogenesis" data-dismech-node="Disrupted Cardiac Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Cardiac Morphogenesis</div>
 
+
                 <div class="item-desc">NAD deficiency during cardiac looping and septation produces structural heart disease. Lesions are not confined to one side of the heart, and range from mild aortic arch abnormalities to hypoplastic left heart.</div>
 
 
@@ -5867,6 +5915,7 @@ This pathophysiological event involves abnormal heart development (GO:0007507). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-nephrogenesis" data-dismech-node="Disrupted Nephrogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Nephrogenesis</div>
+
 
                 <div class="item-desc">NAD deficiency during ureteric bud outgrowth and metanephric induction produces renal maldevelopment spanning hypoplasia and dysplasia through to complete bilateral agenesis, which is lethal.</div>
 
@@ -5986,6 +6035,7 @@ This pathophysiological event involves abnormal kidney development (GO:0001822).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-limb-morphogenesis" data-dismech-node="Disrupted Limb Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Limb Morphogenesis</div>
 
+
                 <div class="item-desc">NAD deficiency during limb bud outgrowth and patterning produces limb reduction defects and disproportionate limb shortening that persists as short-limb short stature in survivors.</div>
 
 
@@ -6103,6 +6153,7 @@ This pathophysiological event involves abnormal limb development (GO:0060173). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-embryonic-growth-restriction" data-dismech-node="Embryonic Growth Restriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Embryonic Growth Restriction</div>
+
 
                 <div class="item-desc">Below a threshold of NAD availability the conceptus does not survive. Miscarriage is common in affected families and is part of the phenotypic spectrum rather than an unrelated obstetric event, so it belongs in the recurrence-risk conversation.</div>
 
@@ -6290,6 +6341,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6386,6 +6440,9 @@ This clinical feature is hypoplastic left heart syndrome, annotated with Hypopla
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6452,6 +6509,9 @@ This clinical feature is Polysplenia (HP:0001748). HP:0001748 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6537,6 +6597,9 @@ This clinical feature is Tracheoesophageal fistula (HP:0002575). HP:0002575 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6610,6 +6673,9 @@ This clinical feature is Anteriorly placed anus (HP:0001545). HP:0001545 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6676,6 +6742,9 @@ This clinical feature is Pyloric stenosis (HP:0002021). HP:0002021 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6765,6 +6834,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6845,6 +6917,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6911,6 +6986,9 @@ This clinical feature is Hypoparathyroidism (HP:0000829). HP:0000829 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6998,6 +7076,9 @@ This clinical feature is Abnormality of the eye (HP:0000478). HP:0000478 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7064,6 +7145,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7167,6 +7251,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7244,6 +7331,9 @@ This clinical feature is Renal agenesis (HP:0000104). HP:0000104 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Not evenly distributed across subtypes. In the largest genotyped NADSYN1 series the kidneys were the least frequently affected of the four cardinal systems (3 of 12), and the reported adult with NADSYN1-associated disease had no renal or urinary tract malformation at all, so a normal renal ultrasound does not argue against the diagnosis.</div>
 
 
@@ -7315,6 +7405,9 @@ This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7400,6 +7493,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7466,6 +7562,9 @@ This clinical feature is Cystic hygroma (HP:0000476). HP:0000476 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7544,6 +7643,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7608,6 +7710,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7693,6 +7798,9 @@ This clinical feature is pellagra-like dermatitis, annotated with Inflammatory a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7770,6 +7878,9 @@ This clinical feature is Abnormal limb bone morphology (HP:0002813). HP:0002813 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7878,6 +7989,9 @@ This clinical feature is Vertebral segmentation defect (HP:0003422). HP:0003422 
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7956,6 +8070,9 @@ This clinical feature is Hemivertebrae (HP:0002937). HP:0002937 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8020,6 +8137,9 @@ This clinical feature is Vertebral fusion (HP:0002948). HP:0002948 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8096,6 +8216,9 @@ This clinical feature is Abnormal rib morphology (HP:0000772). HP:0000772 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8160,6 +8283,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8249,6 +8375,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8322,6 +8451,9 @@ This clinical feature is Tethered cord (HP:0002144). HP:0002144 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8390,6 +8522,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8470,6 +8605,9 @@ This clinical feature is Laryngeal web (HP:0005950). HP:0005950 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8559,6 +8697,9 @@ This clinical feature is Disproportionate short-limb short stature (HP:0008873).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8615,6 +8756,9 @@ This clinical feature is Disproportionate short-limb short stature (HP:0008873).
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Left unbound. HPO codes this concept under Pregnancy history (HP:0200067, Recurrent spontaneous abortion) and Prenatal death (HP:0034241), neither of which is reachable from the Phenotypic abnormality root that the PhenotypeTerm enum expands from, so no valid binding exists. Recorded as free text rather than forced onto a term that means something else.</div>
@@ -8764,6 +8908,9 @@ This disease-associated gene is HAAO (hgnc:4796). hgnc:4796 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8863,6 +9010,9 @@ This disease-associated gene is KYNU (hgnc:6469). hgnc:6469 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8933,6 +9083,9 @@ This disease-associated gene is NADSYN1 (hgnc:29832). hgnc:29832 is a gene from 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

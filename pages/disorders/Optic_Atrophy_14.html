@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4627,6 +4669,13 @@ Two cautions before it is treated as established. The Parkinson&#39;s link for p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-mief1-missense-variant" data-dismech-node="Heterozygous MIEF1 Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous MIEF1 Missense Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Two variants, one per patient. c.718T&gt;A gives p.Y240N, which lies in MID51&#39;s DRP1-binding region; c.436C&gt;T gives p.R146W, in a domain conserved with MID49 but of no known function. Neither is in the transmembrane domain that anchors MID51 in the outer membrane, and neither is at a residue previously shown to mediate oligomerisation - which is what makes the functional results below interpretable rather than merely negative.
 Marked PROVISIONAL rather than ESTABLISHED because the pathogenicity argument is rarity plus in silico prediction plus an in vitro effect, in two unrelated singletons. The p.Y240N variant is absent from databases; p.R146W is rs778124994 at a gnomAD frequency of about 2 in 100,000, which is rare but not private.</div>
 
@@ -4688,6 +4737,8 @@ This pathophysiological event involves MIEF1 (hgnc:25979). hgnc:25979 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4700,6 +4751,9 @@ This pathophysiological event involves MIEF1 (hgnc:25979). hgnc:25979 is a gene 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Curated as LOSS_OF_FUNCTION, and the choice needs its reasoning stated because the alternatives are live. The measured effect is that the mutants fail to do what wild-type MID51 does - wild-type expression increases fusion events, mutant expression does not - which is loss of a normal activity, and the follow-up work attributes it specifically to loss of DRP1 recruitment. DOMINANT_NEGATIVE is the obvious competing hypothesis for a heterozygous missense variant in an oligomeric adaptor, and it has not been excluded: no experiment reported here tests the mutant against wild-type MID51 in the same cell, and the assays are transient overexpression rather than expression from the endogenous locus. If a dominant-negative mechanism is later demonstrated, this slot should change.</div>
 
@@ -4801,6 +4855,13 @@ This pathophysiological event involves MIEF1 (hgnc:25979). hgnc:25979 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-mid51-localisation-and-oligomerisation" data-dismech-node="Preserved MID51 Localisation and Oligomerisation" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved MID51 Localisation and Oligomerisation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">A node that records what the disease is not, because two obvious mechanisms were tested and excluded, and excluding them is what makes the positive finding meaningful.
 Both mutant proteins localise to the mitochondrial network in live cells just as wild-type MID51 does, so this is not a mislocalisation disease. Both form dimers, tetramers and high-molecular-weight species in the same ratios as wild-type, so it is not an oligomerisation disease either. A curator adding to this entry should not later attach a mislocalisation or misassembly mechanism to it without new data; these were looked for and were not there.
@@ -4952,6 +5013,13 @@ This pathophysiological event involves mitochondrial outer membrane (GO:0005741)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-drp1-recruitment-to-the-outer-mitochondrial-membrane" data-dismech-node="Impaired DRP1 Recruitment to the Outer Mitochondrial Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired DRP1 Recruitment to the Outer Mitochondrial Membrane</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The proposed molecular lesion. MID51&#39;s job is to recruit DRP1, a dynamin-related GTPase that has no membrane-binding domain of its own, onto the outer mitochondrial membrane so that it can constrict and divide the organelle. The p.Y240 residue sits in the loop that binds DRP1, and independent work concludes that the p.Y240N variant disrupts DRP1 recruitment while leaving MID51 oligomerisation intact, with the downstream consequence of selectively inhibiting DRP1 GTP hydrolysis.
 Marked PROVISIONAL for a specific reason, not as a general hedge. The DRP1 recruitment claim is well evidenced for p.Y240N, whose position in the binding loop predicts it. It is *not* evidenced for p.R146W, which lies in a domain of unknown function outside the DRP1-binding region, and for which no DRP1 experiment has been reported. Both variants produce the same network phenotype at the node below, so either p.R146W reaches it by the same route for a reason nobody has identified, or the two alleles converge from different molecular starting points. Nothing published distinguishes these.</div>
@@ -5129,6 +5197,13 @@ This pathophysiological event involves decreased DRP1 recruitment activity of MI
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-mitochondrial-network-dynamics" data-dismech-node="Disrupted Mitochondrial Network Dynamics" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Mitochondrial Network Dynamics</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The measured cellular phenotype, and the strongest evidence in the entity. Using a photoactivatable matrix probe to count fusion events between mitochondria in live cells, wild-type MID51 expression increased the rate of fusion, and both mutants significantly decreased it relative to wild-type.
 Read the direction carefully, because it is counterintuitive. MID51 is a *fission* adaptor, yet overexpressing wild-type MID51 increases *fusion* - the established explanation being that excess MID51 sequesters DRP1 in an inactive state on the outer membrane, so the net effect of more adaptor is less fission. The mutants fail to produce that effect. So what the assay measures directly is the loss of MID51&#39;s ability to modulate the network at all, not a shift toward either fission or fusion in the patient. The entry deliberately does not claim that patients&#39; mitochondria are fragmented or elongated: nobody has looked at a patient&#39;s cells.</div>
 
@@ -5285,6 +5360,13 @@ This pathophysiological event involves dysregulated mitochondrial fusion (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-ganglion-cell-degeneration-and-optic-nerve-atrophy" data-dismech-node="Retinal Ganglion Cell Degeneration and Optic Nerve Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Ganglion Cell Degeneration and Optic Nerve Atrophy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical endpoint. Both patients had pale, moderately excavated optic disks with a normal retina, strongly abnormal visual evoked potentials, and - in the patient who had optical coherence tomography - retinal nerve fibre layer collapse in all quadrants of both eyes. The retinal nerve fibre layer is the retinal ganglion cell axon layer, so its loss is the closest available measurement of the cellular claim in this node&#39;s title.
 Marked PROVISIONAL because ganglion cell death itself is inferred, not observed: no tissue from a MIEF1 patient has been examined. What is observed is optic disc pallor plus axon-layer thinning plus conduction failure, which is the standard clinical basis for inferring ganglion cell loss in the inherited optic neuropathies.</div>
@@ -5450,7 +5532,7 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted Mitochondrial Network Dynamics\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measured cellular phenotype, and the strongest evidence in the entity. Using a photoactivatable matrix probe to count fusion events between mitochondria in live cells, wild-type MID51 expression increased the rate of fusion, and both mutants significantly decreased it relative to wild-type.\\nRead the direction carefully, because it is counterintuitive. MID51 is a *fission* adaptor, yet overexpressing wild-type MID51 increases *fusion* - the established explanation being that excess MID51 sequesters DRP1 in an inactive state on the outer membrane, so the net effect of more adaptor is less fission. The mutants fail to produce that effect. So what the assay measures directly is the loss of MID51\u0027s ability to modulate the network at all, not a shift toward either fission or fusion in the patient. The entry deliberately does not claim that patients\u0027 mitochondria are fragmented or elongated: nobody has looked at a patient\u0027s cells.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial fusion\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"MID51 variant expression in HeLa cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The assay demonstrates that both patient variants abolish MID51\u0027s normal effect on mitochondrial network dynamics, which is the disease\u0027s proposed cellular lesion.\"}]}}, {\"id\": \"Heterozygous MIEF1 Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two variants, one per patient. c.718T\u003eA gives p.Y240N, which lies in MID51\u0027s DRP1-binding region; c.436C\u003eT gives p.R146W, in a domain conserved with MID49 but of no known function. Neither is in the transmembrane domain that anchors MID51 in the outer membrane, and neither is at a residue previously shown to mediate oligomerisation - which is what makes the functional results below interpretable rather than merely negative.\\nMarked PROVISIONAL rather than ESTABLISHED because the pathogenicity argument is rarity plus in silico prediction plus an in vitro effect, in two unrelated singletons. The p.Y240N variant is absent from databases; p.R146W is rs778124994 at a gnomAD frequency of about 2 in 100,000, which is rare but not private.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MIEF1\"], \"gene_terms\": [{\"label\": \"MIEF1\", \"id\": \"hgnc:25979\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Curated as LOSS_OF_FUNCTION, and the choice needs its reasoning stated because the alternatives are live. The measured effect is that the mutants fail to do what wild-type MID51 does - wild-type expression increases fusion events, mutant expression does not - which is loss of a normal activity, and the follow-up work attributes it specifically to loss of DRP1 recruitment. DOMINANT_NEGATIVE is the obvious competing hypothesis for a heterozygous missense variant in an oligomeric adaptor, and it has not been excluded: no experiment reported here tests the mutant against wild-type MID51 in the same cell, and the assays are transient overexpression rather than expression from the endogenous locus. If a dominant-negative mechanism is later demonstrated, this slot should change.\"}, \"role\": \"trigger\"}}, {\"id\": \"Impaired DRP1 Recruitment to the Outer Mitochondrial Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed molecular lesion. MID51\u0027s job is to recruit DRP1, a dynamin-related GTPase that has no membrane-binding domain of its own, onto the outer mitochondrial membrane so that it can constrict and divide the organelle. The p.Y240 residue sits in the loop that binds DRP1, and independent work concludes that the p.Y240N variant disrupts DRP1 recruitment while leaving MID51 oligomerisation intact, with the downstream consequence of selectively inhibiting DRP1 GTP hydrolysis.\\nMarked PROVISIONAL for a specific reason, not as a general hedge. The DRP1 recruitment claim is well evidenced for p.Y240N, whose position in the binding loop predicts it. It is *not* evidenced for p.R146W, which lies in a domain of unknown function outside the DRP1-binding region, and for which no DRP1 experiment has been reported. Both variants produce the same network phenotype at the node below, so either p.R146W reaches it by the same route for a reason nobody has identified, or the two alleles converge from different molecular starting points. Nothing published distinguishes these.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial fission\"], \"molecular_functions\": [\"DRP1 recruitment activity of MID51\"], \"role\": \"central_effector\"}}, {\"id\": \"MID51 variant expression in HeLa cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Transient expression of mCherry- or myc-tagged wild-type, p.Y240N and p.R146W MID51 in HeLa cells, assayed by live confocal microscopy for localisation, by immunoprecipitation and immunoblot for oligomerisation, and by photoactivatable matrix probe for fusion events. This is the entire functional evidence base for the disease, and it is the same system in which the independent group later mapped the DRP1-recruitment defect.\", \"meta\": {\"model_type\": \"CELL_LINE\"}}, {\"id\": \"MIEF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MIEF1\"], \"gene_terms\": [{\"label\": \"MIEF1\", \"id\": \"hgnc:25979\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Preserved MID51 Localisation and Oligomerisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A node that records what the disease is not, because two obvious mechanisms were tested and excluded, and excluding them is what makes the positive finding meaningful.\\nBoth mutant proteins localise to the mitochondrial network in live cells just as wild-type MID51 does, so this is not a mislocalisation disease. Both form dimers, tetramers and high-molecular-weight species in the same ratios as wild-type, so it is not an oligomerisation disease either. A curator adding to this entry should not later attach a mislocalisation or misassembly mechanism to it without new data; these were looked for and were not there.\\nAn independent group extended the second of those negatives one step downstream. MID51\u0027s other job, in complex with Fis1, is to drive lysosomal untethering at mitochondria-lysosome contact sites, and that function depends on the oligomerisation interface rather than on DRP1 binding. The optic-atrophy variant p.Y240N leaves it intact: it still forms a Mid51/Fis1 complex and does not misregulate lysosomal untethering or lysosomal network dynamics. So the preservation established here is not an incidental in vitro observation - it has a measurable functional consequence, and it is what makes the disease\u0027s lesion specific rather than general. Whether that specificity explains why the disease is confined to the optic nerve is an open question below.\", \"meta\": {\"evidence_count\": 3, \"role\": \"modifier\", \"experimental_models\": [{\"name\": \"MID51 variant expression in HeLa cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The same system was used to test, and exclude, mislocalisation and oligomerisation defects. Graded MEASURES rather than RECAPITULATES because the informative result is a negative one: the model establishes that two candidate mechanisms are absent.\"}]}}, {\"id\": \"Retinal Ganglion Cell Degeneration and Optic Nerve Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Both patients had pale, moderately excavated optic disks with a normal retina, strongly abnormal visual evoked potentials, and - in the patient who had optical coherence tomography - retinal nerve fibre layer collapse in all quadrants of both eyes. The retinal nerve fibre layer is the retinal ganglion cell axon layer, so its loss is the closest available measurement of the cellular claim in this node\u0027s title.\\nMarked PROVISIONAL because ganglion cell death itself is inferred, not observed: no tissue from a MIEF1 patient has been examined. What is observed is optic disc pallor plus axon-layer thinning plus conduction failure, which is the standard clinical basis for inferring ganglion cell loss in the inherited optic neuropathies.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal ganglion cell\"], \"role\": \"outcome\", \"locations\": [\"optic nerve\"]}}], \"edges\": [{\"source\": \"Heterozygous MIEF1 Missense Variant\", \"target\": \"Preserved MID51 Localisation and Oligomerisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterozygous MIEF1 Missense Variant\", \"target\": \"Impaired DRP1 Recruitment to the Outer Mitochondrial Membrane\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired DRP1 Recruitment to the Outer Mitochondrial Membrane\", \"target\": \"Disrupted Mitochondrial Network Dynamics\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Mitochondrial Network Dynamics\", \"target\": \"Retinal Ganglion Cell Degeneration and Optic Nerve Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Why disrupted mitochondrial dynamics kills retinal ganglion cells in particular is the unsolved question of the whole dominant-optic-atrophy field, not a gap specific to MIEF1. No intermediate step has been demonstrated for this gene.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"MID51 variant expression in HeLa cells\", \"target\": \"Disrupted Mitochondrial Network Dynamics\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The assay demonstrates that both patient variants abolish MID51\u0027s normal effect on mitochondrial network dynamics, which is the disease\u0027s proposed cellular lesion.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Three limitations, and they compound. The cell is a cervical adenocarcinoma line, not a retinal ganglion cell, and the selective vulnerability of that neuron is the whole unexplained part of the disease. The variants are expressed transiently from a plasmid on top of endogenous wild-type MID51 rather than from the endogenous locus, and the cited review states explicitly that heterologous overexpression and increased endogenous MiD have opposite effects on the network - so the assay\u0027s baseline is a condition that does not occur in a patient. And the readout is a difference from overexpressed wild-type MID51, not from an untransfected cell, which measures loss of an overexpression artefact\u0027s effect rather than the variant\u0027s effect on a normal cell. Fidelity is graded LOW on that basis.\"}, {\"source\": \"MID51 variant expression in HeLa cells\", \"target\": \"Preserved MID51 Localisation and Oligomerisation\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The same system was used to test, and exclude, mislocalisation and oligomerisation defects. Graded MEASURES rather than RECAPITULATES because the informative result is a negative one: the model establishes that two candidate mechanisms are absent.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A negative result in an overexpression system is weaker than a positive one, because excess wild-type protein could mask a partial folding or trafficking defect. The oligomerisation assay in particular scores tagged protein pulled down from a transfected cell, not the endogenous complex.\"}, {\"source\": \"MIEF1\", \"target\": \"Heterozygous MIEF1 Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted Mitochondrial Network Dynamics\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measured cellular phenotype, and the strongest evidence in the entity. Using a photoactivatable matrix probe to count fusion events between mitochondria in live cells, wild-type MID51 expression increased the rate of fusion, and both mutants significantly decreased it relative to wild-type.\\nRead the direction carefully, because it is counterintuitive. MID51 is a *fission* adaptor, yet overexpressing wild-type MID51 increases *fusion* - the established explanation being that excess MID51 sequesters DRP1 in an inactive state on the outer membrane, so the net effect of more adaptor is less fission. The mutants fail to produce that effect. So what the assay measures directly is the loss of MID51\u0027s ability to modulate the network at all, not a shift toward either fission or fusion in the patient. The entry deliberately does not claim that patients\u0027 mitochondria are fragmented or elongated: nobody has looked at a patient\u0027s cells.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial fusion\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"MID51 variant expression in HeLa cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The assay demonstrates that both patient variants abolish MID51\u0027s normal effect on mitochondrial network dynamics, which is the disease\u0027s proposed cellular lesion.\"}]}}, {\"id\": \"Heterozygous MIEF1 Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two variants, one per patient. c.718T\u003eA gives p.Y240N, which lies in MID51\u0027s DRP1-binding region; c.436C\u003eT gives p.R146W, in a domain conserved with MID49 but of no known function. Neither is in the transmembrane domain that anchors MID51 in the outer membrane, and neither is at a residue previously shown to mediate oligomerisation - which is what makes the functional results below interpretable rather than merely negative.\\nMarked PROVISIONAL rather than ESTABLISHED because the pathogenicity argument is rarity plus in silico prediction plus an in vitro effect, in two unrelated singletons. The p.Y240N variant is absent from databases; p.R146W is rs778124994 at a gnomAD frequency of about 2 in 100,000, which is rare but not private.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MIEF1\"], \"gene_terms\": [{\"label\": \"MIEF1\", \"id\": \"hgnc:25979\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Curated as LOSS_OF_FUNCTION, and the choice needs its reasoning stated because the alternatives are live. The measured effect is that the mutants fail to do what wild-type MID51 does - wild-type expression increases fusion events, mutant expression does not - which is loss of a normal activity, and the follow-up work attributes it specifically to loss of DRP1 recruitment. DOMINANT_NEGATIVE is the obvious competing hypothesis for a heterozygous missense variant in an oligomeric adaptor, and it has not been excluded: no experiment reported here tests the mutant against wild-type MID51 in the same cell, and the assays are transient overexpression rather than expression from the endogenous locus. If a dominant-negative mechanism is later demonstrated, this slot should change.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired DRP1 Recruitment to the Outer Mitochondrial Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed molecular lesion. MID51\u0027s job is to recruit DRP1, a dynamin-related GTPase that has no membrane-binding domain of its own, onto the outer mitochondrial membrane so that it can constrict and divide the organelle. The p.Y240 residue sits in the loop that binds DRP1, and independent work concludes that the p.Y240N variant disrupts DRP1 recruitment while leaving MID51 oligomerisation intact, with the downstream consequence of selectively inhibiting DRP1 GTP hydrolysis.\\nMarked PROVISIONAL for a specific reason, not as a general hedge. The DRP1 recruitment claim is well evidenced for p.Y240N, whose position in the binding loop predicts it. It is *not* evidenced for p.R146W, which lies in a domain of unknown function outside the DRP1-binding region, and for which no DRP1 experiment has been reported. Both variants produce the same network phenotype at the node below, so either p.R146W reaches it by the same route for a reason nobody has identified, or the two alleles converge from different molecular starting points. Nothing published distinguishes these.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial fission\"], \"molecular_functions\": [\"DRP1 recruitment activity of MID51\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"MID51 variant expression in HeLa cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Transient expression of mCherry- or myc-tagged wild-type, p.Y240N and p.R146W MID51 in HeLa cells, assayed by live confocal microscopy for localisation, by immunoprecipitation and immunoblot for oligomerisation, and by photoactivatable matrix probe for fusion events. This is the entire functional evidence base for the disease, and it is the same system in which the independent group later mapped the DRP1-recruitment defect.\", \"meta\": {\"model_type\": \"CELL_LINE\"}}, {\"id\": \"MIEF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MIEF1\"], \"gene_terms\": [{\"label\": \"MIEF1\", \"id\": \"hgnc:25979\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Preserved MID51 Localisation and Oligomerisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A node that records what the disease is not, because two obvious mechanisms were tested and excluded, and excluding them is what makes the positive finding meaningful.\\nBoth mutant proteins localise to the mitochondrial network in live cells just as wild-type MID51 does, so this is not a mislocalisation disease. Both form dimers, tetramers and high-molecular-weight species in the same ratios as wild-type, so it is not an oligomerisation disease either. A curator adding to this entry should not later attach a mislocalisation or misassembly mechanism to it without new data; these were looked for and were not there.\\nAn independent group extended the second of those negatives one step downstream. MID51\u0027s other job, in complex with Fis1, is to drive lysosomal untethering at mitochondria-lysosome contact sites, and that function depends on the oligomerisation interface rather than on DRP1 binding. The optic-atrophy variant p.Y240N leaves it intact: it still forms a Mid51/Fis1 complex and does not misregulate lysosomal untethering or lysosomal network dynamics. So the preservation established here is not an incidental in vitro observation - it has a measurable functional consequence, and it is what makes the disease\u0027s lesion specific rather than general. Whether that specificity explains why the disease is confined to the optic nerve is an open question below.\", \"meta\": {\"evidence_count\": 3, \"role\": \"modifier\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"MID51 variant expression in HeLa cells\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The same system was used to test, and exclude, mislocalisation and oligomerisation defects. Graded MEASURES rather than RECAPITULATES because the informative result is a negative one: the model establishes that two candidate mechanisms are absent.\"}]}}, {\"id\": \"Retinal Ganglion Cell Degeneration and Optic Nerve Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Both patients had pale, moderately excavated optic disks with a normal retina, strongly abnormal visual evoked potentials, and - in the patient who had optical coherence tomography - retinal nerve fibre layer collapse in all quadrants of both eyes. The retinal nerve fibre layer is the retinal ganglion cell axon layer, so its loss is the closest available measurement of the cellular claim in this node\u0027s title.\\nMarked PROVISIONAL because ganglion cell death itself is inferred, not observed: no tissue from a MIEF1 patient has been examined. What is observed is optic disc pallor plus axon-layer thinning plus conduction failure, which is the standard clinical basis for inferring ganglion cell loss in the inherited optic neuropathies.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal ganglion cell\"], \"role\": \"outcome\", \"locations\": [\"optic nerve\"], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"Heterozygous MIEF1 Missense Variant\", \"target\": \"Preserved MID51 Localisation and Oligomerisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterozygous MIEF1 Missense Variant\", \"target\": \"Impaired DRP1 Recruitment to the Outer Mitochondrial Membrane\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired DRP1 Recruitment to the Outer Mitochondrial Membrane\", \"target\": \"Disrupted Mitochondrial Network Dynamics\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Mitochondrial Network Dynamics\", \"target\": \"Retinal Ganglion Cell Degeneration and Optic Nerve Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Why disrupted mitochondrial dynamics kills retinal ganglion cells in particular is the unsolved question of the whole dominant-optic-atrophy field, not a gap specific to MIEF1. No intermediate step has been demonstrated for this gene.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"MID51 variant expression in HeLa cells\", \"target\": \"Disrupted Mitochondrial Network Dynamics\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The assay demonstrates that both patient variants abolish MID51\u0027s normal effect on mitochondrial network dynamics, which is the disease\u0027s proposed cellular lesion.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Three limitations, and they compound. The cell is a cervical adenocarcinoma line, not a retinal ganglion cell, and the selective vulnerability of that neuron is the whole unexplained part of the disease. The variants are expressed transiently from a plasmid on top of endogenous wild-type MID51 rather than from the endogenous locus, and the cited review states explicitly that heterologous overexpression and increased endogenous MiD have opposite effects on the network - so the assay\u0027s baseline is a condition that does not occur in a patient. And the readout is a difference from overexpressed wild-type MID51, not from an untransfected cell, which measures loss of an overexpression artefact\u0027s effect rather than the variant\u0027s effect on a normal cell. Fidelity is graded LOW on that basis.\"}, {\"source\": \"MID51 variant expression in HeLa cells\", \"target\": \"Preserved MID51 Localisation and Oligomerisation\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The same system was used to test, and exclude, mislocalisation and oligomerisation defects. Graded MEASURES rather than RECAPITULATES because the informative result is a negative one: the model establishes that two candidate mechanisms are absent.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A negative result in an overexpression system is weaker than a positive one, because excess wild-type protein could mask a partial folding or trafficking defect. The oligomerisation assay in particular scores tagged protein pulled down from a transfected cell, not the endogenous complex.\"}, {\"source\": \"MIEF1\", \"target\": \"Heterozygous MIEF1 Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5522,6 +5604,9 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
                 </div>
+
+
+
 
 
 
@@ -5621,6 +5706,9 @@ This clinical feature is Optic disc pallor (HP:0000543). HP:0000543 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5690,6 +5778,9 @@ This clinical feature is Retinal nerve fiber layer thinning, annotated with Abno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5754,6 +5845,9 @@ This clinical feature is Constriction of peripheral visual field (HP:0001133). H
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5846,6 +5940,9 @@ This clinical feature is Reduced visual acuity (HP:0007663), qualified as tempor
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5910,6 +6007,9 @@ This clinical feature is Abnormality of visual evoked potentials (HP:0000649). H
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6000,6 +6100,9 @@ This disease-associated gene is MIEF1 (hgnc:25979). hgnc:25979 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

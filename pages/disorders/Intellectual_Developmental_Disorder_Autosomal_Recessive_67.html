@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5089,6 +5131,13 @@ That pattern is itself mechanistically informative. EIF3F is strongly intolerant
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-homozygous-eif3f-p-phe232val-lowers-eif3f-protein-abundance" data-dismech-node="Homozygous EIF3F p.Phe232Val Lowers eIF3f Protein Abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Homozygous EIF3F p.Phe232Val Lowers eIF3f Protein Abundance</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The founder missense allele does not obviously break a catalytic site; what it does is leave less eIF3f protein in the cell. Stem cells gene-edited to carry the variant homozygously have reduced eIF3f protein levels, which is the observation the loss-of-function interpretation rests on. Population genetics agrees: EIF3F is strongly intolerant of loss-of-function variation, no gnomAD individual is homozygous for this allele, and no patient with two truncating alleles has been reported, so this allele is best read as a hypomorph that survives where a null would not.</div>
 
 
@@ -5141,6 +5190,8 @@ This genetic context concerns EIF3F (hgnc:3275). hgnc:3275 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5153,6 +5204,9 @@ This genetic context concerns EIF3F (hgnc:3275). hgnc:3275 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous c.694T&gt;G p.(Phe232Val) in almost every reported individual; one compound heterozygote carries this allele with a frameshift on the other chromosome and is more severely affected.</div>
 
@@ -5346,6 +5400,13 @@ This pathophysiological event involves eukaryotic translation initiation factor 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-global-translation-initiation" data-dismech-node="Reduced Global Translation Initiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Global Translation Initiation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">eIF3 is the largest of the eukaryotic initiation factors, and it does not load every message equally; it binds a specific subset of mRNAs involved in proliferation, growth, cell-cycle control, differentiation and apoptosis. Lowering eIF3f lowers the measured translation rate in cells carrying the variant, in heterozygotes as well as homozygotes. In mouse, partial eIF3f depletion reduces polysome content and protein synthesis rate and inhibits the mTOR pathway, which is the coupling by which a translation-factor defect becomes a growth defect.</div>
 
@@ -5582,6 +5643,13 @@ This pathophysiological event involves decreased TOR signaling (GO:0031929). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cell-proliferation-and-growth" data-dismech-node="Reduced Cell Proliferation and Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cell Proliferation and Growth</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Cells homozygous for the disease allele proliferate more slowly. This is the step that most plausibly connects a general translation defect to the particular clinical picture, since the tissues that need the most protein synthesis over the longest developmental window are the ones that show up in the phenotype: brain, stature, head circumference and, in the mouse, muscle mass.</div>
 
 
@@ -5758,6 +5826,13 @@ This pathophysiological event involves decreased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brain-development-and-somatic-growth" data-dismech-node="Impaired Brain Development and Somatic Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Brain Development and Somatic Growth</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical endpoint: global developmental delay with prominent speech delay in every reported individual, plus a variable syndromic tail of hearing loss, abnormal muscle tone, short stature and microcephaly. This node is marked provisional because the step from a general reduction in translation to these specific outcomes is inferred rather than measured. No neural model of the disease allele has been reported; the cellular work was done in undifferentiated stem cells and the in vivo work in mouse muscle. Brain imaging in affected people is unhelpfully nonspecific, which is itself a piece of evidence: there is no structural lesion to point at.</div>
 
 
@@ -5904,7 +5979,7 @@ This pathophysiological event involves abnormal brain development (GO:0007420). 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech is the most consistently and most severely affected domain. Every individual in the largest cohort had speech delay, and about a quarter never developed speech at all. Speech delay was not recognized as part of the phenotype in the original report and was added by the larger follow-up study.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Developmental and Educational Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment directed at the mechanism. Management is developmental: speech and language therapy, which matters disproportionately here because speech is the most consistently and severely affected domain, together with special education, physiotherapy and behavioural support. Affected children in reported cases are followed by neurology, otorhinolaryngology, psychology and speech therapy together.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"EIF3F\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"EIF3F (eukaryotic translation initiation factor 3 subunit F)\"], \"gene_terms\": [{\"label\": \"EIF3F (eukaryotic translation initiation factor 3 subunit F)\", \"id\": \"hgnc:3275\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"EIF3F c.694T\u003eG p.(Phe232Val)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The founder allele, homozygous in 21 of 22 reported individuals across sixteen families and present on a single shared haplotype in all fifteen families tested, so it arose once. It is the seventh most common EIF3F missense variant in gnomAD at 0.07% overall, 0.21% in Ashkenazi Jewish and 0.12% in non-Finnish European individuals, yet no gnomAD individual is homozygous for it, in contrast to five of the six more frequent EIF3F missense variants. Functionally it lowers eIF3f protein level, translation rate and proliferation in gene-edited stem cells.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"EIF3F\"], \"gene_terms\": [{\"label\": \"EIF3F\", \"id\": \"hgnc:3275\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"EIF3F c.861dup p.(Gln288AlafsTer14)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A frameshift allele found in trans with the founder missense variant in one individual, who was at the severe end of the spectrum for motor milestones, speech delay, organic problems and pre- and postnatal growth of body and head. This is the entity\u0027s only genotype-phenotype signal, and it is what supports reading the founder allele as hypomorphic rather than null.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"EIF3F\"], \"gene_terms\": [{\"label\": \"EIF3F\", \"id\": \"hgnc:3275\"}], \"variant_type\": \"frameshift\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The isogenic human cell model, and the source of every functional measurement this pathograph rests on. Induced pluripotent stem cells were gene-edited to carry the founder variant homozygously, and show reduced eIF3f protein, reduced translation rate and reduced proliferation against their unedited controls. It is the only human system in this entry, and it is the model the \\\"no neural model\\\" knowledge gap is measured against: it establishes the molecular and cellular steps in human cells while saying nothing about neurons, because the cells were never differentiated.\", \"meta\": {\"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:30409806\"}}, {\"id\": \"Homozygous EIF3F p.Phe232Val Lowers eIF3f Protein Abundance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The founder missense allele does not obviously break a catalytic site; what it does is leave less eIF3f protein in the cell. Stem cells gene-edited to carry the variant homozygously have reduced eIF3f protein levels, which is the observation the loss-of-function interpretation rests on. Population genetics agrees: EIF3F is strongly intolerant of loss-of-function variation, no gnomAD individual is homozygous for this allele, and no patient with two truncating alleles has been reported, so this allele is best read as a hypomorph that survives where a null would not.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"translation initiation factor activity of the eIF3f subunit\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Homozygous c.694T\u003eG p.(Phe232Val) in almost every reported individual; one compound heterozygote carries this allele with a frameshift on the other chromosome and is more severely affected.\", \"gene_terms\": [{\"label\": \"EIF3F\", \"id\": \"hgnc:3275\"}]}, \"experimental_models\": [{\"name\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Carries the exact human disease allele in the exact zygosity of affected people, on an isogenic background, and reproduces the reduction in eIF3f protein that the molecular node asserts.\"}], \"animal_models\": [{\"name\": \"eIF3f-null mouse\", \"species\": \"Mouse\", \"genotype\": \"eIF3f homozygous null\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"A complete null, not the human allele. It bounds the mechanism from the severe end rather than reproducing the disease: it shows what happens when eIF3f is absent altogether, which is embryonic lethality rather than a neurodevelopmental disorder.\"}]}}, {\"id\": \"Impaired Brain Development and Somatic Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: global developmental delay with prominent speech delay in every reported individual, plus a variable syndromic tail of hearing loss, abnormal muscle tone, short stature and microcephaly. This node is marked provisional because the step from a general reduction in translation to these specific outcomes is inferred rather than measured. No neural model of the disease allele has been reported; the cellular work was done in undifferentiated stem cells and the in vivo work in mouse muscle. Brain imaging in affected people is unhelpfully nonspecific, which is itself a piece of evidence: there is no structural lesion to point at.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"brain development\"]}}, {\"id\": \"Reduced Cell Proliferation and Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells homozygous for the disease allele proliferate more slowly. This is the step that most plausibly connects a general translation defect to the particular clinical picture, since the tissues that need the most protein synthesis over the longest developmental window are the ones that show up in the phenotype: brain, stature, head circumference and, in the mouse, muscle mass.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"], \"experimental_models\": [{\"name\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced proliferation rate in the edited line against its isogenic control.\"}], \"animal_models\": [{\"name\": \"eIF3f heterozygous mouse\", \"species\": \"Mouse\", \"genotype\": \"eIF3f heterozygous null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced lean mass and altered muscle cell size without a change in fibre number, which is a growth deficit at the level of cell size rather than cell number.\"}]}}, {\"id\": \"Reduced Global Translation Initiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"eIF3 is the largest of the eukaryotic initiation factors, and it does not load every message equally; it binds a specific subset of mRNAs involved in proliferation, growth, cell-cycle control, differentiation and apoptosis. Lowering eIF3f lowers the measured translation rate in cells carrying the variant, in heterozygotes as well as homozygotes. In mouse, partial eIF3f depletion reduces polysome content and protein synthesis rate and inhibits the mTOR pathway, which is the coupling by which a translation-factor defect becomes a growth defect.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"translational initiation\", \"TOR signaling\"], \"experimental_models\": [{\"name\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Translation rate is reduced in cells carrying the variant, in heterozygotes as well as homozygotes, which is the cellular step the pathograph turns on.\"}], \"animal_models\": [{\"name\": \"eIF3f heterozygous mouse\", \"species\": \"Mouse\", \"genotype\": \"eIF3f heterozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the translational deficit itself, measured as reduced polysome content and protein synthesis rate, and identifies mTOR inhibition as the link to growth.\"}]}}, {\"id\": \"eIF3f heterozygous mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Viable, fertile and grossly normal, but with reduced eIF3f mRNA and protein in every tissue examined, reduced polysome content, a lower protein synthesis rate, inhibited mTOR signalling, reduced lean mass and altered muscle cell size. It is the only in vivo demonstration that partial eIF3f depletion produces a measurable translational and growth deficit.\"}, {\"id\": \"eIF3f-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Homozygous null embryos fail to develop and die at an early embryonic stage, after implantation. This is the experimental counterpart of the human observation that no patient with two truncating EIF3F alleles has ever been reported, and it is the reason the founder missense allele must retain residual function.\"}], \"edges\": [{\"source\": \"Homozygous EIF3F p.Phe232Val Lowers eIF3f Protein Abundance\", \"target\": \"Reduced Global Translation Initiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Less eIF3f in the eIF3 complex lowers the rate at which the cell can initiate translation.\"}, {\"source\": \"Reduced Global Translation Initiation\", \"target\": \"Reduced Cell Proliferation and Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A lowered translation rate constrains how fast cells can grow and divide.\"}, {\"source\": \"Reduced Cell Proliferation and Growth\", \"target\": \"Impaired Brain Development and Somatic Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constrained proliferation and growth during development produce the neurodevelopmental and growth phenotype.\"}, {\"source\": \"Developmental and Educational Support\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"target\": \"Homozygous EIF3F p.Phe232Val Lowers eIF3f Protein Abundance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Carries the exact human disease allele in the exact zygosity of affected people, on an isogenic background, and reproduces the reduction in eIF3f protein that the molecular node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Undifferentiated stem cells. Protein abundance is measured in a cell type that has nothing to do with the affected tissue, so the model establishes that the allele lowers eIF3f, not that it does so in a neuron.\"}, {\"source\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"target\": \"Reduced Global Translation Initiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Translation rate is reduced in cells carrying the variant, in heterozygotes as well as homozygotes, which is the cellular step the pathograph turns on.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A bulk translation-rate measurement in undifferentiated cells. It does not identify which transcripts lose translational efficiency, which is the open question the entry\u0027s knowledge gap records.\"}, {\"source\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"target\": \"Reduced Cell Proliferation and Growth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced proliferation rate in the edited line against its isogenic control.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Proliferation of a stem cell is not the developmental growth of a brain or a body; the link to the organism-level phenotype remains an inference.\"}, {\"source\": \"eIF3f-null mouse\", \"target\": \"Homozygous EIF3F p.Phe232Val Lowers eIF3f Protein Abundance\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"A complete null, not the human allele. It bounds the mechanism from the severe end rather than reproducing the disease: it shows what happens when eIF3f is absent altogether, which is embryonic lethality rather than a neurodevelopmental disorder.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"This genotype does not exist in any reported patient and produces a qualitatively different outcome from the human disease. It cannot be used to model the phenotype, only to argue that the human allele is hypomorphic.\"}, {\"source\": \"eIF3f heterozygous mouse\", \"target\": \"Reduced Global Translation Initiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the translational deficit itself, measured as reduced polysome content and protein synthesis rate, and identifies mTOR inhibition as the link to growth.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The measurements were made in skeletal muscle, not brain, and the mouse carries a null allele on one chromosome rather than the human missense allele on both. Heterozygous mice are behaviourally and developmentally normal, so this model captures the biochemistry of partial eIF3f depletion without reproducing the neurodevelopmental phenotype.\"}, {\"source\": \"eIF3f heterozygous mouse\", \"target\": \"Reduced Cell Proliferation and Growth\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reduced lean mass and altered muscle cell size without a change in fibre number, which is a growth deficit at the level of cell size rather than cell number.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Body size is normal in these mice, so the growth phenotype is not the short stature seen in patients, and no neural tissue was examined.\"}, {\"source\": \"EIF3F c.694T\u003eG p.(Phe232Val)\", \"target\": \"EIF3F\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"EIF3F c.861dup p.(Gln288AlafsTer14)\", \"target\": \"EIF3F\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech is the most consistently and most severely affected domain. Every individual in the largest cohort had speech delay, and about a quarter never developed speech at all. Speech delay was not recognized as part of the phenotype in the original report and was added by the larger follow-up study.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Developmental and Educational Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment directed at the mechanism. Management is developmental: speech and language therapy, which matters disproportionately here because speech is the most consistently and severely affected domain, together with special education, physiotherapy and behavioural support. Affected children in reported cases are followed by neurology, otorhinolaryngology, psychology and speech therapy together.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"EIF3F\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"EIF3F (eukaryotic translation initiation factor 3 subunit F)\"], \"gene_terms\": [{\"label\": \"EIF3F (eukaryotic translation initiation factor 3 subunit F)\", \"id\": \"hgnc:3275\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"EIF3F c.694T\u003eG p.(Phe232Val)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The founder allele, homozygous in 21 of 22 reported individuals across sixteen families and present on a single shared haplotype in all fifteen families tested, so it arose once. It is the seventh most common EIF3F missense variant in gnomAD at 0.07% overall, 0.21% in Ashkenazi Jewish and 0.12% in non-Finnish European individuals, yet no gnomAD individual is homozygous for it, in contrast to five of the six more frequent EIF3F missense variants. Functionally it lowers eIF3f protein level, translation rate and proliferation in gene-edited stem cells.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"EIF3F\"], \"gene_terms\": [{\"label\": \"EIF3F\", \"id\": \"hgnc:3275\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"EIF3F c.861dup p.(Gln288AlafsTer14)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A frameshift allele found in trans with the founder missense variant in one individual, who was at the severe end of the spectrum for motor milestones, speech delay, organic problems and pre- and postnatal growth of body and head. This is the entity\u0027s only genotype-phenotype signal, and it is what supports reading the founder allele as hypomorphic rather than null.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"EIF3F\"], \"gene_terms\": [{\"label\": \"EIF3F\", \"id\": \"hgnc:3275\"}], \"variant_type\": \"frameshift\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The isogenic human cell model, and the source of every functional measurement this pathograph rests on. Induced pluripotent stem cells were gene-edited to carry the founder variant homozygously, and show reduced eIF3f protein, reduced translation rate and reduced proliferation against their unedited controls. It is the only human system in this entry, and it is the model the \\\"no neural model\\\" knowledge gap is measured against: it establishes the molecular and cellular steps in human cells while saying nothing about neurons, because the cells were never differentiated.\", \"meta\": {\"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:30409806\"}}, {\"id\": \"Homozygous EIF3F p.Phe232Val Lowers eIF3f Protein Abundance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The founder missense allele does not obviously break a catalytic site; what it does is leave less eIF3f protein in the cell. Stem cells gene-edited to carry the variant homozygously have reduced eIF3f protein levels, which is the observation the loss-of-function interpretation rests on. Population genetics agrees: EIF3F is strongly intolerant of loss-of-function variation, no gnomAD individual is homozygous for this allele, and no patient with two truncating alleles has been reported, so this allele is best read as a hypomorph that survives where a null would not.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"translation initiation factor activity of the eIF3f subunit\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Homozygous c.694T\u003eG p.(Phe232Val) in almost every reported individual; one compound heterozygote carries this allele with a frameshift on the other chromosome and is more severely affected.\", \"gene_terms\": [{\"label\": \"EIF3F\", \"id\": \"hgnc:3275\"}]}, \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Carries the exact human disease allele in the exact zygosity of affected people, on an isogenic background, and reproduces the reduction in eIF3f protein that the molecular node asserts.\"}], \"animal_models\": [{\"name\": \"eIF3f-null mouse\", \"species\": \"Mouse\", \"genotype\": \"eIF3f homozygous null\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"A complete null, not the human allele. It bounds the mechanism from the severe end rather than reproducing the disease: it shows what happens when eIF3f is absent altogether, which is embryonic lethality rather than a neurodevelopmental disorder.\"}]}}, {\"id\": \"Impaired Brain Development and Somatic Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: global developmental delay with prominent speech delay in every reported individual, plus a variable syndromic tail of hearing loss, abnormal muscle tone, short stature and microcephaly. This node is marked provisional because the step from a general reduction in translation to these specific outcomes is inferred rather than measured. No neural model of the disease allele has been reported; the cellular work was done in undifferentiated stem cells and the in vivo work in mouse muscle. Brain imaging in affected people is unhelpfully nonspecific, which is itself a piece of evidence: there is no structural lesion to point at.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"brain development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Reduced Cell Proliferation and Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells homozygous for the disease allele proliferate more slowly. This is the step that most plausibly connects a general translation defect to the particular clinical picture, since the tissues that need the most protein synthesis over the longest developmental window are the ones that show up in the phenotype: brain, stature, head circumference and, in the mouse, muscle mass.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced proliferation rate in the edited line against its isogenic control.\"}], \"animal_models\": [{\"name\": \"eIF3f heterozygous mouse\", \"species\": \"Mouse\", \"genotype\": \"eIF3f heterozygous null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced lean mass and altered muscle cell size without a change in fibre number, which is a growth deficit at the level of cell size rather than cell number.\"}]}}, {\"id\": \"Reduced Global Translation Initiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"eIF3 is the largest of the eukaryotic initiation factors, and it does not load every message equally; it binds a specific subset of mRNAs involved in proliferation, growth, cell-cycle control, differentiation and apoptosis. Lowering eIF3f lowers the measured translation rate in cells carrying the variant, in heterozygotes as well as homozygotes. In mouse, partial eIF3f depletion reduces polysome content and protein synthesis rate and inhibits the mTOR pathway, which is the coupling by which a translation-factor defect becomes a growth defect.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"translational initiation\", \"TOR signaling\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Translation rate is reduced in cells carrying the variant, in heterozygotes as well as homozygotes, which is the cellular step the pathograph turns on.\"}], \"animal_models\": [{\"name\": \"eIF3f heterozygous mouse\", \"species\": \"Mouse\", \"genotype\": \"eIF3f heterozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the translational deficit itself, measured as reduced polysome content and protein synthesis rate, and identifies mTOR inhibition as the link to growth.\"}]}}, {\"id\": \"eIF3f heterozygous mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Viable, fertile and grossly normal, but with reduced eIF3f mRNA and protein in every tissue examined, reduced polysome content, a lower protein synthesis rate, inhibited mTOR signalling, reduced lean mass and altered muscle cell size. It is the only in vivo demonstration that partial eIF3f depletion produces a measurable translational and growth deficit.\"}, {\"id\": \"eIF3f-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Homozygous null embryos fail to develop and die at an early embryonic stage, after implantation. This is the experimental counterpart of the human observation that no patient with two truncating EIF3F alleles has ever been reported, and it is the reason the founder missense allele must retain residual function.\"}], \"edges\": [{\"source\": \"Homozygous EIF3F p.Phe232Val Lowers eIF3f Protein Abundance\", \"target\": \"Reduced Global Translation Initiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Less eIF3f in the eIF3 complex lowers the rate at which the cell can initiate translation.\"}, {\"source\": \"Reduced Global Translation Initiation\", \"target\": \"Reduced Cell Proliferation and Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A lowered translation rate constrains how fast cells can grow and divide.\"}, {\"source\": \"Reduced Cell Proliferation and Growth\", \"target\": \"Impaired Brain Development and Somatic Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constrained proliferation and growth during development produce the neurodevelopmental and growth phenotype.\"}, {\"source\": \"Developmental and Educational Support\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"target\": \"Homozygous EIF3F p.Phe232Val Lowers eIF3f Protein Abundance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Carries the exact human disease allele in the exact zygosity of affected people, on an isogenic background, and reproduces the reduction in eIF3f protein that the molecular node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Undifferentiated stem cells. Protein abundance is measured in a cell type that has nothing to do with the affected tissue, so the model establishes that the allele lowers eIF3f, not that it does so in a neuron.\"}, {\"source\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"target\": \"Reduced Global Translation Initiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Translation rate is reduced in cells carrying the variant, in heterozygotes as well as homozygotes, which is the cellular step the pathograph turns on.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A bulk translation-rate measurement in undifferentiated cells. It does not identify which transcripts lose translational efficiency, which is the open question the entry\u0027s knowledge gap records.\"}, {\"source\": \"Gene-edited EIF3F p.(Phe232Val) homozygous iPSC line\", \"target\": \"Reduced Cell Proliferation and Growth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced proliferation rate in the edited line against its isogenic control.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Proliferation of a stem cell is not the developmental growth of a brain or a body; the link to the organism-level phenotype remains an inference.\"}, {\"source\": \"eIF3f-null mouse\", \"target\": \"Homozygous EIF3F p.Phe232Val Lowers eIF3f Protein Abundance\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"A complete null, not the human allele. It bounds the mechanism from the severe end rather than reproducing the disease: it shows what happens when eIF3f is absent altogether, which is embryonic lethality rather than a neurodevelopmental disorder.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"This genotype does not exist in any reported patient and produces a qualitatively different outcome from the human disease. It cannot be used to model the phenotype, only to argue that the human allele is hypomorphic.\"}, {\"source\": \"eIF3f heterozygous mouse\", \"target\": \"Reduced Global Translation Initiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the translational deficit itself, measured as reduced polysome content and protein synthesis rate, and identifies mTOR inhibition as the link to growth.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The measurements were made in skeletal muscle, not brain, and the mouse carries a null allele on one chromosome rather than the human missense allele on both. Heterozygous mice are behaviourally and developmentally normal, so this model captures the biochemistry of partial eIF3f depletion without reproducing the neurodevelopmental phenotype.\"}, {\"source\": \"eIF3f heterozygous mouse\", \"target\": \"Reduced Cell Proliferation and Growth\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reduced lean mass and altered muscle cell size without a change in fibre number, which is a growth deficit at the level of cell size rather than cell number.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Body size is normal in these mice, so the growth phenotype is not the short stature seen in patients, and no neural tissue was examined.\"}, {\"source\": \"EIF3F\", \"target\": \"Homozygous EIF3F p.Phe232Val Lowers eIF3f Protein Abundance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EIF3F c.694T\u003eG p.(Phe232Val)\", \"target\": \"EIF3F\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"EIF3F c.861dup p.(Gln288AlafsTer14)\", \"target\": \"EIF3F\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5973,6 +6048,9 @@ This clinical feature is Functional gastrointestinal abnormality, annotated with
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6055,6 +6133,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6162,6 +6243,9 @@ This clinical feature is Refractive error, annotated with Abnormality of refract
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6297,6 +6381,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6393,6 +6480,9 @@ This clinical feature is Cleft lip or palate, annotated with Orofacial cleft (HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6468,6 +6558,9 @@ This clinical feature is Muscular hypotonia or hypertonia, annotated with Abnorm
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6578,6 +6671,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6669,6 +6765,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6770,6 +6869,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6838,6 +6940,9 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6934,6 +7039,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7060,6 +7168,9 @@ This clinical feature is Pain insensitivity (HP:0007021). HP:0007021 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7126,6 +7237,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7200,6 +7314,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7264,6 +7381,9 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7369,6 +7489,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7516,6 +7639,9 @@ This disease-associated gene is EIF3F (eukaryotic translation initiation factor 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7591,6 +7717,7 @@ This disease-associated gene is EIF3F (eukaryotic translation initiation factor 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7610,11 +7737,17 @@ This variant is in EIF3F (hgnc:3275). hgnc:3275 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The founder allele, homozygous in 21 of 22 reported individuals across sixteen families and present on a single shared haplotype in all fifteen families tested, so it arose once. It is the seventh most common EIF3F missense variant in gnomAD at 0.07% overall, 0.21% in Ashkenazi Jewish and 0.12% in non-Finnish European individuals, yet no gnomAD individual is homozygous for it, in contrast to five of the six more frequent EIF3F missense variants. Functionally it lowers eIF3f protein level, translation rate and proliferation in gene-edited stem cells.</div>
@@ -7727,6 +7860,7 @@ This variant is in EIF3F (hgnc:3275). hgnc:3275 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7746,11 +7880,17 @@ This variant is in EIF3F (hgnc:3275). hgnc:3275 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A frameshift allele found in trans with the founder missense variant in one individual, who was at the severe end of the spectrum for motor milestones, speech delay, organic problems and pre- and postnatal growth of body and head. This is the entity&#39;s only genotype-phenotype signal, and it is what supports reading the founder allele as hypomorphic rather than null.</div>

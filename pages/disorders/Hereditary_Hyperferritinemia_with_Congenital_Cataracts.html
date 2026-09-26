@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4627,6 +4669,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ftl-iron-responsive-element-disruption" data-dismech-node="FTL Iron-Responsive Element Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">FTL Iron-Responsive Element Disruption</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is a heterozygous single-nucleotide substitution or short deletion inside the ~30-nucleotide IRE hairpin encoded in the FTL 5&#39; untranslated region. The IRE has four structural parts that matter: a conserved CAGUGN apical hexanucleotide loop, an upper stem, an unpaired cytosine bulge separating the stems, and a lower stem. Pathogenic changes cluster in the loop, the bulge and the upper stem, and act by distorting or destabilising the hairpin so that it no longer presents the surface that iron-regulatory proteins recognise. The FTL coding sequence is untouched, so the L-ferritin protein produced is structurally normal - which is what separates this disorder from the coding-region FTL diseases.</div>
 
 
@@ -4687,6 +4736,8 @@ This pathophysiological event involves FTL (hgnc:3999). hgnc:3999 is a gene from
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4697,6 +4748,9 @@ This pathophysiological event involves FTL (hgnc:3999). hgnc:3999 is a gene from
 
 
     </div>
+
+
+
 
     <div class="context-detail">Constitutional non-coding variant in the FTL 5&#39; UTR. Almost all reported patients are heterozygous; a handful of homozygous individuals have been described in consanguineous families. Deliberately no functional_impact_category is asserted here: the enum describes the activity of a gene product, and this variant does not change the product at all, only the amount of it that is made. The variant-level claim is carried instead by `regulatory_category` on the entries in `genetic`.</div>
 
@@ -4819,6 +4873,13 @@ This pathophysiological event involves FTL (hgnc:3999). hgnc:3999 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-iron-regulatory-protein-binding-to-the-ftl-ire" data-dismech-node="Loss of Iron-Regulatory Protein Binding to the FTL IRE" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Iron-Regulatory Protein Binding to the FTL IRE</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In health, when cytosolic iron is low, IRP1 (in its apo, non-cluster form) and IRP2 bind the FTL IRE with high affinity and prevent recruitment of the small ribosomal subunit, so L-ferritin is not made. HHCS variants reduce that affinity. The reduction is graded rather than all-or-none: gel-shift assays across the allelic series show a spectrum from near-complete abolition to a partial, several-fold loss of affinity, and even a partial loss is enough to cause disease. This graded biochemistry is the mechanistic substrate for the clinical observation that different IRE positions give different disease severities.</div>
 
@@ -4983,6 +5044,13 @@ This pathophysiological event involves decreased iron-responsive element binding
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-derepression-of-l-ferritin-translation" data-dismech-node="Constitutive Derepression of L-Ferritin Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Derepression of L-Ferritin Translation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Translation initiation on FTL mRNA becomes constitutive. This is the qualitative change that defines the disorder: the process is not simply running faster, it has been removed from the regulatory circuit that normally couples it to cytosolic iron, so neither iron loading nor iron chelation of the cell moves it. HHCS is the founding example of what has been called translational pathophysiology - disease caused by a mutation that changes how efficiently an mRNA is translated rather than what it encodes.</div>
 
@@ -5155,6 +5223,13 @@ This pathophysiological event involves IRP-mediated translational repression of 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-l-ferritin-overproduction-and-intracellular-accumulation" data-dismech-node="L-Ferritin Overproduction and Intracellular Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">L-Ferritin Overproduction and Intracellular Accumulation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Cells accumulate five- to twenty-fold excess L-ferritin. Because the excess is of one subunit only, the assembled product is abnormal in composition rather than in structure: roughly half of the surplus L-chain assembles into L-chain-only 24-mer homopolymers, which lack the H-subunit ferroxidase centre and therefore do not take up iron at all, and the remainder shifts the normal heteropolymer population towards L-rich isoferritins. This is the reason the disorder does not cause iron overload despite an enormous ferritin burden - the extra shells are essentially empty.</div>
 
 
@@ -5310,6 +5385,13 @@ This pathophysiological event involves increased L-chain-rich and L-chain-only f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-serum-hyperferritinemia-uncoupled-from-body-iron-stores" data-dismech-node="Serum Hyperferritinemia Uncoupled from Body Iron Stores" data-dismech-type="pathophysiology">
                 <div class="item-name">Serum Hyperferritinemia Uncoupled from Body Iron Stores</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Serum ferritin is persistently and often markedly elevated, commonly in the several-hundred to greater-than-2,000 microgram/L range, while serum iron, transferrin saturation, total iron-binding capacity and parenchymal iron content stay normal. The clinically decisive point is negative: this is not iron overload. Serum ferritin has simply stopped being an index of body iron in these patients, in both directions - it will also fail to fall when they become genuinely iron deficient.</div>
 
 
@@ -5441,6 +5523,13 @@ This pathophysiological event involves increased L-chain-rich and L-chain-only f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lens-fibre-cell-l-ferritin-accumulation" data-dismech-node="Lens Fibre Cell L-Ferritin Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lens Fibre Cell L-Ferritin Accumulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Lens fibre cells accumulate L-ferritin far in excess of any other tissue examined. Measured lens L-ferritin content in HHCS ranges from about ten-fold the control value in one extracted nucleus to roughly 1500-fold in two others, the spread reflecting different assays, cataract morphologies and ages at surgery. Two features of the lens plausibly explain why this is the one tissue that suffers: FTL transcription is unusually high there, and lens fibre cells are post-mitotic, organelle-free and protein-packed, with no way to dilute or turn over an accumulating protein. The tissue selectivity is nonetheless not formally resolved - see the knowledge gap recorded in `discussions`.</div>
 
@@ -5621,6 +5710,13 @@ This pathophysiological event occurs in lens of the eye, annotated with lens of 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-crystalline-l-ferritin-deposition-and-lens-light-scattering" data-dismech-node="Crystalline L-Ferritin Deposition and Lens Light Scattering" data-dismech-type="pathophysiology">
                 <div class="item-name">Crystalline L-Ferritin Deposition and Lens Light Scattering</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The excess L-ferritin comes out of solution as discrete crystalline inclusions within the lens substance. Immunohistochemistry on an extracted HHCS lens stains these inclusions for L-ferritin and not for H-ferritin, so they are made of the overproduced subunit itself. Refractive-index discontinuities at the inclusions scatter incident light and degrade the image reaching the retina. Levi and colleagues additionally proposed that the L-chain excess perturbs the solubility equilibrium among the crystallins, or the lens antioxidant balance, as a contributing mechanism; that proposal has not been tested directly and is recorded here as a hypothesis rather than as the established route.</div>
 
 
@@ -5787,6 +5883,13 @@ This pathophysiological event involves lens fibre cell, annotated with lens fibe
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-iatrogenic-iron-depletion-from-misdirected-venesection-and-chelation" data-dismech-node="Iatrogenic Iron Depletion from Misdirected Venesection and Chelation" data-dismech-type="pathophysiology">
                 <div class="item-name">Iatrogenic Iron Depletion from Misdirected Venesection and Chelation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The commonest complication of HHCS is not caused by the disease. Because the ferritin elevation is generated by translation and not by stored iron, removing iron cannot correct it; what venesection does instead is strip a normal iron store from a patient who had one, producing iron deficiency and microcytic anaemia while the ferritin stays high. Iron chelation carries its own hazard: one 8.5-year-old treated with deferasirox on a mistaken diagnosis of iron overload developed life-threatening acute hyperammonaemia. Repeated liver biopsy for the same misdiagnosis is a further avoidable harm. This node is included in the pathograph because the harm is mechanistically predictable from the upstream biology, not because it is a property of the genotype.</div>
 
 
@@ -5935,7 +6038,7 @@ This pathophysiological event involves lens fibre cell, annotated with lens fibe
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bilateral Early-Onset Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral, generally symmetrical lens opacity, classically nuclear and often described as congenital. In practice the timing is variable: opacities may be present in infancy, first detected in childhood or adolescence, or not recognised until adult life. Two reported children extend that range past delay to absence: a newborn known to carry the variant had no detectable lens opacity at birth or at one year, and a separate paediatric proband had no lenticular opacities at all at the point of diagnosis and was placed under surveillance rather than treated. The cataract is slowly progressive and eventually requires extraction in most affected people. Age at diagnosis and at surgery vary widely both between and within families sharing the same allele.\", \"meta\": {\"evidence_count\": 7, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000519\"}}, {\"id\": \"Cataract Extraction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only established phenotype-directed intervention, and in most patients the only clinical consequence of the diagnosis. Standard lens extraction with intraocular lens implantation is performed when the opacity materially impairs vision; in a child with a dense cataract it is also the intervention that prevents deprivation amblyopia. Surgery removes the opaque lens, not the underlying derepression, so the serum ferritin is unchanged by it.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Constitutive Derepression of L-Ferritin Translation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Translation initiation on FTL mRNA becomes constitutive. This is the qualitative change that defines the disorder: the process is not simply running faster, it has been removed from the regulatory circuit that normally couples it to cytosolic iron, so neither iron loading nor iron chelation of the cell moves it. HHCS is the founding example of what has been called translational pathophysiology - disease caused by a mutation that changes how efficiently an mRNA is translated rather than what it encodes.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"iron-independent initiation of L-ferritin mRNA translation\", \"IRP-mediated translational repression of FTL mRNA\"]}}, {\"id\": \"Crystalline L-Ferritin Deposition and Lens Light Scattering\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The excess L-ferritin comes out of solution as discrete crystalline inclusions within the lens substance. Immunohistochemistry on an extracted HHCS lens stains these inclusions for L-ferritin and not for H-ferritin, so they are made of the overproduced subunit itself. Refractive-index discontinuities at the inclusions scatter incident light and degrade the image reaching the retina. Levi and colleagues additionally proposed that the L-chain excess perturbs the solubility equilibrium among the crystallins, or the lens antioxidant balance, as a contributing mechanism; that proposal has not been tested directly and is recorded here as a hypothesis rather than as the established route.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"lens fibre cell\"]}}, {\"id\": \"FTL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FTL\"], \"gene_terms\": [{\"label\": \"FTL\", \"id\": \"hgnc:3999\"}], \"frequency\": \"The only gene in which variants are known to cause HHCS\", \"presence\": \"Present\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 4}}, {\"id\": \"FTL IRE six-nucleotide deletion (Italian family)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"An example of the deletion class of HHCS alleles, in a repeat-containing stretch such that the deletion can be written four equivalent ways. Cited here to make the point that the allelic spectrum is not confined to substitutions.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FTL\"], \"gene_terms\": [{\"label\": \"FTL\", \"id\": \"hgnc:3999\"}], \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"GOE\"}}, {\"id\": \"FTL Iron-Responsive Element Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous single-nucleotide substitution or short deletion inside the ~30-nucleotide IRE hairpin encoded in the FTL 5\u0027 untranslated region. The IRE has four structural parts that matter: a conserved CAGUGN apical hexanucleotide loop, an upper stem, an unpaired cytosine bulge separating the stems, and a lower stem. Pathogenic changes cluster in the loop, the bulge and the upper stem, and act by distorting or destabilising the hairpin so that it no longer presents the surface that iron-regulatory proteins recognise. The FTL coding sequence is untouched, so the L-ferritin protein produced is structurally normal - which is what separates this disorder from the coding-region FTL diseases.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"FTL\"], \"gene_terms\": [{\"label\": \"FTL\", \"id\": \"hgnc:3999\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"description\": \"Constitutional non-coding variant in the FTL 5\u0027 UTR. Almost all reported patients are heterozygous; a handful of homozygous individuals have been described in consanguineous families. Deliberately no functional_impact_category is asserted here: the enum describes the activity of a gene product, and this variant does not change the product at all, only the amount of it that is made. The variant-level claim is carried instead by `regulatory_category` on the entries in `genetic`.\"}}}, {\"id\": \"FTL c.-151A\u003eG (Ghent +49A\u003eG)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"An upper-stem allele just above the cytosine bulge. Predicted to disrupt base pairing at the base of the upper stem and, through that, the apical loop and the bulge. Notable as the best-quantified example of a partial lesion: it reduces IRP1 affinity more than five-fold without abolishing binding, and still causes disease. Reported homozygous in a consanguineous family, where the homozygote was the most severely affected member.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FTL\"], \"gene_terms\": [{\"label\": \"FTL\", \"id\": \"hgnc:3999\"}], \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"GOE\"}}, {\"id\": \"FTL c.-167C\u003eT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Documented arising de novo, with paternity confirmed - the allele that shows a negative family history cannot exclude the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FTL\"], \"gene_terms\": [{\"label\": \"FTL\", \"id\": \"hgnc:3999\"}], \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"GOE\"}}, {\"id\": \"FTL c.-168G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent allele affecting the conserved three-nucleotide bulge of the FTL IRE, reported in Czech and Italian families among others.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FTL\"], \"gene_terms\": [{\"label\": \"FTL\", \"id\": \"hgnc:3999\"}], \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"GOE\"}}, {\"id\": \"Iatrogenic Iron Depletion from Misdirected Venesection and Chelation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The commonest complication of HHCS is not caused by the disease. Because the ferritin elevation is generated by translation and not by stored iron, removing iron cannot correct it; what venesection does instead is strip a normal iron store from a patient who had one, producing iron deficiency and microcytic anaemia while the ferritin stays high. Iron chelation carries its own hazard: one 8.5-year-old treated with deferasirox on a mistaken diagnosis of iron overload developed life-threatening acute hyperammonaemia. Repeated liver biopsy for the same misdiagnosis is a further avoidable harm. This node is included in the pathograph because the harm is mechanistically predictable from the upstream biology, not because it is a property of the genotype.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Iron Deficiency Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Not a manifestation of the disorder but of its mistreatment. Patients venesected for a presumed haemochromatosis are drained of a normal iron store and become iron deficient and microcytic, while the ferritin they were being treated for does not move.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001891\"}}, {\"id\": \"L-Ferritin Overproduction and Intracellular Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells accumulate five- to twenty-fold excess L-ferritin. Because the excess is of one subunit only, the assembled product is abnormal in composition rather than in structure: roughly half of the surplus L-chain assembles into L-chain-only 24-mer homopolymers, which lack the H-subunit ferroxidase centre and therefore do not take up iron at all, and the remainder shifts the normal heteropolymer population towards L-rich isoferritins. This is the reason the disorder does not cause iron overload despite an enormous ferritin burden - the extra shells are essentially empty.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Lens Fibre Cell L-Ferritin Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lens fibre cells accumulate L-ferritin far in excess of any other tissue examined. Measured lens L-ferritin content in HHCS ranges from about ten-fold the control value in one extracted nucleus to roughly 1500-fold in two others, the spread reflecting different assays, cataract morphologies and ages at surgery. Two features of the lens plausibly explain why this is the one tissue that suffers: FTL transcription is unusually high there, and lens fibre cells are post-mitotic, organelle-free and protein-packed, with no way to dilute or turn over an accumulating protein. The tissue selectivity is nonetheless not formally resolved - see the knowledge gap recorded in `discussions`.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"lens fibre cell\"], \"locations\": [\"lens of the eye\"]}}, {\"id\": \"Loss of Iron-Regulatory Protein Binding to the FTL IRE\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In health, when cytosolic iron is low, IRP1 (in its apo, non-cluster form) and IRP2 bind the FTL IRE with high affinity and prevent recruitment of the small ribosomal subunit, so L-ferritin is not made. HHCS variants reduce that affinity. The reduction is graded rather than all-or-none: gel-shift assays across the allelic series show a spectrum from near-complete abolition to a partial, several-fold loss of affinity, and even a partial loss is enough to cause disease. This graded biochemistry is the mechanistic substrate for the clinical observation that different IRE positions give different disease severities.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"iron-responsive element binding by IRP1 and IRP2\"]}}, {\"id\": \"Persistent Hyperferritinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lifelong elevation of serum ferritin, present from early life and usually found incidentally. Reported values in affected adults commonly run from a few hundred to well over 2,000 microgram/L; the original Verona family ranged from 950 to 2,259 microgram/L, and the seven British kindreds had a median of 1,420 microgram/L against a laboratory range of 15-360. Levels vary between and within families sharing an allele, and are not a reliable index of cataract severity in an individual.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003281\"}}, {\"id\": \"Pulverulent Lens Opacities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The slit-lamp appearance is distinctive enough that experienced examiners have argued it should raise the diagnosis on its own. The opacities are fine, dust-like (pulverulent) or breadcrumb-like punctate flecks and small crystalline aggregates distributed axially and peripherally; larger series also describe a radial, sunflower-like arrangement in older lenses.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010693\"}}, {\"id\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Serum ferritin is persistently and often markedly elevated, commonly in the several-hundred to greater-than-2,000 microgram/L range, while serum iron, transferrin saturation, total iron-binding capacity and parenchymal iron content stay normal. The clinically decisive point is negative: this is not iron overload. Serum ferritin has simply stopped being an index of body iron in these patients, in both directions - it will also fail to fall when they become genuinely iron deficient.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Serum ferritin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"term_id\": \"NCIT:C224202\", \"term_label\": \"Serum Ferritin\", \"readouts\": [{\"target\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports the circulating pool of constitutively synthesised L-ferritin. High in every affected individual and unresponsive to iron manipulation.\"}]}}, {\"id\": \"Transferrin saturation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Normal\", \"term_id\": \"NCIT:C98792\", \"term_label\": \"Transferrin Saturation Measurement\", \"readouts\": [{\"target\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Normal in HHCS. No direction is recorded because the informative result is the absence of a change, and the direction enum has no value for that. Its normality alongside a very high ferritin is what establishes that the ferritin is not reporting body iron.\"}]}}, {\"id\": \"Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced vision from the lens opacity is the only symptom the syndrome causes. Severity ranges from an incidental slit-lamp finding to vision requiring extraction, and dense opacity present during the visual-development window carries the usual risk of deprivation amblyopia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"FTL Iron-Responsive Element Disruption\", \"target\": \"Loss of Iron-Regulatory Protein Binding to the FTL IRE\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A distorted hairpin no longer forms a high-affinity IRP-binding surface.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Iron-Regulatory Protein Binding to the FTL IRE\", \"target\": \"Constitutive Derepression of L-Ferritin Translation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without IRP occupancy the preinitiation complex assembles on FTL mRNA irrespective of iron supply.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive Derepression of L-Ferritin Translation\", \"target\": \"L-Ferritin Overproduction and Intracellular Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-Ferritin Overproduction and Intracellular Accumulation\", \"target\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating ferritin is a by-product of intracellular L-ferritin synthesis and secretion, so it tracks the intracellular excess.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-Ferritin Overproduction and Intracellular Accumulation\", \"target\": \"Lens Fibre Cell L-Ferritin Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same derepression operates in the lens, where FTL is transcribed more heavily than in surrounding ocular tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"target\": \"Persistent Hyperferritinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"target\": \"Iatrogenic Iron Depletion from Misdirected Venesection and Chelation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The intervening step is not biological but interpretive: the high ferritin is read as evidence of iron overload and treated as haemochromatosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Misattribution of isolated hyperferritinaemia to hereditary haemochromatosis\"]}, {\"source\": \"Lens Fibre Cell L-Ferritin Accumulation\", \"target\": \"Crystalline L-Ferritin Deposition and Lens Light Scattering\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Crystalline L-Ferritin Deposition and Lens Light Scattering\", \"target\": \"Bilateral Early-Onset Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Crystalline L-Ferritin Deposition and Lens Light Scattering\", \"target\": \"Pulverulent Lens Opacities\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Iatrogenic Iron Depletion from Misdirected Venesection and Chelation\", \"target\": \"Iron Deficiency Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bilateral Early-Onset Cataract\", \"target\": \"Visual Impairment\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cataract Extraction\", \"target\": \"Crystalline L-Ferritin Deposition and Lens Light Scattering\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cataract Extraction\", \"target\": \"Bilateral Early-Onset Cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"target\": \"Serum ferritin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports the circulating pool of constitutively synthesised L-ferritin. High in every affected individual and unresponsive to iron manipulation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"target\": \"Transferrin saturation\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Normal in HHCS. No direction is recorded because the informative result is the absence of a change, and the direction enum has no value for that. Its normality alongside a very high ferritin is what establishes that the ferritin is not reporting body iron.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"FTL\", \"target\": \"FTL Iron-Responsive Element Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FTL c.-168G\u003eC\", \"target\": \"FTL\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"FTL c.-167C\u003eT\", \"target\": \"FTL\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"FTL c.-151A\u003eG (Ghent +49A\u003eG)\", \"target\": \"FTL\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"FTL IRE six-nucleotide deletion (Italian family)\", \"target\": \"FTL\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bilateral Early-Onset Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral, generally symmetrical lens opacity, classically nuclear and often described as congenital. In practice the timing is variable: opacities may be present in infancy, first detected in childhood or adolescence, or not recognised until adult life. Two reported children extend that range past delay to absence: a newborn known to carry the variant had no detectable lens opacity at birth or at one year, and a separate paediatric proband had no lenticular opacities at all at the point of diagnosis and was placed under surveillance rather than treated. The cataract is slowly progressive and eventually requires extraction in most affected people. Age at diagnosis and at surgery vary widely both between and within families sharing the same allele.\", \"meta\": {\"evidence_count\": 7, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000519\"}}, {\"id\": \"Cataract Extraction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only established phenotype-directed intervention, and in most patients the only clinical consequence of the diagnosis. Standard lens extraction with intraocular lens implantation is performed when the opacity materially impairs vision; in a child with a dense cataract it is also the intervention that prevents deprivation amblyopia. Surgery removes the opaque lens, not the underlying derepression, so the serum ferritin is unchanged by it.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Constitutive Derepression of L-Ferritin Translation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Translation initiation on FTL mRNA becomes constitutive. This is the qualitative change that defines the disorder: the process is not simply running faster, it has been removed from the regulatory circuit that normally couples it to cytosolic iron, so neither iron loading nor iron chelation of the cell moves it. HHCS is the founding example of what has been called translational pathophysiology - disease caused by a mutation that changes how efficiently an mRNA is translated rather than what it encodes.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"iron-independent initiation of L-ferritin mRNA translation\", \"IRP-mediated translational repression of FTL mRNA\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Crystalline L-Ferritin Deposition and Lens Light Scattering\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The excess L-ferritin comes out of solution as discrete crystalline inclusions within the lens substance. Immunohistochemistry on an extracted HHCS lens stains these inclusions for L-ferritin and not for H-ferritin, so they are made of the overproduced subunit itself. Refractive-index discontinuities at the inclusions scatter incident light and degrade the image reaching the retina. Levi and colleagues additionally proposed that the L-chain excess perturbs the solubility equilibrium among the crystallins, or the lens antioxidant balance, as a contributing mechanism; that proposal has not been tested directly and is recorded here as a hypothesis rather than as the established route.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"lens fibre cell\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"FTL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FTL\"], \"gene_terms\": [{\"label\": \"FTL\", \"id\": \"hgnc:3999\"}], \"frequency\": \"The only gene in which variants are known to cause HHCS\", \"presence\": \"Present\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 4}}, {\"id\": \"FTL IRE six-nucleotide deletion (Italian family)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"An example of the deletion class of HHCS alleles, in a repeat-containing stretch such that the deletion can be written four equivalent ways. Cited here to make the point that the allelic spectrum is not confined to substitutions.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FTL\"], \"gene_terms\": [{\"label\": \"FTL\", \"id\": \"hgnc:3999\"}], \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"GOE\"}}, {\"id\": \"FTL Iron-Responsive Element Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous single-nucleotide substitution or short deletion inside the ~30-nucleotide IRE hairpin encoded in the FTL 5\u0027 untranslated region. The IRE has four structural parts that matter: a conserved CAGUGN apical hexanucleotide loop, an upper stem, an unpaired cytosine bulge separating the stems, and a lower stem. Pathogenic changes cluster in the loop, the bulge and the upper stem, and act by distorting or destabilising the hairpin so that it no longer presents the surface that iron-regulatory proteins recognise. The FTL coding sequence is untouched, so the L-ferritin protein produced is structurally normal - which is what separates this disorder from the coding-region FTL diseases.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"FTL\"], \"gene_terms\": [{\"label\": \"FTL\", \"id\": \"hgnc:3999\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"description\": \"Constitutional non-coding variant in the FTL 5\u0027 UTR. Almost all reported patients are heterozygous; a handful of homozygous individuals have been described in consanguineous families. Deliberately no functional_impact_category is asserted here: the enum describes the activity of a gene product, and this variant does not change the product at all, only the amount of it that is made. The variant-level claim is carried instead by `regulatory_category` on the entries in `genetic`.\"}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"FTL c.-151A\u003eG (Ghent +49A\u003eG)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"An upper-stem allele just above the cytosine bulge. Predicted to disrupt base pairing at the base of the upper stem and, through that, the apical loop and the bulge. Notable as the best-quantified example of a partial lesion: it reduces IRP1 affinity more than five-fold without abolishing binding, and still causes disease. Reported homozygous in a consanguineous family, where the homozygote was the most severely affected member.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FTL\"], \"gene_terms\": [{\"label\": \"FTL\", \"id\": \"hgnc:3999\"}], \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"GOE\"}}, {\"id\": \"FTL c.-167C\u003eT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Documented arising de novo, with paternity confirmed - the allele that shows a negative family history cannot exclude the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FTL\"], \"gene_terms\": [{\"label\": \"FTL\", \"id\": \"hgnc:3999\"}], \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"GOE\"}}, {\"id\": \"FTL c.-168G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent allele affecting the conserved three-nucleotide bulge of the FTL IRE, reported in Czech and Italian families among others.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FTL\"], \"gene_terms\": [{\"label\": \"FTL\", \"id\": \"hgnc:3999\"}], \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"GOE\"}}, {\"id\": \"Iatrogenic Iron Depletion from Misdirected Venesection and Chelation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The commonest complication of HHCS is not caused by the disease. Because the ferritin elevation is generated by translation and not by stored iron, removing iron cannot correct it; what venesection does instead is strip a normal iron store from a patient who had one, producing iron deficiency and microcytic anaemia while the ferritin stays high. Iron chelation carries its own hazard: one 8.5-year-old treated with deferasirox on a mistaken diagnosis of iron overload developed life-threatening acute hyperammonaemia. Repeated liver biopsy for the same misdiagnosis is a further avoidable harm. This node is included in the pathograph because the harm is mechanistically predictable from the upstream biology, not because it is a property of the genotype.\", \"meta\": {\"evidence_count\": 4, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Iron Deficiency Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Not a manifestation of the disorder but of its mistreatment. Patients venesected for a presumed haemochromatosis are drained of a normal iron store and become iron deficient and microcytic, while the ferritin they were being treated for does not move.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001891\"}}, {\"id\": \"L-Ferritin Overproduction and Intracellular Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells accumulate five- to twenty-fold excess L-ferritin. Because the excess is of one subunit only, the assembled product is abnormal in composition rather than in structure: roughly half of the surplus L-chain assembles into L-chain-only 24-mer homopolymers, which lack the H-subunit ferroxidase centre and therefore do not take up iron at all, and the remainder shifts the normal heteropolymer population towards L-rich isoferritins. This is the reason the disorder does not cause iron overload despite an enormous ferritin burden - the extra shells are essentially empty.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Lens Fibre Cell L-Ferritin Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lens fibre cells accumulate L-ferritin far in excess of any other tissue examined. Measured lens L-ferritin content in HHCS ranges from about ten-fold the control value in one extracted nucleus to roughly 1500-fold in two others, the spread reflecting different assays, cataract morphologies and ages at surgery. Two features of the lens plausibly explain why this is the one tissue that suffers: FTL transcription is unusually high there, and lens fibre cells are post-mitotic, organelle-free and protein-packed, with no way to dilute or turn over an accumulating protein. The tissue selectivity is nonetheless not formally resolved - see the knowledge gap recorded in `discussions`.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"lens fibre cell\"], \"locations\": [\"lens of the eye\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of Iron-Regulatory Protein Binding to the FTL IRE\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In health, when cytosolic iron is low, IRP1 (in its apo, non-cluster form) and IRP2 bind the FTL IRE with high affinity and prevent recruitment of the small ribosomal subunit, so L-ferritin is not made. HHCS variants reduce that affinity. The reduction is graded rather than all-or-none: gel-shift assays across the allelic series show a spectrum from near-complete abolition to a partial, several-fold loss of affinity, and even a partial loss is enough to cause disease. This graded biochemistry is the mechanistic substrate for the clinical observation that different IRE positions give different disease severities.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"iron-responsive element binding by IRP1 and IRP2\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Persistent Hyperferritinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lifelong elevation of serum ferritin, present from early life and usually found incidentally. Reported values in affected adults commonly run from a few hundred to well over 2,000 microgram/L; the original Verona family ranged from 950 to 2,259 microgram/L, and the seven British kindreds had a median of 1,420 microgram/L against a laboratory range of 15-360. Levels vary between and within families sharing an allele, and are not a reliable index of cataract severity in an individual.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0003281\"}}, {\"id\": \"Pulverulent Lens Opacities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The slit-lamp appearance is distinctive enough that experienced examiners have argued it should raise the diagnosis on its own. The opacities are fine, dust-like (pulverulent) or breadcrumb-like punctate flecks and small crystalline aggregates distributed axially and peripherally; larger series also describe a radial, sunflower-like arrangement in older lenses.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010693\"}}, {\"id\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Serum ferritin is persistently and often markedly elevated, commonly in the several-hundred to greater-than-2,000 microgram/L range, while serum iron, transferrin saturation, total iron-binding capacity and parenchymal iron content stay normal. The clinically decisive point is negative: this is not iron overload. Serum ferritin has simply stopped being an index of body iron in these patients, in both directions - it will also fail to fall when they become genuinely iron deficient.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Serum ferritin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"term_id\": \"NCIT:C224202\", \"term_label\": \"Serum Ferritin\", \"readouts\": [{\"target\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports the circulating pool of constitutively synthesised L-ferritin. High in every affected individual and unresponsive to iron manipulation.\"}]}}, {\"id\": \"Transferrin saturation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Normal\", \"term_id\": \"NCIT:C98792\", \"term_label\": \"Transferrin Saturation Measurement\", \"readouts\": [{\"target\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Normal in HHCS. No direction is recorded because the informative result is the absence of a change, and the direction enum has no value for that. Its normality alongside a very high ferritin is what establishes that the ferritin is not reporting body iron.\"}]}}, {\"id\": \"Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced vision from the lens opacity is the only symptom the syndrome causes. Severity ranges from an incidental slit-lamp finding to vision requiring extraction, and dense opacity present during the visual-development window carries the usual risk of deprivation amblyopia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"FTL Iron-Responsive Element Disruption\", \"target\": \"Loss of Iron-Regulatory Protein Binding to the FTL IRE\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A distorted hairpin no longer forms a high-affinity IRP-binding surface.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Iron-Regulatory Protein Binding to the FTL IRE\", \"target\": \"Constitutive Derepression of L-Ferritin Translation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without IRP occupancy the preinitiation complex assembles on FTL mRNA irrespective of iron supply.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive Derepression of L-Ferritin Translation\", \"target\": \"L-Ferritin Overproduction and Intracellular Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-Ferritin Overproduction and Intracellular Accumulation\", \"target\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating ferritin is a by-product of intracellular L-ferritin synthesis and secretion, so it tracks the intracellular excess.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-Ferritin Overproduction and Intracellular Accumulation\", \"target\": \"Lens Fibre Cell L-Ferritin Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same derepression operates in the lens, where FTL is transcribed more heavily than in surrounding ocular tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"target\": \"Persistent Hyperferritinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"target\": \"Iatrogenic Iron Depletion from Misdirected Venesection and Chelation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The intervening step is not biological but interpretive: the high ferritin is read as evidence of iron overload and treated as haemochromatosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Misattribution of isolated hyperferritinaemia to hereditary haemochromatosis\"]}, {\"source\": \"Lens Fibre Cell L-Ferritin Accumulation\", \"target\": \"Crystalline L-Ferritin Deposition and Lens Light Scattering\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Crystalline L-Ferritin Deposition and Lens Light Scattering\", \"target\": \"Bilateral Early-Onset Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Crystalline L-Ferritin Deposition and Lens Light Scattering\", \"target\": \"Pulverulent Lens Opacities\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Iatrogenic Iron Depletion from Misdirected Venesection and Chelation\", \"target\": \"Iron Deficiency Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bilateral Early-Onset Cataract\", \"target\": \"Visual Impairment\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cataract Extraction\", \"target\": \"Crystalline L-Ferritin Deposition and Lens Light Scattering\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cataract Extraction\", \"target\": \"Bilateral Early-Onset Cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"target\": \"Serum ferritin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports the circulating pool of constitutively synthesised L-ferritin. High in every affected individual and unresponsive to iron manipulation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Serum Hyperferritinemia Uncoupled from Body Iron Stores\", \"target\": \"Transferrin saturation\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Normal in HHCS. No direction is recorded because the informative result is the absence of a change, and the direction enum has no value for that. Its normality alongside a very high ferritin is what establishes that the ferritin is not reporting body iron.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"FTL\", \"target\": \"FTL Iron-Responsive Element Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FTL c.-168G\u003eC\", \"target\": \"FTL\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"FTL c.-167C\u003eT\", \"target\": \"FTL\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"FTL c.-151A\u003eG (Ghent +49A\u003eG)\", \"target\": \"FTL\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"FTL IRE six-nucleotide deletion (Italian family)\", \"target\": \"FTL\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5996,6 +6099,9 @@ This clinical feature is Iron deficiency anemia following inappropriate venesect
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6123,6 +6229,9 @@ This clinical feature is Bilateral early-onset cataract, annotated with Developm
 
 
                     </div>
+
+
+
 
 
 
@@ -6258,6 +6367,9 @@ This clinical feature is Nuclear cataract (HP:0100018). HP:0100018 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6351,6 +6463,9 @@ This clinical feature is Pulverulent, breadcrumb-like punctate lens opacities, a
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Lachlan and colleagues describe the morphology in their seven British kindreds as &#34;sunflower&#34; cataract, and HPO has a Sunflower cataract term (HP:6000642). It is deliberately not bound here: HPO defines that term as an anterior subcapsular copper deposit &#34;almost only seen in Wilson disease&#34;, which is a different lesion in a different lens layer that merely shares a floral metaphor. Binding it would assert a Wilson-disease finding in an iron disorder. Pulverulent cataract, defined in HPO as punctate dust-like opacities of the fetal nucleus, matches the described lesion.</div>
@@ -6479,6 +6594,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6574,6 +6692,9 @@ This clinical feature is Increased circulating ferritin concentration (HP:000328
 
 
                     </div>
+
+
+
 
 
 
@@ -6717,6 +6838,9 @@ This disease-associated gene is FTL (hgnc:3999). hgnc:3999 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6817,6 +6941,7 @@ This disease-associated gene is FTL (hgnc:3999). hgnc:3999 is a gene from the HU
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6837,10 +6962,16 @@ This variant is in FTL (hgnc:3999). hgnc:3999 is a gene from the HUGO Gene Nomen
 
 
 
+
         <span class="tag" style="background: #fef3c7; color: #92400e;">GOE</span>
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent allele affecting the conserved three-nucleotide bulge of the FTL IRE, reported in Czech and Italian families among others.</div>
@@ -6928,6 +7059,7 @@ This variant is in FTL (hgnc:3999). hgnc:3999 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6948,10 +7080,16 @@ This variant is in FTL (hgnc:3999). hgnc:3999 is a gene from the HUGO Gene Nomen
 
 
 
+
         <span class="tag" style="background: #fef3c7; color: #92400e;">GOE</span>
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Documented arising de novo, with paternity confirmed - the allele that shows a negative family history cannot exclude the diagnosis.</div>
@@ -7014,6 +7152,7 @@ This variant is in FTL (hgnc:3999). hgnc:3999 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7034,10 +7173,16 @@ This variant is in FTL (hgnc:3999). hgnc:3999 is a gene from the HUGO Gene Nomen
 
 
 
+
         <span class="tag" style="background: #fef3c7; color: #92400e;">GOE</span>
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">An upper-stem allele just above the cytosine bulge. Predicted to disrupt base pairing at the base of the upper stem and, through that, the apical loop and the bulge. Notable as the best-quantified example of a partial lesion: it reduces IRP1 affinity more than five-fold without abolishing binding, and still causes disease. Reported homozygous in a consanguineous family, where the homozygote was the most severely affected member.</div>
@@ -7100,6 +7245,7 @@ This variant is in FTL (hgnc:3999). hgnc:3999 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7120,10 +7266,16 @@ This variant is in FTL (hgnc:3999). hgnc:3999 is a gene from the HUGO Gene Nomen
 
 
 
+
         <span class="tag" style="background: #fef3c7; color: #92400e;">GOE</span>
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">An example of the deletion class of HHCS alleles, in a repeat-containing stretch such that the deletion can be written four equivalent ways. Cited here to make the point that the allelic spectrum is not confined to substitutions.</div>

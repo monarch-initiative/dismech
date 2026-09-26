@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4343,6 +4385,7 @@ MYO3A is also reported in autosomal dominant hearing loss, through a motor-domai
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myo3a-loss-of-function" data-dismech-node="MYO3A Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">MYO3A Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants remove or disable myosin IIIa. The founding family carried a nonsense allele truncating the C terminus of the motor head plus two splice alleles, and later families carry missense alleles in the motor and kinase domains. Myosin IIIa is a hybrid motor-signalling molecule: an N-terminal kinase domain that autophosphorylates and down-regulates the motor, a conserved head and neck, and a class-III-specific tail that binds actin and is required for tip targeting.
 The allele class matters for what follows. A computational study of kinase-domain variants proposes that abolishing kinase activity and autophosphorylation produces the congenital profound phenotype, while partial or complete inactivation of the protein produces the late-onset progressive one. That is a structural-modelling proposal rather than an established rule, and the largest patient series looked for a genotype-phenotype correlation and did not observe one.</div>
 
@@ -4409,9 +4452,14 @@ This pathophysiological event involves MYO3A (hgnc:7601). hgnc:7601 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Nonsense, splice-site and missense alleles; the founding family&#39;s alleles are loss-of-function, and later missense alleles affect conserved motor- and kinase-domain residues.</div>
 
@@ -4592,6 +4640,7 @@ This pathophysiological event involves myosin IIIa N-terminal kinase activity, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-myosin-iiia-delivery-to-stereocilia-tips" data-dismech-node="Failure of Myosin IIIa Delivery to Stereocilia Tips" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Myosin IIIa Delivery to Stereocilia Tips</div>
 
+
                 <div class="item-desc">Myosin IIIa is a plus-end-directed motor that accumulates at the tips of stereocilia, which is where the actin core is polymerised, and it carries cargo there - most clearly espin-1, an ankyrin-repeat espin isoform that binds actin monomers through a WH2 motif. Co-expressing myosin IIIa with espin-1 elongates filopodia about tenfold in COS-7 cells, and that elongation requires the transport step and the espin-1 WH2 activity, not merely the presence of both proteins.
 Loss of the motor therefore removes a tip-localised regulator of actin dynamics. The cargo-delivery account is incomplete on its own: in mice lacking both class III myosins, espin-1 was still properly targeted to stereocilia tips, so myosin IIIa is not the only route for espin-1 and the phenotype cannot be reduced to failed espin-1 delivery.</div>
 
@@ -4761,6 +4810,7 @@ This pathophysiological event involves stereocilium tip (GO:0032426). GO:0032426
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disordered-stereocilia-and-hair-bundle-architecture" data-dismech-node="Disordered Stereocilia and Hair Bundle Architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Disordered Stereocilia and Hair Bundle Architecture</div>
+
 
                 <div class="item-desc">The hair bundle is an array of actin-cored stereocilia held at fixed, graded heights. Without class III myosin function the bundle is built wrongly: mice lacking both myosin IIIa and IIIb show abnormally tall and numerous microvilli or stereocilia, ungraded bundles, and bundle rounding and closure. The direction of that result is the opposite of what the espin-1 transport model predicts on its own - the motors act to limit elongation and to shape the bundle, not simply to lengthen it.
 A single-gene Myo3a knock-in carrying a kinase-domain missense allele also shows structural abnormality of cochlear hair cell stereocilia, which is the closer model of the human recessive disease. Mechanoelectrical transduction currents themselves were robust with normal kinetics in the double mutants, so this is a bundle-architecture defect rather than a transduction-channel defect.</div>
@@ -5001,6 +5051,7 @@ This pathophysiological event involves stereocilium (GO:0032420). GO:0032420 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-hair-cell-degeneration" data-dismech-node="Progressive Hair Cell Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Hair Cell Degeneration</div>
+
 
                 <div class="item-desc">Hair cells with abnormal bundles are not lost at birth; they are lost with age. In the knock-in mouse carrying the equivalent of the human nonsense allele, outer hair cells degenerate with age in a pattern that matches the progression of the hearing loss, and in the kinase-domain knock-in, degeneration is present at six months and more severe at twelve. This age-dependent cellular attrition is what makes DFNB30 a progressive rather than a static hearing loss.</div>
 
@@ -5300,6 +5351,9 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
                 </div>
 
 
+
+
+
                 <div class="item-desc">Numerator/denominator: 8 of 8 clinically characterised patients in the Japanese series were aware of progression, which is the basis for the VERY_FREQUENT band. The founding Israeli family is described as progressive as a group rather than patient by patient.</div>
 
 
@@ -5396,6 +5450,9 @@ This clinical feature is Postlingual sensorineural hearing impairment (HP:000859
                     </span>
 
                 </div>
+
+
+
 
 
                 <div class="item-desc">Numerator/denominator: 8 of 8 clinically characterised patients in the Japanese series were post-lingual, with onset from 10 to 30 years. The band is held at FREQUENT rather than VERY_FREQUENT because congenital presentations are also on record elsewhere - a consanguineous Kazakh family and a kinase-domain ATP-binding-site allele - and the Japanese series is a single-ancestry cohort. The two presentations are curated as separate phenotypes rather than averaged into one band.</div>
@@ -5523,6 +5580,9 @@ This clinical feature is Congenital profound sensorineural hearing impairment, a
                 </div>
 
 
+
+
+
                 <div class="item-desc">No frequency band is given. The evidence is two families rather than a cohort, so any band would be manufactured from a denominator that does not exist.
 Term choice: HPO has no single post-coordinated term for *congenital* *profound* sensorineural hearing impairment, so the degree is bound (`HP:0011476`) and congenital onset is carried in the `onset` slot. `severity: SEVERE` was removed rather than kept alongside: severe (71-90 dB HL) and profound (&gt;90 dB HL) are distinct audiometric bands and `SeverityEnum` has no `PROFOUND` value, so the qualifier asserted a milder degree than the phenotype and its source.
 The two cited sources do not support the same thing, and the split matters. PMID:34423747 reports congenital *profound* hearing impairment segregating with the kinase-domain Lys50Arg allele - that sentence is where &#34;profound&#34; comes from. PMID:27063751 reports *congenital* hearing loss in the Kazakh family and does not grade it, so it supports the onset half of this phenotype and not the degree.</div>
@@ -5623,6 +5683,9 @@ This clinical feature is High-frequency sensorineural hearing impairment (HP:000
                 </div>
 
 
+
+
+
                 <div class="item-desc">Numerator/denominator: down-sloping in 6 of 8 characterised patients, flat in the remaining 2, which is 75% and sits in the FREQUENT band.</div>
 
 
@@ -5694,6 +5757,9 @@ This clinical feature is Vertigo (HP:0002321). HP:0002321 is a phenotype from th
                     </span>
 
                 </div>
+
+
+
 
 
                 <div class="item-desc">Numerator/denominator: 2 of 8 characterised patients (25%), which sits in the OCCASIONAL band. The band records how often the symptom was reported, not how often vestibular dysfunction was demonstrated - it was not demonstrated in anyone, because the testing was not done in these patients. The one DFNB30 patient elsewhere in the literature who did receive a formal ocular-motor and vestibular examination was normal.</div>
@@ -5834,6 +5900,9 @@ This disease-associated gene is MYO3A (hgnc:7601). hgnc:7601 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

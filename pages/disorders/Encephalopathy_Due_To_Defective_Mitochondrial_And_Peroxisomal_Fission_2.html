@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Encephalopathy%20Due%20To%20Defective%20Mitochondrial%20And%20Peroxisomal%20Fission%202"
@@ -4012,7 +4054,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4373,6 +4415,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mff-loss-of-function" data-dismech-node="MFF Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">MFF Loss of Function</div>
 
+
                 <div class="item-desc">MFF is an outer-membrane protein that recruits DRP1 to the sites where mitochondria and peroxisomes will divide. It does not do this as a monomer: MFF is a dynamic oligomer, most likely a trimer, associating and dissociating through its C-terminal coiled coil, and that oligomerization is required for DRP1 activation. Actin filaments do not bind MFF but lower the effective MFF concentration roughly tenfold, so the same machinery is assembled more efficiently at the cytoskeleton. Disease alleles are truncating - the canine variant removes 55% of the open reading frame - so the receptor is absent rather than misregulated.</div>
 
 
@@ -4425,6 +4468,8 @@ This genetic context concerns MFF (hgnc:24858). hgnc:24858 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4437,6 +4482,9 @@ This genetic context concerns MFF (hgnc:24858). hgnc:24858 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4568,6 +4616,7 @@ This pathophysiological event involves DRP1 recruitment and activation at the or
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-drp1-mediated-organelle-scission" data-dismech-node="Failure of DRP1-Mediated Organelle Scission" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of DRP1-Mediated Organelle Scission</div>
+
 
                 <div class="item-desc">Without its receptor, DRP1 is not recruited, and neither organelle divides. Both become hyper-elongated in patient fibroblasts. This is the node that makes the disease a fission disorder rather than a metabolic one: the shared machinery means a single lesion produces a simultaneous mitochondrial and peroxisomal phenotype, which no single-organelle metabolic defect does.</div>
 
@@ -4785,6 +4834,7 @@ This pathophysiological event involves decreased peroxisome fission (GO:0016559)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-peroxisome-maturation-and-redox-imbalance" data-dismech-node="Impaired Peroxisome Maturation and Redox Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Peroxisome Maturation and Redox Imbalance</div>
 
+
                 <div class="item-desc">The peroxisomal consequence is not what a peroxisomal disorder usually means. Overall peroxisomal biochemical function is preserved; what is lost is the compartment&#39;s import competence, so pre-peroxisomal membrane structures accumulate, and the intra-peroxisomal redox state and pH shift. Pexophagy is intact - the elongated peroxisomes are still cleared. This is a plasticity defect rather than an enzyme deficiency, and it is why a conventional peroxisomal biochemical screen would look normal.</div>
 
 
@@ -4942,6 +4992,13 @@ This pathophysiological event involves dysregulated peroxisomal redox homeostasi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-calcium-overload-and-oxidative-stress-in-neurons" data-dismech-node="Mitochondrial Calcium Overload and Oxidative Stress in Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Calcium Overload and Oxidative Stress in Neurons</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In dopaminergic neurons differentiated from dental pulp stem cells, MFF silencing does more than elongate mitochondria. It accelerates calcium influx from the endoplasmic reticulum through the IP3 receptor, and MFF co-immunoprecipitates with VDAC1, a component of the ER-mitochondrial calcium transport system - suggesting MFF normally restrains that flux. The resulting mitochondrial calcium overload drives excessive reactive oxygen species and downregulates PGC-1alpha, so mitochondrial biogenesis falls as well. Neurite outgrowth is impaired. This is the best available cellular model of the neuronal phenotype, and it identifies ROS and biogenesis as separable downstream targets.</div>
 
@@ -5147,6 +5204,13 @@ This pathophysiological event involves increased reactive oxygen species metabol
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regional-neuronal-dysfunction-and-loss" data-dismech-node="Regional Neuronal Dysfunction and Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Regional Neuronal Dysfunction and Loss</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The organelle defect converges on bilateral, symmetrical injury of the basal ganglia and subthalamic nuclei - the Leigh-like pattern - together with optic nerve and peripheral nerve involvement. The step from elongated organelles to this particular regional vulnerability is not established in patient brain, and the entry marks it as such: it is inferred from cellular and animal models, and there is no published neuropathology in a human MFF patient.</div>
 
@@ -5397,7 +5461,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Swallowing difficulty developing after the initial presentation, and the reason feeding support is part of management.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Failure of DRP1-Mediated Organelle Scission\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without its receptor, DRP1 is not recruited, and neither organelle divides. Both become hyper-elongated in patient fibroblasts. This is the node that makes the disease a fission disorder rather than a metabolic one: the shared machinery means a single lesion produces a simultaneous mitochondrial and peroxisomal phenotype, which no single-organelle metabolic defect does.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial fission\", \"peroxisome fission\"], \"animal_models\": [{\"name\": \"Mff knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Mff homozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the fission defect and its cellular consequences - reduced mitochondrial density, reduced respiratory chain activity and increased mitophagy.\"}, {\"name\": \"Mff knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Mff homozygous null\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Deleting the fusion gene Mfn1 completely rescues heart dysfunction, lifespan and respiratory chain function in the Mff-null mouse. The therapeutic target this identifies is rebalancing fission against fusion, not restoring fission.\"}]}}, {\"id\": \"Global developmental delay and regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delay in the first year followed by regression of acquired milestones.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brisk reflexes accompanying the spasticity, part of the same corticospinal picture.\", \"meta\": {\"term_id\": \"HP:0001347\"}}, {\"id\": \"Impaired Peroxisome Maturation and Redox Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The peroxisomal consequence is not what a peroxisomal disorder usually means. Overall peroxisomal biochemical function is preserved; what is lost is the compartment\u0027s import competence, so pre-peroxisomal membrane structures accumulate, and the intra-peroxisomal redox state and pH shift. Pexophagy is intact - the elongated peroxisomes are still cleared. This is a plasticity defect rather than an enzyme deficiency, and it is why a conventional peroxisomal biochemical screen would look normal.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein import into peroxisome matrix\", \"peroxisomal redox homeostasis\"]}}, {\"id\": \"MFF Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MFF is an outer-membrane protein that recruits DRP1 to the sites where mitochondria and peroxisomes will divide. It does not do this as a monomer: MFF is a dynamic oligomer, most likely a trimer, associating and dissociating through its C-terminal coiled coil, and that oligomerization is required for DRP1 activation. Actin filaments do not bind MFF but lower the effective MFF concentration roughly tenfold, so the same machinery is assembled more efficiently at the cytoskeleton. Disease alleles are truncating - the canine variant removes 55% of the open reading frame - so the receptor is absent rather than misregulated.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"DRP1 recruitment and activation at the organelle membrane\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"MFF\", \"id\": \"hgnc:24858\"}]}}}, {\"id\": \"MFF frameshift Bullmastiff\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring canine disease, described as familial cerebellar ataxia with hydrocephalus in Bullmastiffs almost 40 years before its cause was found. Whole-genome sequencing identified a private homozygous MFF frameshift variant truncating 55% of the open reading frame, and genotyping showed perfect segregation across four affected and 70 unaffected dogs. The authors propose renaming the canine disease mitochondrial fission encephalopathy by analogy with the human phenotype.\"}, {\"id\": \"Mff knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The germline Mff-null mouse. It is the source of the strongest therapeutic lead in this disease and simultaneously the clearest example of a model whose phenotype is in the wrong organ.\"}, {\"id\": \"Mitochondrial Calcium Overload and Oxidative Stress in Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In dopaminergic neurons differentiated from dental pulp stem cells, MFF silencing does more than elongate mitochondria. It accelerates calcium influx from the endoplasmic reticulum through the IP3 receptor, and MFF co-immunoprecipitates with VDAC1, a component of the ER-mitochondrial calcium transport system - suggesting MFF normally restrains that flux. The resulting mitochondrial calcium overload drives excessive reactive oxygen species and downregulates PGC-1alpha, so mitochondrial biogenesis falls as well. Neurite outgrowth is impaired. This is the best available cellular model of the neuronal phenotype, and it identifies ROS and biogenesis as separable downstream targets.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dopaminergic neuron\"], \"biological_processes\": [\"mitochondrial calcium ion homeostasis\", \"reactive oxygen species metabolic process\"]}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic neuropathy developing after the initial presentation, alongside the peripheral neuropathy. The source paper\u0027s own conclusion treats the combination of optic and peripheral neuropathy with seizures as the trigger for MFF testing.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral nerve involvement accompanying the central disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Regional Neuronal Dysfunction and Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organelle defect converges on bilateral, symmetrical injury of the basal ganglia and subthalamic nuclei - the Leigh-like pattern - together with optic nerve and peripheral nerve involvement. The step from elongated organelles to this particular regional vulnerability is not established in patient brain, and the entry marks it as such: it is inferred from cellular and animal models, and there is no published neuropathology in a human MFF patient.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"basal ganglion\", \"brain\"], \"animal_models\": [{\"name\": \"Mff knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Mff homozygous null\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The mouse dies at 13 weeks of severe dilated cardiomyopathy and heart failure. It does not develop the Leigh-like encephalopathy, optic atrophy or peripheral neuropathy that define the human disease.\"}, {\"name\": \"MFF frameshift Bullmastiff\", \"species\": \"Dog\", \"genotype\": \"MFF c.471_475delinsCGCTCT, p.(Glu158Alafs*14), homozygous\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Juvenile-onset progressive neurological disease with bilateral symmetrical focal brain lesions on MRI - the same kind of finding as the human Leigh-like pattern, and the closest organism-level match to the human encephalopathy that any model provides.\"}]}}, {\"id\": \"Secondary microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acquired rather than congenital microcephaly, consistent with a degenerative rather than a malformative process.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005484\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures from within the first year of life, one of the presenting features. They are often infantile spasms with hypsarrhythmia on EEG; that specific seizure semiology is curated separately below.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity with hyperreflexia, reflecting corticospinal involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"Supportive and Symptomatic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no disease-specific therapy. Management is seizure control, spasticity management, feeding and nutritional support, and visual and physical rehabilitation. A mitochondrial cofactor cocktail was tried in one reported patient with some improvement; that is a single uncontrolled observation in one child and is not evidence of efficacy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of vision, the functional consequence of the optic neuropathy above.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"MFF Loss of Function\", \"target\": \"Failure of DRP1-Mediated Organelle Scission\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of DRP1-Mediated Organelle Scission\", \"target\": \"Impaired Peroxisome Maturation and Redox Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of DRP1-Mediated Organelle Scission\", \"target\": \"Mitochondrial Calcium Overload and Oxidative Stress in Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of DRP1-Mediated Organelle Scission\", \"target\": \"Regional Neuronal Dysfunction and Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Calcium Overload and Oxidative Stress in Neurons\", \"target\": \"Regional Neuronal Dysfunction and Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Global developmental delay and regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Secondary microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Supportive and Symptomatic Management\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and Symptomatic Management\", \"target\": \"Spasticity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and Symptomatic Management\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mff knockout mouse\", \"target\": \"Failure of DRP1-Mediated Organelle Scission\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the fission defect and its cellular consequences - reduced mitochondrial density, reduced respiratory chain activity and increased mitophagy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Mff knockout mouse\", \"target\": \"Regional Neuronal Dysfunction and Loss\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The mouse dies at 13 weeks of severe dilated cardiomyopathy and heart failure. It does not develop the Leigh-like encephalopathy, optic atrophy or peripheral neuropathy that define the human disease.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The lethal phenotype is cardiac, not neurological, so the model has no face validity for the human encephalopathy and cannot be used to test a neurological endpoint. The paper itself reports that the precise balance point of fusion and fission is cell-type specific, which is the likely reason: mouse cardiomyocytes and human neurons sit at different points on that balance. Human EMPF2 patients are not reported with dilated cardiomyopathy.\"}, {\"source\": \"Mff knockout mouse\", \"target\": \"Failure of DRP1-Mediated Organelle Scission\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Deleting the fusion gene Mfn1 completely rescues heart dysfunction, lifespan and respiratory chain function in the Mff-null mouse. The therapeutic target this identifies is rebalancing fission against fusion, not restoring fission.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rescue is genetic, not pharmacological, and is demonstrated in heart. No equivalent has been attempted in a neuronal model, so the lead is a hypothesis for the human disease rather than a preclinical result in it.\"}, {\"source\": \"MFF frameshift Bullmastiff\", \"target\": \"Regional Neuronal Dysfunction and Loss\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Juvenile-onset progressive neurological disease with bilateral symmetrical focal brain lesions on MRI - the same kind of finding as the human Leigh-like pattern, and the closest organism-level match to the human encephalopathy that any model provides.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The lesions localise to the cerebellar nuclei rather than to the basal ganglia and subthalamic nuclei affected in human patients, and the canine phenotype includes hydrocephalus, which is not part of the human disease. Onset at around 6 months is juvenile rather than first-year-of-life. No peroxisomal biochemistry or neuropathology has been reported in the dogs.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Swallowing difficulty developing after the initial presentation, and the reason feeding support is part of management.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Failure of DRP1-Mediated Organelle Scission\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without its receptor, DRP1 is not recruited, and neither organelle divides. Both become hyper-elongated in patient fibroblasts. This is the node that makes the disease a fission disorder rather than a metabolic one: the shared machinery means a single lesion produces a simultaneous mitochondrial and peroxisomal phenotype, which no single-organelle metabolic defect does.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial fission\", \"peroxisome fission\"], \"animal_models\": [{\"name\": \"Mff knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Mff homozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the fission defect and its cellular consequences - reduced mitochondrial density, reduced respiratory chain activity and increased mitophagy.\"}, {\"name\": \"Mff knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Mff homozygous null\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Deleting the fusion gene Mfn1 completely rescues heart dysfunction, lifespan and respiratory chain function in the Mff-null mouse. The therapeutic target this identifies is rebalancing fission against fusion, not restoring fission.\"}]}}, {\"id\": \"Global developmental delay and regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delay in the first year followed by regression of acquired milestones.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brisk reflexes accompanying the spasticity, part of the same corticospinal picture.\", \"meta\": {\"term_id\": \"HP:0001347\"}}, {\"id\": \"Impaired Peroxisome Maturation and Redox Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The peroxisomal consequence is not what a peroxisomal disorder usually means. Overall peroxisomal biochemical function is preserved; what is lost is the compartment\u0027s import competence, so pre-peroxisomal membrane structures accumulate, and the intra-peroxisomal redox state and pH shift. Pexophagy is intact - the elongated peroxisomes are still cleared. This is a plasticity defect rather than an enzyme deficiency, and it is why a conventional peroxisomal biochemical screen would look normal.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein import into peroxisome matrix\", \"peroxisomal redox homeostasis\"]}}, {\"id\": \"MFF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MFF\"], \"gene_terms\": [{\"label\": \"MFF\", \"id\": \"hgnc:24858\"}], \"presence\": \"Positive\", \"association\": \"Biallelic Loss-of-Function Variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MFF Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MFF is an outer-membrane protein that recruits DRP1 to the sites where mitochondria and peroxisomes will divide. It does not do this as a monomer: MFF is a dynamic oligomer, most likely a trimer, associating and dissociating through its C-terminal coiled coil, and that oligomerization is required for DRP1 activation. Actin filaments do not bind MFF but lower the effective MFF concentration roughly tenfold, so the same machinery is assembled more efficiently at the cytoskeleton. Disease alleles are truncating - the canine variant removes 55% of the open reading frame - so the receptor is absent rather than misregulated.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"DRP1 recruitment and activation at the organelle membrane\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"MFF\", \"id\": \"hgnc:24858\"}]}}}, {\"id\": \"MFF frameshift Bullmastiff\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring canine disease, described as familial cerebellar ataxia with hydrocephalus in Bullmastiffs almost 40 years before its cause was found. Whole-genome sequencing identified a private homozygous MFF frameshift variant truncating 55% of the open reading frame, and genotyping showed perfect segregation across four affected and 70 unaffected dogs. The authors propose renaming the canine disease mitochondrial fission encephalopathy by analogy with the human phenotype.\"}, {\"id\": \"Mff knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The germline Mff-null mouse. It is the source of the strongest therapeutic lead in this disease and simultaneously the clearest example of a model whose phenotype is in the wrong organ.\"}, {\"id\": \"Mitochondrial Calcium Overload and Oxidative Stress in Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In dopaminergic neurons differentiated from dental pulp stem cells, MFF silencing does more than elongate mitochondria. It accelerates calcium influx from the endoplasmic reticulum through the IP3 receptor, and MFF co-immunoprecipitates with VDAC1, a component of the ER-mitochondrial calcium transport system - suggesting MFF normally restrains that flux. The resulting mitochondrial calcium overload drives excessive reactive oxygen species and downregulates PGC-1alpha, so mitochondrial biogenesis falls as well. Neurite outgrowth is impaired. This is the best available cellular model of the neuronal phenotype, and it identifies ROS and biogenesis as separable downstream targets.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dopaminergic neuron\"], \"biological_processes\": [\"mitochondrial calcium ion homeostasis\", \"reactive oxygen species metabolic process\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic neuropathy developing after the initial presentation, alongside the peripheral neuropathy. The source paper\u0027s own conclusion treats the combination of optic and peripheral neuropathy with seizures as the trigger for MFF testing.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral nerve involvement accompanying the central disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009830\"}}, {\"id\": \"Regional Neuronal Dysfunction and Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organelle defect converges on bilateral, symmetrical injury of the basal ganglia and subthalamic nuclei - the Leigh-like pattern - together with optic nerve and peripheral nerve involvement. The step from elongated organelles to this particular regional vulnerability is not established in patient brain, and the entry marks it as such: it is inferred from cellular and animal models, and there is no published neuropathology in a human MFF patient.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"basal ganglion\", \"brain\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Mff knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Mff homozygous null\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The mouse dies at 13 weeks of severe dilated cardiomyopathy and heart failure. It does not develop the Leigh-like encephalopathy, optic atrophy or peripheral neuropathy that define the human disease.\"}, {\"name\": \"MFF frameshift Bullmastiff\", \"species\": \"Dog\", \"genotype\": \"MFF c.471_475delinsCGCTCT, p.(Glu158Alafs*14), homozygous\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Juvenile-onset progressive neurological disease with bilateral symmetrical focal brain lesions on MRI - the same kind of finding as the human Leigh-like pattern, and the closest organism-level match to the human encephalopathy that any model provides.\"}]}}, {\"id\": \"Secondary microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acquired rather than congenital microcephaly, consistent with a degenerative rather than a malformative process.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005484\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures from within the first year of life, one of the presenting features. They are often infantile spasms with hypsarrhythmia on EEG; that specific seizure semiology is curated separately below.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity with hyperreflexia, reflecting corticospinal involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"Supportive and Symptomatic Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no disease-specific therapy. Management is seizure control, spasticity management, feeding and nutritional support, and visual and physical rehabilitation. A mitochondrial cofactor cocktail was tried in one reported patient with some improvement; that is a single uncontrolled observation in one child and is not evidence of efficacy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of vision, the functional consequence of the optic neuropathy above.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"MFF Loss of Function\", \"target\": \"Failure of DRP1-Mediated Organelle Scission\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of DRP1-Mediated Organelle Scission\", \"target\": \"Impaired Peroxisome Maturation and Redox Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of DRP1-Mediated Organelle Scission\", \"target\": \"Mitochondrial Calcium Overload and Oxidative Stress in Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of DRP1-Mediated Organelle Scission\", \"target\": \"Regional Neuronal Dysfunction and Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Calcium Overload and Oxidative Stress in Neurons\", \"target\": \"Regional Neuronal Dysfunction and Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Global developmental delay and regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regional Neuronal Dysfunction and Loss\", \"target\": \"Secondary microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Supportive and Symptomatic Management\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and Symptomatic Management\", \"target\": \"Spasticity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive and Symptomatic Management\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mff knockout mouse\", \"target\": \"Failure of DRP1-Mediated Organelle Scission\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the fission defect and its cellular consequences - reduced mitochondrial density, reduced respiratory chain activity and increased mitophagy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Mff knockout mouse\", \"target\": \"Regional Neuronal Dysfunction and Loss\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The mouse dies at 13 weeks of severe dilated cardiomyopathy and heart failure. It does not develop the Leigh-like encephalopathy, optic atrophy or peripheral neuropathy that define the human disease.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The lethal phenotype is cardiac, not neurological, so the model has no face validity for the human encephalopathy and cannot be used to test a neurological endpoint. The paper itself reports that the precise balance point of fusion and fission is cell-type specific, which is the likely reason: mouse cardiomyocytes and human neurons sit at different points on that balance. Human EMPF2 patients are not reported with dilated cardiomyopathy.\"}, {\"source\": \"Mff knockout mouse\", \"target\": \"Failure of DRP1-Mediated Organelle Scission\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Deleting the fusion gene Mfn1 completely rescues heart dysfunction, lifespan and respiratory chain function in the Mff-null mouse. The therapeutic target this identifies is rebalancing fission against fusion, not restoring fission.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rescue is genetic, not pharmacological, and is demonstrated in heart. No equivalent has been attempted in a neuronal model, so the lead is a hypothesis for the human disease rather than a preclinical result in it.\"}, {\"source\": \"MFF frameshift Bullmastiff\", \"target\": \"Regional Neuronal Dysfunction and Loss\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Juvenile-onset progressive neurological disease with bilateral symmetrical focal brain lesions on MRI - the same kind of finding as the human Leigh-like pattern, and the closest organism-level match to the human encephalopathy that any model provides.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The lesions localise to the cerebellar nuclei rather than to the basal ganglia and subthalamic nuclei affected in human patients, and the canine phenotype includes hydrocephalus, which is not part of the human disease. Onset at around 6 months is juvenile rather than first-year-of-life. No peroxisomal biochemistry or neuropathology has been reported in the dogs.\"}, {\"source\": \"MFF\", \"target\": \"MFF Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5460,6 +5524,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5538,6 +5605,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5637,6 +5707,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5715,6 +5788,9 @@ This clinical feature is Secondary microcephaly (HP:0005484). HP:0005484 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5788,6 +5864,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5873,6 +5952,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5942,6 +6024,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6006,6 +6091,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6109,6 +6197,9 @@ This clinical feature is Hypsarrhythmia (HP:0002521). HP:0002521 is a phenotype 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hyperreflexia" data-dismech-node="Hyperreflexia" data-dismech-type="phenotype">
@@ -6134,6 +6225,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6217,6 +6311,9 @@ This disease-associated gene is MFF (hgnc:24858). hgnc:24858 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

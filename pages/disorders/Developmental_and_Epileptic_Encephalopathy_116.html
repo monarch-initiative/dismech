@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5029,6 +5071,13 @@ Whether the heterotopia belongs to the disease is not resolvable from one patien
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glul-start-loss-and-5-utr-splice-variants" data-dismech-node="GLUL Start-Loss and 5&#39; UTR Splice Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">GLUL Start-Loss and 5&#39; UTR Splice Variants</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The disease alleles cluster on one target: the initiation codon of GLUL. They reach it two ways. Seven of the nine founding patients had variants in the start codon itself, and two had variants at the canonical splice site of the 5&#39; untranslated region that exclude the initiation codon from the mature transcript. Later reports add further alleles at the same splice acceptor. All are heterozygous and all arose de novo.
 The spectrum has since begun to widen past the start codon. A de novo heterozygous missense variant in the catalytic domain and an in-frame duplication have each been reported in a patient with the same phenotype. The duplication was shown to disrupt regulation of enzyme activity without changing protein expression, which is a different route to the same endpoint; the missense variant is not functionally characterised. Both are single observations and are curated here as spectrum expansion rather than as an established second mechanism.</div>
 
@@ -5090,6 +5139,8 @@ This pathophysiological event involves GLUL (hgnc:4341). hgnc:4341 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -5102,6 +5153,9 @@ This pathophysiological event involves GLUL (hgnc:4341). hgnc:4341 is a gene fro
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous de novo variants abolishing use of the canonical GLUL start codon, either by altering it directly or by excluding it through a 5&#39; untranslated region splice defect.</div>
 
@@ -5199,6 +5253,13 @@ This pathophysiological event involves GLUL (hgnc:4341). hgnc:4341 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-translation-reinitiation-at-methionine-18" data-dismech-node="Translation Reinitiation at Methionine 18" data-dismech-type="pathophysiology">
                 <div class="item-name">Translation Reinitiation at Methionine 18</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The alternative start codon lies seventeen residues into the protein, in frame with the rest of it. Reinitiation there produces a glutamine synthetase that is complete except for its N-terminal seventeen amino acids. That short missing segment is the entire pathogenic consequence: it contains the degron, and nothing else about the protein is altered. This is why the variants are not loss-of-function despite abolishing the normal start codon.</div>
 
@@ -5330,6 +5391,13 @@ This pathophysiological event involves abnormal translational initiation (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-escape-from-glutamine-induced-degradation-of-glutamine-synthetase" data-dismech-node="Escape from Glutamine-Induced Degradation of Glutamine Synthetase" data-dismech-type="pathophysiology">
                 <div class="item-name">Escape from Glutamine-Induced Degradation of Glutamine Synthetase</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Glutamine synthetase is normally held in check by its own product. When glutamine is abundant, lysine residues in the N-terminal region are acetylated, which triggers ubiquitin-mediated degradation of the enzyme. That degron is a negative feedback loop implemented as protein turnover rather than as allosteric inhibition, and it is what the disease removes. The truncated enzyme is not degraded under high glutamine, so its abundance is no longer set by how much product it has made. The founding study named this gain of stabilization, and it is the rate-limiting step of the disorder: everything upstream converges on it, and everything downstream follows from it.</div>
 
@@ -5528,6 +5596,13 @@ This pathophysiological event involves increased protein stabilization (GO:00508
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unregulated-glutamine-synthetase-activity-in-astrocytes-and-glial-progenitors" data-dismech-node="Unregulated Glutamine Synthetase Activity in Astrocytes and Glial Progenitors" data-dismech-type="pathophysiology">
                 <div class="item-name">Unregulated Glutamine Synthetase Activity in Astrocytes and Glial Progenitors</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The cell type matters, and it is not the neuron. Single-cell transcriptomic analysis of human tissue shows GLUL expressed in neural and glial progenitor cells and in mature astrocytes, and not in post-mitotic neurons. The astrocyte is where glutamate taken up from the synaptic cleft is converted to glutamine for return to the neuron, so an astrocytic enzyme running outside its feedback control acts directly on the supply side of the glutamate-glutamine cycle. Expression in progenitors adds a developmental dimension: the same dysregulation is present while the brain is being built, not only once it is working.</div>
 
@@ -5752,6 +5827,13 @@ This pathophysiological event involves glutamine synthetase activity (GO:0004356
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-glutamate-glutamine-homeostasis-in-the-developing-brain" data-dismech-node="Disrupted Glutamate-Glutamine Homeostasis in the Developing Brain" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Glutamate-Glutamine Homeostasis in the Developing Brain</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Glutamine synthetase sits at the junction of three things the brain cannot afford to get wrong: it makes the precursor from which both glutamate and GABA are regenerated, and it is the principal route by which ammonia is detoxified in the brain. Losing regulatory control of it during neurodevelopment is the proposed proximate cause of both the epilepsy and the developmental arrest.
 The confidence here is PROVISIONAL rather than ESTABLISHED, and deliberately so. The step is asserted on the basis of what the enzyme does rather than on a measurement of glutamate or glutamine in an affected brain, and the peripheral biochemistry that is available does not behave as the mechanism predicts. That mismatch is recorded as an open knowledge gap rather than resolved here.</div>
 
@@ -5934,6 +6016,13 @@ This pathophysiological event involves dysregulated glutamate metabolic process 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-and-epileptic-encephalopathy" data-dismech-node="Developmental and Epileptic Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental and Epileptic Encephalopathy</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical endpoint. Seizures typically begin in the first months of life, are often refractory to multiple antiseizure medications, and take varied forms across patients: generalized tonic-clonic, myoclonic, tonic, clonic, focal, and infantile spasms have all been reported. Global developmental delay is universal and severe, with several patients achieving head control and little beyond it. Unlike the recessive GLUL disease, which kills in infancy, this one is survivable.</div>
 
 
@@ -6019,6 +6108,13 @@ This pathophysiological event involves dysregulated glutamate metabolic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-white-matter-and-perivascular-space-abnormality" data-dismech-node="White Matter and Perivascular Space Abnormality" data-dismech-type="pathophysiology">
                 <div class="item-name">White Matter and Perivascular Space Abnormality</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A structural imaging phenotype consistent enough to be proposed as a diagnostic clue. Markedly enlarged perivascular spaces are the most distinctive finding and were present in most reported patients with the dominant disease; thinning of the corpus callosum accompanies them. Hypomyelination or demyelination was described in seven of ten earlier patients but absent in a later series of three, while that later series found cerebral atrophy in all three and deep grey matter T2 hyperintensity in two. The mechanism connecting glutamine synthetase dysregulation to these changes is not known, and the reporting authors say so.</div>
 
@@ -6153,7 +6249,7 @@ This pathophysiological event involves dysregulated glutamate metabolic process 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment directed at the mechanism. Seizure control is attempted with conventional antiseizure medications and, in some patients, a ketogenic diet, and the results are poor and inconsistent: several patients remained refractory through multiple agents, while others achieved partial control with valproic acid or perampanel added late. Agents reported in use include vigabatrin, prednisolone, topiramate, valproic acid, lacosamide, perampanel, lamotrigine and levetiracetam. No agent has been shown to work better than another in this disorder, and no genotype-directed choice is possible on current evidence.\\nOne practical caution follows from the biochemistry. Some patients are hyperammonaemic, and the authors of the series reporting that raise valproic acid as a possible cause rather than a disease feature. Since valproic acid is among the drugs used here, a rising ammonia in a treated patient should not be assumed to reflect the underlying enzyme defect.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Developmental and Epileptic Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Seizures typically begin in the first months of life, are often refractory to multiple antiseizure medications, and take varied forms across patients: generalized tonic-clonic, myoclonic, tonic, clonic, focal, and infantile spasms have all been reported. Global developmental delay is universal and severe, with several patients achieving head control and little beyond it. Unlike the recessive GLUL disease, which kills in infancy, this one is survivable.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Disrupted Glutamate-Glutamine Homeostasis in the Developing Brain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glutamine synthetase sits at the junction of three things the brain cannot afford to get wrong: it makes the precursor from which both glutamate and GABA are regenerated, and it is the principal route by which ammonia is detoxified in the brain. Losing regulatory control of it during neurodevelopment is the proposed proximate cause of both the epilepsy and the developmental arrest.\\nThe confidence here is PROVISIONAL rather than ESTABLISHED, and deliberately so. The step is asserted on the basis of what the enzyme does rather than on a measurement of glutamate or glutamine in an affected brain, and the peripheral biochemistry that is available does not behave as the mechanism predicts. That mismatch is recorded as an open knowledge gap rather than resolved here.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-glutamine metabolic process\", \"glutamate metabolic process\"], \"role\": \"intermediate\"}}, {\"id\": \"Escape from Glutamine-Induced Degradation of Glutamine Synthetase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glutamine synthetase is normally held in check by its own product. When glutamine is abundant, lysine residues in the N-terminal region are acetylated, which triggers ubiquitin-mediated degradation of the enzyme. That degron is a negative feedback loop implemented as protein turnover rather than as allosteric inhibition, and it is what the disease removes. The truncated enzyme is not degraded under high glutamine, so its abundance is no longer set by how much product it has made. The founding study named this gain of stabilization, and it is the rate-limiting step of the disorder: everything upstream converges on it, and everything downstream follows from it.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"protein stabilization\"], \"role\": \"central_effector\"}}, {\"id\": \"GLUL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GLUL\"], \"gene_terms\": [{\"label\": \"GLUL\", \"id\": \"hgnc:4341\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"GLUL Start-Loss and 5\u0027 UTR Splice Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disease alleles cluster on one target: the initiation codon of GLUL. They reach it two ways. Seven of the nine founding patients had variants in the start codon itself, and two had variants at the canonical splice site of the 5\u0027 untranslated region that exclude the initiation codon from the mature transcript. Later reports add further alleles at the same splice acceptor. All are heterozygous and all arose de novo.\\nThe spectrum has since begun to widen past the start codon. A de novo heterozygous missense variant in the catalytic domain and an in-frame duplication have each been reported in a patient with the same phenotype. The duplication was shown to disrupt regulation of enzyme activity without changing protein expression, which is a different route to the same endpoint; the missense variant is not functionally characterised. Both are single observations and are curated here as spectrum expansion rather than as an established second mechanism.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GLUL\"], \"gene_terms\": [{\"label\": \"GLUL\", \"id\": \"hgnc:4341\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Heterozygous de novo variants abolishing use of the canonical GLUL start codon, either by altering it directly or by excluding it through a 5\u0027 untranslated region splice defect.\"}, \"role\": \"trigger\"}}, {\"id\": \"Mouse in utero electroporation overexpressing stabilized glutamine synthetase\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Not a genetic model of the disease but a targeted test of one hypothesis. One patient with a start-loss GLUL variant had periventricular nodular heterotopia, a disorder of neuronal migration. The founding study electroporated the stabilized enzyme into embryonic mouse neocortex to ask whether stabilized glutamine synthetase disturbs migration. It did not, and the authors reported the negative result rather than omitting it.\"}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are the presenting feature in most patients. Onset spans the first two years of life, most often within the first months, though the one adult reported so far began at 24 months. They are frequently refractory: multiple antiseizure medications and a ketogenic diet were tried without lasting control in several reported patients. The semiology is not uniform. Generalized tonic-clonic, myoclonic, tonic, clonic, focal, atonic and spasm-like seizures have all been reported, and the mix differs between patients; in the adult proband the combination of seizure types and the electroencephalographic findings amounted to a clinical diagnosis of Lennox-Gastaut syndrome.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Transfection-based expression system for GLUL start-loss variants\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The system in which the mechanism was established. Wild-type and variant GLUL constructs were expressed and the resulting protein analysed by mass spectrometry, which is what showed that the variants shift the initiation site to methionine 18 rather than simply abolishing expression. The same system supported the stability and feedback-response experiments behind the gain-of-stabilization claim.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:38579670\"}}, {\"id\": \"Translation Reinitiation at Methionine 18\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alternative start codon lies seventeen residues into the protein, in frame with the rest of it. Reinitiation there produces a glutamine synthetase that is complete except for its N-terminal seventeen amino acids. That short missing segment is the entire pathogenic consequence: it contains the degron, and nothing else about the protein is altered. This is why the variants are not loss-of-function despite abolishing the normal start codon.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"translational initiation\"], \"role\": \"intermediate\", \"experimental_models\": [{\"name\": \"Transfection-based expression system for GLUL start-loss variants\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Mass spectrometry of the expressed protein identifies the actual translation start site, which is the observation the whole mechanism rests on and which no clinical measurement could supply.\"}]}}, {\"id\": \"Unregulated Glutamine Synthetase Activity in Astrocytes and Glial Progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cell type matters, and it is not the neuron. Single-cell transcriptomic analysis of human tissue shows GLUL expressed in neural and glial progenitor cells and in mature astrocytes, and not in post-mitotic neurons. The astrocyte is where glutamate taken up from the synaptic cleft is converted to glutamine for return to the neuron, so an astrocytic enzyme running outside its feedback control acts directly on the supply side of the glutamate-glutamine cycle. Expression in progenitors adds a developmental dimension: the same dysregulation is present while the brain is being built, not only once it is working.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Astrocyte\", \"Neural progenitor cell\"], \"molecular_functions\": [\"glutamine synthetase activity\"], \"role\": \"intermediate\", \"animal_models\": [{\"name\": \"Mouse in utero electroporation overexpressing stabilized glutamine synthetase\", \"species\": \"Mouse\", \"genotype\": \"Wild type, transiently overexpressing degron-truncated glutamine synthetase in embryonic neocortex\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Overexpression of the stabilized enzyme in the developing mouse cortex produced no migratory deficit, so this model does not reproduce the periventricular nodular heterotopia seen in one patient and provides no support for a migration-defect route from the enzyme to the human brain phenotype.\"}]}}, {\"id\": \"White Matter and Perivascular Space Abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A structural imaging phenotype consistent enough to be proposed as a diagnostic clue. Markedly enlarged perivascular spaces are the most distinctive finding and were present in most reported patients with the dominant disease; thinning of the corpus callosum accompanies them. Hypomyelination or demyelination was described in seven of ten earlier patients but absent in a later series of three, while that later series found cerebral atrophy in all three and deep grey matter T2 hyperintensity in two. The mechanism connecting glutamine synthetase dysregulation to these changes is not known, and the reporting authors say so.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"GLUL Start-Loss and 5\u0027 UTR Splice Variants\", \"target\": \"Translation Reinitiation at Methionine 18\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With the canonical initiation codon unavailable, the ribosome starts at the next in-frame methionine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Translation Reinitiation at Methionine 18\", \"target\": \"Escape from Glutamine-Induced Degradation of Glutamine Synthetase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The truncated protein no longer carries the degron that would target it for ubiquitin-mediated degradation when glutamine is high.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Escape from Glutamine-Induced Degradation of Glutamine Synthetase\", \"target\": \"Unregulated Glutamine Synthetase Activity in Astrocytes and Glial Progenitors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An enzyme that cannot be removed in proportion to its product keeps working when it should be switched off.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unregulated Glutamine Synthetase Activity in Astrocytes and Glial Progenitors\", \"target\": \"Disrupted Glutamate-Glutamine Homeostasis in the Developing Brain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of feedback control over the enzyme that sets the glutamine supply perturbs the tightly regulated balance between glutamate and glutamine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Glutamate-Glutamine Homeostasis in the Developing Brain\", \"target\": \"Developmental and Epileptic Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed excitatory and inhibitory neurotransmitter supply during development produces the seizure and developmental phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Glutamate-Glutamine Homeostasis in the Developing Brain\", \"target\": \"White Matter and Perivascular Space Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same metabolic dysregulation is associated with a distinctive structural brain phenotype, most consistently enlarged perivascular spaces and a thin corpus callosum. The link is a clinical association; no study has shown how glutamine synthetase dysregulation produces these changes, hence INDIRECT.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antiseizure Medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Transfection-based expression system for GLUL start-loss variants\", \"target\": \"Translation Reinitiation at Methionine 18\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Mass spectrometry of the expressed protein identifies the actual translation start site, which is the observation the whole mechanism rests on and which no clinical measurement could supply.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Constructs are expressed from a plasmid rather than from the endogenous locus, so transcript abundance and the 5\u0027 untranslated region context are not those of the patient allele. The system therefore establishes that reinitiation at methionine 18 occurs and that the product is stable, but not the relative abundance of the truncated and full-length proteins in patient tissue.\"}, {\"source\": \"Mouse in utero electroporation overexpressing stabilized glutamine synthetase\", \"target\": \"Unregulated Glutamine Synthetase Activity in Astrocytes and Glial Progenitors\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Overexpression of the stabilized enzyme in the developing mouse cortex produced no migratory deficit, so this model does not reproduce the periventricular nodular heterotopia seen in one patient and provides no support for a migration-defect route from the enzyme to the human brain phenotype.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Three limitations bear directly on how far the negative result can be taken. Electroporation overexpresses the protein transiently, in a subset of cells, within a narrow developmental window, whereas patients carry the variant in every cell from conception. It adds stabilized protein on top of the endogenous wild-type enzyme rather than replacing it, so it models a gain of dose rather than the patient genotype. And GLUL is expressed in astrocytes and neural and glial progenitors rather than in post-mitotic neurons, so delivering it to electroporated cortical cells may not test the cell type in which the relevant activity resides. The result therefore weakens the migration hypothesis without excluding it.\"}, {\"source\": \"GLUL\", \"target\": \"GLUL Start-Loss and 5\u0027 UTR Splice Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment directed at the mechanism. Seizure control is attempted with conventional antiseizure medications and, in some patients, a ketogenic diet, and the results are poor and inconsistent: several patients remained refractory through multiple agents, while others achieved partial control with valproic acid or perampanel added late. Agents reported in use include vigabatrin, prednisolone, topiramate, valproic acid, lacosamide, perampanel, lamotrigine and levetiracetam. No agent has been shown to work better than another in this disorder, and no genotype-directed choice is possible on current evidence.\\nOne practical caution follows from the biochemistry. Some patients are hyperammonaemic, and the authors of the series reporting that raise valproic acid as a possible cause rather than a disease feature. Since valproic acid is among the drugs used here, a rising ammonia in a treated patient should not be assumed to reflect the underlying enzyme defect.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Developmental and Epileptic Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Seizures typically begin in the first months of life, are often refractory to multiple antiseizure medications, and take varied forms across patients: generalized tonic-clonic, myoclonic, tonic, clonic, focal, and infantile spasms have all been reported. Global developmental delay is universal and severe, with several patients achieving head control and little beyond it. Unlike the recessive GLUL disease, which kills in infancy, this one is survivable.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Disrupted Glutamate-Glutamine Homeostasis in the Developing Brain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glutamine synthetase sits at the junction of three things the brain cannot afford to get wrong: it makes the precursor from which both glutamate and GABA are regenerated, and it is the principal route by which ammonia is detoxified in the brain. Losing regulatory control of it during neurodevelopment is the proposed proximate cause of both the epilepsy and the developmental arrest.\\nThe confidence here is PROVISIONAL rather than ESTABLISHED, and deliberately so. The step is asserted on the basis of what the enzyme does rather than on a measurement of glutamate or glutamine in an affected brain, and the peripheral biochemistry that is available does not behave as the mechanism predicts. That mismatch is recorded as an open knowledge gap rather than resolved here.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-glutamine metabolic process\", \"glutamate metabolic process\"], \"role\": \"intermediate\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Escape from Glutamine-Induced Degradation of Glutamine Synthetase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glutamine synthetase is normally held in check by its own product. When glutamine is abundant, lysine residues in the N-terminal region are acetylated, which triggers ubiquitin-mediated degradation of the enzyme. That degron is a negative feedback loop implemented as protein turnover rather than as allosteric inhibition, and it is what the disease removes. The truncated enzyme is not degraded under high glutamine, so its abundance is no longer set by how much product it has made. The founding study named this gain of stabilization, and it is the rate-limiting step of the disorder: everything upstream converges on it, and everything downstream follows from it.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"protein stabilization\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"GLUL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GLUL\"], \"gene_terms\": [{\"label\": \"GLUL\", \"id\": \"hgnc:4341\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"GLUL Start-Loss and 5\u0027 UTR Splice Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disease alleles cluster on one target: the initiation codon of GLUL. They reach it two ways. Seven of the nine founding patients had variants in the start codon itself, and two had variants at the canonical splice site of the 5\u0027 untranslated region that exclude the initiation codon from the mature transcript. Later reports add further alleles at the same splice acceptor. All are heterozygous and all arose de novo.\\nThe spectrum has since begun to widen past the start codon. A de novo heterozygous missense variant in the catalytic domain and an in-frame duplication have each been reported in a patient with the same phenotype. The duplication was shown to disrupt regulation of enzyme activity without changing protein expression, which is a different route to the same endpoint; the missense variant is not functionally characterised. Both are single observations and are curated here as spectrum expansion rather than as an established second mechanism.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GLUL\"], \"gene_terms\": [{\"label\": \"GLUL\", \"id\": \"hgnc:4341\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Heterozygous de novo variants abolishing use of the canonical GLUL start codon, either by altering it directly or by excluding it through a 5\u0027 untranslated region splice defect.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Mouse in utero electroporation overexpressing stabilized glutamine synthetase\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Not a genetic model of the disease but a targeted test of one hypothesis. One patient with a start-loss GLUL variant had periventricular nodular heterotopia, a disorder of neuronal migration. The founding study electroporated the stabilized enzyme into embryonic mouse neocortex to ask whether stabilized glutamine synthetase disturbs migration. It did not, and the authors reported the negative result rather than omitting it.\"}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are the presenting feature in most patients. Onset spans the first two years of life, most often within the first months, though the one adult reported so far began at 24 months. They are frequently refractory: multiple antiseizure medications and a ketogenic diet were tried without lasting control in several reported patients. The semiology is not uniform. Generalized tonic-clonic, myoclonic, tonic, clonic, focal, atonic and spasm-like seizures have all been reported, and the mix differs between patients; in the adult proband the combination of seizure types and the electroencephalographic findings amounted to a clinical diagnosis of Lennox-Gastaut syndrome.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Transfection-based expression system for GLUL start-loss variants\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The system in which the mechanism was established. Wild-type and variant GLUL constructs were expressed and the resulting protein analysed by mass spectrometry, which is what showed that the variants shift the initiation site to methionine 18 rather than simply abolishing expression. The same system supported the stability and feedback-response experiments behind the gain-of-stabilization claim.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:38579670\"}}, {\"id\": \"Translation Reinitiation at Methionine 18\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alternative start codon lies seventeen residues into the protein, in frame with the rest of it. Reinitiation there produces a glutamine synthetase that is complete except for its N-terminal seventeen amino acids. That short missing segment is the entire pathogenic consequence: it contains the degron, and nothing else about the protein is altered. This is why the variants are not loss-of-function despite abolishing the normal start codon.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"translational initiation\"], \"role\": \"intermediate\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Transfection-based expression system for GLUL start-loss variants\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Mass spectrometry of the expressed protein identifies the actual translation start site, which is the observation the whole mechanism rests on and which no clinical measurement could supply.\"}]}}, {\"id\": \"Unregulated Glutamine Synthetase Activity in Astrocytes and Glial Progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cell type matters, and it is not the neuron. Single-cell transcriptomic analysis of human tissue shows GLUL expressed in neural and glial progenitor cells and in mature astrocytes, and not in post-mitotic neurons. The astrocyte is where glutamate taken up from the synaptic cleft is converted to glutamine for return to the neuron, so an astrocytic enzyme running outside its feedback control acts directly on the supply side of the glutamate-glutamine cycle. Expression in progenitors adds a developmental dimension: the same dysregulation is present while the brain is being built, not only once it is working.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Astrocyte\", \"Neural progenitor cell\"], \"molecular_functions\": [\"glutamine synthetase activity\"], \"role\": \"intermediate\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Mouse in utero electroporation overexpressing stabilized glutamine synthetase\", \"species\": \"Mouse\", \"genotype\": \"Wild type, transiently overexpressing degron-truncated glutamine synthetase in embryonic neocortex\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Overexpression of the stabilized enzyme in the developing mouse cortex produced no migratory deficit, so this model does not reproduce the periventricular nodular heterotopia seen in one patient and provides no support for a migration-defect route from the enzyme to the human brain phenotype.\"}]}}, {\"id\": \"White Matter and Perivascular Space Abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A structural imaging phenotype consistent enough to be proposed as a diagnostic clue. Markedly enlarged perivascular spaces are the most distinctive finding and were present in most reported patients with the dominant disease; thinning of the corpus callosum accompanies them. Hypomyelination or demyelination was described in seven of ten earlier patients but absent in a later series of three, while that later series found cerebral atrophy in all three and deep grey matter T2 hyperintensity in two. The mechanism connecting glutamine synthetase dysregulation to these changes is not known, and the reporting authors say so.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"GLUL Start-Loss and 5\u0027 UTR Splice Variants\", \"target\": \"Translation Reinitiation at Methionine 18\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With the canonical initiation codon unavailable, the ribosome starts at the next in-frame methionine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Translation Reinitiation at Methionine 18\", \"target\": \"Escape from Glutamine-Induced Degradation of Glutamine Synthetase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The truncated protein no longer carries the degron that would target it for ubiquitin-mediated degradation when glutamine is high.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Escape from Glutamine-Induced Degradation of Glutamine Synthetase\", \"target\": \"Unregulated Glutamine Synthetase Activity in Astrocytes and Glial Progenitors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An enzyme that cannot be removed in proportion to its product keeps working when it should be switched off.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unregulated Glutamine Synthetase Activity in Astrocytes and Glial Progenitors\", \"target\": \"Disrupted Glutamate-Glutamine Homeostasis in the Developing Brain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of feedback control over the enzyme that sets the glutamine supply perturbs the tightly regulated balance between glutamate and glutamine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Glutamate-Glutamine Homeostasis in the Developing Brain\", \"target\": \"Developmental and Epileptic Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed excitatory and inhibitory neurotransmitter supply during development produces the seizure and developmental phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Glutamate-Glutamine Homeostasis in the Developing Brain\", \"target\": \"White Matter and Perivascular Space Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same metabolic dysregulation is associated with a distinctive structural brain phenotype, most consistently enlarged perivascular spaces and a thin corpus callosum. The link is a clinical association; no study has shown how glutamine synthetase dysregulation produces these changes, hence INDIRECT.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antiseizure Medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Transfection-based expression system for GLUL start-loss variants\", \"target\": \"Translation Reinitiation at Methionine 18\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Mass spectrometry of the expressed protein identifies the actual translation start site, which is the observation the whole mechanism rests on and which no clinical measurement could supply.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Constructs are expressed from a plasmid rather than from the endogenous locus, so transcript abundance and the 5\u0027 untranslated region context are not those of the patient allele. The system therefore establishes that reinitiation at methionine 18 occurs and that the product is stable, but not the relative abundance of the truncated and full-length proteins in patient tissue.\"}, {\"source\": \"Mouse in utero electroporation overexpressing stabilized glutamine synthetase\", \"target\": \"Unregulated Glutamine Synthetase Activity in Astrocytes and Glial Progenitors\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Overexpression of the stabilized enzyme in the developing mouse cortex produced no migratory deficit, so this model does not reproduce the periventricular nodular heterotopia seen in one patient and provides no support for a migration-defect route from the enzyme to the human brain phenotype.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Three limitations bear directly on how far the negative result can be taken. Electroporation overexpresses the protein transiently, in a subset of cells, within a narrow developmental window, whereas patients carry the variant in every cell from conception. It adds stabilized protein on top of the endogenous wild-type enzyme rather than replacing it, so it models a gain of dose rather than the patient genotype. And GLUL is expressed in astrocytes and neural and glial progenitors rather than in post-mitotic neurons, so delivering it to electroporated cortical cells may not test the cell type in which the relevant activity resides. The result therefore weakens the migration hypothesis without excluding it.\"}, {\"source\": \"GLUL\", \"target\": \"GLUL Start-Loss and 5\u0027 UTR Splice Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6216,6 +6312,9 @@ This clinical feature is Dilation of Virchow-Robin spaces (HP:0012520). HP:00125
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6319,6 +6418,9 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6447,6 +6549,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6547,6 +6652,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6675,6 +6783,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6766,6 +6877,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency omitted. The source says &#34;consistently revealed&#34; without giving a count or proportion, and the phrase is a qualitative summary across two cohorts rather than a frequency statement about a defined denominator.</div>
 
 
@@ -6839,6 +6953,9 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6940,6 +7057,9 @@ This clinical feature is Cerebral hypomyelination (HP:0006808). HP:0006808 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7004,6 +7124,9 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency omitted. Cerebral atrophy was reported in three of three patients in one series and explicitly described as not previously reported in this disease, so a frequency band over all patients cannot be justified from either number.</div>
@@ -7077,6 +7200,9 @@ This clinical feature is Abnormal basal ganglia MRI signal intensity (HP:0012751
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Bound to HP:0012751 Abnormal basal ganglia MRI signal intensity, the closest available term. HPO has no single term covering signal change across the deep grey matter as a whole, and the thalamic component is therefore not captured by this binding. Searched with runoak against sqlite:obo:hp for &#34;basal ganglia&#34; and reviewed all fifteen matches.</div>
@@ -7195,6 +7321,9 @@ This disease-associated gene is GLUL (hgnc:4341). hgnc:4341 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 

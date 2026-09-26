@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4329,6 +4371,13 @@ Two further things make this entry worth reading rather than filing as one more 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cib2-loss-of-function" data-dismech-node="CIB2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">CIB2 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Biallelic CIB2 variants abolish or impair the protein. The most prevalent allele in the original human families is the missense p.Phe91Ser, which was modelled directly as a knock-in mouse. Variants act regionally rather than uniformly: those in the N-terminal region disrupt the TMC1/TMC2 interaction without affecting calcium buffering, C-terminal variants affect only calcium buffering, and middle-region variants do both.</div>
 
 
@@ -4496,6 +4545,13 @@ This pathophysiological event involves CIB2 (hgnc:24579). hgnc:24579 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cib2-tmc1-tmc2-association-at-the-met-channel" data-dismech-node="Disrupted CIB2-TMC1/TMC2 Association at the MET Channel" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted CIB2-TMC1/TMC2 Association at the MET Channel</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">CIB2 binds TMC1 and TMC2 through a conserved hydrophobic groove, engaging a domain of TMC1/2 flanked by transmembrane domains 2 and 3. The architecture mirrors KChIP auxiliary subunits binding Kv4 channels, which is the structural argument for calling CIB2 an auxiliary subunit. Deafness-causing CIB2 mutations disrupt this interaction and perturb TMC1/2 localisation and function.</div>
 
@@ -4679,6 +4735,13 @@ This pathophysiological event involves hair cell stereocilium, annotated with st
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abolished-cochlear-mechanoelectrical-transduction" data-dismech-node="Abolished Cochlear Mechanoelectrical Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Abolished Cochlear Mechanoelectrical Transduction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Mechanotransduction is absent in auditory hair cells of Cib2 mutant mice, and MET currents are abolished in Cib2-deficient outer hair cells. The result that carries the mechanistic weight is the qualifier: this happens despite the presence of tip links. Tip links are the filaments that transmit force to the channel, so their being intact localises the lesion to the channel complex rather than to the force-delivery apparatus.</div>
 
@@ -4892,6 +4955,13 @@ This pathophysiological event occurs in organ of Corti, annotated with spiral or
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-restrict-transducing-stereocilia-growth" data-dismech-node="Failure to Restrict Transducing Stereocilia Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Restrict Transducing Stereocilia Growth</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Beyond its channel role, CIB2 limits the length of the shorter, transducing rows of stereocilia: these overgrow in the hair bundles of Cib2 mutants, degrading the graded &#34;staircase&#34; architecture the bundle needs. This is a structural arm distinct from the channel arm.
 CIB2 does bind whirlin (WHRN) - the EF2 domain of CIB2 to the HHD2 region of WHRN - but the stereocilia role is not exercised *through* whirlin, which is the natural assumption and is wrong. Cib2/Whrn double homozygous mutants show the bundle phenotype of the Whrn single mutant rather than an additive one, overexpressing WHRN does not rescue Cib2-null stereocilia, and double heterozygotes hear normally, so there is no digenic interaction. What does change in Cib2-null hair cells is MYO15A, which over-accumulates at the tips of the first-row stereocilia. Whirlin itself, along with myosin XVa, Eps8 and Eps8L2, still reaches the stereocilia tips in Cib2 mutants, so CIB2 is not required to deliver them.
 The positive mechanism is not settled, and three candidates have been raised across this literature. PMID:28663585 offers two in its discussion: that CIB2 is part of the myosin XVa/whirlin elongation complex, and that it buffers free calcium near the MET channels at the stereocilia tips, where a local calcium change would alter actin remodelling. PMID:40083274 offers a third, that CIB2 acts in the GPSM2-GNAI elongation complex.
@@ -5102,6 +5172,13 @@ This pathophysiological event involves stereocilium (GO:0032420). GO:0032420 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hair-cell-dysfunction-and-death" data-dismech-node="Hair Cell Dysfunction and Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Hair Cell Dysfunction and Death</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Loss of transduction and disorganised bundle architecture together produce hair-cell dysfunction and, subsequently, hair-cell death. Because cochlear hair cells are not replaced in mammals, this is the step that makes the deafness permanent and sets the therapeutic window for any gene-replacement approach.</div>
 
 
@@ -5266,6 +5343,13 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cib3-paralogue-redundancy-in-vestibular-hair-cells" data-dismech-node="CIB3 Paralogue Redundancy in Vestibular Hair Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">CIB3 Paralogue Redundancy in Vestibular Hair Cells</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Vestibular hair cells co-express CIB2 and CIB3; cochlear hair cells express CIB2 alone. CIB3 can functionally substitute for CIB2 - expressed in Cib2-null outer hair cells it rescues MET currents, whereas CIB1 does not. This is the mechanistic explanation for why the disease is non-syndromic: the vestibular system has a backup and the cochlea does not. It is a protective mechanism, so it has no downstream disease edge; it is the reason an expected edge to vestibular dysfunction is absent.</div>
 
 
@@ -5408,7 +5492,7 @@ This pathophysiological event involves vestibular hair cell (CL:0000609). CL:000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV-Mediated CIB2 or CIB3 Gene Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Experimental, in mouse only. AAV delivery of either CIB2 or CIB3 rescues stereocilia architecture and hearing function in a DFNB48 mouse model. That CIB3 works as well as CIB2 is the therapeutic pay-off of the paralogue-redundancy finding. There is no human trial for DFNB48; the clinical precedent for cochlear gene therapy is OTOF/DFNB9, a different gene.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Abolished Cochlear Mechanoelectrical Transduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mechanotransduction is absent in auditory hair cells of Cib2 mutant mice, and MET currents are abolished in Cib2-deficient outer hair cells. The result that carries the mechanistic weight is the qualifier: this happens despite the presence of tip links. Tip links are the filaments that transmit force to the channel, so their being intact localises the lesion to the channel complex rather than to the force-delivery apparatus.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear hair cell\"], \"biological_processes\": [\"sensory perception of sound\"], \"locations\": [\"organ of Corti\"], \"animal_models\": [{\"name\": \"Cib2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cib2 null (tm1a/tm1b gene-trap; Cib2KO/KO)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the defining human lesion and is the system in which the tip-link dissociation was demonstrated.\"}]}}, {\"id\": \"Auditory-Verbal Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Post-implantation habilitation aimed at spoken-language acquisition, delivered alongside cochlear implantation rather than instead of it. Language outcomes after implantation vary widely and are not fully explained by age at implantation, and attendance at post-activation appointments was the factor most consistently associated with better receptive and expressive language, so the rehabilitation arm carries real weight in outcome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bilateral sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is bilateral and symmetric across all frequencies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008619\"}}, {\"id\": \"CIB2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CIB2\"], \"gene_terms\": [{\"label\": \"CIB2\", \"id\": \"hgnc:24579\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"CIB2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic CIB2 variants abolish or impair the protein. The most prevalent allele in the original human families is the missense p.Phe91Ser, which was modelled directly as a knock-in mouse. Variants act regionally rather than uniformly: those in the N-terminal region disrupt the TMC1/TMC2 interaction without affecting calcium buffering, C-terminal variants affect only calcium buffering, and middle-region variants do both.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"CIB2\"], \"gene_terms\": [{\"label\": \"CIB2\", \"id\": \"hgnc:24579\"}], \"animal_models\": [{\"name\": \"Cib2 p.F91S knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Cib2 p.Phe91Ser knock-in (Cib2F91S/F91S)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Allele-matched to the commonest human genotype, which makes it the stronger model for the human molecular lesion than the null.\"}]}}, {\"id\": \"Cib2 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive Cib2 null. Deaf, with mechanotransduction absent in auditory hair cells while tip links remain present, and with overgrowth of the shorter transducing stereocilia rows. Vestibular function is spared, matching the human non-syndromic phenotype.\"}, {\"id\": \"Cib2 p.F91S knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Carries the single most prevalent human DFNB48 allele rather than a null, so it tests whether the disease missense variant, and not merely absence of the protein, causes the phenotype. It does: these mice are deaf with the same transduction and bundle defects.\"}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard management for severe-to-profound prelingual sensorineural hearing loss. It bypasses the failed hair-cell transduction step by stimulating the cochlear nerve directly, so it addresses the consequence of the lesion rather than the lesion itself.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Disrupted CIB2-TMC1/TMC2 Association at the MET Channel\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CIB2 binds TMC1 and TMC2 through a conserved hydrophobic groove, engaging a domain of TMC1/2 flanked by transmembrane domains 2 and 3. The architecture mirrors KChIP auxiliary subunits binding Kv4 channels, which is the structural argument for calling CIB2 an auxiliary subunit. Deafness-causing CIB2 mutations disrupt this interaction and perturb TMC1/2 localisation and function.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"detection of mechanical stimulus involved in sensory perception of sound\"]}}, {\"id\": \"Failure to Restrict Transducing Stereocilia Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond its channel role, CIB2 limits the length of the shorter, transducing rows of stereocilia: these overgrow in the hair bundles of Cib2 mutants, degrading the graded \\\"staircase\\\" architecture the bundle needs. This is a structural arm distinct from the channel arm.\\nCIB2 does bind whirlin (WHRN) - the EF2 domain of CIB2 to the HHD2 region of WHRN - but the stereocilia role is not exercised *through* whirlin, which is the natural assumption and is wrong. Cib2/Whrn double homozygous mutants show the bundle phenotype of the Whrn single mutant rather than an additive one, overexpressing WHRN does not rescue Cib2-null stereocilia, and double heterozygotes hear normally, so there is no digenic interaction. What does change in Cib2-null hair cells is MYO15A, which over-accumulates at the tips of the first-row stereocilia. Whirlin itself, along with myosin XVa, Eps8 and Eps8L2, still reaches the stereocilia tips in Cib2 mutants, so CIB2 is not required to deliver them.\\nThe positive mechanism is not settled, and three candidates have been raised across this literature. PMID:28663585 offers two in its discussion: that CIB2 is part of the myosin XVa/whirlin elongation complex, and that it buffers free calcium near the MET channels at the stereocilia tips, where a local calcium change would alter actin remodelling. PMID:40083274 offers a third, that CIB2 acts in the GPSM2-GNAI elongation complex.\\nTwo of the three are disfavoured on evidence this entry already carries, and are recorded here as retired rather than dropped. The myosin XVa/whirlin route is what the WHRN independence results above argue against. The calcium-buffering route is undercut by PMID:26173970: the p.F91S and p.R66W deafness substitutions do not alter the calcium buffering ability of CIB2, so a buffering deficit cannot be the mechanism by which those alleles cause disease. Neither is refuted outright - the buffering result covers two alleles, and p.I123T and p.R186W are reported to impair buffering - so the retirement is on the balance of the evidence, not a disproof.\\nThat leaves GPSM2-GNAI as the live candidate, and it is worth being precise about what it would and would not mean. It is not a whirlin route reintroduced under another name, but neither is it a claim that WHRN is uninvolved in elongation: GPSM2-GNAI itself binds WHRN and is carried to the stereocilia tips by MYO15A. The open question is which complex CIB2 acts in, not whether WHRN participates at all. The authors put it no higher than speculation and this entry does not adopt it as a mechanism arm.\\nThe same paper separates this arm from the channel arm on the phenotype itself: rows 2 and 3 elongate in Cib2 mutants, whereas loss of mechanotransduction current makes transducing stereocilia retract. The overgrowth therefore cannot simply be downstream of the channel defect, which is the reason this node sits parallel to the transduction node rather than beneath it.\", \"meta\": {\"evidence_count\": 11, \"biological_processes\": [\"auditory receptor cell stereocilium organization\"], \"animal_models\": [{\"name\": \"Cib2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cib2 null (tm1a/tm1b gene-trap; Cib2KO/KO)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the stereocilia overgrowth arm.\"}]}}, {\"id\": \"Hair Cell Dysfunction and Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of transduction and disorganised bundle architecture together produce hair-cell dysfunction and, subsequently, hair-cell death. Because cochlear hair cells are not replaced in mammals, this is the step that makes the deafness permanent and sets the therapeutic window for any gene-replacement approach.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear hair cell\"], \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"Prelingual sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Onset precedes speech acquisition, which is what drives the language consequences. The cited audiometry establishes prelingual onset; it does not establish onset at or before birth, so this entry does not claim congenital onset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000399\"}}, {\"id\": \"Profound sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severity is typically severe to profound, particularly with loss-of-function genotypes, though expressivity varies - one Pakistani family carrying the recurrent c.272T\u003eC allele had notably less severe deafness than other families with the same variant.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011476\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is the defining and, in the reassigned view of the gene, the only clinical feature. Its onset, laterality and severity are carried by the three sibling phenotypes below rather than restated here.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000407\"}}], \"edges\": [{\"source\": \"CIB2 Loss of Function\", \"target\": \"Disrupted CIB2-TMC1/TMC2 Association at the MET Channel\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CIB2 Loss of Function\", \"target\": \"Failure to Restrict Transducing Stereocilia Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted CIB2-TMC1/TMC2 Association at the MET Channel\", \"target\": \"Abolished Cochlear Mechanoelectrical Transduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abolished Cochlear Mechanoelectrical Transduction\", \"target\": \"Hair Cell Dysfunction and Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Restrict Transducing Stereocilia Growth\", \"target\": \"Hair Cell Dysfunction and Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hair Cell Dysfunction and Death\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hair Cell Dysfunction and Death\", \"target\": \"Profound sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hair Cell Dysfunction and Death\", \"target\": \"Prelingual sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hair Cell Dysfunction and Death\", \"target\": \"Bilateral sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Implantation\", \"target\": \"Abolished Cochlear Mechanoelectrical Transduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Auditory-Verbal Therapy\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV-Mediated CIB2 or CIB3 Gene Therapy\", \"target\": \"Failure to Restrict Transducing Stereocilia Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cib2 knockout mouse\", \"target\": \"Abolished Cochlear Mechanoelectrical Transduction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the defining human lesion and is the system in which the tip-link dissociation was demonstrated.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A constitutive null, whereas most reported human alleles are missense. Mouse cochlear TMC2 is replaced by TMC1 within the first postnatal days, so the developmental window differs from human.\"}, {\"source\": \"Cib2 knockout mouse\", \"target\": \"Failure to Restrict Transducing Stereocilia Growth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the stereocilia overgrowth arm.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Bundle architecture is scored in mouse cochlea; no equivalent human temporal-bone histology exists for DFNB48, so the correspondence is assumed rather than shown.\"}, {\"source\": \"Cib2 p.F91S knock-in mouse\", \"target\": \"CIB2 Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Allele-matched to the commonest human genotype, which makes it the stronger model for the human molecular lesion than the null.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"One allele of a spectrum that also includes nonsense, splice-site, indel and copy-number variants; the regional differences in molecular consequence mean p.F91S does not stand in for C-terminal calcium-buffering alleles.\"}, {\"source\": \"CIB2\", \"target\": \"CIB2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV-Mediated CIB2 or CIB3 Gene Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Experimental, in mouse only. AAV delivery of either CIB2 or CIB3 rescues stereocilia architecture and hearing function in a DFNB48 mouse model. That CIB3 works as well as CIB2 is the therapeutic pay-off of the paralogue-redundancy finding. There is no human trial for DFNB48; the clinical precedent for cochlear gene therapy is OTOF/DFNB9, a different gene.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Abolished Cochlear Mechanoelectrical Transduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mechanotransduction is absent in auditory hair cells of Cib2 mutant mice, and MET currents are abolished in Cib2-deficient outer hair cells. The result that carries the mechanistic weight is the qualifier: this happens despite the presence of tip links. Tip links are the filaments that transmit force to the channel, so their being intact localises the lesion to the channel complex rather than to the force-delivery apparatus.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear hair cell\"], \"biological_processes\": [\"sensory perception of sound\"], \"locations\": [\"organ of Corti\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Cib2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cib2 null (tm1a/tm1b gene-trap; Cib2KO/KO)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the defining human lesion and is the system in which the tip-link dissociation was demonstrated.\"}]}}, {\"id\": \"Auditory-Verbal Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Post-implantation habilitation aimed at spoken-language acquisition, delivered alongside cochlear implantation rather than instead of it. Language outcomes after implantation vary widely and are not fully explained by age at implantation, and attendance at post-activation appointments was the factor most consistently associated with better receptive and expressive language, so the rehabilitation arm carries real weight in outcome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bilateral sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is bilateral and symmetric across all frequencies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008619\"}}, {\"id\": \"CIB2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CIB2\"], \"gene_terms\": [{\"label\": \"CIB2\", \"id\": \"hgnc:24579\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"CIB2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic CIB2 variants abolish or impair the protein. The most prevalent allele in the original human families is the missense p.Phe91Ser, which was modelled directly as a knock-in mouse. Variants act regionally rather than uniformly: those in the N-terminal region disrupt the TMC1/TMC2 interaction without affecting calcium buffering, C-terminal variants affect only calcium buffering, and middle-region variants do both.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"CIB2\"], \"gene_terms\": [{\"label\": \"CIB2\", \"id\": \"hgnc:24579\"}], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Cib2 p.F91S knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Cib2 p.Phe91Ser knock-in (Cib2F91S/F91S)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Allele-matched to the commonest human genotype, which makes it the stronger model for the human molecular lesion than the null.\"}]}}, {\"id\": \"Cib2 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Constitutive Cib2 null. Deaf, with mechanotransduction absent in auditory hair cells while tip links remain present, and with overgrowth of the shorter transducing stereocilia rows. Vestibular function is spared, matching the human non-syndromic phenotype.\"}, {\"id\": \"Cib2 p.F91S knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Carries the single most prevalent human DFNB48 allele rather than a null, so it tests whether the disease missense variant, and not merely absence of the protein, causes the phenotype. It does: these mice are deaf with the same transduction and bundle defects.\"}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard management for severe-to-profound prelingual sensorineural hearing loss. It bypasses the failed hair-cell transduction step by stimulating the cochlear nerve directly, so it addresses the consequence of the lesion rather than the lesion itself.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Disrupted CIB2-TMC1/TMC2 Association at the MET Channel\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CIB2 binds TMC1 and TMC2 through a conserved hydrophobic groove, engaging a domain of TMC1/2 flanked by transmembrane domains 2 and 3. The architecture mirrors KChIP auxiliary subunits binding Kv4 channels, which is the structural argument for calling CIB2 an auxiliary subunit. Deafness-causing CIB2 mutations disrupt this interaction and perturb TMC1/2 localisation and function.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"detection of mechanical stimulus involved in sensory perception of sound\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Failure to Restrict Transducing Stereocilia Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond its channel role, CIB2 limits the length of the shorter, transducing rows of stereocilia: these overgrow in the hair bundles of Cib2 mutants, degrading the graded \\\"staircase\\\" architecture the bundle needs. This is a structural arm distinct from the channel arm.\\nCIB2 does bind whirlin (WHRN) - the EF2 domain of CIB2 to the HHD2 region of WHRN - but the stereocilia role is not exercised *through* whirlin, which is the natural assumption and is wrong. Cib2/Whrn double homozygous mutants show the bundle phenotype of the Whrn single mutant rather than an additive one, overexpressing WHRN does not rescue Cib2-null stereocilia, and double heterozygotes hear normally, so there is no digenic interaction. What does change in Cib2-null hair cells is MYO15A, which over-accumulates at the tips of the first-row stereocilia. Whirlin itself, along with myosin XVa, Eps8 and Eps8L2, still reaches the stereocilia tips in Cib2 mutants, so CIB2 is not required to deliver them.\\nThe positive mechanism is not settled, and three candidates have been raised across this literature. PMID:28663585 offers two in its discussion: that CIB2 is part of the myosin XVa/whirlin elongation complex, and that it buffers free calcium near the MET channels at the stereocilia tips, where a local calcium change would alter actin remodelling. PMID:40083274 offers a third, that CIB2 acts in the GPSM2-GNAI elongation complex.\\nTwo of the three are disfavoured on evidence this entry already carries, and are recorded here as retired rather than dropped. The myosin XVa/whirlin route is what the WHRN independence results above argue against. The calcium-buffering route is undercut by PMID:26173970: the p.F91S and p.R66W deafness substitutions do not alter the calcium buffering ability of CIB2, so a buffering deficit cannot be the mechanism by which those alleles cause disease. Neither is refuted outright - the buffering result covers two alleles, and p.I123T and p.R186W are reported to impair buffering - so the retirement is on the balance of the evidence, not a disproof.\\nThat leaves GPSM2-GNAI as the live candidate, and it is worth being precise about what it would and would not mean. It is not a whirlin route reintroduced under another name, but neither is it a claim that WHRN is uninvolved in elongation: GPSM2-GNAI itself binds WHRN and is carried to the stereocilia tips by MYO15A. The open question is which complex CIB2 acts in, not whether WHRN participates at all. The authors put it no higher than speculation and this entry does not adopt it as a mechanism arm.\\nThe same paper separates this arm from the channel arm on the phenotype itself: rows 2 and 3 elongate in Cib2 mutants, whereas loss of mechanotransduction current makes transducing stereocilia retract. The overgrowth therefore cannot simply be downstream of the channel defect, which is the reason this node sits parallel to the transduction node rather than beneath it.\", \"meta\": {\"evidence_count\": 11, \"biological_processes\": [\"auditory receptor cell stereocilium organization\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Cib2 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cib2 null (tm1a/tm1b gene-trap; Cib2KO/KO)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the stereocilia overgrowth arm.\"}]}}, {\"id\": \"Hair Cell Dysfunction and Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of transduction and disorganised bundle architecture together produce hair-cell dysfunction and, subsequently, hair-cell death. Because cochlear hair cells are not replaced in mammals, this is the step that makes the deafness permanent and sets the therapeutic window for any gene-replacement approach.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear hair cell\"], \"biological_processes\": [\"apoptotic process\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Prelingual sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Onset precedes speech acquisition, which is what drives the language consequences. The cited audiometry establishes prelingual onset; it does not establish onset at or before birth, so this entry does not claim congenital onset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000399\"}}, {\"id\": \"Profound sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severity is typically severe to profound, particularly with loss-of-function genotypes, though expressivity varies - one Pakistani family carrying the recurrent c.272T\u003eC allele had notably less severe deafness than other families with the same variant.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011476\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is the defining and, in the reassigned view of the gene, the only clinical feature. Its onset, laterality and severity are carried by the three sibling phenotypes below rather than restated here.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000407\"}}], \"edges\": [{\"source\": \"CIB2 Loss of Function\", \"target\": \"Disrupted CIB2-TMC1/TMC2 Association at the MET Channel\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CIB2 Loss of Function\", \"target\": \"Failure to Restrict Transducing Stereocilia Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted CIB2-TMC1/TMC2 Association at the MET Channel\", \"target\": \"Abolished Cochlear Mechanoelectrical Transduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abolished Cochlear Mechanoelectrical Transduction\", \"target\": \"Hair Cell Dysfunction and Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Restrict Transducing Stereocilia Growth\", \"target\": \"Hair Cell Dysfunction and Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hair Cell Dysfunction and Death\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hair Cell Dysfunction and Death\", \"target\": \"Profound sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hair Cell Dysfunction and Death\", \"target\": \"Prelingual sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hair Cell Dysfunction and Death\", \"target\": \"Bilateral sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Implantation\", \"target\": \"Abolished Cochlear Mechanoelectrical Transduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Auditory-Verbal Therapy\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV-Mediated CIB2 or CIB3 Gene Therapy\", \"target\": \"Failure to Restrict Transducing Stereocilia Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cib2 knockout mouse\", \"target\": \"Abolished Cochlear Mechanoelectrical Transduction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the defining human lesion and is the system in which the tip-link dissociation was demonstrated.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A constitutive null, whereas most reported human alleles are missense. Mouse cochlear TMC2 is replaced by TMC1 within the first postnatal days, so the developmental window differs from human.\"}, {\"source\": \"Cib2 knockout mouse\", \"target\": \"Failure to Restrict Transducing Stereocilia Growth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the stereocilia overgrowth arm.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Bundle architecture is scored in mouse cochlea; no equivalent human temporal-bone histology exists for DFNB48, so the correspondence is assumed rather than shown.\"}, {\"source\": \"Cib2 p.F91S knock-in mouse\", \"target\": \"CIB2 Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Allele-matched to the commonest human genotype, which makes it the stronger model for the human molecular lesion than the null.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"One allele of a spectrum that also includes nonsense, splice-site, indel and copy-number variants; the regional differences in molecular consequence mean p.F91S does not stand in for C-terminal calcium-buffering alleles.\"}, {\"source\": \"CIB2\", \"target\": \"CIB2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5451,6 +5535,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                 </div>
+
+
+
 
 
                 <div class="item-desc">Deliberately the generic HP term, and deliberately not the only hearing phenotype in this entry. This is the OBLIGATE anchor and the node the pathograph and the speech-therapy treatment point at; HP:0000399, HP:0008619 and HP:0011476 each carry one orthogonal axis - onset, laterality and severity - at the frequency its own source supports, which is why they are graded VERY_FREQUENT, VERY_FREQUENT and FREQUENT rather than all OBLIGATE. HPO has no single term composing all three, so the four are one annotation decomposed, not four competing granularities of the same one. Collapsing them would lose the per-axis frequencies.</div>
@@ -5554,6 +5641,9 @@ This clinical feature is Severe-to-profound sensorineural hearing loss, annotate
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5650,6 +5740,9 @@ This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5716,6 +5809,9 @@ This clinical feature is Bilateral, symmetric sensorineural hearing loss across 
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5804,6 +5900,9 @@ This disease-associated gene is CIB2 (hgnc:24579). hgnc:24579 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

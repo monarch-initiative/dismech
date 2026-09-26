@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4760,6 +4802,7 @@ The raised faecal calprotectin is the sharper gap. It was abnormal in nine of ni
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-kcnq1-loss-of-function-variants" data-dismech-node="Biallelic KCNQ1 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic KCNQ1 Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Homozygous or compound heterozygous germline loss-of-function variants (missense, nonsense, frameshift, or splice-site) in KCNQ1 disrupt voltage sensing, pore conductance, tetramer assembly, KCNE1 co-assembly, or plasma-membrane trafficking of the Kv7.1 channel subunit. Because the heart tolerates I_Ks loss far less well than the inner ear, JLNS (cardioauditory disease) requires near-complete loss of KCNQ1 function (reported as &lt;10% of normal channel protein level in one mechanistic study), whereas milder residual-function biallelic genotypes instead produce recessive LQT1 without deafness.</div>
 
 
@@ -4854,6 +4897,8 @@ This genetic context concerns KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense, nonsense, frameshift, or splice-site; biallelic (homozygous or compound heterozygous)</span>
 
 
@@ -4867,6 +4912,9 @@ This genetic context concerns KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Reported JLNS1 genotypes include homozygous c.728G&gt;A (p.Arg243His), compound heterozygous c.477+1G&gt;A / c.520C&gt;T (p.Arg174Cys), homozygous c.1097G&gt;A (p.Arg366Gln), and compound heterozygous c.1741A&gt;T (p.Lys581Ter) / c.477+5G&gt;A.</div>
 
@@ -5060,6 +5108,7 @@ This pathophysiological event involves delayed rectifier potassium channel activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-near-complete-loss-of-cardiac-i-ks-repolarizing-current" data-dismech-node="Near-Complete Loss of Cardiac I_Ks Repolarizing Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Near-Complete Loss of Cardiac I_Ks Repolarizing Current</div>
+
 
                 <div class="item-desc">With both KCNQ1 alleles nonfunctional, the KCNQ1-KCNE1 slow delayed rectifier current (I_Ks) that normally mediates phase-3 repolarization and heart-rate-dependent shortening of the action potential is nearly abolished, sharply reducing repolarization reserve in ventricular cardiomyocytes.</div>
 
@@ -5326,6 +5375,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-markedly-prolonged-qtc-and-arrhythmogenic-substrate" data-dismech-node="Markedly Prolonged QTc and Arrhythmogenic Substrate" data-dismech-type="pathophysiology">
                 <div class="item-name">Markedly Prolonged QTc and Arrhythmogenic Substrate</div>
 
+
                 <div class="item-desc">Loss of repolarization reserve produces markedly prolonged QTc (mean 557+/-65 ms in a 187-patient cohort, most &gt;500 ms) with early afterdepolarizations and regional dispersion of repolarization, generating the arrhythmogenic substrate for torsades de pointes. JLNS is typically more severely affected than heterozygous (Romano-Ward) LQT1 and than the allelic KCNE1-caused JLNS2.</div>
 
 
@@ -5516,6 +5566,7 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-torsades-de-pointes-and-ventricular-fibrillation" data-dismech-node="Torsades de Pointes and Ventricular Fibrillation" data-dismech-type="pathophysiology">
                 <div class="item-name">Torsades de Pointes and Ventricular Fibrillation</div>
 
+
                 <div class="item-desc">Triggered activity on the dispersed-repolarization substrate produces torsades de pointes, which may degenerate into ventricular fibrillation. Nearly all arrhythmic events (95%) are precipitated by adrenergic triggers (emotion, exercise, sudden auditory stimuli, fever, or anesthesia), reflecting the severely reduced repolarization reserve.</div>
 
 
@@ -5617,6 +5668,7 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-syncope-cardiac-arrest-and-sudden-cardiac-death" data-dismech-node="Syncope, Cardiac Arrest, and Sudden Cardiac Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Syncope, Cardiac Arrest, and Sudden Cardiac Death</div>
 
+
                 <div class="item-desc">Loss of effective cardiac output during ventricular tachyarrhythmia causes syncope, sometimes misdiagnosed as a seizure, and, if the rhythm does not terminate, cardiac arrest or sudden death. JLNS has an early onset and a malignant course: 86% of patients had cardiac events, half were already symptomatic by age three, and more than half of untreated children died before age 15.</div>
 
 
@@ -5702,6 +5754,7 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-stria-vascularis-endolymphatic-k-secretion" data-dismech-node="Loss of Stria Vascularis Endolymphatic K+ Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Stria Vascularis Endolymphatic K+ Secretion</div>
+
 
                 <div class="item-desc">KCNQ1 co-assembles with KCNE1 at the apical membrane of stria vascularis marginal cells, where the resulting K+-diffusion current is one of two mechanisms (alongside the Kir4.1-dependent intrastrial potential) generating the highly positive endocochlear potential and secreting K+ into endolymph. Biallelic KCNQ1 loss abolishes this apical current, collapsing K+ secretion and the endocochlear potential.</div>
 
@@ -5897,6 +5950,7 @@ This pathophysiological event occurs in stria vascularis of cochlear duct (UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-organ-of-corti-hair-cell-degeneration" data-dismech-node="Organ of Corti Hair Cell Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Organ of Corti Hair Cell Degeneration</div>
 
+
                 <div class="item-desc">Loss of endolymph volume and the endocochlear potential causes collapse of Reissner&#39;s membrane and the endolymphatic compartments, with consequent degeneration of the organ of Corti hair cells, which do not regenerate in mammals.</div>
 
 
@@ -6086,6 +6140,7 @@ This pathophysiological event occurs in organ of Corti, annotated with spiral or
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spiral-ganglion-neuron-degeneration-and-loss-of-cochlear-amplification" data-dismech-node="Spiral Ganglion Neuron Degeneration and Loss of Cochlear Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Spiral Ganglion Neuron Degeneration and Loss of Cochlear Amplification</div>
 
+
                 <div class="item-desc">Deafferentation following hair-cell loss, combined with the reduced endocochlear potential, abolishes active cochlear amplification and drives degeneration of the afferent spiral ganglion neurons that form the auditory nerve.</div>
 
 
@@ -6234,6 +6289,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-profound-bilateral-sensorineural-hearing-loss" data-dismech-node="Congenital Profound Bilateral Sensorineural Hearing Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Profound Bilateral Sensorineural Hearing Loss</div>
 
+
                 <div class="item-desc">The combined cochlear injury produces profound bilateral sensorineural hearing loss present from birth or recognized in early infancy. Unlike the noise/age/ototoxic triggers of the generic module, the JLNS1 deficit is congenital and essentially maximal at onset rather than progressive, but it shares the module&#39;s irreversibility because the mammalian cochlea does not regenerate.</div>
 
 
@@ -6352,6 +6408,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-gastric-parietal-cell-luminal-k-recycling" data-dismech-node="Impaired Gastric Parietal Cell Luminal K+ Recycling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Gastric Parietal Cell Luminal K+ Recycling</div>
+
 
                 <div class="item-desc">KCNQ1 (paired with KCNE2, not KCNE1, in the stomach) provides the apical luminal K+-recycling current required to sustain H+/K+-ATPase-driven gastric acid secretion in parietal cells; no other gastric K+ channel substitutes for this function.</div>
 
@@ -6546,6 +6603,7 @@ This pathophysiological event occurs in stomach (UBERON:0000945). UBERON:0000945
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-achlorhydria-hypergastrinemia-and-iron-deficiency-anemia" data-dismech-node="Achlorhydria, Hypergastrinemia, and Iron Deficiency Anemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Achlorhydria, Hypergastrinemia, and Iron Deficiency Anemia</div>
+
 
                 <div class="item-desc">Loss of KCNQ1-dependent gastric acid secretion produces achlorhydria, with compensatory elevation of serum gastrin (loss of acid-mediated negative feedback on G cells) and iron-deficiency anemia from impaired acid-dependent dietary iron absorption. GeneReviews lists both as frequent, non-cardioauditory features of JLNS.</div>
 
@@ -6751,6 +6809,9 @@ This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a ph
                     </div>
 
 
+
+
+
                     <div class="item-desc">Twelve of fourteen (86%) would fall in the VERY_FREQUENT band, but the figure comes from a single 14-patient Swedish series that is the only cohort ever screened for this phenotype, so the band is left at FREQUENT to match the GeneReviews wording rather than raised on one small series.</div>
 
 
@@ -6858,6 +6919,9 @@ This clinical feature is Prolonged QTc interval (HP:0005184). HP:0005184 is a ph
                     </div>
 
 
+
+
+
                     <div class="item-desc">Definitional: GeneReviews requires a long QT interval, alongside congenital sensorineural deafness and biallelic KCNQ1 or KCNE1 variants, to establish the diagnosis, so the phenotype is obligate within this entry by construction. The 186-patient cohort mean QTc of 557 +/- 65 ms describes how severe the prolongation is, not how penetrant it is, and is not the basis for the band; GeneReviews itself writes &#34;usually &gt;500 msec&#34;.</div>
 
 
@@ -6932,6 +6996,9 @@ This clinical feature is Torsade de pointes (HP:0001664). HP:0001664 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6996,6 +7063,9 @@ This clinical feature is Ventricular fibrillation (HP:0001663). HP:0001663 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7090,6 +7160,9 @@ This clinical feature is Syncope (HP:0001279), qualified as temporality recurren
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7156,6 +7229,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">GeneReviews reports that more than half of untreated children with JLNS die before age 15, mapping to the 30-79% FREQUENT band. The figure describes the untreated natural history; on beta-blockade the Schwartz cohort still recorded cardiac arrest or sudden death in 27%.</div>
@@ -7257,6 +7333,9 @@ This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7330,6 +7409,9 @@ This clinical feature is Achlorhydria (HP:0032448). HP:0032448 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7495,6 +7577,9 @@ This clinical feature is Profound sensorineural hearing impairment (HP:0011476),
                     </div>
 
 
+
+
+
                     <div class="item-desc">Definitional: GeneReviews requires congenital sensorineural deafness for the diagnosis of JLNS, so within this entry the phenotype is obligate by construction. Biallelic KCNQ1 genotypes with enough residual channel function to spare hearing are classified as recessive LQT1, not JLNS.</div>
 
 
@@ -7575,6 +7660,9 @@ This clinical feature is Hypergastrinemia (HP:0500167). HP:0500167 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7678,6 +7766,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7798,6 +7889,9 @@ This disease-associated gene is KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7900,6 +7994,7 @@ This disease-associated gene is KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7919,11 +8014,17 @@ This variant is in KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">c.1552C&gt;T, p.Arg518*, a protein-truncating KCNQ1 allele and a worldwide cause of both recessive JLNS and dominant LQT1. In Sweden it is a founder mutation accounting for the majority of JLNS cases and the second most common cause of LQTS, with a shared haplotype across 17 of 19 index families, an estimated mutation age of 28 generations, and geographical clustering in the Pite River valley. Estimated heterozygote prevalence there is roughly 1 in 2,000 to 4,000, which makes it the best-characterized single JLNS allele anywhere and the reason Swedish series recur throughout the JLNS literature.</div>
@@ -8036,6 +8137,9 @@ This disease-associated gene is NOS1AP (hgnc:16859). hgnc:16859 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10375,10 +10479,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
                 </div>
 
-                <div class="evidence-snippet">"Most patients (86%) had cardiac events, and 50% were already symptomatic by age 3."</div>
+                <div class="evidence-snippet">"Data on the Jervell and Lange-Nielsen syndrome (J-LN), the long-QT syndrome (LQTS) variant associated with deafness and caused by homozygous or compound heterozygous mutations on the KCNQ1 or on the KCNE1 genes encoding the I(Ks) current, are still based largely on case reports. ... We analyzed..."</div>
 
 
-                <div class="evidence-explanation">Gives both the lifetime event rate and the age by which half the cohort had declared, which defines this phase.</div>
+                <div class="evidence-explanation">Retains the mixed KCNQ1/KCNE1 Jervell–Lange-Nielsen cohort. Half symptomatic by age three is a pooled estimate; KCNQ1 accounts for most cases and KCNE1 is associated with a more benign course.</div>
 
 
 
@@ -13946,11 +14050,17 @@ progression:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Most patients (86%) had cardiac events, and 50% were already symptomatic
-      by age 3.
+      Data on the Jervell and Lange-Nielsen syndrome (J-LN), the long-QT syndrome (LQTS) variant
+      associated with deafness and caused by homozygous or compound heterozygous mutations on the
+      KCNQ1 or on the KCNE1 genes encoding the I(Ks) current, are still based largely on case
+      reports. ... We analyzed data from 186 J-LN patients obtained from the literature (31%) and
+      from individual physicians (69%). Most patients (86%) had cardiac events, and 50% were already
+      symptomatic by age 3. ... Most mutations (90.5%) are on the KCNQ1 gene; mutations on the KCNE1
+      gene are associated with a more benign course.
     explanation: &gt;-
-      Gives both the lifetime event rate and the age by which half the cohort
-      had declared, which defines this phase.
+      Retains the mixed KCNQ1/KCNE1 Jervell–Lange-Nielsen cohort. Half symptomatic by age three is a
+      pooled estimate; KCNQ1 accounts for most cases and KCNE1 is associated with a more benign
+      course.
   - reference: PMID:20301579
     reference_title: &#34;Jervell and Lange-Nielsen Syndrome.&#34;
     supports: SUPPORT
@@ -16643,7 +16753,7 @@ Loss of the slow delayed-rectifier K+ current (IKs) in multiple K+-transporting 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Jervell and Lange-Nielsen Syndrome 1", "mondoId": "MONDO:0024540", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Jervell_and_Lange-Nielsen_Syndrome_1", "yamlRevision": "64b0ca1b70c8"};
+        const OS_CONFIG = {"diseaseName": "Jervell and Lange-Nielsen Syndrome 1", "mondoId": "MONDO:0024540", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Jervell_and_Lange-Nielsen_Syndrome_1", "yamlRevision": "a50479d2070c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

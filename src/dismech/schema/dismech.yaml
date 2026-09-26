@@ -15,6 +15,7 @@ imports:
   - classifications/iuis_immunodeficiency
   - classifications/channelopathies
   - classifications/phenotype_category
+  - classifications/coarse_phenotype_terms
   - classifications/icimd
   - classifications/isds_skeletal_nosology
   - classifications/nih_research_priorities
@@ -38,6 +39,7 @@ prefixes:
   NCIT: http://purl.obolibrary.org/obo/NCIT_
   OPL: http://purl.obolibrary.org/obo/OPL_
   GENO: http://purl.obolibrary.org/obo/GENO_
+  SO: http://purl.obolibrary.org/obo/SO_
   PATO: http://purl.obolibrary.org/obo/PATO_
   ECTO: http://purl.obolibrary.org/obo/ECTO_
   ExO: http://purl.obolibrary.org/obo/ExO_
@@ -592,6 +594,70 @@ enums:
         aliases:
           - has_uncertain_significance_for_condition
         meaning: GENO:0000845
+  VariantTypeEnum:
+    description: >-
+      Physical sequence alteration, independently of genomic location or
+      functional consequence. Human-readable values map to Sequence Ontology.
+      This is an optional classification alongside the legacy free-text type;
+      it is not an exhaustive vocabulary for complex rearrangements.
+    permissible_values:
+      single nucleotide variant:
+        description: SNV
+        meaning: SO:0001483
+        notes:
+          - A single-nucleotide change; does not assert population frequency as SNP would.
+      deletion:
+        description: deletion
+        meaning: SO:0000159
+      insertion:
+        description: insertion
+        meaning: SO:0000667
+      duplication:
+        description: duplication
+        meaning: SO:1000035
+      inversion:
+        description: inversion
+        meaning: SO:1000036
+      translocation:
+        description: translocation
+        meaning: SO:0000199
+      copy number variation:
+        description: copy_number_variation
+        meaning: SO:0001019
+        notes:
+          - Use deletion or duplication when the physical alteration is known.
+      short tandem repeat expansion:
+        description: short_tandem_repeat_expansion
+        meaning: SO:0002162
+        notes:
+          - Do not use for repeat expansions outside the short tandem repeat class.
+  GenomicContextEnum:
+    description: >-
+      Genomic features overlapped by a variant, independently of its functional
+      effect. Values describe sequence features, not variant consequences.
+      Contexts may overlap and are relative to the relevant gene or transcript;
+      record those details in the variant description.
+    permissible_values:
+      coding sequence:
+        description: CDS
+        meaning: SO:0000316
+      intron:
+        description: intron
+        meaning: SO:0000188
+      "5' UTR":
+        description: five_prime_UTR
+        meaning: SO:0000204
+      "3' UTR":
+        description: three_prime_UTR
+        meaning: SO:0000205
+      noncoding exon:
+        description: noncoding_exon
+        meaning: SO:0000198
+        notes:
+          - An entire exon without codons; use a UTR value for the untranslated part of an otherwise coding exon.
+      intergenic region:
+        description: intergenic_region
+        meaning: SO:0000605
   RegulatoryVariantCategoryEnum:
     description: >-
       Functional classification of non-coding gene regulatory variants
@@ -930,6 +996,66 @@ enums:
           regardless of underlying mechanism (epigenetic silencing, protein
           sequestration, competitive inhibition, etc.). For mutation-driven LOF,
           use GeneticContext.functional_impact_category: LOSS_OF_FUNCTION.
+  CoarseBindingBasisEnum:
+    description: >-
+      Why a descriptor is deliberately bound to a coarse, organ-system-level
+      ontology term rather than a specific finding. Required by
+      `just check-coarse-phenotypes` on any phenotype bound to one of the
+      top-level HPO organ-system terms (the PhenotypeCategoryEnum meanings,
+      the direct children of HP:0000118), which name a facet bucket rather
+      than a clinical finding. The point is NOT to reward narrow terms --
+      manufacturing a specificity the source does not support is a worse
+      defect than a coarse binding. The point is that a coarse binding should
+      say which of these situations it is in, so the unexplained one (the
+      curator who stopped early) is distinguishable from the three legitimate
+      ones.
+    permissible_values:
+      VARIABLE_SPECTRUM:
+        title: Variable spectrum
+        description: >-
+          Involvement of this system is real and recurrent, but its form varies
+          between patients with no characteristic finding to bind -- pleiotropy
+          and variable expressivity, where enumerating every case would be
+          arbitrary. The node's content is the organ-system involvement itself,
+          typically with an aggregate frequency the source measured at that
+          level. Like SOURCE_UNSPECIFIED this is a bare declaration with no
+          companion slot. If the specific findings ARE known and evidenced, they
+          are ordinary `phenotypes` entries with their own terms and evidence --
+          curate them that way rather than listing them inside this binding.
+      SOURCE_UNSPECIFIED:
+        title: Source unspecified
+        description: >-
+          The cited source characterizes the finding no further ("ocular
+          involvement", "congenital heart defect" with no named lesion), so a
+          narrower term would assert something the evidence does not. The
+          evidence snippet is the proof, so this value needs no companion slot.
+      NO_HPO_TERM:
+        title: No suitable ontology term
+        description: >-
+          The claim is more specific than any available ontology term, and the
+          coarse parent is the best honest anchor. `preferred_term` carries the
+          specificity the ontology lacks and must differ from the bound label;
+          record any term request in `term_gap`.
+      PATHOGRAPH_HUB:
+        title: Pathograph hub
+        description: >-
+          The node is a deliberately unqualified convergence point in the causal
+          graph: a mechanism disrupts a system, and the system-level disruption
+          is where several specific findings converge. It is defined by its
+          INCOMING edges -- at least one causal edge in the same entry must
+          target it. It takes no `frequency`, and the reason is narrower than
+          "no clinical claim": a hub does assert that the system is involved,
+          and carries evidence for that assertion like any other phenotype.
+          What it cannot carry is a rate, because an unqualified system-level
+          node names no finding whose occurrence could be counted -- the
+          frequency belongs to each specific finding beside it. Do NOT connect
+          it to the specific findings with
+          `sequelae`, which is a causal edge: a coloboma is not caused by an eye
+          abnormality, it is one. Those findings are ordinary `phenotypes`
+          entries in their own right. Distinct
+          from a pathophysiology node such as "disrupted eye development", which
+          binds GO and asserts a process; a hub binds HP and asserts a
+          system-level outcome. The two may sit in sequence.
   DietaryModificationActionEnum:
     description: Action applied to a food or beverage as part of a dietary treatment
     permissible_values:
@@ -3669,6 +3795,21 @@ slots:
     description: The HP term for this phenotype
     range: PhenotypeDescriptor
     inlined: true
+  coarse_binding_basis:
+    description: >-
+      Why this descriptor is deliberately bound to a coarse, organ-system-level
+      term rather than a specific finding. Required on any phenotype bound to a
+      top-level HPO organ-system term (see CoarseBindingBasisEnum and
+      `just check-coarse-phenotypes`); permitted, and companion-checked, on any
+      binding a curator judges coarse.
+    range: CoarseBindingBasisEnum
+  term_gap:
+    description: >-
+      The ontology gap behind a NO_HPO_TERM binding -- ideally a term-request
+      URL, otherwise a short note on what was searched and what is missing.
+      Turns a permanent gap into a lead, in the same spirit as the
+      "searched, found nothing" record an uncitable exposure carries.
+    range: string
   inheritance_term:
     description: The HPO mode of inheritance term for this inheritance pattern
     range: InheritanceDescriptor
@@ -4170,6 +4311,20 @@ slots:
     range: string
   type:
     range: string
+  variant_type:
+    description: >-
+      Optional controlled physical variant class. Complements the legacy
+      free-text type without requiring it or replacing its narrative detail.
+      Does not imply a coding or regulatory functional effect.
+    range: VariantTypeEnum
+  genomic_contexts:
+    description: >-
+      Sequence features overlapped by the variant. Multiple values are allowed
+      because an SV may span several features, or transcripts may differ.
+      Specify relevant genes, transcripts, and overlap details in description;
+      an intronic host gene need not be the regulatory target. Omit when unknown.
+    range: GenomicContextEnum
+    multivalued: true
   clinical_significance:
     range: ClinicalSignificanceEnum
   background:
@@ -4284,11 +4439,80 @@ slots:
       using the LOE/mLOE/GOE framework (Cheng et al. 2024, PMID:38436667)
       or traditional coding categories (LOF/GOF/DN).
     range: RegulatoryVariantCategoryEnum
+  regulatory_target_gene:
+    description: >-
+      Gene whose expression is affected, or proposed to be affected, by a
+      regulatory variant. Does not assert that the variant overlaps this gene.
+      Describe the expression effect and its uncertainty in functional_effects
+      and evidence. A variant that also overlaps the gene may specify both
+      gene and regulatory_target_gene.
+    range: GeneDescriptor
+    inlined: true
   regulatory_element_type:
     description: >-
-      Type of gene regulatory element disrupted by a non-coding variant
+      Type of gene regulatory element affected by a variant
       (e.g., promoter, enhancer, silencer, insulator, TAD boundary).
     range: RegulatoryElementTypeEnum
+  affected_regions:
+    description: >-
+      Named genomic regions affected by the physical alteration, including
+      regulatory elements or chromosome intervals. Each item describes the
+      named feature, which need not span the entire variant. Record only
+      source-supported locations; disease-level regions need not have exact
+      patient-specific breakpoints. Evidence belongs on the enclosing record.
+      Location landmarks do not assert regulatory targeting or causal gene
+      involvement. Existing free-text descriptions remain valid.
+    range: GenomicRegion
+    multivalued: true
+    inlined_as_list: true
+  chromosomal_region:
+    description: >-
+      Qualitative human cytogenetic location: a chromosome, arm, band, or
+      band range on one chromosome (e.g., 21, 7q, 17p13.3, or 16p12.2-p11.2).
+      Use a single chromosome prefix and no chr prefix. This syntax does
+      not validate band existence or imply exact coordinates, common
+      breakpoints, or a genome assembly.
+    range: string
+    pattern: '^([1-9]|1[0-9]|2[0-2]|X|Y)([pq]([1-9][0-9]*(\.[0-9]+)?)?(-[pq]([1-9][0-9]*(\.[0-9]+)?)?)?)?$'
+  between_genes:
+    description: >-
+      Exactly two distinct genes on opposite sides of the named region in
+      the linear reference genome, with no overlap between the region and
+      either gene. The pair is unordered. Neither nearest-gene status nor
+      direct adjacency is implied; intervening sequence may be present.
+      Apply this to the named feature, not automatically to the entire
+      altered interval. Do not use it for chromatin contacts or newly
+      juxtaposed genes on a rearranged allele.
+    range: GeneDescriptor
+    multivalued: true
+    inlined_as_list: true
+    minimum_cardinality: 2
+    maximum_cardinality: 2
+  within_gene:
+    description: >-
+      Gene whose genomic span contains the entire named region in the
+      linear reference genome (e.g., an intronic enhancer). Does not imply
+      that this gene is the regulatory target or a disease-causal gene.
+    range: GeneDescriptor
+    inlined: true
+  overlaps_genes:
+    description: >-
+      Genes sharing reference-genome sequence with the named region. The
+      list need not be exhaustive and does not assert complete deletion,
+      dosage effects, regulatory targeting, or disease causality.
+    range: GeneDescriptor
+    multivalued: true
+    inlined_as_list: true
+  adjacent_to_genes:
+    description: >-
+      Genes whose sequence boundary directly meets the named region in
+      the linear reference genome, without overlap or intervening sequence.
+      This is strict adjacency, not approximate proximity. Omit when the
+      source establishes only that a gene is nearby. Does not describe
+      chromatin contacts or adjacency created by a rearrangement.
+    range: GeneDescriptor
+    multivalued: true
+    inlined_as_list: true
   affected_cell_types:
     description: >-
       Cell types in which gene expression is specifically gained or lost.
@@ -5357,8 +5581,9 @@ slots:
       Type of allele or mutation (e.g., null, missense, splice_site,
       deletion, frameshift, nonsense, hypomorphic, structural_variant).
       Free text retained for legacy or unusually complex contexts. Prefer the
-      structured `allelic_events`, `allelic_hit_role`, `variant_origin`, and
-      `functional_impact_category` slots when possible.
+      structured `variant_type`, `genomic_contexts`, `allelic_events`,
+      `allelic_hit_role`, `variant_origin`, and `functional_impact_category`
+      slots when possible.
     range: string
   allelic_hit_role:
     description: >-
@@ -5892,6 +6117,11 @@ classes:
   PhenotypeDescriptor:
     is_a: Descriptor
     description: A descriptor for phenotypes, bindable to Human Phenotype Ontology (HP)
+    comments:
+      - A binding to a top-level HPO organ-system term must say why via coarse_binding_basis
+    slots:
+      - coarse_binding_basis
+      - term_gap
     slot_usage:
       term:
         description: Optional HP phenotype term reference
@@ -6018,6 +6248,29 @@ classes:
       - cell_type_term
 
 
+  GenomicRegion:
+    description: >-
+      A named genomic feature or interval affected by an alteration. Supports
+      qualitative reference-genome location without requiring an ontology
+      identifier, assembly, or patient-specific coordinates. Use a specific
+      name and description to distinguish an affected subfeature (such as a
+      regulatory boundary) from the full altered interval. Gene relations
+      describe linear reference-genome placement only; keep regulatory
+      targets, expression consequences, and mechanistic confidence on the
+      enclosing variant or pathophysiology record.
+    slots:
+      - name
+      - description
+      - chromosomal_region
+      - regulatory_element_type
+      - between_genes
+      - within_gene
+      - overlaps_genes
+      - adjacent_to_genes
+    slot_usage:
+      name:
+        required: true
+
   # Phenotype context classes
   GeneticContext:
     description: >-
@@ -6027,10 +6280,16 @@ classes:
       groups, and complex genotypes. The description slot accommodates
       contexts that don't fit neatly into the structured fields
       (e.g., structural variants, complex rearrangements).
+      Physical variant class and sequence overlap use the same controlled
+      fields as Variant. Separate alternative initiating alterations into
+      distinct pathophysiology nodes when their classes or overlaps differ.
     slots:
       - gene
       - genes
       - allele_type
+      - variant_type
+      - genomic_contexts
+      - affected_regions
       - variant_origin
       - allelic_hit_role
       - allelic_events
@@ -7167,6 +7426,15 @@ classes:
       - pdb_structures
       - mechanism_confidence
       - biological_scale
+      - regulatory_category
+    slot_usage:
+      regulatory_category:
+        description: >-
+          Controlled classification of the expression-effect claim represented
+          by this node. Interpret together with mechanism_confidence: a
+          HYPOTHETICAL node classifies a proposed effect, not an observed one.
+          For regulatory SVs, annotate the target gene here rather than on the
+          physical initiating lesion when its sequence is intact.
   Phenotype:
     slots:
       - category
@@ -7288,6 +7556,7 @@ classes:
     slots:
       - name
       - gene_term
+      - affected_regions
       - presence
       - evidence
       - association
@@ -7602,6 +7871,7 @@ classes:
       - name
       - description
       - gene
+      - regulatory_target_gene
       - evidence
       - functional_effects
       - synonyms
@@ -7610,6 +7880,9 @@ classes:
       - sequence_length
       - clinical_significance
       - type
+      - variant_type
+      - genomic_contexts
+      - affected_regions
       - regulatory_category
   FunctionalEffect:
     description: >-

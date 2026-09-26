@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5614,6 +5656,7 @@ This subtype is caused by variation in ANGPT1 (hgnc:484). hgnc:484 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-crest-derived-periocular-mesenchyme-maldevelopment" data-dismech-node="Neural Crest-Derived Periocular Mesenchyme Maldevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Crest-Derived Periocular Mesenchyme Maldevelopment</div>
 
+
                 <div class="item-desc">The trabecular meshwork, corneal endothelium and stroma, iris stroma, and ciliary body all derive from cranial neural crest cells that migrate around the optic cup as periocular mesenchyme. Congenital glaucoma is at root a neurocristopathy of that migration and differentiation programme: when the periocular mesenchyme fails to remodel normally into the drainage apparatus, the outflow structures are abnormal from the outset rather than degenerating later. This is the common developmental origin shared by primary congenital glaucoma and the anterior segment dysgenesis syndromes, and it explains why the same transcription factors (FOXC1, PITX2, PAX6) recur across both.</div>
 
 
@@ -6011,6 +6054,7 @@ This pathophysiological event occurs in Iridocorneal Angle (UBERON:0006206). UBE
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyp1b1-deficiency-in-the-developing-anterior-segment" data-dismech-node="CYP1B1 Deficiency in the Developing Anterior Segment" data-dismech-type="pathophysiology">
                 <div class="item-name">CYP1B1 Deficiency in the Developing Anterior Segment</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants in CYP1B1, a cytochrome P450 monooxygenase at the GLC3A locus on 2p21, are the single most common molecular cause of congenital glaucoma. The reported mutations are frameshift and other null alleles predicted to remove domains essential for enzyme function, so the mechanism is loss of a metabolic activity rather than a toxic gain of function -- which distinguishes CYP1B1 disease from the misfolding MYOC mechanism of juvenile open-angle glaucoma. How that metabolic loss translates into dysgenesis is not settled; the leading proposal is that CYP1B1 generates or clears a diffusible retinoid or other oxygenated signalling molecule required for the proliferation and differentiation of the developing anterior segment. Cyp1b1-null mice reproduce the human drainage structure abnormalities, and the severity of that phenotype is modified by tyrosinase, indicating that CYP1B1 acts within a modifiable pathway rather than as a deterministic switch -- consistent with the incomplete penetrance and variable expressivity seen in human families.</div>
 
 
@@ -6106,6 +6150,8 @@ This genetic context concerns CYP1B1 (hgnc:2597). hgnc:2597 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -6118,6 +6164,9 @@ This genetic context concerns CYP1B1 (hgnc:2597). hgnc:2597 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -6336,6 +6385,7 @@ This pathophysiological event occurs in Anterior Chamber of Eyeball (UBERON:0001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-angiopoietin-tek-signaling-insufficiency-and-schlemm-canal-hypoplasia" data-dismech-node="Angiopoietin-TEK Signaling Insufficiency and Schlemm Canal Hypoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Angiopoietin-TEK Signaling Insufficiency and Schlemm Canal Hypoplasia</div>
 
+
                 <div class="item-desc">A mechanistically distinct route to the same outflow failure runs through the vascular development of Schlemm canal rather than through the trabecular mesenchyme. Schlemm canal is a hybrid vessel with lymphatic and venous features, and its formation depends on angiopoietin ligand signalling through the endothelial receptor tyrosine kinase TEK (TIE2). Heterozygous TEK loss-of-function variants cause congenital glaucoma by haploinsufficiency, with several different cellular routes to that shared endpoint -- absent protein production, aggregation, accelerated proteasomal degradation, mislocalisation, and blunted ligand responsiveness. Rare variants in the ligand ANGPT1 act on the same axis from the other side. Because the defect is gene-dosage-sensitive rather than all-or-none, expressivity is variable and inheritance is autosomal dominant, unlike the recessive CYP1B1 and LTBP2 routes.</div>
 
 
@@ -6504,6 +6554,8 @@ This genetic context concerns TEK (hgnc:11724). hgnc:11724 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -6516,6 +6568,9 @@ This genetic context concerns TEK (hgnc:11724). hgnc:11724 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -6750,6 +6805,7 @@ This pathophysiological event occurs in Canal of Schlemm (UBERON:0004029). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ltbp2-loss-and-anterior-segment-microfibril-deficiency" data-dismech-node="LTBP2 Loss and Anterior Segment Microfibril Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">LTBP2 Loss and Anterior Segment Microfibril Deficiency</div>
 
+
                 <div class="item-desc">LTBP2, the largest member of the latent TGF-beta binding protein family, is an extracellular matrix protein with homology to the fibrillins and a probable role as a structural component of microfibrils. Biallelic null mutations cause congenital glaucoma in consanguineous Pakistani and Roma families. LTBP2 localises to the anterior segment at the ciliary body and particularly the ciliary process, and the proposal is that its loss compromises the structural integrity of the anterior chamber and ciliary muscle tone rather than disturbing a signalling cascade -- making this an extracellular-matrix route to outflow failure, mechanistically parallel to but separate from the metabolic (CYP1B1) and vascular (TEK/ANGPT1) routes.</div>
 
 
@@ -6845,6 +6901,8 @@ This genetic context concerns LTBP2 (hgnc:6715). hgnc:6715 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -6857,6 +6915,9 @@ This genetic context concerns LTBP2 (hgnc:6715). hgnc:6715 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -7034,6 +7095,7 @@ This pathophysiological event occurs in Anterior Chamber of Eyeball (UBERON:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trabeculodysgenesis-and-congenital-outflow-obstruction" data-dismech-node="Trabeculodysgenesis and Congenital Outflow Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Trabeculodysgenesis and Congenital Outflow Obstruction</div>
+
 
                 <div class="item-desc">The convergence point of the primary congenital routes. Instead of the acquired juxtacanalicular extracellular matrix accumulation and trabecular cell loss that raise outflow resistance in adult open-angle glaucoma, the congenital lesion is an angle that never matured: gonioscopy shows an immature appearance of arrested development, with a high flat iris insertion, peripheral scalloping, and circumferential iris vessels. Resistance to aqueous egress is therefore abnormal from birth. This node substitutes the disorder-specific developmental lesion into the module&#39;s conserved outflow-dysfunction step; the module&#39;s own trabecular-ECM-accumulation annotation is deliberately not copied here, because the mechanism is dysgenetic rather than degenerative.</div>
 
@@ -7277,6 +7339,7 @@ This pathophysiological event occurs in Iridocorneal Angle (UBERON:0006206). UBE
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-angle-obstruction-in-anterior-segment-dysgenesis" data-dismech-node="Secondary Angle Obstruction in Anterior Segment Dysgenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Angle Obstruction in Anterior Segment Dysgenesis</div>
 
+
                 <div class="item-desc">The parallel route taken by congenital glaucoma arising in a non-acquired anterior segment anomaly. Here outflow can fail by two mechanisms that are not interchangeable: trabeculodysgenesis of the kind seen in primary congenital glaucoma, and adhesional angle closure in which iridocorneal or lenticulocorneal adhesions physically obliterate the drainage angle. Which operates depends on the anomaly and its severity -- in a small single-centre Peters anomaly series glaucoma was absent in eyes with an isolated posterior corneal defect and present in the majority of eyes with lens abnormalities, though the reported trend across stages did not reach statistical significance in that 31-eye series, so a severity gradient is suggested rather than established. In PAX6-related aniridia the mechanism remains genuinely unsettled, with congenital trabecular dysfunction, progressive angle closure, and postoperative ocular hypertension all proposed. This distinction matters therapeutically: angle incision surgery addresses a dysgenetic meshwork but not an obliterated angle.</div>
 
 
@@ -7481,6 +7544,7 @@ This pathophysiological event occurs in Cornea (UBERON:0000964). UBERON:0000964 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-intraocular-pressure-elevation" data-dismech-node="Congenital Intraocular Pressure Elevation" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Intraocular Pressure Elevation</div>
 
+
                 <div class="item-desc">Impaired aqueous egress raises intraocular pressure in the first weeks to months of life. The pressure itself is the same stressor as in the module&#39;s conserved chain, but its consequences differ because it is applied to an immature eye: it acts both on the optic nerve head, driving retinal ganglion cell loss, and on the still-distensible coats of the globe, which the adult eye cannot do. The two downstream branches from this node -- neurodegenerative and biomechanical -- are what make congenital glaucoma clinically distinct.</div>
 
 
@@ -7606,6 +7670,7 @@ This pathophysiological event occurs in Anterior Chamber of Eyeball (UBERON:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distensible-globe-expansion" data-dismech-node="Distensible Globe Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Distensible Globe Expansion</div>
+
 
                 <div class="item-desc">The branch that has no counterpart in the glaucoma_optic_neuropathy module, because it depends on a property of the infant eye rather than on the pressure itself. Before about three years of age the sclera and cornea are still elastic, so sustained ocular hypertension stretches them: the globe enlarges (buphthalmos), the corneal diameter increases beyond roughly 12 mm (megalocornea), the anterior sclera thins, and the axial elongation produces a progressive myopic shift. This node covers the biomechanical stretch alone; the corneal consequences of that stretch are the separate downstream node, because they are a distinct event with a distinct location and are what makes the eye cloudy rather than merely large.</div>
 
@@ -7754,6 +7819,7 @@ This pathophysiological event occurs in Sclera (UBERON:0001773). UBERON:0001773 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-descemet-membrane-rupture-and-corneal-decompensation" data-dismech-node="Descemet Membrane Rupture and Corneal Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Descemet Membrane Rupture and Corneal Decompensation</div>
 
+
                 <div class="item-desc">Stretching of the cornea tears Descemet membrane, producing the curvilinear Haab striae, and breaches of that endothelial barrier allow aqueous into the stroma, causing the corneal edema and opacification that make the eye cloudy. The same corneal irritation drives the classic presenting triad of epiphora, photophobia and blepharospasm. This node is why congenital glaucoma is recognised by inspection of the eye in infancy rather than by perimetry.</div>
 
 
@@ -7875,6 +7941,7 @@ This pathophysiological event occurs in Cornea (UBERON:0000964). UBERON:0000964 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-ganglion-cell-loss" data-dismech-node="Retinal Ganglion Cell Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Ganglion Cell Loss</div>
+
 
                 <div class="item-desc">Pressure-related injury at the optic nerve head causes retinal ganglion cell loss, the conserved effector step of every glaucoma. This node is confined to the cell-level loss so that it matches the module anchor it declares; the optic nerve head changes it produces, and the reversibility that distinguishes infant from adult disease, are the separate downstream node. Whatever ganglion cell loss has occurred is irreversible.</div>
 
@@ -8045,6 +8112,7 @@ This pathophysiological event occurs in Optic Disc (UBERON:0001783). UBERON:0001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-optic-nerve-head-degeneration-and-glaucomatous-cupping" data-dismech-node="Optic Nerve Head Degeneration and Glaucomatous Cupping" data-dismech-type="pathophysiology">
                 <div class="item-name">Optic Nerve Head Degeneration and Glaucomatous Cupping</div>
 
+
                 <div class="item-desc">Loss of ganglion cell axons remodels the optic nerve head into the glaucomatous cup. Congenital disease qualifies this step in one important way: optic disc cupping in an infant is partially reversible once intraocular pressure is controlled, which is not true of established adult cupping. Reversal reflects recovery of the compliant immature lamina cribrosa rather than regrowth of lost axons, so a reversing cup is evidence of pressure control and must NOT be read as recovered ganglion cells. This node exists separately from the ganglion cell node precisely so that the reversible tissue change and the irreversible cell loss are not conflated.</div>
 
 
@@ -8141,6 +8209,7 @@ This pathophysiological event occurs in Optic Disc (UBERON:0001783). UBERON:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deprivation-and-refractive-amblyopia" data-dismech-node="Deprivation and Refractive Amblyopia" data-dismech-type="pathophysiology">
                 <div class="item-name">Deprivation and Refractive Amblyopia</div>
+
 
                 <div class="item-desc">A second, non-glaucomatous route to permanent vision loss that is specific to disease onset during the critical period of visual development. Corneal opacification degrades the retinal image (deprivation), and the axial elongation of an enlarging globe -- often asymmetric between the two eyes -- produces high myopia and anisometropia (refractive). Either can prevent normal cortical visual development even after intraocular pressure is fully controlled and the optic nerve is spared, which is why management of congenital glaucoma is not complete when pressure is normalised: refractive correction and amblyopia therapy are required in parallel.</div>
 
@@ -8240,6 +8309,7 @@ This pathophysiological event occurs in Optic Disc (UBERON:0001783). UBERON:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-childhood-visual-impairment-and-blindness" data-dismech-node="Childhood Visual Impairment and Blindness" data-dismech-type="pathophysiology">
                 <div class="item-name">Childhood Visual Impairment and Blindness</div>
+
 
                 <div class="item-desc">The clinical endpoint, reached by two converging routes -- irreversible ganglion cell and axon loss, and amblyopia from deprivation and anisometropia. Childhood glaucoma accounts for roughly 5% of childhood blindness worldwide. The outcome is not fixed: with prompt diagnosis and effective pressure control the disease is frequently stationary and useful vision is retained, so the endpoint here is contingent on treatment timing rather than an inevitable consequence of the genotype.</div>
 
@@ -8445,6 +8515,9 @@ This clinical feature is Buphthalmos (HP:0000557). HP:0000557 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8514,6 +8587,9 @@ This clinical feature is Megalocornea (HP:0000485). HP:0000485 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8578,6 +8654,9 @@ This clinical feature is Haab striae (HP:6001217). HP:6001217 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8677,6 +8756,9 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8741,6 +8823,9 @@ This clinical feature is Epiphora (HP:0009926). HP:0009926 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8815,6 +8900,9 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8879,6 +8967,9 @@ This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8953,6 +9044,9 @@ This clinical feature is Deep anterior chamber (HP:0007765). HP:0007765 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9017,6 +9111,9 @@ This clinical feature is Increased cup-to-disc ratio (HP:0012796). HP:0012796 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9134,6 +9231,9 @@ This clinical feature is Myopia (HP:0000545), qualified as course progressive. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9228,6 +9328,9 @@ This clinical feature is Iris atrophy (HP:0001089). HP:0001089 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9292,6 +9395,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9370,6 +9476,9 @@ This clinical feature is Blepharospasm (HP:0000643). HP:0000643 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9488,6 +9597,9 @@ This disease-associated gene is CYP1B1 (hgnc:2597). hgnc:2597 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -9622,6 +9734,9 @@ This disease-associated gene is LTBP2 (hgnc:6715). hgnc:6715 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
@@ -9754,6 +9869,9 @@ This disease-associated gene is TEK (hgnc:11724). hgnc:11724 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -9863,6 +9981,9 @@ This disease-associated gene is ANGPT1 (hgnc:484). hgnc:484 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9935,6 +10056,9 @@ This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10040,6 +10164,9 @@ This disease-associated gene is PITX2 (hgnc:9005). hgnc:9005 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10112,6 +10239,9 @@ This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10213,6 +10343,9 @@ This disease-associated gene is SVEP1 (hgnc:15985). hgnc:15985 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5651,6 +5693,7 @@ This readout measures Spastic paraparesis (HP:0002313). HP:0002313 is a phenotyp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mecp2-p-ala140val-methyl-cpg-binding-domain-variant" data-dismech-node="MECP2 p.Ala140Val Methyl-CpG-Binding Domain Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">MECP2 p.Ala140Val Methyl-CpG-Binding Domain Variant</div>
 
+
                 <div class="item-desc">The lesion is a single recurrent missense allele, c.419C&gt;T p.(Ala140Val), in the MECP2 gene at Xq28. Unlike most Mendelian entries this disorder has effectively an allele series of one: every reported PPM-X or A140V family carries the same substitution, which sits in the alpha-1 helix of the methyl-CpG-binding domain. It is a genuine recurrent mutation rather than a rare polymorphism - it segregates with the disease haplotype in multiple unrelated multiplex pedigrees and is enriched in male intellectual-disability cohorts - and it accounts for roughly 0.6% of all reported MeCP2 variants. Hemizygous males are affected; heterozygous females are normal or mildly affected.
 </div>
 
@@ -5842,6 +5885,7 @@ This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-selective-loss-of-atrx-recruitment-with-preserved-methyl-cpg-binding" data-dismech-node="Selective Loss of ATRX Recruitment with Preserved Methyl-CpG Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Selective Loss of ATRX Recruitment with Preserved Methyl-CpG Binding</div>
+
 
                 <div class="item-desc">This is the discriminating node of the entry and the reason PPM-X is mechanistically separable from Rett syndrome despite sharing a gene. MeCP2 normally binds methylated CpG dinucleotides and, in a DNA-methylation-dependent manner, recruits ATRX - a SWI2/SNF2 helicase/ATPase chromatin remodeller, itself the ATR-X syndrome gene - to heterochromatic foci. The ATRX-interacting domain of MeCP2 overlaps the methyl-CpG-binding domain, and MBD point mutations causing either Rett syndrome or X-linked intellectual disability inhibit the ATRX interaction. What is distinctive about p.Ala140Val is not that it spares methyl-CpG binding - the Rett allele R133C does that too - but that loss of the ATRX interaction is its ONLY measurably altered property: it binds methylated DNA normally, targets heterochromatin efficiently, and, unlike R133C, does not acquire aberrant binding to non-methylated DNA. That makes it the cleanest natural separation-of-function allele in MeCP2.
 Two consequences follow. Mechanistically, the phenotype of PPM-X can be attributed largely to mislocalised ATRX rather than to failed methyl-CpG reading. Clinically, this hypomorphic, function-selective character is the most plausible explanation for the sex-reversed severity pattern relative to Rett syndrome - hemizygous males survive with moderate intellectual disability instead of dying of neonatal encephalopathy, while heterozygous females are normal or only mildly affected instead of having classic Rett syndrome.
@@ -6190,6 +6234,7 @@ This pathophysiological event involves methyl-CpG binding (GO:0008327). GO:00083
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neuronal-maturation-and-dendritic-arborization" data-dismech-node="Disrupted Neuronal Maturation and Dendritic Arborization" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Neuronal Maturation and Dendritic Arborization</div>
 
+
                 <div class="item-desc">Downstream of the chromatin lesion the affected cell type is the neuron, and the defect is one of maturation rather than survival. In the A140V knock-in mouse, cortical and hippocampal neurons are packed more densely and their dendritic trees are significantly less complex than wild type. Cultured hippocampal and cerebellar granule neurons from the same model have smaller somata, and this size deficit is cell-autonomous: in heterozygous females carrying a wild-type allele marked with eGFP, only the neurons expressing the mutant allele are small. The size phenotype tracks with down-regulation of mTOR signalling and is rescued in vitro by IGF-1.
 Note that all of the cellular evidence at this node is from the mouse knock-in or from cultures derived from it. No human neuropathology or patient-derived neuronal model of p.Ala140Val has been published, and the mouse is described by its makers as a Rett syndrome / XLMR model rather than a PPM-X model - see the HUMAN_MODEL_MISMATCH discussion.
 </div>
@@ -6492,6 +6537,7 @@ This pathophysiological event involves decreased TOR signaling (GO:0031929). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hippocampal-network-hyperexcitability-and-impaired-synaptic-plasticity" data-dismech-node="Hippocampal Network Hyperexcitability and Impaired Synaptic Plasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Hippocampal Network Hyperexcitability and Impaired Synaptic Plasticity</div>
 
+
                 <div class="item-desc">The structural changes translate into a shifted excitation/inhibition balance that is age-dependent. Young A140V mice already show intrinsic hyperexcitability of CA1 pyramidal neurons - depolarised resting membrane potential, higher firing rates, broader action potentials, smaller afterhyperpolarisation - together with a synaptic signature pointing the same way: fewer spontaneous inhibitory postsynaptic currents and a higher probability of evoked glutamate release. Long-term potentiation at CA3-CA1 synapses is intact at this stage. Only in aged mice does plasticity fail, with deficits in both short-term and long-term potentiation appearing on top of the persisting hyperexcitability.
 This sequence - hyperexcitability first, plasticity failure later - is the cellular correlate of a disorder that is not a static encephalopathy: the human phenotype is a slowly progressive spastic and extrapyramidal syndrome, and in at least one reported individual there was frank adolescent-onset regression.
 </div>
@@ -6690,6 +6736,7 @@ This pathophysiological event involves abnormal modulation of chemical synaptic 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-corticospinal-and-extrapyramidal-dysfunction" data-dismech-node="Progressive Corticospinal and Extrapyramidal Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Corticospinal and Extrapyramidal Dysfunction</div>
+
 
                 <div class="item-desc">The motor arm of the syndrome and the &#34;PP&#34; of the acronym. All six symptomatic relatives in the Siena A140V family - four men AND two women - had slowly progressive spastic paraparesis/pyramidal signs together with distal atrophy of the legs, with ataxia and postural hand tremor in a subset and dysarthria in the oldest affected brothers. That the two heterozygous women were also affected motorically is important: the motor syndrome is not male-restricted, only male-predominant in severity. The independently ascertained Belgian four-generation family reproduced the same picture - slowly progressive spastic paraparesis with dystonic hand movements - which is the strongest available evidence that the motor syndrome is an allele property and not a single-family peculiarity. Parkinsonian features were part of the founding description and remain in the syndrome definition, though they are less consistently reported in the later families than the pyramidal findings.
 </div>
@@ -6905,6 +6952,7 @@ This pathophysiological event involves abnormal neuromuscular process controllin
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cognitive-and-neuropsychiatric-dysfunction" data-dismech-node="Cognitive and Neuropsychiatric Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cognitive and Neuropsychiatric Dysfunction</div>
+
 
                 <div class="item-desc">The cognitive and psychiatric arm, and the &#34;P&#34; and &#34;X&#34; of the acronym. Intellectual disability is present in every reported hemizygous male and is typically moderate, with impaired language development; carrier females are normal or have mild cognitive impairment and speech difficulties. Layered on this is an episodic affective psychosis: four of the six affected males in the founding family had episodes of manic-depressive psychosis, which is the feature that gave the syndrome its first letter and distinguishes it from nonsyndromic X-linked intellectual disability.
 The psychiatric component is age-dependent rather than congenital - it emerges in adolescence or adult life on a background of stable developmental disability - and it has now been described in a heterozygous female as well, who presented with late-onset cognitive regression alongside pyramidal signs, parkinsonism and bipolar symptoms.
@@ -7210,6 +7258,9 @@ This clinical feature is Macroorchidism (HP:0000053). HP:0000053 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7314,6 +7365,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7397,6 +7451,9 @@ This clinical feature is Abnormal facial shape (HP:0001999), qualified as severi
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">PMID:8651288 reports no characteristic dysmorphic facial features in the founding family. This limits the claim of a diagnostic facial gestalt; it does not establish absence of mild abnormal facial shape. The negative context is therefore recorded here without a phenotype-level REFUTE item.</div>
@@ -7502,6 +7559,9 @@ This clinical feature is Spastic paraparesis (HP:0002313), qualified as course p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7599,6 +7659,9 @@ This clinical feature is Distal lower limb amyotrophy (HP:0008944). HP:0008944 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7675,6 +7738,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7770,6 +7836,9 @@ This clinical feature is Moderate intellectual disability (HP:0002342). HP:00023
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7871,6 +7940,9 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7936,6 +8008,9 @@ This clinical feature is Bipolar affective disorder (HP:0007302). HP:0007302 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8037,6 +8112,9 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8102,6 +8180,9 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8204,6 +8285,9 @@ This clinical feature is Postural tremor (HP:0002174). HP:0002174 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8270,6 +8354,9 @@ This clinical feature is Dystonic movements of the hands, annotated with Limb dy
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8346,6 +8433,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8417,6 +8507,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8482,6 +8575,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8594,6 +8690,9 @@ This clinical feature is Cognitive impairment (HP:0100543), qualified as severit
 
 
                     </div>
+
+
+
 
 
 
@@ -8723,6 +8822,9 @@ This clinical feature is Cognitive regression (HP:0034332). HP:0034332 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8834,6 +8936,9 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8952,6 +9057,7 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8971,11 +9077,17 @@ This variant is in MECP2 (hgnc:6990). hgnc:6990 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The single recurrent allele of this disorder. It substitutes valine for alanine at codon 140, in the alpha-1 helix of the methyl-CpG-binding domain, within a region where the MBD and the ATRX-interacting domain overlap. It is the defining separation-of-function allele of MeCP2: methylated-DNA binding and heterochromatic targeting are preserved, ATRX recruitment is lost. It has been reported in multiple unrelated multiplex X-linked pedigrees (the Newcastle PPM-X family, the Siena family, MRX79, and a Belgian four-generation family) as well as in sporadic males, and it accounts for approximately 0.6% of all reported MeCP2 variants. It is not a Rett syndrome allele.

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5650,6 +5692,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sry-sox9-sox8-dmrt1-transcriptional-network-failure" data-dismech-node="SRY-SOX9-SOX8-DMRT1 transcriptional network failure" data-dismech-type="pathophysiology">
                 <div class="item-name">SRY-SOX9-SOX8-DMRT1 transcriptional network failure</div>
 
+
                 <div class="item-desc">Loss or inadequate activation of the core pro-testis transcriptional network prevents stable supporting-cell commitment. This branch includes SRY defects, SOX9 enhancer deletion, rare SOX8 defects, and DMRT1 haploinsufficiency.</div>
 
 
@@ -6008,6 +6051,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-map3k1-gain-of-function-pro-ovarian-signaling-bias" data-dismech-node="MAP3K1 gain-of-function pro-ovarian signaling bias" data-dismech-type="pathophysiology">
                 <div class="item-name">MAP3K1 gain-of-function pro-ovarian signaling bias</div>
 
+
                 <div class="item-desc">Pathogenic MAP3K1 variants increase ERK1/2 and p38 signaling, interfere with testis determination, and permit a pro-ovarian signaling state.</div>
 
 
@@ -6165,6 +6209,7 @@ This pathophysiological event involves abnormal sex determination (GO:0007530). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nr5a1-gonadal-transcription-failure" data-dismech-node="NR5A1 gonadal transcription failure" data-dismech-type="pathophysiology">
                 <div class="item-name">NR5A1 gonadal transcription failure</div>
 
+
                 <div class="item-desc">Pathogenic NR5A1 variants impair transcriptional control of gonadal development and steroidogenic programs, with variable phenotypic severity.</div>
 
 
@@ -6321,6 +6366,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dhh-paracrine-signaling-failure" data-dismech-node="DHH paracrine signaling failure" data-dismech-type="pathophysiology">
                 <div class="item-name">DHH paracrine signaling failure</div>
+
 
                 <div class="item-desc">Biallelic DHH variants impair Sertoli-derived paracrine signaling needed for Leydig and peritubular-cell development. DHH is therefore modeled as a differentiation-signaling branch rather than as an SRY-equivalent trigger.</div>
 
@@ -6530,6 +6576,7 @@ This pathophysiological event involves DHH (hgnc:2865). hgnc:2865 is a gene from
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dhx37-related-gonadal-development-failure" data-dismech-node="DHX37-related gonadal-development failure" data-dismech-type="pathophysiology">
                 <div class="item-name">DHX37-related gonadal-development failure</div>
 
+
                 <div class="item-desc">Heterozygous DHX37 variants are associated with 46,XY gonadal dysgenesis, but whether ribosome synthesis, cell-cycle, NF-κB, Wnt, or another pathway mediates the gonadal defect remains unresolved.</div>
 
 
@@ -6649,6 +6696,7 @@ This pathophysiological event involves DHX37 (hgnc:17210). hgnc:17210 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nr0b1-dosage-gain" data-dismech-node="NR0B1 dosage gain" data-dismech-type="pathophysiology">
                 <div class="item-name">NR0B1 dosage gain</div>
 
+
                 <div class="item-desc">Duplication of an Xp21.2 interval containing NR0B1/DAX1 increases dosage of a sex-determination regulator and can antagonize testis development.</div>
 
 
@@ -6767,6 +6815,7 @@ This pathophysiological event involves NR0B1 (hgnc:7960). hgnc:7960 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-supporting-cell-differentiation-and-testis-cord-formation" data-dismech-node="Failure of supporting-cell differentiation and testis-cord formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of supporting-cell differentiation and testis-cord formation</div>
+
 
                 <div class="item-desc">Diverse lesions converge on failure of Sertoli/supporting-cell differentiation and testis-cord formation, so a functional testis and its dependent fetal hormone-producing compartments do not develop.</div>
 
@@ -6932,6 +6981,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bilateral-streak-or-dysgenetic-gonads" data-dismech-node="Bilateral streak or dysgenetic gonads" data-dismech-type="pathophysiology">
                 <div class="item-name">Bilateral streak or dysgenetic gonads</div>
 
+
                 <div class="item-desc">Bilateral gonadal remnants consist predominantly of fibrous or severely dysgenetic tissue without useful steroidogenic or gametogenic function.</div>
 
 
@@ -7078,6 +7128,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-fetal-amh-secretion" data-dismech-node="Absent fetal AMH secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent fetal AMH secretion</div>
 
+
                 <div class="item-desc">Failed fetal Sertoli-cell function removes anti-Müllerian hormone signaling.</div>
 
 
@@ -7188,6 +7239,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-m-llerian-duct-persistence" data-dismech-node="Müllerian-duct persistence" data-dismech-type="pathophysiology">
                 <div class="item-name">Müllerian-duct persistence</div>
 
+
                 <div class="item-desc">Müllerian structures are present, although prolonged hypoestrogenism can leave the uterus small or difficult to visualize before hormone treatment.</div>
 
 
@@ -7263,6 +7315,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-fetal-testicular-androgen-secretion" data-dismech-node="Absent fetal testicular androgen secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent fetal testicular androgen secretion</div>
+
 
                 <div class="item-desc">Failure of functional fetal Leydig cells removes testicular testosterone and dihydrotestosterone exposure. Adult serum testosterone may remain detectable from adrenal or peripheral sources and should be interpreted against sex- and age-appropriate ranges rather than described as absolutely absent.</div>
 
@@ -7412,6 +7465,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-female-external-genital-development-in-a-46-xy-individual" data-dismech-node="Female external genital development in a 46,XY individual" data-dismech-type="pathophysiology">
                 <div class="item-name">Female external genital development in a 46,XY individual</div>
 
+
                 <div class="item-desc">External genital development follows a typical female pattern despite the 46,XY chromosomal complement.</div>
 
 
@@ -7487,6 +7541,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-pubertal-gonadal-hormone-secretion" data-dismech-node="Absent pubertal gonadal hormone secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent pubertal gonadal hormone secretion</div>
+
 
                 <div class="item-desc">Nonfunctional streak gonads do not produce physiologic pubertal estradiol or inhibin, preventing spontaneous pubertal progression and normal uterine and skeletal estrogenization.</div>
 
@@ -7634,6 +7689,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-gonadal-negative-feedback" data-dismech-node="Loss of gonadal negative feedback" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of gonadal negative feedback</div>
 
+
                 <div class="item-desc">Low gonadal estradiol and inhibin release the hypothalamic-pituitary axis from negative feedback, raising FSH and LH and producing hypergonadotropic hypogonadism.</div>
 
 
@@ -7710,6 +7766,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysgenetic-y-bearing-germ-cell-niche" data-dismech-node="Dysgenetic Y-bearing germ-cell niche" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysgenetic Y-bearing germ-cell niche</div>
 
+
                 <div class="item-desc">Germ cells persisting in a poorly differentiated gonadal environment with Y-chromosome material can form gonadoblastoma or related precursor lesions.</div>
 
 
@@ -7785,6 +7842,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gonadal-germ-cell-neoplasia-risk" data-dismech-node="Gonadal germ-cell neoplasia risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Gonadal germ-cell neoplasia risk</div>
+
 
                 <div class="item-desc">Complete gonadal dysgenesis carries clinically important risk of gonadoblastoma and invasive tumors, especially dysgerminoma. Published percentages vary substantially because cohorts are small, retrospective, referral-selected, pathology-selected, or combine multiple XY DSD diagnoses; no single percentage should be presented as population risk.</div>
 
@@ -8105,6 +8163,9 @@ This clinical feature is Breast hypoplasia (HP:0003187). HP:0003187 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8183,6 +8244,9 @@ This clinical feature is delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8247,6 +8311,9 @@ This clinical feature is hypergonadotropic hypogonadism (HP:0000815). HP:0000815
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8330,6 +8397,9 @@ This clinical feature is gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8394,6 +8464,9 @@ This clinical feature is Streak gonad (HP:0025733). HP:0025733 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8468,6 +8541,9 @@ This clinical feature is Female external genitalia in individual with 46,XY kary
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8532,6 +8608,9 @@ This clinical feature is primary amenorrhea (HP:0000786). HP:0000786 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8606,6 +8685,9 @@ This clinical feature is hypoplastic uterus, annotated with Hypoplasia of the ut
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8675,6 +8757,9 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8739,6 +8824,9 @@ This clinical feature is Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8817,6 +8905,9 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8939,6 +9030,9 @@ This disease-associated gene is SRY (hgnc:11311). hgnc:11311 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9040,6 +9134,9 @@ This disease-associated gene is NR0B1 (hgnc:7960). hgnc:7960 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9112,6 +9209,9 @@ This disease-associated gene is NR5A1 (hgnc:7983). hgnc:7983 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9192,6 +9292,9 @@ This disease-associated gene is DMRT1 (hgnc:2934). hgnc:2934 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9268,6 +9371,9 @@ This disease-associated gene is MAP3K1 (hgnc:6848). hgnc:6848 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9340,6 +9446,9 @@ This disease-associated gene is DHH (hgnc:2865). hgnc:2865 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9445,6 +9554,9 @@ This disease-associated gene is SOX8 (hgnc:11203). hgnc:11203 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9546,6 +9658,9 @@ This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9643,6 +9758,9 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

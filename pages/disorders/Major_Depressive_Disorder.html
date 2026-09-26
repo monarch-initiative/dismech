@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4393,6 +4435,23 @@
                 <h2 class="card-title">Comorbidities</h2>
             </div>
             <div class="mapping-section">
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Hypermobile_Ehlers-Danlos_Syndrome__Major_Depressive_Disorder.html">Hypermobile Ehlers-Danlos Syndrome &lt;-&gt; Major Depressive Disorder</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease B</span>
+
+
+                        <span class="tag tag-classification">UNKNOWN</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
 
                 <div class="mapping-item">
                     <div class="mapping-title">
@@ -8190,6 +8249,7 @@ This experiment is of type human cell-specific causal perturbation and rescue st
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-monoamine-deficiency" data-dismech-node="Monoamine Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Monoamine Deficiency</div>
 
+
                 <div class="item-desc">Reduced serotonin, norepinephrine, and dopamine neurotransmission in key brain circuits. While oversimplified, this remains a foundation for antidepressant pharmacotherapy.
 </div>
 
@@ -8453,6 +8513,7 @@ This pathophysiological event involves Dopamine Signaling, annotated with G prot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excitation-inhibition-imbalance" data-dismech-node="Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitation-Inhibition Imbalance</div>
+
 
                 <div class="item-desc">Reduced cortex-wide excitation-inhibition (E/I) balance in prefrontal-cingulate cortices, reflecting dysregulation of GABAergic inhibitory and glutamatergic excitatory neurotransmission. E/I imbalance is implicated in depressive symptoms and ketamine treatment response in treatment-resistant depression.
 </div>
@@ -8738,6 +8799,7 @@ This pathophysiological event involves dysregulated Synaptic Plasticity, annotat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hpa-axis-dysregulation" data-dismech-node="HPA Axis Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">HPA Axis Dysregulation</div>
 
+
                 <div class="item-desc">Hyperactivity of the hypothalamic-pituitary-adrenal axis leads to elevated cortisol, which may contribute to hippocampal atrophy and cognitive symptoms.
 </div>
 
@@ -8865,6 +8927,7 @@ This pathophysiological event involves Cortisol Response, annotated with cellula
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroplasticity-deficits" data-dismech-node="Neuroplasticity Deficits" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroplasticity Deficits</div>
+
 
                 <div class="item-desc">Reduced BDNF and impaired synaptic plasticity in prefrontal cortex and hippocampus. Successful treatments restore neuroplasticity.
 </div>
@@ -9042,6 +9105,7 @@ This pathophysiological event involves Synaptic Plasticity, annotated with regul
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroinflammation" data-dismech-node="Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroinflammation</div>
 
+
                 <div class="item-desc">Elevated inflammatory cytokines (IL-6, TNF-alpha, CRP) observed in depression. Inflammation may contribute to monoamine depletion and neuroplasticity deficits.
 </div>
 
@@ -9184,6 +9248,7 @@ This pathophysiological event involves Microglia, annotated with microglial cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction" data-dismech-node="Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Dysfunction</div>
 
+
                 <div class="item-desc">Impaired mitochondrial respiration and cellular energy metabolism contribute to MDD pathophysiology. Patient-derived cells show decreased mitochondrial function, altered membrane potential, and disrupted calcium homeostasis.
 </div>
 
@@ -9289,6 +9354,7 @@ This pathophysiological event involves Microglia, annotated with microglial cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reference-point-dysregulation" data-dismech-node="Reference Point Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reference Point Dysregulation</div>
+
 
                 <div class="item-desc">Pathological elevation and inflexibility of the decisional reference point, a core mechanism from behavioral economics that determines how events are experienced as positive or negative. Elevated reference points cause previously rewarding activities to be experienced as aversive, contributing to anhedonia and reward dysfunction. Dysfunction in anterior cingulate cortex impairs dynamic adjustment of the reference point to environmental changes.
 </div>
@@ -9465,6 +9531,7 @@ This pathophysiological event involves Cognition (GO:0050890). GO:0050890 is a b
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligodendrocyte-dysfunction-and-demyelination" data-dismech-node="Oligodendrocyte Dysfunction and Demyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Oligodendrocyte Dysfunction and Demyelination</div>
+
 
                 <div class="item-desc">Oligodendrocyte (OL) dysfunction and myelin abnormalities contribute to depression pathophysiology through multiple mechanisms: impaired myelination reduces conduction velocity and disrupts neural circuit function; loss of OL-derived metabolic support decreases neuronal energy supply; compromised OL-glial crosstalk with microglia and astrocytes amplifies neuroinflammation. These dysfunctions are associated with altered brain connectivity and emotional processing deficits, and may represent a targetable node for therapeutic remyelination strategies.
 </div>
@@ -9852,6 +9919,7 @@ This pathophysiological event involves Axon Ensheathment (GO:0008366). GO:000836
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stalled-adult-hippocampal-neurogenesis" data-dismech-node="Stalled Adult Hippocampal Neurogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Stalled Adult Hippocampal Neurogenesis</div>
+
 
                 <div class="item-desc">In nonmedicated MDD, the subgranular-zone (SGZ) neurogenic lineage of the dentate gyrus shows a shift in pseudotime distribution toward quiescent neural stem cells with fewer neuroblasts, indicating arrested progression rather than depletion of the stem-cell pool. Histological validation finds fewer nestin- and Ki67-expressing SGZ cells and fewer DCX/TUBB3 co-expressing dentate cells, while the immature granule-cell (ImGC2) pool is unchanged. Intermediate progenitors upregulate SOX9, favouring a neuron-to-glia switch, and the residual neuroblasts lose doublecortin and BDNF.</div>
 
@@ -10283,6 +10351,7 @@ This pathophysiological event involves Neuron-to-glia fate switch, annotated wit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurogenic-niche-interferon-signaling-activation" data-dismech-node="Neurogenic Niche Interferon Signaling Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurogenic Niche Interferon Signaling Activation</div>
 
+
                 <div class="item-desc">Early neurogenic stages in the MDD hippocampus - quiescent and activated neural stem cells and intermediate neural progenitors - upregulate a gene module enriched for interferon-related pathways (EIF2AK2, IFIT3, HERC6, NRIR, IFITM3, MX1). The same interferon programme is raised in mature granule cells and CA1-4 excitatory neurons, making it a hippocampus-wide rather than niche-restricted signal. Several of the genes involved carry variants associated with intellectual disability, Alzheimer disease, systemic lupus erythematosus and COVID-19, which the authors read as shared pathogenetic mechanisms rather than as MDD-specific.</div>
 
 
@@ -10567,6 +10636,7 @@ This pathophysiological event involves increased Type I interferon signaling, an
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stress-responsive-transcription-factor-reprogramming" data-dismech-node="Stress-Responsive Transcription Factor Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">Stress-Responsive Transcription Factor Reprogramming</div>
 
+
                 <div class="item-desc">Chromatin accessibility and transcription-factor footprinting in MDD hippocampus show altered binding activity of stress- and corticosteroid-responsive Kruppel-like factors (KLF9, KLF15) alongside EGR and ASCL1 family factors, in granule cells, CA1-4 excitatory neurons and PENK+ inhibitory neurons. Footprint changes track expression of target genes and their proteins (HPCAL1, KRAS, CAMKV, RAB6B, HOMER1), tying epigenetic regulation to the neurogenic and trisynaptic-circuit phenotypes. MDD donors in this cohort had significantly higher recent stress exposure than controls.</div>
 
 
@@ -10790,6 +10860,7 @@ This pathophysiological event involves dysregulated Chromatin accessibility, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-penk-gabaergic-interneuron-activation" data-dismech-node="PENK+ GABAergic Interneuron Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">PENK+ GABAergic Interneuron Activation</div>
+
 
                 <div class="item-desc">A PENK+ medium-spiny-neuron-like GABAergic population, not previously described in the human hippocampus, is the most transcriptionally dysregulated cell cluster in MDD. It overexpresses proenkephalin together with immediate-early genes (ARC, FOS, JUNB, EGRs, JAG1) and shows altered vesicle, dendritic-spine and adhesion genes plus elevated HTR1D, a profile the authors read as an activated state possibly compensating for a stress-hyperactivated dentate gyrus. It is offered as a link between MDD, chronic pain, stress response and emotional regulation.</div>
 
@@ -11106,6 +11177,9 @@ This clinical feature is Poor Appetite (HP:0004396). HP:0004396 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Decreased or increased appetite</div>
 
 
@@ -11162,6 +11236,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-anhedonia" data-dismech-node="Anhedonia" data-dismech-type="phenotype">
@@ -11189,6 +11266,9 @@ This clinical feature is Anhedonia (HP:0012154). HP:0012154 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Loss of interest or pleasure</div>
@@ -11227,6 +11307,9 @@ This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Insomnia or hypersomnia</div>
@@ -11276,6 +11359,9 @@ This clinical feature is Cognitive Impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-psychomotor-changes" data-dismech-node="Psychomotor Changes" data-dismech-type="phenotype">
@@ -11305,6 +11391,9 @@ This clinical feature is Psychomotor agitation, annotated with Agitation (HP:000
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Psychomotor agitation or retardation. The ontology term captures the agitation pole; psychomotor retardation currently lacks a non-obsolete HPO term.</div>
@@ -11341,6 +11430,9 @@ This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency is asserted. The cited study characterizes memory dysfunction as a feature of MDD but reports no cohort frequency for it.</div>
@@ -11457,6 +11549,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -11533,6 +11628,9 @@ This disease-associated gene is SLC6A4 (hgnc:11050). hgnc:11050 is a gene from t
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-bdnf" data-dismech-node="BDNF" data-dismech-type="genetic">
@@ -11564,6 +11662,9 @@ This disease-associated gene is BDNF (hgnc:1033). hgnc:1033 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -11607,6 +11708,9 @@ This disease-associated gene is FKBP5 (hgnc:3721). hgnc:3721 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-htr2a" data-dismech-node="HTR2A" data-dismech-type="genetic">
@@ -11638,6 +11742,9 @@ This disease-associated gene is HTR2A (hgnc:5293). hgnc:5293 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -11677,6 +11784,9 @@ This disease-associated gene is IL1B (hgnc:5992). hgnc:5992 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -11779,6 +11889,7 @@ This disease-associated gene is IL1B (hgnc:5992). hgnc:5992 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11794,7 +11905,13 @@ This variant is in IL1B.</span>
 
 
 
+
     </div>
+
+
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4576,6 +4618,7 @@ Heterozygotes are not curated as a subtype. They are usually asymptomatic, but a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-f10-loss-of-function-variants" data-dismech-node="Biallelic F10 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic F10 Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Homozygous or compound heterozygous variants in F10, on chromosome 13q. Missense substitutions predominate, and the reported spectrum also includes in-frame deletions, splice-site changes and, where F7 is co-deleted, large terminal deletions of chromosome 13 that remove both loci.</div>
 
 
@@ -4627,6 +4670,8 @@ This pathophysiological event involves hepatocyte, the site of factor X synthesi
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4637,6 +4682,9 @@ This pathophysiological event involves hepatocyte, the site of factor X synthesi
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4757,6 +4805,7 @@ This pathophysiological event involves hepatocyte, the site of factor X synthesi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-functional-plasma-factor-x" data-dismech-node="Reduced Functional Plasma Factor X" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Functional Plasma Factor X</div>
+
 
                 <div class="item-desc">The functional deficit measured in plasma as factor X coagulant activity (FX:C). In type I disease the immunoreactive antigen (FX:Ag) falls with it; in type II a dysfunctional molecule is still present, so antigen is comparatively preserved. Residual activity is the quantity that grades severity.</div>
 
@@ -4896,6 +4945,7 @@ This pathophysiological event involves decreased factor X zymogen available for 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-prothrombinase-complex-activity" data-dismech-node="Impaired Prothrombinase Complex Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Prothrombinase Complex Activity</div>
+
 
                 <div class="item-desc">The non-redundant step. Factor Xa is the catalytic subunit of prothrombinase, which assembles with the cofactor factor Va on an anionic phospholipid surface supplied largely by activated platelets. The assembled complex cleaves prothrombin far faster than free factor Xa, so the amount of thrombin a patient can generate is set by how much functional prothrombinase can form. Both the extrinsic and intrinsic arms of the cascade feed into factor X activation, so neither arm can compensate for the defect.</div>
 
@@ -5047,6 +5097,7 @@ This pathophysiological event involves decreased blood coagulation, common pathw
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-thrombin-generation" data-dismech-node="Reduced Thrombin Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Thrombin Generation</div>
 
+
                 <div class="item-desc">The functional common denominator of the disease. Thrombin is required both to cleave fibrinogen to fibrin and to amplify its own generation through feedback activation of factors V, VIII and XI, so a prothrombinase deficit propagates rather than being buffered.</div>
 
 
@@ -5125,6 +5176,7 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-fibrin-clot-formation" data-dismech-node="Impaired Fibrin Clot Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Fibrin Clot Formation</div>
+
 
                 <div class="item-desc">Failure to form a stable fibrin network at sites of vascular injury. This is the step the routine coagulation screen measures, and it is the reason both the prothrombin time and the activated partial thromboplastin time are prolonged in this disease rather than only one of them.</div>
 
@@ -5264,6 +5316,7 @@ This pathophysiological event involves decreased blood coagulation, fibrin clot 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-bleeding-tendency" data-dismech-node="Systemic Bleeding Tendency" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Bleeding Tendency</div>
+
 
                 <div class="item-desc">The clinical endpoint. Bleeding is mucocutaneous, muscular and articular, and in the most severely affected can be intracranial. Severity broadly tracks residual factor X activity, but the correlation is imperfect and this entry does not overstate it.</div>
 
@@ -5562,6 +5615,9 @@ This clinical feature is Easy bruising, annotated with Bruising susceptibility (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5651,6 +5707,9 @@ This clinical feature is Haematoma, annotated with Subcutaneous hemorrhage (HP:0
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5750,6 +5809,9 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5844,6 +5906,9 @@ This clinical feature is Haemarthrosis, annotated with Joint hemorrhage (HP:0005
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5933,6 +5998,9 @@ This clinical feature is Intracranial haemorrhage, annotated with Intracranial h
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6034,6 +6102,9 @@ This clinical feature is Gastrointestinal haemorrhage, annotated with Gastrointe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6098,6 +6169,9 @@ This clinical feature is Umbilical cord bleeding at birth, annotated with Abnorm
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6172,6 +6246,9 @@ This clinical feature is Gum bleeding, annotated with Gingival bleeding (HP:0000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6238,6 +6315,9 @@ This clinical feature is Heavy menstrual bleeding, annotated with Menorrhagia (H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6339,6 +6419,9 @@ This clinical feature is Postpartum haemorrhage, annotated with Post-partum hemo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6403,6 +6486,9 @@ This clinical feature is Reduced factor X coagulant activity, annotated with Red
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6477,6 +6563,9 @@ This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6541,6 +6630,9 @@ This clinical feature is Prolonged activated partial thromboplastin time, annota
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6621,6 +6713,9 @@ This clinical feature is Haemoperitoneum from ovulation bleeding, annotated with
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6735,6 +6830,9 @@ This disease-associated gene is F10 (hgnc:3528). hgnc:3528 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 

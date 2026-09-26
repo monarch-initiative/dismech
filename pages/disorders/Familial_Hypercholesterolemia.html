@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4791,6 +4833,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ldlr-functional-defect" data-dismech-node="LDLR Functional Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">LDLR Functional Defect</div>
 
+
                 <div class="item-desc">Pathogenic LDLR variants reduce receptor synthesis, trafficking, ligand binding, internalization, or recycling, lowering functional LDL receptor abundance on hepatocytes and weakening the core LDL clearance pathway.
 </div>
 
@@ -5030,6 +5073,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apob-ldlr-binding-defect" data-dismech-node="APOB-LDLR Binding Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">APOB-LDLR Binding Defect</div>
 
+
                 <div class="item-desc">Pathogenic APOB variants leave the receptor pathway present but impair binding of apoB-containing LDL particles to LDLR, creating a ligand-side failure of hepatic LDL uptake.
 </div>
 
@@ -5238,6 +5282,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pcsk9-gain-of-function" data-dismech-node="PCSK9 Gain-of-Function" data-dismech-type="pathophysiology">
                 <div class="item-name">PCSK9 Gain-of-Function</div>
+
 
                 <div class="item-desc">Gain-of-function PCSK9 variants create a dominant mechanism of FH by increasing the rate at which LDLR is removed from the hepatocyte surface.
 </div>
@@ -5448,6 +5493,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ldlrap1-related-ldl-uptake-defect" data-dismech-node="LDLRAP1-Related LDL Uptake Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">LDLRAP1-Related LDL Uptake Defect</div>
 
+
                 <div class="item-desc">Biallelic LDLRAP1 variants define a rarer recessive route into the same LDLR pathway failure, showing that FH can also start at a genetically disrupted LDL uptake step without a primary LDLR coding defect.
 </div>
 
@@ -5656,6 +5702,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apoe-related-lipoprotein-clearance-defect" data-dismech-node="APOE-Related Lipoprotein Clearance Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">APOE-Related Lipoprotein Clearance Defect</div>
+
 
                 <div class="item-desc">Rare APOE variants can create an FH-like phenotype by disrupting clearance of apoE-containing lipoproteins, providing an uncommon genetic route into the same impaired lipoprotein-clearance axis.
 </div>
@@ -5906,6 +5953,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pcsk9-mediated-ldlr-degradation" data-dismech-node="PCSK9-Mediated LDLR Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">PCSK9-Mediated LDLR Degradation</div>
 
+
                 <div class="item-desc">Excess PCSK9 activity accelerates degradation of mature LDL receptors after endocytosis, leaving fewer receptors available on hepatocytes to clear LDL from the circulation.
 </div>
 
@@ -6071,6 +6119,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-hepatic-ldl-clearance" data-dismech-node="Reduced Hepatic LDL Clearance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Hepatic LDL Clearance</div>
+
 
                 <div class="item-desc">Despite different causal genes, monogenic FH converges on impaired hepatic uptake and lysosomal processing of LDL particles, so plasma LDL remains elevated from birth.
 </div>
@@ -6268,6 +6317,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-circulating-ldl-cholesterol" data-dismech-node="Elevated Circulating LDL Cholesterol" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated Circulating LDL Cholesterol</div>
 
+
                 <div class="item-desc">Lifelong LDL-C excess is the central biochemical phenotype of FH and the immediate driver of arterial and extra-arterial cholesterol deposition.
 </div>
 
@@ -6413,6 +6463,7 @@ This pathophysiological event involves cholesterol homeostasis (GO:0042632). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidized-ldl-infiltration-of-arterial-intima" data-dismech-node="Oxidized LDL Infiltration of Arterial Intima" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidized LDL Infiltration of Arterial Intima</div>
+
 
                 <div class="item-desc">Lifelong FH-associated LDL/apoB excess increases subendothelial retention of LDL in the arterial intima. Retained LDL is oxidatively and enzymatically modified, activating endothelium and establishing the initiating lipid and inflammatory milieu for FH-associated atherogenesis.
 </div>
@@ -6647,6 +6698,7 @@ This pathophysiological event occurs in tunica intima (UBERON:0002523). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-recruitment-to-arterial-intima" data-dismech-node="Macrophage Recruitment to Arterial Intima" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage Recruitment to Arterial Intima</div>
 
+
                 <div class="item-desc">Inflammatory signaling within the lipid-rich intima recruits macrophages to early arterial lesions.
 </div>
 
@@ -6842,6 +6894,7 @@ This pathophysiological event occurs in tunica intima (UBERON:0002523). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-derived-foam-cell-formation" data-dismech-node="Macrophage-Derived Foam Cell Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage-Derived Foam Cell Formation</div>
+
 
                 <div class="item-desc">Recruited intimal macrophages internalize retained and modified apoB lipoproteins and differentiate into lipid-laden foam cells. Foam-cell inflammation and oxidative signaling reinforce endothelial activation, monocyte recruitment, and further foam-cell formation.
 </div>
@@ -7160,6 +7213,7 @@ This pathophysiological event occurs in tunica intima (UBERON:0002523). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atherosclerotic-plaque-development" data-dismech-node="Atherosclerotic Plaque Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Atherosclerotic Plaque Development</div>
+
 
                 <div class="item-desc">Chronic intimal lipid retention and foam-cell inflammation induce vascular smooth muscle cells to switch phenotype, migrate and proliferate in the intima, and secrete extracellular matrix. Together with lipid-laden cells, this smooth-muscle and matrix response assembles the fibrofatty plaque that is the core arterial consequence of lifelong LDL excess in FH.
 </div>
@@ -7519,6 +7573,7 @@ This pathophysiological event occurs in tunica intima (UBERON:0002523). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-advanced-atheroma-with-necrotic-core-and-fibrous-cap" data-dismech-node="Advanced Atheroma with Necrotic Core and Fibrous Cap" data-dismech-type="pathophysiology">
                 <div class="item-name">Advanced Atheroma with Necrotic Core and Fibrous Cap</div>
 
+
                 <div class="item-desc">In a subset of progressively enlarging FH plaques, continued lipid loading, foam-cell death, and extracellular-matrix remodeling form an advanced atheroma with a necrotic lipid core beneath a vascular-smooth-muscle-cell and matrix-rich fibrous cap. Local remodeling can convert a stable plaque to a vulnerable phenotype; this later stage is not required for every FH plaque.</div>
 
 
@@ -7688,6 +7743,7 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plaque-rupture-thrombosis-and-ischemic-events" data-dismech-node="Plaque Rupture, Thrombosis, and Ischemic Events" data-dismech-type="pathophysiology">
                 <div class="item-name">Plaque Rupture, Thrombosis, and Ischemic Events</div>
 
+
                 <div class="item-desc">When an unstable FH atheroma ruptures or erodes, exposure of its thrombogenic core and subendothelial matrix can trigger luminal thrombosis and acute ischemic events. This conditional atherothrombotic route is represented separately from the broader premature ASCVD node, because stable obstructive coronary disease and angina do not require plaque rupture.</div>
 
 
@@ -7835,6 +7891,7 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-atherosclerotic-cardiovascular-disease" data-dismech-node="Premature Atherosclerotic Cardiovascular Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Atherosclerotic Cardiovascular Disease</div>
 
+
                 <div class="item-desc">The arterial branch culminates in premature coronary artery disease, angina, myocardial infarction, stroke, and peripheral arterial disease, with earlier and more severe presentations in biallelic disease.
 </div>
 
@@ -7974,6 +8031,7 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extra-arterial-cholesterol-deposition" data-dismech-node="Extra-arterial Cholesterol Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Extra-arterial Cholesterol Deposition</div>
 
+
                 <div class="item-desc">Chronic LDL excess also drives cholesterol deposition outside the arterial wall, creating the visible stigmata of FH and contributing to valvular disease.
 </div>
 
@@ -8066,6 +8124,7 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tendon-and-cutaneous-cholesterol-deposition" data-dismech-node="Tendon and Cutaneous Cholesterol Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Tendon and Cutaneous Cholesterol Deposition</div>
+
 
                 <div class="item-desc">Cholesterol-rich deposits accumulate in the Achilles and hand tendons and in the skin and eyelids, producing tendon xanthomas, cutaneous xanthomas, and xanthelasma.
 </div>
@@ -8197,6 +8256,7 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corneal-cholesterol-deposition" data-dismech-node="Corneal Cholesterol Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Corneal Cholesterol Deposition</div>
 
+
                 <div class="item-desc">Lipid deposition at the peripheral cornea produces premature corneal arcus, especially when LDL exposure begins early in life.
 </div>
 
@@ -8274,6 +8334,7 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortic-valve-lipid-deposition-and-calcification" data-dismech-node="Aortic Valve Lipid Deposition and Calcification" data-dismech-type="pathophysiology">
                 <div class="item-name">Aortic Valve Lipid Deposition and Calcification</div>
+
 
                 <div class="item-desc">In severe, especially biallelic FH, chronic lipid deposition in the aortic root and valve contributes to early calcific aortic valve disease.
 </div>
@@ -8458,6 +8519,9 @@ This clinical feature is Premature coronary artery atherosclerosis (HP:0005181).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8524,6 +8588,9 @@ This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:000167
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8600,6 +8667,9 @@ This clinical feature is Angina pectoris (HP:0001681). HP:0001681 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8666,6 +8736,9 @@ This clinical feature is Myocardial infarction (HP:0001658). HP:0001658 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8742,6 +8815,9 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8808,6 +8884,9 @@ This clinical feature is Atherosclerosis (HP:0002621). HP:0002621 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8884,6 +8963,9 @@ This clinical feature is Peripheral arterial stenosis (HP:0004950). HP:0004950 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8955,6 +9037,9 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9021,6 +9106,9 @@ This clinical feature is Supravalvular aortic stenosis (HP:0004381). HP:0004381 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9124,6 +9212,9 @@ This clinical feature is Aortic atherosclerotic lesion (HP:0012397). HP:0012397 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9189,6 +9280,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9275,6 +9369,9 @@ This clinical feature is Corneal arcus (HP:0001084). HP:0001084 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9350,6 +9447,9 @@ This clinical feature is Xanthelasma (HP:0001114). HP:0001114 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9432,6 +9532,9 @@ This clinical feature is Tendon xanthomatosis (HP:0010874). HP:0010874 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9535,6 +9638,9 @@ This clinical feature is Cutaneous xanthomas, annotated with Xanthomatosis (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9615,6 +9721,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9668,6 +9777,8 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
 
+
+
                 <span class="context-gene-tag" style="background: #fce7f3; color: #9d174d;">HETEROZYGOUS</span>
 
 
@@ -9684,6 +9795,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
             </div>
+
+
+
 
             <div class="context-detail">Heterozygous FH</div>
 
@@ -9740,6 +9854,8 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
 
+
+
                 <span class="context-gene-tag" style="background: #fce7f3; color: #9d174d;">HOMOZYGOUS</span>
 
 
@@ -9758,6 +9874,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
                 <span class="context-severity">Severe</span>
 
             </div>
+
+
+
 
             <div class="context-detail">Homozygous FH</div>
 
@@ -9834,6 +9953,9 @@ This clinical feature is Increased LDL cholesterol concentration (HP:0003141). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9937,6 +10059,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10054,6 +10179,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -10137,7 +10265,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">null</span>
@@ -10145,6 +10275,11 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">No LDLR protein synthesized. Most severe class. Large deletions, frameshift, and nonsense mutations. Homozygous null patients have minimal response to statins since there is no residual receptor to upregulate.
@@ -10173,7 +10308,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -10181,6 +10318,11 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">LDLR protein synthesized but fails to properly fold or transport from ER to Golgi. Receptor is retained intracellularly and degraded.
@@ -10209,7 +10351,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -10217,6 +10361,11 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">LDLR reaches cell surface but cannot bind LDL particles normally. Mutations affect the ligand-binding domain (repeats 2-7).
@@ -10245,7 +10394,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -10253,6 +10404,11 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">LDLR binds LDL but fails to cluster in clathrin-coated pits for endocytosis. Mutations typically affect the cytoplasmic NPXY motif.
@@ -10281,7 +10437,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -10289,6 +10447,11 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">LDLR internalizes LDL but fails to release it in the endosome and does not recycle back to the cell surface. Receptor is degraded along with the ligand.
@@ -10340,6 +10503,9 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -10425,7 +10591,9 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -10433,6 +10601,11 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The most common APOB mutation causing FH. Missense variant in exon 26 that reduces apoB-100 binding to LDLR by approximately 90%. Generally produces a milder phenotype than most LDLR mutations.
@@ -10461,7 +10634,9 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -10469,6 +10644,11 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Less common APOB variant affecting the same residue as R3500Q. Also impairs LDL binding to LDLR.
@@ -10520,6 +10700,9 @@ This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from th
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -10605,7 +10788,9 @@ This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -10613,6 +10798,11 @@ This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">One of the most severe PCSK9 gain-of-function mutations. Increases PCSK9 affinity for LDLR, leading to enhanced receptor degradation and severe hypercholesterolemia. Excellent response to PCSK9 inhibitor therapy.
@@ -10641,7 +10831,9 @@ This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -10649,6 +10841,11 @@ This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">French Canadian founder mutation. Gain-of-function variant producing a moderately severe FH phenotype.
@@ -10677,7 +10874,9 @@ This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -10685,6 +10884,11 @@ This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Gain-of-function variant associated with FH. Enhances PCSK9-mediated LDLR degradation.
@@ -10736,6 +10940,9 @@ This disease-associated gene is LDLRAP1 (hgnc:18640). hgnc:18640 is a gene from 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -10816,6 +11023,9 @@ This disease-associated gene is APOE (hgnc:613). hgnc:613 is a gene from the HUG
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -10870,6 +11080,9 @@ This disease-associated gene is APOE (hgnc:613). hgnc:613 is a gene from the HUG
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Phenocopy or Modifier)</span>
 
                 </div>
+
+
+
 
 
 

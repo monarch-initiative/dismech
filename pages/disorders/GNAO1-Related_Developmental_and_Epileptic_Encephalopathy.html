@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4793,6 +4835,7 @@ This subtype is caused by variation in GNAO1 (hgnc:4389). hgnc:4389 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gnao1-pathogenic-variant-gao" data-dismech-node="GNAO1 Pathogenic Variant (Gao)" data-dismech-type="pathophysiology">
                 <div class="item-name">GNAO1 Pathogenic Variant (Gao)</div>
 
+
                 <div class="item-desc">A de novo heterozygous variant in GNAO1 alters Gao, the alpha subunit of the Go heterotrimeric G protein. This node captures the single concept of the initiating genetic lesion; most variants are missense changes clustering in the GTPase/nucleotide-binding and switch regions of the protein.</div>
 
 
@@ -4885,6 +4928,8 @@ This genetic context concerns GNAO1 (hgnc:4389). hgnc:4389 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4900,6 +4945,9 @@ This genetic context concerns GNAO1 (hgnc:4389). hgnc:4389 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">De novo heterozygous missense variants in the GTPase and switch regions. Recorded as LOSS_OF_FUNCTION for the epileptic-encephalopathy presentation this entry covers: functionally characterised epilepsy alleles reduce expression and Go-mediated inhibition, whereas gain-of-function alleles are associated primarily with the movement-disorder phenotype.</div>
 
@@ -4997,6 +5045,7 @@ This genetic context concerns GNAO1 (hgnc:4389). hgnc:4389 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-go-heterotrimeric-g-protein-signaling" data-dismech-node="Impaired Go Heterotrimeric G-Protein Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Go Heterotrimeric G-Protein Signaling</div>
+
 
                 <div class="item-desc">The variant Gao subunit disrupts the Go signaling cycle - abnormal guanine nucleotide binding/hydrolysis, reduced or altered coupling to inhibitory G-protein-coupled receptors, and in some variants a dominant-negative effect on wild-type Gao. This node captures the single concept of the shared upstream molecular lesion, from which two distinct effector arms diverge.</div>
 
@@ -5203,6 +5252,7 @@ This pathophysiological event involves abnormal G protein-coupled receptor signa
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-gbg-modulation-of-presynaptic-calcium-channels" data-dismech-node="Impaired Gbg Modulation of Presynaptic Calcium Channels" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Gbg Modulation of Presynaptic Calcium Channels</div>
 
+
                 <div class="item-desc">Normally the Gbg subunit released from activated Go inhibits presynaptic voltage-gated (Cav2.1/Cav2.2) calcium channels to restrain neurotransmitter release and activates GIRK potassium channels. Variant Go disrupts this Gbg-mediated brake, dysregulating synaptic neurotransmitter release. This node captures the single concept of the synaptic/ion-channel effector arm and conforms to the shared epilepsy final common pathway.</div>
 
 
@@ -5393,6 +5443,7 @@ This pathophysiological event involves abnormal Regulation of neurotransmitter s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-adenylyl-cyclase-camp-signaling" data-dismech-node="Dysregulated Adenylyl Cyclase-cAMP Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Adenylyl Cyclase-cAMP Signaling</div>
 
+
                 <div class="item-desc">As a Gi/o-family subunit, Gao contributes to modulation of adenylyl cyclase-cAMP signaling downstream of inhibitory GPCRs; variants perturb this control in either direction. In vitro cAMP-inhibition assays classify GNAO1 variants by their effect on this arm - loss-of-function (reduced cAMP inhibition) segregates toward the epilepsy pole, whereas gain-of-function (enhanced cAMP inhibition) segregates toward the movement pole. This node captures the single concept of the second-messenger effector arm, which feeds both output poles.</div>
 
 
@@ -5574,6 +5625,7 @@ This pathophysiological event involves abnormal Adenylate cyclase-inhibiting G p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-excitation-inhibition-imbalance" data-dismech-node="Cortical Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Excitation-Inhibition Imbalance</div>
 
+
                 <div class="item-desc">Disrupted inhibitory G-protein signaling displaces the balance of excitation and inhibition in cortical networks. This node captures the single concept of the cortical network imbalance and conforms to the shared epilepsy final common pathway. The direction of the displacement is measured discordantly, so this node asserts the imbalance rather than a single sign: cellular and model-system work reports loss of inhibitory signaling, i.e. hyperexcitability, whereas the one direct measurement of the ratio in patients - resting-state quantitative EEG - reports inhibition-dominant alpha dynamics, which its authors read as compensation for underlying hyperexcitability rather than as its absence.</div>
 
 
@@ -5747,6 +5799,7 @@ This pathophysiological event involves decreased Inhibitory postsynaptic potenti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-basal-ganglia-output-dysregulation" data-dismech-node="Basal Ganglia Output Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Basal Ganglia Output Dysregulation</div>
 
+
                 <div class="item-desc">Disrupted Go signaling in striatal medium spiny neurons (which express Gao and its coupled D2 dopamine and other receptors) dysregulates basal-ganglia motor output. This node captures the single concept of the movement-disorder effector arm, kept separate from the cortical/epilepsy arm.</div>
 
 
@@ -5859,6 +5912,7 @@ This pathophysiological event involves Abnormal G protein-coupled receptor signa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-and-epileptic-encephalopathy" data-dismech-node="Developmental and Epileptic Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental and Epileptic Encephalopathy</div>
+
 
                 <div class="item-desc">The clinical result of the cortical arm is early-onset, often multiple-type and drug-resistant seizures with developmental impairment - a developmental and epileptic encephalopathy. This node captures the single concept of the epilepsy-pole endpoint and conforms to the shared epilepsy final common pathway.</div>
 
@@ -6001,6 +6055,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperkinetic-movement-disorder" data-dismech-node="Hyperkinetic Movement Disorder" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperkinetic Movement Disorder</div>
+
 
                 <div class="item-desc">The clinical result of the basal-ganglia arm is a hyperkinetic movement disorder - chorea, dystonia, or a mixed dyskinesia affecting the whole body, with a tendency to spontaneous or triggered exacerbations and potentially life-threatening hyperkinetic crises (status dystonicus). This node captures the single concept of the movement-pole endpoint.</div>
 
@@ -6226,6 +6281,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6260,6 +6318,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6332,6 +6393,9 @@ This clinical feature is Epileptic encephalopathy (HP:0200134), qualified as inf
 
 
                     </div>
+
+
+
 
 
 
@@ -6410,6 +6474,9 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-focal-seizures" data-dismech-node="Focal Seizures" data-dismech-type="phenotype">
@@ -6437,6 +6504,9 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6482,6 +6552,9 @@ This clinical feature is Generalized-onset seizure (HP:0002197). HP:0002197 is a
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-chorea" data-dismech-node="Chorea" data-dismech-type="phenotype">
@@ -6507,6 +6580,9 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6581,6 +6657,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6645,6 +6724,9 @@ This clinical feature is Choreoathetosis (HP:0001266). HP:0001266 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6723,6 +6805,9 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
@@ -6757,6 +6842,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
@@ -6782,6 +6870,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6863,6 +6954,9 @@ This disease-associated gene is GNAO1 (hgnc:4389). hgnc:4389 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

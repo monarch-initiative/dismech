@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4662,6 +4704,7 @@ MRXS33 is allelic to, and clinically distinct from, X-linked dystonia-parkinsoni
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-taf1-hypomorphic-missense-variants" data-dismech-node="TAF1 Hypomorphic Missense Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">TAF1 Hypomorphic Missense Variants</div>
 
+
                 <div class="item-desc">Germline missense variants across the TAF1 coding sequence are the predominant disease lesion. Reported alleles are almost exclusively missense, and hemizygous or homozygous loss-of-function alleles are absent from population databases, which together with embryonic lethality of null alleles in mouse and zebrafish indicates that surviving disease alleles are hypomorphic rather than null.
 </div>
 
@@ -4861,6 +4904,7 @@ This pathophysiological event involves TAF1 (hgnc:11535). hgnc:11535 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-taf1-bromodomain-repression-in-cardiogenesis" data-dismech-node="Loss of TAF1 Bromodomain Repression in Cardiogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of TAF1 Bromodomain Repression in Cardiogenesis</div>
 
+
                 <div class="item-desc">TAF1&#39;s C-terminal bromodomain exerts a repressive role during cardiogenesis. Damaging bromodomain missense variants taken from congenital heart disease patients abrogate that repression, and a selective chemical inhibitor of the TAF1 bromodomain reproduces the same effect - it was recovered in an unbiased screen as an activator of atrial and ventricular fetal myosins during pluripotent stem cell differentiation. This is the entry&#39;s only mechanism-level account of the cardiac phenotype, and it is specific to the bromodomain variant class rather than to TAF1 variants generally.
 </div>
 
@@ -4963,6 +5007,7 @@ This pathophysiological event involves TAF1 (hgnc:11535). hgnc:11535 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-taf1-locus-duplication" data-dismech-node="TAF1 Locus Duplication" data-dismech-type="pathophysiology">
                 <div class="item-name">TAF1 Locus Duplication</div>
+
 
                 <div class="item-desc">A second, distinct initiating lesion: large duplications at Xq13.1 encompassing TAF1 and neighboring genes. These families overlap the missense phenotype but add severe progressive neurodegeneration, so the duplication is modeled as its own trigger rather than as a variant class of the missense lesion.
 </div>
@@ -5093,6 +5138,7 @@ This pathophysiological event involves TAF1 (hgnc:11535). hgnc:11535 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-rap74-phosphorylation-in-patient-cells" data-dismech-node="Reduced RAP74 Phosphorylation in Patient Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced RAP74 Phosphorylation in Patient Cells</div>
+
 
                 <div class="item-desc">Lymphoblasts from probands carrying two independent pathogenic TAF1 variants show reduced phosphorylation of RNA polymerase II-associated protein 74 (RAP74). The curated observation here is that measured reduction in RAP74 phosphorylation, not the identity of the responsible kinase. PMID:42548218 attributes the activity to TAF1&#39;s own N- and C-terminal serine/threonine kinase domains, but a 2024 TAF1 review reports that the enzymatic activities historically attributed to TAF1 — kinase among them — could not be confirmed in recent TFIID/TAF1 studies and that much of the underlying work has been retracted. This node therefore does not bind a TAF1 kinase molecular function, and the route onward to transcriptional dysfunction is hypothesis-scoped.
 </div>
@@ -5243,6 +5289,7 @@ This pathophysiological event involves TAF1 (hgnc:11535). hgnc:11535 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tfiid-dependent-transcription-dysfunction" data-dismech-node="TFIID-Dependent Transcription Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">TFIID-Dependent Transcription Dysfunction</div>
+
 
                 <div class="item-desc">TAF1 is the largest subunit of TFIID, which with TATA-binding protein and the other TBP-associated factors nucleates the RNA polymerase II preinitiation complex at essentially all pol II promoters. A TAF1 lesion therefore perturbs a general transcription function rather than a single target pathway. The node is tagged DYSREGULATED rather than DECREASED because it has two upstream lesions pushing in opposite directions — hypomorphic missense alleles reducing TAF1 function and Xq13.1 duplications increasing TAF1 dosage — and because no study has measured preinitiation complex assembly in patient material in either direction.
 </div>
@@ -5419,6 +5466,7 @@ This pathophysiological event involves dysregulated RNA polymerase II preinitiat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-craniofacial-development" data-dismech-node="Impaired Craniofacial Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Craniofacial Development</div>
 
+
                 <div class="item-desc">Loss of TAF/TFIID function disrupts craniofacial development. In zebrafish, taf5 nonsense mutation produces craniofacial hypoplasia alongside cardiac defects, and CRISPR editing shows the same defects are phenocopied by taf1 mutation; craniofacial hypoplasia is part of the shared human TAFopathy phenotype. This node is the developmental substrate for the recognizable facial gestalt, and its direct evidence is from model organisms.
 </div>
 
@@ -5551,6 +5599,7 @@ This pathophysiological event occurs in craniofacial region, annotated with cran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-neurodevelopmental-transcriptional-program" data-dismech-node="Dysregulated Neurodevelopmental Transcriptional Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Neurodevelopmental Transcriptional Program</div>
+
 
                 <div class="item-desc">The transcriptional consequence of impaired TFIID function is preferentially felt in neurodevelopmental gene sets. Patient RNA-seq shows downregulation of E-box-regulated genes; taf1-null zebrafish transcriptomes are enriched for neurodevelopmental genes; and TAF1-deficient neuronal cells show differential expression of neuronal ion channel genes.
 </div>
@@ -5713,6 +5762,7 @@ This pathophysiological event involves dysregulated regulation of transcription 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-differentiation-and-neurodevelopment" data-dismech-node="Impaired Neuronal Differentiation and Neurodevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Differentiation and Neurodevelopment</div>
+
 
                 <div class="item-desc">Neuronal differentiation and proliferation are impaired in TAF1-variant neuronal cells, and intact taf1 is required for embryonic development with knockout transcriptomes enriched for neurodevelopmental processes. This is the cellular step through which the transcriptional lesion becomes a neurodevelopmental syndrome.
 </div>
@@ -5948,6 +5998,7 @@ This pathophysiological event involves decreased neuron differentiation (GO:0030
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-purkinje-cell-loss" data-dismech-node="Cerebellar Purkinje Cell Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Purkinje Cell Loss</div>
+
 
                 <div class="item-desc">In a CRISPR/Cas9 TAF1-edited rat model, TAF1 deletion causes Purkinje cell hypoplasia and loss with reduced CaV3.1 T-type calcium channel expression, and abnormal motor symptoms track with the resulting irregular cerebellar output. This node is model-derived: no human neuropathology has been reported for MRXS33.
 </div>
@@ -6274,6 +6325,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6377,6 +6431,9 @@ This clinical feature is Oral-pharyngeal dysphagia (HP:0200136). HP:0200136 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6455,6 +6512,9 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6519,6 +6579,9 @@ This clinical feature is Protruding ear (HP:0000411). HP:0000411 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6590,6 +6653,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6670,6 +6736,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6757,6 +6826,9 @@ This clinical feature is Abnormality of the genitourinary system (HP:0000119). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6832,6 +6904,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6952,6 +7027,9 @@ This clinical feature is Prominent supraorbital ridges (HP:0000336). HP:0000336 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7046,6 +7124,9 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7110,6 +7191,9 @@ This clinical feature is Long face (HP:0000276). HP:0000276 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7184,6 +7268,9 @@ This clinical feature is Pointed chin (HP:0000307). HP:0000307 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7248,6 +7335,9 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7322,6 +7412,9 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7386,6 +7479,9 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7471,6 +7567,9 @@ This clinical feature is Sacral dimple (HP:0000960). HP:0000960 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7549,6 +7648,9 @@ This clinical feature is Large hands (HP:0001176). HP:0001176 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7622,6 +7724,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7721,6 +7826,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7794,6 +7902,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7893,6 +8004,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7987,6 +8101,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8053,6 +8170,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8129,6 +8249,9 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8195,6 +8318,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8294,6 +8420,9 @@ This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8358,6 +8487,9 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8452,6 +8584,9 @@ This clinical feature is Neurodegeneration (HP:0002180). HP:0002180 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8593,6 +8728,9 @@ This disease-associated gene is TAF1 (hgnc:11535). hgnc:11535 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -8702,6 +8840,12 @@ This disease-associated gene is TAF1 (hgnc:11535). hgnc:11535 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Missense variant in the RAP74-interacting domain, co-segregating with X-linked intellectual disability across a five-generation family.
 </div>
 
@@ -8760,6 +8904,12 @@ This disease-associated gene is TAF1 (hgnc:11535). hgnc:11535 is a gene from the
         TAF1 c.4735A&gt;G p.Ser1600Gly
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Missense variant in the second bromodomain identified by combined genome and transcriptome sequencing in a proband with cerebellar hypoplasia; the carrier mother showed 90:10 skewed X-chromosome inactivation.
@@ -8847,6 +8997,12 @@ This disease-associated gene is TAF1 (hgnc:11535). hgnc:11535 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Translation-initiation-codon variant found in the original Abidi syndrome family, whose lymphoblasts show reduced RAP74 phosphorylation.
 </div>
 
@@ -8905,6 +9061,12 @@ This disease-associated gene is TAF1 (hgnc:11535). hgnc:11535 is a gene from the
         TAF1 c.4286A&gt;C p.(Gln1429Pro)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">C-terminal domain missense variant identified in a second X-linked intellectual disability family, also associated with reduced RAP74 phosphorylation.

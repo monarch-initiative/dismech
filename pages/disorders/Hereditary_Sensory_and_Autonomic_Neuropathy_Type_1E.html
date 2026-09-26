@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4461,6 +4503,7 @@ Candidate explanations available in the literature cited here: the methylome ana
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dnmt1-targeting-sequence-domain-misfolding" data-dismech-node="DNMT1 Targeting-Sequence Domain Misfolding" data-dismech-type="pathophysiology">
                 <div class="item-name">DNMT1 Targeting-Sequence Domain Misfolding</div>
 
+
                 <div class="item-desc">The initiating lesion. Causal variants cluster in the targeting sequence (TS, also RFTS) domain encoded by exons 20 and 21, and the residues involved sit in the hydrophobic core or the linker between the domain&#39;s two subdomains rather than at the catalytic site. Expressed in bacteria, wild-type TS domain is soluble while the mutant domains form inclusion bodies - direct evidence of misfolding rather than of an altered but folded protein.</div>
 
 
@@ -4483,9 +4526,14 @@ Candidate explanations available in the literature cited here: the methylome ana
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4608,6 +4656,7 @@ Candidate explanations available in the literature cited here: the methylome ana
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-dnmt1-degradation-and-loss-of-chromatin-targeting" data-dismech-node="Premature DNMT1 Degradation and Loss of Chromatin Targeting" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature DNMT1 Degradation and Loss of Chromatin Targeting</div>
+
 
                 <div class="item-desc">Three consequences of the same misfold, which is why they are one node rather than three. The protein is degraded in late S and G2 phase; it fails to remain associated with heterochromatin when it should; and it loses the UHRF1 interaction that normally delivers it to hemimethylated substrate after replication. The enzyme&#39;s catalytic domain is intact, so this is a failure of delivery and persistence rather than of chemistry - which is why measured methyltransferase activity falls without the active site being touched.</div>
 
@@ -4748,6 +4797,7 @@ This pathophysiological event involves decreased DNA (cytosine-5-)-methyltransfe
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-hypomethylation-with-site-specific-hypermethylation" data-dismech-node="Global Hypomethylation with Site-Specific Hypermethylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Hypomethylation with Site-Specific Hypermethylation</div>
 
+
                 <div class="item-desc">The epigenomic phenotype, and the reason this disease is not simply &#34;loss of methylation&#34;. Whole-genome bisulfite sequencing of three patient-sibling pairs found consistent methylation loss across all chromosomes, with X and chromosome 18 most affected, and over half a million differentially methylated CpG sites. Hypomethylation predominates in promoters, exons, most CpG islands and repeat classes - but within some CpG islands hypermethylated sites outnumber hypomethylated ones, and imprinted genes carry more differentially methylated sites than non-imprinted genes. A maintenance enzyme that is mistargeted rather than simply absent produces exactly this mixed picture.</div>
 
 
@@ -4873,6 +4923,7 @@ This pathophysiological event involves decreased DNA (cytosine-5-)-methyltransfe
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-apoptosis-and-failed-neuronal-differentiation" data-dismech-node="Neuronal Apoptosis and Failed Neuronal Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Apoptosis and Failed Neuronal Differentiation</div>
+
 
                 <div class="item-desc">The cellular consequence. DNMT1 is highly expressed in postmitotic neurons despite its canonical role being replication-coupled, which is the standing puzzle of this disease: how a maintenance methyltransferase defect damages cells that are not dividing. Cells expressing mutant DNMT1 are apoptosis-prone and fail to enter the neuronal lineage in differentiation assays.</div>
 
@@ -5030,6 +5081,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-length-dependent-sensory-axonal-degeneration" data-dismech-node="Length-Dependent Sensory Axonal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Length-Dependent Sensory Axonal Degeneration</div>
 
+
                 <div class="item-desc">The peripheral arm. Quantitative sensory testing, nerve conduction studies and nerve biopsy all indicate progressive sensory axonal loss in a length-dependent distribution, with nerve pathology showing axonal loss without inflammatory or infiltrative inclusions. Sensory nerve action potentials are absent while motor conduction is near-normal, which is what makes this a pure sensory neuropathy rather than a sensorimotor one.</div>
 
 
@@ -5149,6 +5201,7 @@ This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-atrophy" data-dismech-node="Central Nervous System Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Nervous System Atrophy</div>
+
 
                 <div class="item-desc">The central arm. Brain imaging shows global atrophy and autopsied brains are reduced in weight; functional imaging in one kindred suggested medial frontal and thalamic hypometabolism. As in the nerve, the pathology is axonal loss without infiltrative inclusions, so this is not a proteinopathy.</div>
 
@@ -5346,6 +5399,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5421,6 +5477,9 @@ This clinical feature is Renal failure, annotated with Renal insufficiency (HP:0
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5522,6 +5581,9 @@ This clinical feature is Osteomyelitis (HP:0002754), qualified as temporality ch
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5602,6 +5664,9 @@ This clinical feature is Hypohidrosis (HP:0000966). HP:0000966 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5668,6 +5733,9 @@ This clinical feature is Painless foot ulcer, annotated with Skin ulcer (HP:0200
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5794,6 +5862,9 @@ This clinical feature is Sensory neuropathy (HP:0000763), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5881,6 +5952,9 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5947,6 +6021,9 @@ This clinical feature is Abnormal autonomic nervous system physiology (HP:001233
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6021,6 +6098,9 @@ This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6085,6 +6165,9 @@ This clinical feature is Cataplexy (HP:0002524). HP:0002524 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6184,6 +6267,9 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6248,6 +6334,9 @@ This clinical feature is Hallucinations (HP:0000738). HP:0000738 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6319,6 +6408,9 @@ This clinical feature is Global brain atrophy (HP:0002283). HP:0002283 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6411,6 +6503,9 @@ This clinical feature is Loss of pain sensation, annotated with Impaired pain se
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6493,6 +6588,9 @@ This clinical feature is Loss of vibration sense, annotated with Impaired vibrat
 
 
                     </div>
+
+
+
 
 
 
@@ -6594,6 +6692,9 @@ This clinical feature is Personality change, annotated with Personality changes 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6688,6 +6789,9 @@ This clinical feature is Frontotemporal dementia-like syndrome, annotated with F
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6777,6 +6881,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6916,6 +7023,9 @@ This disease-associated gene is DNMT1 (hgnc:2976). hgnc:2976 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

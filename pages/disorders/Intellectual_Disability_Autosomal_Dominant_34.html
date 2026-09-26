@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4583,6 +4625,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cert1-autoregulatory-domain-missense-variant" data-dismech-node="CERT1 Autoregulatory-Domain Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">CERT1 Autoregulatory-Domain Missense Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is a heterozygous missense variant in CERT1 affecting the autoregulatory apparatus of the ceramide transport protein: the serine-repeat motif serines (p.S132, p.S135, p.S138, p.S141), the nearby non-SRM residue p.G243, or the dimeric helical domain that mediates homeostatic inactivation. The variant is de novo in most reported individuals.</div>
 
 
@@ -4677,6 +4726,8 @@ This genetic context concerns CERT1 (hgnc:2205). hgnc:2205 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4692,6 +4743,9 @@ This genetic context concerns CERT1 (hgnc:2205). hgnc:2205 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Disease alleles are heterozygous missense changes that render CERT excessively active. This is a gain of function and not haploinsufficiency: a C-terminal frameshift allele (p.Pro749fs) segregated away from intellectual disability in its family and left CERT function intact in knock-in cells, so it served as a disease-matched negative control.</div>
 
@@ -4814,6 +4868,13 @@ This genetic context concerns CERT1 (hgnc:2205). hgnc:2205 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-phosphorylation-dependent-cert-autorepression" data-dismech-node="Loss of Phosphorylation-Dependent CERT Autorepression" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Phosphorylation-Dependent CERT Autorepression</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">CERT is normally silenced by multisite phosphorylation of its serine-repeat motif once cellular sphingomyelin requirements are met. Disease variants shift the protein from the hyperphosphorylated form to de- or hypophosphorylated forms, so this negative-feedback brake is lost.</div>
 
@@ -4970,6 +5031,13 @@ This pathophysiological event involves decreased SRM hyperphosphorylation of CER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-cert-activation" data-dismech-node="Constitutive CERT Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive CERT Activation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">With autorepression lost, CERT is excessively and constitutively active as a ceramide transfer protein. This is the pivotal gain-of-function state of the disorder and the node that CERT inhibitors are aimed at.</div>
 
@@ -5138,6 +5206,13 @@ This pathophysiological event involves CERT-mediated ceramide transfer activity,
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-punctate-subcellular-redistribution-of-cert" data-dismech-node="Punctate Subcellular Redistribution of CERT" data-dismech-type="pathophysiology">
                 <div class="item-name">Punctate Subcellular Redistribution of CERT</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Activated CERT variants adopt an abnormal punctate intracellular distribution. This is a cellular correlate of the activated state rather than a demonstrated cause of downstream neural pathology, and it has been proposed as the basis of a functional assay for variant interpretation.</div>
 
 
@@ -5244,6 +5319,13 @@ This pathophysiological event involves organelle membrane contact site (GO:00442
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excess-er-to-golgi-ceramide-transfer" data-dismech-node="Excess ER-to-Golgi Ceramide Transfer" data-dismech-type="pathophysiology">
                 <div class="item-name">Excess ER-to-Golgi Ceramide Transfer</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Non-vesicular delivery of ceramide from the endoplasmic reticulum to the trans-Golgi runs above its normally regulated level.</div>
 
@@ -5397,6 +5479,13 @@ This pathophysiological event involves trans-Golgi network (GO:0005802). GO:0005
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-sphingomyelin-synthesis" data-dismech-node="Increased Sphingomyelin Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Sphingomyelin Synthesis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Sphingomyelin production rises above the level set by cellular demand. Metabolic labelling in cells expressing S132L or G243R CERT showed significantly more labelled sphingomyelin than wild-type-rescued cells.</div>
 
 
@@ -5527,6 +5616,13 @@ This pathophysiological event involves increased sphingomyelin biosynthetic proc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-sphingolipid-homeostasis" data-dismech-node="Dysregulated Sphingolipid Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Sphingolipid Homeostasis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The feedback loop that matches sphingolipid biosynthetic flux to cellular requirement is broken, so the sphingolipid composition of membranes is set by an unregulated transporter rather than by demand.</div>
 
@@ -5682,6 +5778,13 @@ This pathophysiological event involves dysregulated sphingolipid metabolic proce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neural-differentiation-and-synaptic-membrane-function" data-dismech-node="Impaired Neural Differentiation and Synaptic Membrane Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neural Differentiation and Synaptic Membrane Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Altered sphingolipid flux in the developing nervous system is inferred to compromise neural differentiation, membrane composition and synaptic function, producing the cognitive, motor, language and behavioural phenotype. This is the least well characterised step of the chain: no patient neural tissue, iPSC-neuron or organoid study has identified the primary vulnerable cell type.</div>
 
@@ -5987,6 +6090,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-cerebral-myelination-and-atrophy" data-dismech-node="Abnormal Cerebral Myelination and Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Cerebral Myelination and Atrophy</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A subset of affected individuals show thin corpus callosum, ventriculomegaly, delayed myelination and cerebellar atrophy on brain MRI. In one autopsied child, choroid plexus epithelial disorganisation with reduced aquaporin-1, cysts and calcification, and perivascular spaces distended with proteinaceous material were also found.</div>
 
 
@@ -6236,7 +6346,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Cerebral Myelination and Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of affected individuals show thin corpus callosum, ventriculomegaly, delayed myelination and cerebellar atrophy on brain MRI. In one autopsied child, choroid plexus epithelial disorganisation with reduced aquaporin-1, cysts and calcification, and perivascular spaces distended with proteinaceous material were also found.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"myelination\"], \"locations\": [\"corpus callosum\", \"cerebellum\"]}}, {\"id\": \"Aggressive behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aggression, the least frequent of the individual behavioural features recorded in the cohort but still present in about a third of those assessed.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000718\"}}, {\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard antiseizure medication selected by seizure type for the subset with epilepsy. No disorder-specific drug choice or pharmacogenomic algorithm has been established.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Attention deficit hyperactivity disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Attention deficit and hyperactivity, diagnosed in about half of the behaviourally assessed cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioural abnormality is the umbrella finding; the individual behaviours that make it up are curated separately below with their own cohort denominators. Retained as the general term because the secondary literature describes the phenotype at this level.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000708\"}}, {\"id\": \"Autism spectrum disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A formal autism spectrum disorder diagnosis was reached in most assessed members of the defining cohort. It accompanies the neurodevelopmental phenotype rather than constituting it: no cohort member carried ASD as a primary diagnosis, and a targeted search of the SPARK autism database and denovo-db found no de novo protein-altering CERT1 variant in the exome data, so the authors conclude that CERT1 is not a significant autism gene and that CerTra syndrome is a recognisable neurodevelopmental syndrome distinct from ASD.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000717\"}}, {\"id\": \"CERT gain-of-function Drosophila melanogaster\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A Drosophila model expressing gain-of-function CERT, reported in the cohort paper as reproducing morphological and motor abnormalities that are corrected by pharmacological CERT inhibition. It is the only in vivo model of the disorder; no knock-in mouse, rat or zebrafish model was found.\"}, {\"id\": \"CERT1 Autoregulatory-Domain Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous missense variant in CERT1 affecting the autoregulatory apparatus of the ceramide transport protein: the serine-repeat motif serines (p.S132, p.S135, p.S138, p.S141), the nearby non-SRM residue p.G243, or the dimeric helical domain that mediates homeostatic inactivation. The variant is de novo in most reported individuals.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"CERT1\"], \"gene_terms\": [{\"label\": \"CERT1\", \"id\": \"hgnc:2205\"}], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Disease alleles are heterozygous missense changes that render CERT excessively active. This is a gain of function and not haploinsufficiency: a C-terminal frameshift allele (p.Pro749fs) segregated away from intellectual disability in its family and left CERT function intact in knock-in cells, so it served as a disease-matched negative control.\", \"gene_terms\": [{\"label\": \"CERT1\", \"id\": \"hgnc:2205\"}]}}}, {\"id\": \"CERT1 Gain-of-Function Missense Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 8, \"genes\": [\"CERT1\"], \"gene_terms\": [{\"label\": \"CERT1\", \"id\": \"hgnc:2205\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is reported in a subset of affected individuals.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001272\"}}, {\"id\": \"Constitutive CERT Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With autorepression lost, CERT is excessively and constitutively active as a ceramide transfer protein. This is the pivotal gain-of-function state of the disorder and the node that CERT inhibitors are aimed at.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"CERT-mediated ceramide transfer activity\"], \"animal_models\": [{\"name\": \"CERT gain-of-function Drosophila melanogaster\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"CERT gain-of-function\", \"category\": \"Genetic\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model reproduces the excess CERT transfer activity that defines the disorder, and its phenotype is reversible by inhibiting that activity, which is the strongest available causal test of this node.\"}]}}, {\"id\": \"Delayed myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed myelination on brain MRI, in one long-followed individual evolving into more widespread white-matter change.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012448\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech and language delay is prominent and often more severe than the general cognitive delay; some individuals remain non-verbal.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Digit, hand and foot anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anomalies of the hands, feet and digits, including third and fourth finger syndactyly, club foot, hallux varus with sandal gaps, a short first metatarsal and long fifth fingers. As with the facial features these are mild and variable, not a recognisable pattern.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011297\"}}, {\"id\": \"Dysregulated Sphingolipid Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The feedback loop that matches sphingolipid biosynthetic flux to cellular requirement is broken, so the sphingolipid composition of membranes is set by an unregulated transporter rather than by demand.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"sphingolipid metabolic process\"]}}, {\"id\": \"Excess ER-to-Golgi Ceramide Transfer\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-vesicular delivery of ceramide from the endoplasmic reticulum to the trans-Golgi runs above its normally regulated level.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ER-to-Golgi ceramide transport\"]}}, {\"id\": \"Facial dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial dysmorphism is subtle rather than gestalt-forming: anteverted nares with a depressed or broad nasal bridge, enlarged earlobes, synophrys, micrognathia, dental anomalies and palatine ridges. It is not a diagnostic handle and was characterised by blinded dysmorphology review of photographs rather than by clinical gestalt.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain accompanying the neonatal feeding difficulty and hypotonia. Most cohort members for whom birth data were available were born underweight, so the growth problem starts before the feeding problem is established.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding and swallowing difficulty, often beginning in the neonatal period, contributes to poor growth and requires nutritional support in some individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delay across cognitive and motor domains is the usual presenting feature and is generally apparent during infancy.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"HCT116 CERT1-knockout rescue system\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A human colon carcinoma line in which both CERT1 alleles are disrupted, then stably complemented with tagged wild-type or variant CERT. This is the platform on which the gain-of-function mechanism was established: CERT phosphorylation state by western blot, sphingomyelin output by metabolic labelling and lysenin sensitivity, and subcellular localisation by immunofluorescence, each read against wild-type rescue and against the non-causative p.Pro749fs allele.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:34688657\"}}, {\"id\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered sphingolipid flux in the developing nervous system is inferred to compromise neural differentiation, membrane composition and synaptic function, producing the cognitive, motor, language and behavioural phenotype. This is the least well characterised step of the chain: no patient neural tissue, iPSC-neuron or organoid study has identified the primary vulnerable cell type.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"nervous system development\"], \"locations\": [\"brain\"], \"animal_models\": [{\"name\": \"CERT gain-of-function Drosophila melanogaster\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"CERT gain-of-function\", \"category\": \"Genetic\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The model reproduces motor and morphological consequences of the lipid lesion, which is the closest available proxy for the human neurodevelopmental node.\"}]}}, {\"id\": \"Impaired pain sensation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced responsiveness to painful stimuli, usually reported clinically as a high pain tolerance.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007328\"}}, {\"id\": \"Increased Sphingomyelin Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sphingomyelin production rises above the level set by cellular demand. Metabolic labelling in cells expressing S132L or G243R CERT showed significantly more labelled sphingomyelin than wild-type-rescued cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sphingomyelin biosynthetic process\"], \"experimental_models\": [{\"name\": \"HCT116 CERT1-knockout rescue system\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Metabolic labelling with radiolabelled serine quantifies sphingomyelin output for each allele.\"}]}}, {\"id\": \"Infantile hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is typically evident in infancy and contributes to both motor delay and feeding difficulty.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is the defining feature and ranges from mild to profound.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of Phosphorylation-Dependent CERT Autorepression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CERT is normally silenced by multisite phosphorylation of its serine-repeat motif once cellular sphingomyelin requirements are met. Disease variants shift the protein from the hyperphosphorylated form to de- or hypophosphorylated forms, so this negative-feedback brake is lost.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"SRM hyperphosphorylation of CERT\"], \"experimental_models\": [{\"name\": \"HCT116 CERT1-knockout rescue system\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The phosphorylation-state western blot is the direct readout of this node.\"}]}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor milestones are delayed, with reported outcomes ranging from mild delay to walking only with support.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Occupational Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fine-motor and daily-living-skills intervention, and adaptive equipment, addressing the same hypotonia and global developmental delay from the functional-independence side rather than the mobility side.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pharmacological CERT Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical only. The CERT inhibitor HPA-12 corrects morphological and motor abnormalities in the Drosophila model, and a 2024 live-cell NanoBRET screen of 140 HPA-12 derivatives identified six compounds outperforming the parent compound. There is no human dosing, safety, CNS penetration or developmental-toxicity evidence, and because CERT is required for normal membrane lipid homeostasis, over-inhibition is itself a plausible harm.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gross-motor rehabilitation for the hypotonia and motor delay, including mobility equipment and contracture prevention where walking is not attained.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Punctate Subcellular Redistribution of CERT\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated CERT variants adopt an abnormal punctate intracellular distribution. This is a cellular correlate of the activated state rather than a demonstrated cause of downstream neural pathology, and it has been proposed as the basis of a functional assay for variant interpretation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a substantial minority of affected individuals and range from readily controlled epilepsy to epileptic encephalopathy. Seizures are not universal; the reported autopsy case had none.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Self-injurious behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-directed injurious behaviour, reported in about half of the patients for whom behavioural assessment was available.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100716\"}}, {\"id\": \"Sleep disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disrupted sleep patterns, a recurrent and separately burdensome feature rather than a consequence of the seizure phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech-language intervention and augmentative or alternative communication, which is the relevant modality for the substantial minority who remain non-verbal.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Stereotypical hand movements\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repetitive, non-functional hand movements, the most frequent of the individual behavioural features recorded in the cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000733\"}}, {\"id\": \"Symptom-Directed Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no disease-modifying therapy. Management is individualised and directed at the manifestations: early developmental and educational intervention, feeding and nutritional support, behavioural and sleep support, and surveillance of growth, vision, hearing and orthopaedic status.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thin corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A thin or hypoplastic corpus callosum is among the most commonly reported structural brain findings.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033725\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlargement of the cerebral ventricular system is reported in a subset of affected individuals.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002119\"}}], \"edges\": [{\"source\": \"CERT1 Autoregulatory-Domain Missense Variant\", \"target\": \"Loss of Phosphorylation-Dependent CERT Autorepression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Substitution of an SRM serine, or of a residue that supports SRM phosphorylation, prevents the hyperphosphorylation that normally silences CERT.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Phosphorylation-Dependent CERT Autorepression\", \"target\": \"Constitutive CERT Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because SRM phosphorylation is what represses transport activity, its failure leaves the transporter switched on.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive CERT Activation\", \"target\": \"Excess ER-to-Golgi Ceramide Transfer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An unrepressed transporter moves more ceramide per unit time across the ER-Golgi membrane contact site.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive CERT Activation\", \"target\": \"Punctate Subcellular Redistribution of CERT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutively activated CERT variants leave the diffuse cytoplasmic and perinuclear pattern of the wild-type protein and concentrate into puncta, partly co-staining with VAP-A.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Excess ER-to-Golgi Ceramide Transfer\", \"target\": \"Increased Sphingomyelin Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ceramide arriving at the trans-Golgi is the substrate for sphingomyelin synthase, so a higher delivery rate raises sphingomyelin output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Sphingomyelin Synthesis\", \"target\": \"Dysregulated Sphingolipid Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sphingomyelin production that is no longer matched to demand is what breaks homeostatic control of the sphingolipid pool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Sphingolipid Homeostasis\", \"target\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Membrane sphingolipids are required for neural differentiation, synaptic transmission and action potential propagation, so loss of homeostatic control of the pool is taken to compromise those processes. The intermediate steps and the vulnerable human neural cell type have not been identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Sphingolipid Homeostasis\", \"target\": \"Facial dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mild facial and distal limb features are placed downstream of the systemic sphingolipid lesion rather than of the neural node, since they are morphogenetic rather than neurological. No mechanism connecting sphingolipid flux to these structures has been demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Sphingolipid Homeostasis\", \"target\": \"Digit, hand and foot anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Placed downstream of the systemic sphingolipid lesion rather than of the neural node, on the same reasoning as the facial features they accompany: they are morphogenetic rather than neurological. No mechanism connecting sphingolipid flux to limb patterning has been demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Abnormal Cerebral Myelination and Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subset of affected individuals develop white-matter and atrophic changes on MRI, which are attributed to the same disturbance of neural lipid biology. The link rests on human imaging rather than on a demonstrated mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Infantile hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Autism spectrum disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Stereotypical hand movements\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Self-injurious behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Sleep disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Attention deficit hyperactivity disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Aggressive behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Impaired pain sensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Cerebral Myelination and Atrophy\", \"target\": \"Thin corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cerebral Myelination and Atrophy\", \"target\": \"Delayed myelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cerebral Myelination and Atrophy\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cerebral Myelination and Atrophy\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Feeding difficulties\", \"target\": \"Failure to thrive\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Neonatal feeding difficulty is the route by which poor weight gain is established in this disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Symptom-Directed Supportive Care\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptom-Directed Supportive Care\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Motor delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Infantile hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Occupational Therapy\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Occupational Therapy\", \"target\": \"Infantile hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Delayed speech and language development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pharmacological CERT Inhibition\", \"target\": \"Constitutive CERT Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HCT116 CERT1-knockout rescue system\", \"target\": \"Loss of Phosphorylation-Dependent CERT Autorepression\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The phosphorylation-state western blot is the direct readout of this node.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A colon carcinoma line is not a neural cell, and the variant CERT is expressed ectopically against a null background rather than heterozygously alongside a wild-type allele as in patients.\"}, {\"source\": \"HCT116 CERT1-knockout rescue system\", \"target\": \"Increased Sphingomyelin Synthesis\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Metabolic labelling with radiolabelled serine quantifies sphingomyelin output for each allele.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Bulk whole-cell sphingolipid levels did not differ significantly between variant and wild-type rescue in this system, so the assay reports biosynthetic flux rather than steady-state composition.\"}, {\"source\": \"CERT gain-of-function Drosophila melanogaster\", \"target\": \"Constitutive CERT Activation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model reproduces the excess CERT transfer activity that defines the disorder, and its phenotype is reversible by inhibiting that activity, which is the strongest available causal test of this node.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"CERT-mediated ceramide transport is conserved, but the fly differs from human in brain architecture, developmental timing, sphingolipid composition and drug metabolism, so the quantitative relationship between degree of CERT activation and phenotype is not transferable.\"}, {\"source\": \"CERT gain-of-function Drosophila melanogaster\", \"target\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model reproduces motor and morphological consequences of the lipid lesion, which is the closest available proxy for the human neurodevelopmental node.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The fly cannot model the defining human manifestations of this node - intellectual disability, language, adaptive behaviour - and the reported phenotype is motor and morphological, so the correspondence to the human node is partial by construction.\"}, {\"source\": \"CERT1 Gain-of-Function Missense Variants\", \"target\": \"CERT1 Autoregulatory-Domain Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Cerebral Myelination and Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of affected individuals show thin corpus callosum, ventriculomegaly, delayed myelination and cerebellar atrophy on brain MRI. In one autopsied child, choroid plexus epithelial disorganisation with reduced aquaporin-1, cysts and calcification, and perivascular spaces distended with proteinaceous material were also found.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"myelination\"], \"locations\": [\"corpus callosum\", \"cerebellum\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Aggressive behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aggression, the least frequent of the individual behavioural features recorded in the cohort but still present in about a third of those assessed.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000718\"}}, {\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard antiseizure medication selected by seizure type for the subset with epilepsy. No disorder-specific drug choice or pharmacogenomic algorithm has been established.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Attention deficit hyperactivity disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Attention deficit and hyperactivity, diagnosed in about half of the behaviourally assessed cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioural abnormality is the umbrella finding; the individual behaviours that make it up are curated separately below with their own cohort denominators. Retained as the general term because the secondary literature describes the phenotype at this level.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000708\"}}, {\"id\": \"Autism spectrum disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A formal autism spectrum disorder diagnosis was reached in most assessed members of the defining cohort. It accompanies the neurodevelopmental phenotype rather than constituting it: no cohort member carried ASD as a primary diagnosis, and a targeted search of the SPARK autism database and denovo-db found no de novo protein-altering CERT1 variant in the exome data, so the authors conclude that CERT1 is not a significant autism gene and that CerTra syndrome is a recognisable neurodevelopmental syndrome distinct from ASD.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000717\"}}, {\"id\": \"CERT gain-of-function Drosophila melanogaster\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A Drosophila model expressing gain-of-function CERT, reported in the cohort paper as reproducing morphological and motor abnormalities that are corrected by pharmacological CERT inhibition. It is the only in vivo model of the disorder; no knock-in mouse, rat or zebrafish model was found.\"}, {\"id\": \"CERT1 Autoregulatory-Domain Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous missense variant in CERT1 affecting the autoregulatory apparatus of the ceramide transport protein: the serine-repeat motif serines (p.S132, p.S135, p.S138, p.S141), the nearby non-SRM residue p.G243, or the dimeric helical domain that mediates homeostatic inactivation. The variant is de novo in most reported individuals.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"CERT1\"], \"gene_terms\": [{\"label\": \"CERT1\", \"id\": \"hgnc:2205\"}], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Disease alleles are heterozygous missense changes that render CERT excessively active. This is a gain of function and not haploinsufficiency: a C-terminal frameshift allele (p.Pro749fs) segregated away from intellectual disability in its family and left CERT function intact in knock-in cells, so it served as a disease-matched negative control.\", \"gene_terms\": [{\"label\": \"CERT1\", \"id\": \"hgnc:2205\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"CERT1 Gain-of-Function Missense Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 8, \"genes\": [\"CERT1\"], \"gene_terms\": [{\"label\": \"CERT1\", \"id\": \"hgnc:2205\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is reported in a subset of affected individuals.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001272\"}}, {\"id\": \"Constitutive CERT Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With autorepression lost, CERT is excessively and constitutively active as a ceramide transfer protein. This is the pivotal gain-of-function state of the disorder and the node that CERT inhibitors are aimed at.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"CERT-mediated ceramide transfer activity\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"CERT gain-of-function Drosophila melanogaster\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"CERT gain-of-function\", \"category\": \"Genetic\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model reproduces the excess CERT transfer activity that defines the disorder, and its phenotype is reversible by inhibiting that activity, which is the strongest available causal test of this node.\"}]}}, {\"id\": \"Delayed myelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed myelination on brain MRI, in one long-followed individual evolving into more widespread white-matter change.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012448\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech and language delay is prominent and often more severe than the general cognitive delay; some individuals remain non-verbal.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Digit, hand and foot anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anomalies of the hands, feet and digits, including third and fourth finger syndactyly, club foot, hallux varus with sandal gaps, a short first metatarsal and long fifth fingers. As with the facial features these are mild and variable, not a recognisable pattern.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011297\"}}, {\"id\": \"Dysregulated Sphingolipid Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The feedback loop that matches sphingolipid biosynthetic flux to cellular requirement is broken, so the sphingolipid composition of membranes is set by an unregulated transporter rather than by demand.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"sphingolipid metabolic process\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Excess ER-to-Golgi Ceramide Transfer\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-vesicular delivery of ceramide from the endoplasmic reticulum to the trans-Golgi runs above its normally regulated level.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ER-to-Golgi ceramide transport\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Facial dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial dysmorphism is subtle rather than gestalt-forming: anteverted nares with a depressed or broad nasal bridge, enlarged earlobes, synophrys, micrognathia, dental anomalies and palatine ridges. It is not a diagnostic handle and was characterised by blinded dysmorphology review of photographs rather than by clinical gestalt.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain accompanying the neonatal feeding difficulty and hypotonia. Most cohort members for whom birth data were available were born underweight, so the growth problem starts before the feeding problem is established.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding and swallowing difficulty, often beginning in the neonatal period, contributes to poor growth and requires nutritional support in some individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delay across cognitive and motor domains is the usual presenting feature and is generally apparent during infancy.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"HCT116 CERT1-knockout rescue system\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A human colon carcinoma line in which both CERT1 alleles are disrupted, then stably complemented with tagged wild-type or variant CERT. This is the platform on which the gain-of-function mechanism was established: CERT phosphorylation state by western blot, sphingomyelin output by metabolic labelling and lysenin sensitivity, and subcellular localisation by immunofluorescence, each read against wild-type rescue and against the non-causative p.Pro749fs allele.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:34688657\"}}, {\"id\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered sphingolipid flux in the developing nervous system is inferred to compromise neural differentiation, membrane composition and synaptic function, producing the cognitive, motor, language and behavioural phenotype. This is the least well characterised step of the chain: no patient neural tissue, iPSC-neuron or organoid study has identified the primary vulnerable cell type.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"nervous system development\"], \"locations\": [\"brain\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"CERT gain-of-function Drosophila melanogaster\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"CERT gain-of-function\", \"category\": \"Genetic\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The model reproduces motor and morphological consequences of the lipid lesion, which is the closest available proxy for the human neurodevelopmental node.\"}]}}, {\"id\": \"Impaired pain sensation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced responsiveness to painful stimuli, usually reported clinically as a high pain tolerance.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007328\"}}, {\"id\": \"Increased Sphingomyelin Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sphingomyelin production rises above the level set by cellular demand. Metabolic labelling in cells expressing S132L or G243R CERT showed significantly more labelled sphingomyelin than wild-type-rescued cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sphingomyelin biosynthetic process\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"HCT116 CERT1-knockout rescue system\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Metabolic labelling with radiolabelled serine quantifies sphingomyelin output for each allele.\"}]}}, {\"id\": \"Infantile hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is typically evident in infancy and contributes to both motor delay and feeding difficulty.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is the defining feature and ranges from mild to profound.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of Phosphorylation-Dependent CERT Autorepression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CERT is normally silenced by multisite phosphorylation of its serine-repeat motif once cellular sphingomyelin requirements are met. Disease variants shift the protein from the hyperphosphorylated form to de- or hypophosphorylated forms, so this negative-feedback brake is lost.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"SRM hyperphosphorylation of CERT\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"HCT116 CERT1-knockout rescue system\", \"model_type\": \"CELL_LINE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The phosphorylation-state western blot is the direct readout of this node.\"}]}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor milestones are delayed, with reported outcomes ranging from mild delay to walking only with support.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Occupational Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fine-motor and daily-living-skills intervention, and adaptive equipment, addressing the same hypotonia and global developmental delay from the functional-independence side rather than the mobility side.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pharmacological CERT Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical only. The CERT inhibitor HPA-12 corrects morphological and motor abnormalities in the Drosophila model, and a 2024 live-cell NanoBRET screen of 140 HPA-12 derivatives identified six compounds outperforming the parent compound. There is no human dosing, safety, CNS penetration or developmental-toxicity evidence, and because CERT is required for normal membrane lipid homeostasis, over-inhibition is itself a plausible harm.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gross-motor rehabilitation for the hypotonia and motor delay, including mobility equipment and contracture prevention where walking is not attained.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Punctate Subcellular Redistribution of CERT\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated CERT variants adopt an abnormal punctate intracellular distribution. This is a cellular correlate of the activated state rather than a demonstrated cause of downstream neural pathology, and it has been proposed as the basis of a functional assay for variant interpretation.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a substantial minority of affected individuals and range from readily controlled epilepsy to epileptic encephalopathy. Seizures are not universal; the reported autopsy case had none.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Self-injurious behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-directed injurious behaviour, reported in about half of the patients for whom behavioural assessment was available.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100716\"}}, {\"id\": \"Sleep disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disrupted sleep patterns, a recurrent and separately burdensome feature rather than a consequence of the seizure phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech-language intervention and augmentative or alternative communication, which is the relevant modality for the substantial minority who remain non-verbal.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Stereotypical hand movements\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repetitive, non-functional hand movements, the most frequent of the individual behavioural features recorded in the cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000733\"}}, {\"id\": \"Symptom-Directed Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no disease-modifying therapy. Management is individualised and directed at the manifestations: early developmental and educational intervention, feeding and nutritional support, behavioural and sleep support, and surveillance of growth, vision, hearing and orthopaedic status.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thin corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A thin or hypoplastic corpus callosum is among the most commonly reported structural brain findings.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033725\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlargement of the cerebral ventricular system is reported in a subset of affected individuals.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002119\"}}], \"edges\": [{\"source\": \"CERT1 Autoregulatory-Domain Missense Variant\", \"target\": \"Loss of Phosphorylation-Dependent CERT Autorepression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Substitution of an SRM serine, or of a residue that supports SRM phosphorylation, prevents the hyperphosphorylation that normally silences CERT.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Phosphorylation-Dependent CERT Autorepression\", \"target\": \"Constitutive CERT Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because SRM phosphorylation is what represses transport activity, its failure leaves the transporter switched on.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive CERT Activation\", \"target\": \"Excess ER-to-Golgi Ceramide Transfer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An unrepressed transporter moves more ceramide per unit time across the ER-Golgi membrane contact site.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive CERT Activation\", \"target\": \"Punctate Subcellular Redistribution of CERT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutively activated CERT variants leave the diffuse cytoplasmic and perinuclear pattern of the wild-type protein and concentrate into puncta, partly co-staining with VAP-A.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Excess ER-to-Golgi Ceramide Transfer\", \"target\": \"Increased Sphingomyelin Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ceramide arriving at the trans-Golgi is the substrate for sphingomyelin synthase, so a higher delivery rate raises sphingomyelin output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Sphingomyelin Synthesis\", \"target\": \"Dysregulated Sphingolipid Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sphingomyelin production that is no longer matched to demand is what breaks homeostatic control of the sphingolipid pool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Sphingolipid Homeostasis\", \"target\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Membrane sphingolipids are required for neural differentiation, synaptic transmission and action potential propagation, so loss of homeostatic control of the pool is taken to compromise those processes. The intermediate steps and the vulnerable human neural cell type have not been identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Sphingolipid Homeostasis\", \"target\": \"Facial dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mild facial and distal limb features are placed downstream of the systemic sphingolipid lesion rather than of the neural node, since they are morphogenetic rather than neurological. No mechanism connecting sphingolipid flux to these structures has been demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Sphingolipid Homeostasis\", \"target\": \"Digit, hand and foot anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Placed downstream of the systemic sphingolipid lesion rather than of the neural node, on the same reasoning as the facial features they accompany: they are morphogenetic rather than neurological. No mechanism connecting sphingolipid flux to limb patterning has been demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Abnormal Cerebral Myelination and Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subset of affected individuals develop white-matter and atrophic changes on MRI, which are attributed to the same disturbance of neural lipid biology. The link rests on human imaging rather than on a demonstrated mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Infantile hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Autism spectrum disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Stereotypical hand movements\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Self-injurious behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Sleep disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Attention deficit hyperactivity disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Aggressive behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Impaired pain sensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Cerebral Myelination and Atrophy\", \"target\": \"Thin corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cerebral Myelination and Atrophy\", \"target\": \"Delayed myelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cerebral Myelination and Atrophy\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cerebral Myelination and Atrophy\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Feeding difficulties\", \"target\": \"Failure to thrive\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Neonatal feeding difficulty is the route by which poor weight gain is established in this disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Symptom-Directed Supportive Care\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptom-Directed Supportive Care\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Motor delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Infantile hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Occupational Therapy\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Occupational Therapy\", \"target\": \"Infantile hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Delayed speech and language development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pharmacological CERT Inhibition\", \"target\": \"Constitutive CERT Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HCT116 CERT1-knockout rescue system\", \"target\": \"Loss of Phosphorylation-Dependent CERT Autorepression\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The phosphorylation-state western blot is the direct readout of this node.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A colon carcinoma line is not a neural cell, and the variant CERT is expressed ectopically against a null background rather than heterozygously alongside a wild-type allele as in patients.\"}, {\"source\": \"HCT116 CERT1-knockout rescue system\", \"target\": \"Increased Sphingomyelin Synthesis\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Metabolic labelling with radiolabelled serine quantifies sphingomyelin output for each allele.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Bulk whole-cell sphingolipid levels did not differ significantly between variant and wild-type rescue in this system, so the assay reports biosynthetic flux rather than steady-state composition.\"}, {\"source\": \"CERT gain-of-function Drosophila melanogaster\", \"target\": \"Constitutive CERT Activation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model reproduces the excess CERT transfer activity that defines the disorder, and its phenotype is reversible by inhibiting that activity, which is the strongest available causal test of this node.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"CERT-mediated ceramide transport is conserved, but the fly differs from human in brain architecture, developmental timing, sphingolipid composition and drug metabolism, so the quantitative relationship between degree of CERT activation and phenotype is not transferable.\"}, {\"source\": \"CERT gain-of-function Drosophila melanogaster\", \"target\": \"Impaired Neural Differentiation and Synaptic Membrane Function\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model reproduces motor and morphological consequences of the lipid lesion, which is the closest available proxy for the human neurodevelopmental node.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The fly cannot model the defining human manifestations of this node - intellectual disability, language, adaptive behaviour - and the reported phenotype is motor and morphological, so the correspondence to the human node is partial by construction.\"}, {\"source\": \"CERT1 Gain-of-Function Missense Variants\", \"target\": \"CERT1 Autoregulatory-Domain Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6332,6 +6442,9 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as neonata
 
 
                     </div>
+
+
+
 
 
 
@@ -6449,6 +6562,9 @@ This clinical feature is Subtle facial dysmorphism, annotated with Abnormal faci
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6549,6 +6665,9 @@ This clinical feature is Digit, hand and foot anomalies, annotated with Abnormal
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6661,6 +6780,9 @@ This clinical feature is Infantile hypotonia, annotated with Hypotonia (HP:00012
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6736,6 +6858,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6855,6 +6980,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6985,6 +7113,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7074,6 +7205,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7195,6 +7329,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7323,6 +7460,9 @@ This clinical feature is Autism spectrum disorder, annotated with Autism (HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7446,6 +7586,9 @@ This clinical feature is Stereotypical hand movements, annotated with Motor ster
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7512,6 +7655,9 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7588,6 +7734,9 @@ This clinical feature is Disrupted sleep patterns, annotated with Sleep disturba
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7654,6 +7803,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7730,6 +7882,9 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7796,6 +7951,9 @@ This clinical feature is High pain tolerance, annotated with Impaired pain sensa
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7892,6 +8050,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8016,6 +8177,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8105,6 +8269,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8204,6 +8371,9 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8293,6 +8463,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8396,6 +8569,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8514,6 +8690,9 @@ This disease-associated gene is CERT1 (hgnc:2205). hgnc:2205 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

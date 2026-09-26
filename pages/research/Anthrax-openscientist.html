@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anthrax · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Anthrax</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Anthrax</h1>
+                
+                <p class="report-subtitle">Anthrax — Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005119" target="_blank" rel="noopener noreferrer">MONDO:0005119</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">15 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Anthrax — Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Anthrax
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005119" target="_blank" rel="noopener noreferrer">MONDO:0005119</a>
+<strong>Category:</strong> Infectious Disease (bacterial zoonosis)
+<strong>Causative agent:</strong> <em>Bacillus anthracis</em> (NCBI:txid1392)</p>
+<blockquote>
+<p><strong>Evidence-source note:</strong> Anthrax is an infectious/environmental disease, not a heritable human genetic disorder. Accordingly, sections framed around germline "causal genes," "pathogenic variants," "inheritance patterns," and "penetrance" of the <em>human</em> host are largely <strong>Not applicable</strong>; where genetics matters, it is (a) the pathogen's virulence genes/plasmids and (b) host receptor/immune genes influencing susceptibility. This is flagged throughout. Information is drawn from aggregated disease-level resources (CDC, WHO, OMIM/pathogen genomics, PubMed) rather than individual EHR patient records.</p>
+</blockquote>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Anthrax is an acute bacterial zoonotic disease caused by the Gram-positive, spore-forming rod <em>Bacillus anthracis</em>. It principally affects herbivorous mammals (cattle, sheep, goats, wild ungulates); humans are incidental hosts infected by contact with infected animals, contaminated animal products (hides, wool, bone, meat), contaminated soil, or—rarely—deliberately released spores (bioterrorism). Disease manifests in four forms defined by the portal of entry: <strong>cutaneous, gastrointestinal, inhalational (pulmonary), and injectional</strong>. All forms can progress to systemic infection with bacteremia, toxemia, sepsis, and hemorrhagic meningitis (<a href="https://pubmed.ncbi.nlm.nih.gov/38638828/" target="_blank" rel="noopener noreferrer">PMID: 38638828</a>).</p>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> 0005119
+- <strong>ICD-11:</strong> 1B97 (Anthrax); ICD-10: A22 (A22.0 cutaneous, A22.1 pulmonary, A22.2 gastrointestinal, A22.7 anthrax sepsis, A22.8, A22.9)
+- <strong>MeSH:</strong> D000881 (Anthrax); Descriptor for organism <em>Bacillus anthracis</em> D001409
+- <strong>SNOMED CT:</strong> 409498004 (Anthrax)
+- <strong>DOID:</strong> <a href="http://purl.obolibrary.org/obo/DOID_7427" target="_blank" rel="noopener noreferrer">DOID:7427</a>
+- <strong>Pathogen taxonomy:</strong> <em>Bacillus anthracis</em> NCBI:txid1392
+- <strong>OMIM/Orphanet:</strong> No human Mendelian OMIM entry (infectious disease). Orphanet does not list anthrax as a rare genetic disease; related host receptor gene disorder: Hyaline Fibromatosis Syndrome (ANTXR2/CMG2, OMIM 228600) — see §4.</p>
+<p><strong>Synonyms / alternative names.</strong> Malignant pustule / malignant carbuncle (cutaneous form); woolsorters' disease / ragpickers' disease (inhalational, occupational); splenic fever; charbon; milzbrand; Siberian ulcer; injectional anthrax (heroin-associated).</p>
+<p><strong>Data derivation.</strong> Disease-level aggregated resources and published case series/surveillance, not individual-patient EHR.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause (infectious).</strong> Infection by <em>Bacillus anthracis</em>. Environmentally persistent <strong>endospores</strong> are the infectious particle; they germinate to toxin-producing vegetative bacilli once inside a host. Full virulence requires <strong>two plasmids</strong>:
+- <strong>pXO1</strong> (~182 kb) — encodes the three toxin components <em>pagA</em> (protective antigen, PA), <em>lef</em> (lethal factor, LF), <em>cya</em> (edema factor, EF) and the master regulator <em>atxA</em>.
+- <strong>pXO2</strong> (~95 kb) — encodes the poly-γ-D-glutamic acid (PGA) capsule biosynthesis operon <em>capBCADE</em>.</p>
+<p>Loss of either plasmid attenuates virulence; pXO1/<em>atxA</em> is required for intracellular macrophage escape and survival, pXO2 capsule for anti-phagocytic immune evasion (<a href="https://pubmed.ncbi.nlm.nih.gov/11207600/" target="_blank" rel="noopener noreferrer">PMID: 11207600</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16334217/" target="_blank" rel="noopener noreferrer">PMID: 16334217</a>).</p>
+<p><strong>Risk factors (environmental / occupational — dominant).</strong>
+- Occupational contact with livestock and animal products: farmers, herders, veterinarians, butchers/abattoir workers, wool/hide/leather handlers, ("woolsorters"), bone-meal/tannery workers (<a href="https://pubmed.ncbi.nlm.nih.gov/26720232/" target="_blank" rel="noopener noreferrer">PMID: 26720232</a> — cases concentrated in animal-husbandry workers and housewives with animal contact).
+- Consumption of undercooked meat from infected animals (gastrointestinal/oropharyngeal form) (<a href="https://pubmed.ncbi.nlm.nih.gov/29912259/" target="_blank" rel="noopener noreferrer">PMID: 29912259</a>).
+- Injection drug use with contaminated heroin (injectional anthrax — European outbreaks 2009–2010).
+- Residence/work in endemic agricultural regions with poor veterinary-public-health infrastructure; contact with historical animal burial sites; warm-season and post-flood/drought soil disturbance.
+- Laboratory exposure; intentional aerosol release (bioterrorism — e.g., 2001 U.S. "Amerithrax" letters; 1979 Sverdlovsk accidental release).
+- Age/sex: cases skew to working-age adults with occupational exposure; male predominance in many series (e.g., 63% male, mean age ~44 y; <a href="https://pubmed.ncbi.nlm.nih.gov/26720232/" target="_blank" rel="noopener noreferrer">PMID: 26720232</a>).</p>
+<p><strong>Host genetic susceptibility factors.</strong> Not a classical genetic disease, but host genetics modulate toxin susceptibility: polymorphisms/expression of the toxin receptors <strong>ANTXR1 (TEM8)</strong> and <strong>ANTXR2 (CMG2)</strong> and downstream immune-signaling genes affect cellular sensitivity. Post-translational regulation (S-acylation cycles) of CMG2 controls receptor maturation and toxin susceptibility in vivo (<a href="https://pubmed.ncbi.nlm.nih.gov/42409807/" target="_blank" rel="noopener noreferrer">PMID: 42409807</a>). Inbred mouse strains differ in <em>Nlrp1b</em> inflammasome alleles that determine macrophage sensitivity to lethal toxin (model-organism evidence).</p>
+<p><strong>Protective factors.</strong>
+- <strong>Environmental/behavioral:</strong> livestock vaccination, safe carcass disposal (no butchering of animals dying suddenly), thorough cooking of meat, PPE in at-risk occupations, decontamination of animal products.
+- <strong>Immunological/medical:</strong> prior vaccination (anti-PA antibody), post-exposure prophylaxis (antibiotics ± vaccine).
+- <strong>Host genetic:</strong> <em>Nlrp1b</em>-mediated inflammasome activation that triggers rapid pyroptosis of infected macrophages can be protective against lethal-toxin lethality in mice (context-dependent; model-organism evidence).</p>
+<p><strong>Gene–environment interaction.</strong> Spore exposure (environment) intersects with host receptor availability and inflammasome genotype (genetics): only germinated bacilli producing toxin cause disease, and the host's ANTXR2/CMG2 receptor density and Nlrp1b allele determine cellular outcome (toxicity vs pyroptotic clearance). Occupational exposure interacts with vaccination status to determine net risk.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p><strong>Cutaneous anthrax (~95% of natural human cases).</strong> <em>Type: clinical signs / physical manifestation.</em>
+- Painless, pruritic papule → vesicle → <strong>black necrotic eschar</strong> ("malignant pustule") surrounded by non-pitting <strong>gelatinous edema</strong>; regional lymphadenopathy; low-grade fever/malaise. Incubation ~1–7 days (mean ~4.8 d; <a href="https://pubmed.ncbi.nlm.nih.gov/26720232/" target="_blank" rel="noopener noreferrer">PMID: 26720232</a>). Lesions most common on exposed hands/fingers/arms/face. Severity mild–moderate if treated; case-fatality ~20% untreated, &lt;1% treated. HPO: <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> (skin rash), <a href="http://purl.obolibrary.org/obo/HP_0200041" target="_blank" rel="noopener noreferrer">HP:0200041</a> (skin ulcer), <a href="http://purl.obolibrary.org/obo/HP_0011124" target="_blank" rel="noopener noreferrer">HP:0011124</a> (localized skin lesion), <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" rel="noopener noreferrer">HP:0000969</a> (edema), <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" rel="noopener noreferrer">HP:0002090</a> (fever), <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> (lymphadenopathy).</p>
+<p><strong>Inhalational anthrax (most lethal).</strong> <em>Type: clinical signs + laboratory/imaging abnormalities.</em>
+- Biphasic: nonspecific flu-like prodrome (fever, malaise, dry cough, myalgia) → fulminant phase with dyspnea, hypoxemia, <strong>hemorrhagic mediastinitis with widened mediastinum</strong>, pleural effusions, shock, meningitis. Progression subacute→fulminant over days; severity severe; historic mortality ~85–90%, ~45% with modern intensive care/antitoxin. HPO: <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (dyspnea), <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" rel="noopener noreferrer">HP:0002878</a> (respiratory failure), <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" rel="noopener noreferrer">HP:0002090</a>, <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" rel="noopener noreferrer">HP:0100749</a> (chest pain), <a href="http://purl.obolibrary.org/obo/HP_0032263" target="_blank" rel="noopener noreferrer">HP:0032263</a> (mediastinal mass/widening — pleural effusion <a href="http://purl.obolibrary.org/obo/HP_0002202" target="_blank" rel="noopener noreferrer">HP:0002202</a>).</p>
+<p><strong>Gastrointestinal / oropharyngeal anthrax.</strong> <em>Type: clinical signs.</em>
+- Fever, severe abdominal pain, nausea/vomiting, <strong>hematemesis</strong>, bloody diarrhea, ascites, mesenteric adenopathy; oropharyngeal variant: throat pain, dysphagia, neck edema, oral ulcers. Severe; mortality ~25–60%. HPO: <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a> (hepatomegaly/ascites <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" rel="noopener noreferrer">HP:0001541</a>), <a href="http://purl.obolibrary.org/obo/HP_0002573" target="_blank" rel="noopener noreferrer">HP:0002573</a> (hematochezia), <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a> (vomiting), <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a> (abdominal pain), <a href="http://purl.obolibrary.org/obo/HP_0025267" target="_blank" rel="noopener noreferrer">HP:0025267</a> (nausea).</p>
+<p><strong>Injectional anthrax.</strong> <em>Type: clinical signs.</em> Deep soft-tissue/necrotizing infection at injection site, marked edema without classic eschar, high rate of sepsis; associated with contaminated heroin. HPO: <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" rel="noopener noreferrer">HP:0100806</a> (sepsis), <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" rel="noopener noreferrer">HP:0000969</a>.</p>
+<p><strong>Systemic complications (any form).</strong> Anthrax <strong>sepsis/toxemia</strong>, <strong>hemorrhagic meningitis/meningoencephalitis</strong> (poor prognosis), shock, coagulopathy. HPO: <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" rel="noopener noreferrer">HP:0100806</a> (sepsis), <a href="http://purl.obolibrary.org/obo/HP_0001287" target="_blank" rel="noopener noreferrer">HP:0001287</a> (meningitis), <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> (headache), <a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank" rel="noopener noreferrer">HP:0001259</a> (coma), <a href="http://purl.obolibrary.org/obo/HP_0011098" target="_blank" rel="noopener noreferrer">HP:0011098</a> (seizure).</p>
+<p><strong>Quality-of-life impact.</strong> Acute, high-acuity illness; survivors of cutaneous form may have scarring/contractures from eschars on hands. Severe systemic disease causes ICU-level morbidity, respiratory failure, neurological sequelae in meningitis survivors. No chronic relapsing phenotype (disease is acute/self-limited if survived).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Human causal genes:</strong> <strong>Not applicable</strong> — anthrax is not inherited. There are no human germline "causal genes," pathogenic ACMG/AMP variants, allele frequencies, or somatic/germline classifications for the disease itself.</p>
+<p><strong>Pathogen virulence genes (the relevant "genetics"):</strong>
+| Gene | Plasmid | Product | Function |
+|------|---------|---------|----------|
+| <em>pagA</em> | pXO1 | Protective antigen (PA83) | Receptor binding + translocon; delivers LF/EF |
+| <em>lef</em> | pXO1 | Lethal factor (LF) | Zn²⁺-metalloprotease; cleaves MAPKKs (MEK1/2/3/4/6/7), NLRP1 |
+| <em>cya</em> | pXO1 | Edema factor (EF) | Calmodulin-dependent adenylate cyclase; ↑cAMP |
+| <em>atxA</em> | pXO1 | AtxA | Master trans-activator of toxin + capsule genes |
+| <em>capBCADE</em> | pXO2 | PGA capsule machinery | Poly-γ-D-glutamate anti-phagocytic capsule |
+| <em>acpA/acpB</em> | pXO2 | Capsule regulators | Capsule expression control |</p>
+<p><strong>Host genes relevant to susceptibility (host receptor / modifier genes):</strong>
+- <strong>ANTXR2 / CMG2</strong> (<a href="https://bioregistry.io/HGNC:21036" target="_blank" rel="noopener noreferrer">HGNC:21036</a>; OMIM 608041) — <strong>primary</strong> anthrax toxin entry receptor; also a Collagen VI receptor for ECM homeostasis. Its loss-of-function mutations cause <strong>Hyaline Fibromatosis Syndrome</strong> (OMIM 228600) — a distinct human genetic disorder, notable because it reveals CMG2's dual physiological role and its regulation by S-acylation cycles that also control toxin susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/42409807/" target="_blank" rel="noopener noreferrer">PMID: 42409807</a>).
+- <strong>ANTXR1 / TEM8</strong> (<a href="https://bioregistry.io/HGNC:21014" target="_blank" rel="noopener noreferrer">HGNC:21014</a>; OMIM 606410) — secondary/alternative toxin receptor; LOF causes GAPO syndrome and infantile hemangioma susceptibility (host disorders, not anthrax).
+- <strong>NLRP1</strong> (inflammasome; direct LF substrate in rodents) — determines macrophage pyroptosis vs toxicity; a susceptibility modifier (strong in mouse, human NLRP1 also LF-responsive).</p>
+<p><strong>Epigenetic / chromosomal features.</strong> Not applicable to human host disease. Pathogen genome: single circular chromosome (~5.2 Mb) plus pXO1/pXO2; near-clonal population structure; typed by canonical SNPs and MLVA/VNTR (e.g., TaqMan/canSNP assays, <a href="https://pubmed.ncbi.nlm.nih.gov/33371332/" target="_blank" rel="noopener noreferrer">PMID: 33371332</a>).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental reservoir:</strong> <em>B. anthracis</em> spores persist in soil for <strong>decades</strong>, favored by alkaline, calcium-rich soils and cycles of flooding/drought that concentrate spores; grazing animals ingest/inhale spores. Distribution modeling identifies host abundance, soil composition, climate, and vegetation as key determinants (<a href="https://pubmed.ncbi.nlm.nih.gov/39509442/" target="_blank" rel="noopener noreferrer">PMID: 39509442</a>).</li>
+<li><strong>Occupational exposures:</strong> hides, wool, hair, bone meal, contaminated meat (see §2).</li>
+<li><strong>Lifestyle factors:</strong> consumption of meat from animals that died suddenly; injection drug use.</li>
+<li><strong>Infectious agent:</strong> <em>Bacillus anthracis</em> (NCBI:txid1392); Family Bacillaceae. Closely related to <em>B. cereus</em> group; distinguished by pXO1/pXO2 and phenotype (non-motile, non-hemolytic, penicillin-susceptible, gamma-phage susceptible).</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Spore entry</strong> through skin abrasion, ingestion, inhalation, or injection <strong>leads to</strong> deposition of dormant endospores in tissue.</li>
+<li>Spores are <strong>phagocytosed by local macrophages/dendritic cells</strong> and transported toward regional lymph nodes; germination-triggering signals (amino acids, nucleosides) <strong>result in</strong> germination to vegetative bacilli.</li>
+<li>Intracellular germinating bacilli, via <strong>pXO1/atxA-dependent</strong> functions, <strong>escape the phagosome and survive/replicate</strong>, then <strong>lyse and exit the macrophage</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/11207600/" target="_blank" rel="noopener noreferrer">PMID: 11207600</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16334217/" target="_blank" rel="noopener noreferrer">PMID: 16334217</a>).</li>
+<li>Extracellular vegetative bacilli express the <strong>pXO2 poly-γ-D-glutamate capsule</strong>, which <strong>inhibits phagocytosis and complement</strong> → immune evasion → <strong>unchecked bacteremia</strong> (can reach 10⁷–10⁸ CFU/mL).</li>
+<li><em>atxA</em> activates <strong>toxin gene expression</strong>; PA83 binds host receptors <strong>ANTXR2/CMG2 (primary)</strong> and <strong>ANTXR1/TEM8</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42409807/" target="_blank" rel="noopener noreferrer">PMID: 42409807</a>).</li>
+<li>Cell-surface <strong>furin cleaves PA83 → PA63</strong> (releasing PA20); PA63 <strong>oligomerizes into a heptamer/octamer prepore</strong> that binds up to 3–4 molecules of LF and/or EF (<a href="https://pubmed.ncbi.nlm.nih.gov/42600039/" target="_blank" rel="noopener noreferrer">PMID: 42600039</a>).</li>
+<li>Receptor-mediated <strong>endocytosis</strong> and endosomal acidification <strong>convert the prepore to a membrane-spanning pore</strong> (φ-clamp–gated translocase); LF and EF <strong>translocate into the cytosol</strong>.</li>
+<li><strong>Branch A — Lethal toxin (PA+LF):</strong> LF (Zn-metalloprotease) <strong>cleaves MAPKKs (MEK1/2/3/4/6/7)</strong> and activates/cleaves <strong>NLRP1</strong> → disrupts ERK/p38/JNK signaling → <strong>impairs dendritic cell &amp; macrophage function, endothelial dysfunction, and (in sensitive cells) pyroptosis/apoptosis</strong> → <strong>immune paralysis, vascular barrier failure, hypotensive shock</strong>.</li>
+<li><strong>Branch B — Edema toxin (PA+EF):</strong> EF (Ca²⁺/calmodulin-dependent adenylate cyclase) <strong>massively raises intracellular cAMP</strong> → <strong>fluid/electrolyte efflux and tissue edema</strong>, impaired neutrophil function, further immune suppression.</li>
+<li>Combined toxemia + bacteremia <strong>result in</strong> systemic inflammatory collapse: <strong>capillary leak, hemorrhage, hypoxia, DIC-like coagulopathy, multi-organ failure</strong>, and frequently <strong>hemorrhagic meningitis</strong> (bacterial/toxin CNS invasion) → <strong>death</strong>.</li>
+</ol>
+<p>Upstream drivers = spore germination, plasmid-encoded capsule and toxins; downstream effectors = MAPKK cleavage, cAMP surge, endothelial/immune failure and shock. <em>(Steps 8–9 branch and converge on step 10.)</em></p>
+<p><strong>Molecular pathways:</strong> MAPK/ERK, p38, JNK cascades (disrupted by LF); cAMP–PKA signaling (hyperactivated by EF); NLRP1 inflammasome; furin-mediated proprotein processing; receptor-mediated endocytosis. KEGG: ko05150-type bacterial pathways; Reactome anthrax-toxin entry.
+<strong>Cellular processes:</strong> phagocytosis, phagosomal escape, pyroptosis/apoptosis, inflammasome activation, endothelial barrier dysfunction, immune suppression. GO: <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" rel="noopener noreferrer">GO:0006909</a> (phagocytosis), <a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" rel="noopener noreferrer">GO:0070269</a> (pyroptosis), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" rel="noopener noreferrer">GO:0000165</a> (MAPK cascade), <a href="http://purl.obolibrary.org/obo/GO_0071356" target="_blank" rel="noopener noreferrer">GO:0071356</a> (cellular response to cytokine).
+<strong>Protein dysfunction:</strong> host MAPKK proteolysis (loss of function of MEK signaling); pathological gain of adenylate-cyclase activity in cytosol; PA conformational activation/oligomerization is essential and drug-targetable (<a href="https://pubmed.ncbi.nlm.nih.gov/42600039/" target="_blank" rel="noopener noreferrer">PMID: 42600039</a>).
+<strong>Immune involvement:</strong> capsule-mediated anti-phagocytosis; toxin-mediated suppression of innate and adaptive immunity; cytokine dysregulation; late overwhelming sepsis.
+<strong>Tissue-damage mechanisms:</strong> hemorrhage, edema, necrosis, thrombosis, oxidative/ischemic injury from vascular collapse.
+<strong>GO/CL suggestions:</strong> biological processes <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>, <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" rel="noopener noreferrer">GO:0000165</a>, <a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" rel="noopener noreferrer">GO:0070269</a>; cell types <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a> (dendritic cell), <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a> (endothelial cell), <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level (primary, by form):</strong> skin/dermis (cutaneous, <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> skin); lungs &amp; <strong>mediastinal lymph nodes</strong> (inhalational — note primary lesion is hemorrhagic mediastinal lymphadenitis, not pneumonia; <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> lung, <a href="http://purl.obolibrary.org/obo/UBERON_0002509" target="_blank" rel="noopener noreferrer">UBERON:0002509</a> mesenteric/<a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a> lymph node); GI tract — stomach/intestine/oropharynx (<a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" rel="noopener noreferrer">UBERON:0000160</a> intestine, <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" rel="noopener noreferrer">UBERON:0000945</a> stomach).</li>
+<li><strong>Secondary / systemic:</strong> blood (bacteremia; <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a>), spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>; "splenic fever"), <strong>meninges/brain</strong> (hemorrhagic meningitis; <a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" rel="noopener noreferrer">UBERON:0002360</a> meninges, <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> brain), liver, adrenal glands, cardiovascular system (shock).</li>
+<li><strong>Body systems:</strong> integumentary, respiratory, digestive, lymphatic/hematologic, cardiovascular, central nervous.</li>
+<li><strong>Tissue/cell level:</strong> dermal connective tissue and vascular endothelium; alveolar and lymphatic macrophages; dendritic cells. Cell Ontology: <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a> (dendritic cell), <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a> (endothelial cell), <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil).</li>
+<li><strong>Subcellular:</strong> endosome/endolysosome (toxin translocation), plasma membrane (PA pore), cytosol (LF/EF targets), nucleus-linked MAPK signaling. GO CC: <a href="http://purl.obolibrary.org/obo/GO_0005768" target="_blank" rel="noopener noreferrer">GO:0005768</a> (endosome), <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> (plasma membrane), <a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a> (cytosol).</li>
+<li><strong>Lateralization:</strong> cutaneous lesions typically <strong>unilateral/localized</strong> at inoculation site; systemic disease is diffuse/bilateral (e.g., bilateral pleural effusions, symmetric mediastinal widening).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Incubation typically <strong>1–7 days</strong> (cutaneous mean ~4.8 d, <a href="https://pubmed.ncbi.nlm.nih.gov/26720232/" target="_blank" rel="noopener noreferrer">PMID: 26720232</a>); inhalational usually 1–7 days but can be delayed weeks (spore dormancy — up to ~43 days observed at Sverdlovsk). Any age; occupational cases in working-age adults. Onset pattern: <strong>acute</strong> (cutaneous) to <strong>subacute→fulminant biphasic</strong> (inhalational).</li>
+<li><strong>Progression / stages:</strong> cutaneous — papule→vesicle→eschar over ~2–6 days, then healing over weeks. Inhalational — prodromal (flu-like) stage → fulminant systemic stage within 2–5 days; rapid deterioration once fulminant. Systemic sepsis/meningitis can kill within 24–72 h.</li>
+<li><strong>Course pattern:</strong> <strong>acute, self-limited if survived</strong> (no chronic/relapsing course); untreated systemic disease is rapidly progressive.</li>
+<li><strong>Remission:</strong> treatment-induced recovery with antibiotics ± antitoxin; cutaneous lesions heal with scar. No spontaneous chronic remission-relapse cycles.</li>
+<li><strong>Critical intervention window:</strong> outcome hinges on <strong>early antibiotic (and antitoxin) initiation before/at the fulminant toxemic phase</strong>; post-exposure prophylaxis is most effective before symptom onset.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population (Epidemiology)</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>Not applicable</strong> (infectious disease; no Mendelian inheritance, penetrance, expressivity, anticipation, founder effect, carrier frequency, or consanguinity relevance for the host).</li>
+<li><strong>Global distribution:</strong> worldwide but <strong>endemic</strong> in agricultural regions of sub-Saharan Africa, Central &amp; South Asia, the Middle East, southern/eastern Europe (e.g., Türkiye), the Caucasus, and parts of Central/South America; hyperendemic where livestock vaccination is limited. Modeled suitable zones include central/eastern Türkiye, Armenia, Georgia, southern Russia, Bulgaria, Romania, Hungary, Moldova (<a href="https://pubmed.ncbi.nlm.nih.gov/39509442/" target="_blank" rel="noopener noreferrer">PMID: 39509442</a>). Rare/sporadic in most high-income countries.</li>
+<li><strong>Incidence/prevalence:</strong> Human anthrax is rare and under-reported globally; WHO historically estimated on the order of thousands to ~tens of thousands of human cases per year worldwide, concentrated in endemic foci. It is a recognized but poorly quantified <strong>neglected zoonotic disease</strong> — prioritized in 65 countries yet with minimal formal burden estimates (<a href="https://pubmed.ncbi.nlm.nih.gov/37545541/" target="_blank" rel="noopener noreferrer">PMID: 37545541</a>). In endemic countries incidence is highly seasonal (warm months / post-rain) and occupational.</li>
+<li><strong>Demographics:</strong> male predominance and working-age adults in occupational series (e.g., 63% male, mean age ~44 y, cases peaking Aug–Sep; <a href="https://pubmed.ncbi.nlm.nih.gov/26720232/" target="_blank" rel="noopener noreferrer">PMID: 26720232</a>). No ethnic genetic predisposition; distribution reflects exposure.</li>
+<li><strong>Sex ratio:</strong> roughly male-skewed where occupational exposure dominates; broadly ~1:1–2:1 M:F by setting.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Microbiology (gold standard):</strong> Gram stain (large Gram-positive rods in chains, "boxcar" morphology, unencapsulated in culture / encapsulated in tissue with polychrome methylene blue <strong>M'Fadyean</strong> reaction), culture on sheep-blood agar (non-hemolytic, non-motile, catalase-positive, "medusa-head"/ground-glass colonies), gamma-phage lysis and penicillin susceptibility for confirmation. Blood cultures positive in systemic disease.</li>
+<li><strong>Molecular:</strong> PCR/qPCR targeting plasmid markers (<em>pagA/lef</em> on pXO1, <em>capB</em> on pXO2) and chromosomal markers; multiplex <strong>TaqMan</strong> assays and canSNP/MLVA genotyping for strain typing (<a href="https://pubmed.ncbi.nlm.nih.gov/33371332/" target="_blank" rel="noopener noreferrer">PMID: 33371332</a>). <strong>Metagenomic next-generation sequencing (mNGS)</strong>, including from FFPE tissue, can confirm difficult cases rapidly (<a href="https://pubmed.ncbi.nlm.nih.gov/38638828/" target="_blank" rel="noopener noreferrer">PMID: 38638828</a>).</li>
+<li><strong>Immunoassays / biomarkers:</strong> anti-PA IgG serology and toxin (PA/LF) detection assays (ELISA, mass-spectrometry LF activity assay — CDC); useful retrospectively and epidemiologically.</li>
+<li><strong>Histopathology:</strong> skin biopsy — necrosis, edema, hemorrhage, vasculitis, PAS-positive/encapsulated bacilli (<a href="https://pubmed.ncbi.nlm.nih.gov/38638828/" target="_blank" rel="noopener noreferrer">PMID: 38638828</a>); tissues show hemorrhagic lymphadenitis/mediastinitis.</li>
+<li><strong>Imaging:</strong> chest X-ray/CT — <strong>widened mediastinum</strong>, pleural effusions, hilar adenopathy (inhalational); abdominal imaging — ascites, bowel-wall edema (GI); CT/MRI + LP for hemorrhagic meningitis (CSF often hemorrhagic).</li>
+<li><strong>Diagnostic criteria:</strong> clinical + exposure history + laboratory confirmation per CDC/WHO case definitions (confirmed vs probable/suspect).</li>
+<li><strong>Differential diagnosis:</strong> cutaneous — spider bite, ecthyma gangrenosum, orf, tularemia, plague, staphylococcal/streptococcal cellulitis, rat-bite fever; inhalational — influenza, community-acquired pneumonia, mediastinitis, aortic dissection; GI — other bacterial gastroenteritis, acute abdomen.</li>
+<li><strong>Screening:</strong> environmental/animal surveillance; no routine human population screening (rare disease). Genetic testing: not applicable.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Cutaneous:</strong> case-fatality <strong>~20% untreated</strong>, <strong>&lt;1% with antibiotics</strong>; excellent prognosis if treated early (<a href="https://pubmed.ncbi.nlm.nih.gov/26720232/" target="_blank" rel="noopener noreferrer">PMID: 26720232</a> series: 1.2% mortality overall, the single death from meningitis).</li>
+<li><strong>Gastrointestinal:</strong> ~25–60% mortality depending on care/recognition.</li>
+<li><strong>Inhalational:</strong> historically <strong>~85–90%</strong> mortality; <strong>~45%</strong> with modern ICU care, combination antibiotics, and antitoxin (2001 U.S. outbreak: 5/11 inhalational cases died despite treatment).</li>
+<li><strong>Injectional:</strong> high morbidity/mortality (~30%+), often requiring surgical debridement.</li>
+<li><strong>Anthrax meningitis:</strong> near-uniformly fatal without aggressive therapy; a leading cause of death across forms.</li>
+<li><strong>Prognostic factors:</strong> clinical form and portal of entry; time to effective antibiotics/antitoxin; presence of meningitis, shock, pleural effusion; bacterial burden/toxemia; comorbidities. Early treatment before the fulminant toxemic phase is the strongest determinant of survival.</li>
+<li><strong>Morbidity/QoL:</strong> survivors of severe systemic disease may have prolonged ICU recovery, respiratory compromise, and neurological deficits (post-meningitis); cutaneous scarring/contractures.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Antimicrobials (mainstay).</strong>
+- <strong>Fluoroquinolones:</strong> ciprofloxacin, levofloxacin (NCIT drug classes); first-line for treatment/PEP.
+- <strong>Tetracyclines:</strong> doxycycline (first-line PEP/treatment).
+- <strong>Beta-lactams:</strong> penicillin G / amoxicillin for penicillin-susceptible strains (naturally acquired often susceptible — <a href="https://pubmed.ncbi.nlm.nih.gov/38638828/" target="_blank" rel="noopener noreferrer">PMID: 38638828</a> cured with IV penicillin; <a href="https://pubmed.ncbi.nlm.nih.gov/26720232/" target="_blank" rel="noopener noreferrer">PMID: 26720232</a> penicillin group used in 78%); note intrinsic β-lactamase risk, so not for empiric bioterrorism use.
+- <strong>Others active:</strong> clindamycin, linezolid (add for toxin/protein-synthesis suppression and CNS penetration), meropenem, rifampin, vancomycin.
+- <strong>Systemic/meningitis regimens:</strong> CDC recommends <strong>≥2–3 drug combination IV therapy</strong> including a bactericidal agent (fluoroquinolone) + a protein-synthesis inhibitor (linezolid/clindamycin) + CNS-penetrant agent when meningitis is possible.
+- <strong>Duration:</strong> systemic disease treated intravenously then oral; <strong>inhalational/post-exposure prophylaxis requires 60 days</strong> of oral antibiotics because of spore dormancy.</p>
+<p><strong>Antitoxins (adjuncts for systemic disease — target PA).</strong>
+- <strong>Raxibacumab</strong> — human anti-PA monoclonal antibody (FDA-approved 2012).
+- <strong>Obiltoxaximab (ETI-204)</strong> — anti-PA monoclonal (FDA-approved 2016).
+- <strong>Anthrax immune globulin (AIG, Anthrasil)</strong> — polyclonal anti-PA from vaccinated donors.
+These neutralize circulating toxin; used <strong>with</strong> antibiotics for systemic/severe anthrax. Next-generation ultrapotent anti-PA antibodies blocking PA63 oligomerization are in development (e.g., 22F1, IC50 = 0.027 nM; <a href="https://pubmed.ncbi.nlm.nih.gov/42600039/" target="_blank" rel="noopener noreferrer">PMID: 42600039</a>).</p>
+<p><strong>Supportive / interventional care:</strong> aggressive fluid/vasopressor support for shock, pleural fluid drainage (improves outcome by removing toxin-rich effusion), mechanical ventilation, surgical debridement (injectional/severe cutaneous — avoid excising uncomplicated eschars), corticosteroids for extensive head/neck edema or meningitis.</p>
+<p><strong>Pharmacogenomics:</strong> not a major factor; standard drug-metabolism considerations (e.g., CYP interactions with ciprofloxacin) apply.
+<strong>NCIT suggestions:</strong> Ciprofloxacin (C2778), Doxycycline (C459), Penicillin (C739), Raxibacumab (C82675), Obiltoxaximab, Linezolid, Clindamycin, Anthrax Immune Globulin.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong></li>
+<li><strong>Animal vaccination</strong> (live attenuated <strong>Sterne strain</strong>, pXO1+/pXO2−) — cornerstone of control in livestock; reduces human exposure.</li>
+<li><strong>Human vaccination:</strong> <strong>AVA / BioThrax</strong> (Anthrax Vaccine Adsorbed, PA-based, adsorbed to aluminum hydroxide) and <strong>AV7909 (Cyfendus)</strong> (PA + CPG7909 adjuvant, approved for PEP). Recommended for at-risk occupations, certain military personnel, and lab workers. PA-based vaccines neutralize toxin but do <strong>not</strong> block spore germination/bacteremia, motivating multi-antigen and spore-antigen research (<a href="https://pubmed.ncbi.nlm.nih.gov/18166249/" target="_blank" rel="noopener noreferrer">PMID: 18166249</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/17005989/" target="_blank" rel="noopener noreferrer">PMID: 17005989</a>).</li>
+<li><strong>Behavioral/occupational:</strong> PPE, safe handling/decontamination of animal products, proper carcass disposal (deep burial/incineration, no butchering of sudden-death animals), meat inspection, control of injection-drug spore contamination.</li>
+<li><strong>Secondary prevention:</strong> rapid case detection and <strong>post-exposure prophylaxis</strong> — 60 days antibiotics (ciprofloxacin/doxycycline) <strong>plus</strong> a 3-dose vaccine series after confirmed aerosol exposure; environmental surveillance and decontamination after release.</li>
+<li><strong>Tertiary prevention:</strong> early combination antibiotics + antitoxin to prevent progression to shock/meningitis; pleural drainage; ICU support.</li>
+<li><strong>Public health:</strong> One-Health surveillance linking veterinary and human health, outbreak investigation, environmental decontamination (formaldehyde/chlorine dioxide for spores), education of at-risk communities (<a href="https://pubmed.ncbi.nlm.nih.gov/40303149/" target="_blank" rel="noopener noreferrer">PMID: 40303149</a> — KAP gaps in endemic Ethiopia), biosecurity/select-agent regulation to prevent misuse.</li>
+<li><strong>Genetic counseling:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy of hosts:</strong> primarily <strong>herbivorous mammals</strong> — cattle (<em>Bos taurus</em>, NCBI:txid9913), sheep (<em>Ovis aries</em>, txid9940), goats (<em>Capra hircus</em>, txid9925), horses (<em>Equus caballus</em>, txid9796), and wild ungulates (bison, deer, antelope, hippopotamus, elephants). Carnivores and omnivores (including humans, <em>Homo sapiens</em> txid9606) are more resistant and usually acquire via ingestion.</li>
+<li><strong>Natural disease / veterinary importance:</strong> anthrax is a <strong>major cause of sudden death in grazing livestock and wildlife</strong>, with peracute presentation (sudden death, incomplete rigor, dark unclotted blood from orifices, splenomegaly). Devastating wildlife die-offs occur (e.g., savanna herbivores, hippos). It is a <strong>notifiable/reportable</strong> OIE (WOAH) disease of high economic and food-security impact (<a href="https://pubmed.ncbi.nlm.nih.gov/39509442/" target="_blank" rel="noopener noreferrer">PMID: 39509442</a>; OMIA resources).</li>
+<li><strong>Comparative pathology:</strong> herbivores develop rapidly fatal septicemic anthrax; carnivores/humans show more localized/variable disease due to higher innate resistance — reflecting species differences in receptor biology and innate immunity (e.g., <em>Nlrp1</em> inflammasome variation across species/strains).</li>
+<li><strong>Zoonotic transmission:</strong> all human cases derive from animals/animal products or environment; <strong>no significant human-to-human transmission</strong> (except rare cutaneous contact). Cross-species susceptibility is broad among mammals.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mice (<em>Mus musculus</em>, NCBI:txid10090):</strong> the workhorse model for toxin action, vaccine/antitoxin efficacy, and inflammasome biology; inbred strains differ in <strong>Nlrp1b</strong> alleles governing macrophage sensitivity to lethal toxin. Recapitulate toxemia/lethality; used for PA-vaccine protection studies (<a href="https://pubmed.ncbi.nlm.nih.gov/18166249/" target="_blank" rel="noopener noreferrer">PMID: 18166249</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/17005989/" target="_blank" rel="noopener noreferrer">PMID: 17005989</a>). Limitation: strain-dependent toxin sensitivity; not all reproduce human inhalational mediastinitis.</li>
+<li><strong>Rats:</strong> classic model for <strong>edema/lethal toxin lethality</strong> (Fischer 344 rats highly sensitive to lethal toxin), useful for antitoxin pharmacology.</li>
+<li><strong>Rabbits (<em>Oryctolagus cuniculus</em>, txid9986) and non-human primates</strong> (rhesus/cynomolgus macaques, <em>Macaca</em> spp.): <strong>gold-standard inhalational anthrax models</strong>; closely mimic human disease (mediastinal lymphadenitis, toxemia, meningitis) and are the basis for FDA "Animal Rule" licensure of vaccines/antitoxins.</li>
+<li><strong>Guinea pigs:</strong> used for vaccine potency testing.</li>
+<li><strong>Zebrafish (<em>Danio rerio</em>, txid7955):</strong> used to study CMG2/anthrax-toxin receptor biology and S-acylation-dependent toxin susceptibility in vivo; APT2 inhibition attenuated toxin toxicity (<a href="https://pubmed.ncbi.nlm.nih.gov/42409807/" target="_blank" rel="noopener noreferrer">PMID: 42409807</a>).</li>
+<li><strong>Cellular / in vitro:</strong> J774A.1 and RAW264.7 macrophage lines for spore germination, intracellular survival, and pyroptosis assays (<a href="https://pubmed.ncbi.nlm.nih.gov/11207600/" target="_blank" rel="noopener noreferrer">PMID: 11207600</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16334217/" target="_blank" rel="noopener noreferrer">PMID: 16334217</a>); CHO and other lines for PA-pore translocation and receptor studies; engineered PA nanopores for biophysics (<a href="https://pubmed.ncbi.nlm.nih.gov/42326671/" target="_blank" rel="noopener noreferrer">PMID: 42326671</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41520172/" target="_blank" rel="noopener noreferrer">PMID: 41520172</a>).</li>
+<li><strong>Applications:</strong> toxin mechanism, receptor/translocation biology, vaccine and antitoxin efficacy, inflammasome/host-defense genetics, therapeutic screening.</li>
+<li><strong>Resources:</strong> MGI (mouse), RGD (rat), ZFIN (zebrafish), Cellosaurus/ATCC (cell lines); Alliance of Genome Resources.</li>
+</ul>
+<hr />
+<h2>Evidence-Source Legend</h2>
+<ul>
+<li><strong>Human clinical:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/38638828/" target="_blank" rel="noopener noreferrer">PMID 38638828</a>, 26720232, 29912259, 36980364, 33371332, 39509442, 37545541, 40303149.</li>
+<li><strong>In vitro / molecular / structural:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/42600039/" target="_blank" rel="noopener noreferrer">PMID 42600039</a>, 42409807, 42326671, 41520172, 42124355, 11207600, 16334217.</li>
+<li><strong>Model organism / vaccine:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/18166249/" target="_blank" rel="noopener noreferrer">PMID 18166249</a>, 17005989, 42409807, 11207600.</li>
+</ul>
+<h2>Limitations</h2>
+<ul>
+<li>No primary dataset was provided; report synthesizes literature and canonical databases.</li>
+<li>Global human burden is poorly quantified (neglected zoonosis; under-reporting).</li>
+<li>Several therapeutic/mechanistic details (antitoxin approvals, CDC regimens, Animal Rule) rest on regulatory/guideline sources rather than the specific PMIDs retrievable in this session; PMIDs cited support the core mechanistic and clinical claims. Some retrieved records are recent structural/biophysical studies used to anchor the toxin-mechanism narrative.</li>
+</ul>
+<h2>Future Directions</h2>
+<ul>
+<li>Multi-antigen/spore-targeted vaccines that block germination and bacteremia (not only toxin).</li>
+<li>Next-generation ultrapotent anti-PA antibodies (oligomerization blockers, <a href="https://pubmed.ncbi.nlm.nih.gov/42600039/" target="_blank" rel="noopener noreferrer">PMID 42600039</a>) and small-molecule translocation inhibitors.</li>
+<li>Host-directed therapy exploiting receptor S-acylation cycles (<a href="https://pubmed.ncbi.nlm.nih.gov/42409807/" target="_blank" rel="noopener noreferrer">PMID 42409807</a>).</li>
+<li>Improved One-Health surveillance and burden quantification in endemic regions.</li>
+</ul>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Anthrax-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Anthrax-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>15</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>48</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>46</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0005119</code> (2 mentions) - the report calls it "if available"; MONDO calls it <strong>anthrax infection</strong></li>
+<li><code>HP:0011124</code> (1 mention) - the report calls it "localized skin lesion"; HP calls it <strong>Abnormal epidermal morphology</strong></li>
+<li><code>HP:0002090</code> (2 mentions) - the report calls it "fever"; HP calls it <strong>Pneumonia</strong></li>
+<li><code>HP:0025267</code> (1 mention) - the report calls it "nausea"; HP calls it <strong>Snoring</strong></li>
+<li><code>HP:0011098</code> (1 mention) - the report calls it "seizure"; HP calls it <strong>Speech apraxia</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0200041</code> (1 mention) - the report calls it "skin ulcer"; HP calls it <strong>Skin erosion</strong></li>
+<li><code>GO:0070269</code> (2 mentions) - the report calls it "pyroptosis"; GO calls it <strong>pyroptotic inflammatory response</strong>, and lists "pyroptosis" among its other names</li>
+<li><code>GO:0071356</code> (1 mention) - the report calls it "cellular response to cytokine"; GO calls it <strong>cellular response to tumor necrosis factor</strong>, and lists "cellular response to TNF" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Anthracycline_Induced_Cardiomyopathy-claude_code.html">← Anthracycline-Induced Cardiomyopathy (Claude Code)</a>
+                
+                
+                <a href="Anti-GBM_Disease-claude_code.html">Anti-Glomerular Basement Membrane Disease (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Anthrax.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Anthrax-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

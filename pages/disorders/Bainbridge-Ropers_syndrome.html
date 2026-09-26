@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5747,6 +5789,13 @@ This experiment is of type Isogenic iPSC allelic series with PR-DUB and H2AK119u
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-asxl3-haploinsufficiency-from-protein-truncating-variants" data-dismech-node="ASXL3 Haploinsufficiency from Protein-Truncating Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">ASXL3 Haploinsufficiency from Protein-Truncating Variants</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A heterozygous nonsense, frameshift, or canonical splice-site variant, almost always falling in the two large coding exons 11 and 12, is the initiating lesion. For variants predicted to trigger nonsense-mediated decay the mutant transcript is degraded and total ASXL3 message and protein fall, producing true haploinsufficiency. A second class of truncating variants escapes decay and yields a truncated protein, and the two classes are associated with measurably different clinical severity, which argues that reduced dosage is the dominant but not the only mechanism.</div>
 
 
@@ -5874,6 +5923,8 @@ This genetic context concerns ASXL3 (hgnc:29357). hgnc:29357 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -5886,6 +5937,9 @@ This genetic context concerns ASXL3 (hgnc:29357). hgnc:29357 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
 
     </div>
+
+
+
 
     <div class="context-detail">De novo heterozygous truncating ASXL3 alleles. Recorded as UNKNOWN rather than LOSS_OF_FUNCTION: alleles predicted to undergo nonsense-mediated decay reduce ASXL3 dosage (mechanistic_hypotheses#asxl3_nmd_haploinsufficiency), but the NMD-escaping class produces a truncated protein whose activity is untested and whose carriers differ phenotypically (mechanistic_hypotheses#asxl3_nmd_escaping_truncated_protein). See the brps_truncated_protein_mechanism_controversy discussion.</div>
 
@@ -6048,6 +6102,13 @@ This pathophysiological event involves increased nonsense-mediated decay of the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pr-dub-deubiquitinase-complex-function" data-dismech-node="Impaired PR-DUB Deubiquitinase Complex Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired PR-DUB Deubiquitinase Complex Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">ASXL3 is a non-catalytic scaffolding subunit of the Polycomb repressive deubiquitinase (PR-DUB) complex, binding the ubiquitin C-terminal hydrolase BAP1 through its DEUBAD module. BAP1 has little activity on nucleosomes on its own and depends on an ASXL partner, so reduced ASXL3 dosage limits assembly of functional ASXL3-BAP1 PR-DUB and blunts its catalytic output. The ASXL paralogs are epigenetic scaffolds more generally, also engaging EZH2, nuclear receptors and other partners.</div>
 
@@ -6233,6 +6294,13 @@ This pathophysiological event involves decreased histone H2A deubiquitinase acti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-h2a-lysine-119-monoubiquitination" data-dismech-node="Elevated H2A Lysine 119 Monoubiquitination" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated H2A Lysine 119 Monoubiquitination</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of PR-DUB output leaves H2AK119 monoubiquitination abnormally high. This mark is the repressive output of Polycomb repressive complex 1, and its dynamic removal by PR-DUB is required for normal derepression of developmental target genes. BRPS was the first single-gene disorder attributed to a defect in H2AK119Ub1 deubiquitination, making this the defining chromatin lesion of the syndrome.</div>
 
@@ -6449,6 +6517,13 @@ This pathophysiological event involves abnormal chromatin organization at Polyco
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genome-wide-transcriptional-dysregulation" data-dismech-node="Genome-Wide Transcriptional Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Genome-Wide Transcriptional Dysregulation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The aberrant chromatin state translates into widespread transcriptional change. Patient fibroblast transcriptomes show hundreds of differentially expressed genes split almost evenly between up- and downregulated, which is more consistent with loss of a chromatin scaffold that tunes both repression and activation than with loss of a pure repressor. The affected genes are enriched for transcriptional regulation, development, and proliferation.</div>
 
 
@@ -6630,6 +6705,13 @@ This pathophysiological event involves abnormal epigenetic regulation of gene ex
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neural-cell-fate-specification" data-dismech-node="Disrupted Neural Cell Fate Specification" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Neural Cell Fate Specification</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The developmental consequence of ASXL3 loss falls on early neural patterning. In a vertebrate embryo model, ASXL3 depletion severely perturbs specification of neural cell fates, with reduced expression of hindbrain, primary neuron, and neural crest markers, while spinal-cord identity is relatively spared. This positions ASXL3 as a chromatin regulator required during the earliest steps of nervous system induction and anteroposterior patterning, which is when the human phenotype is determined.</div>
 
@@ -6872,6 +6954,13 @@ This pathophysiological event involves decreased neuron differentiation (GO:0030
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-and-multisystem-clinical-phenotype" data-dismech-node="Neurodevelopmental and Multisystem Clinical Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental and Multisystem Clinical Phenotype</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The terminal node: a static (non-degenerative) neurodevelopmental phenotype comprising moderate-to-severe intellectual disability, absent or profoundly limited speech, autistic features, central hypotonia evolving toward limb hypertonia, severe infantile feeding difficulty with failure to thrive, gastroesophageal reflux, and a nonspecific craniofacial gestalt, with generalized epilepsy in a minority.</div>
 
 
@@ -6957,6 +7046,13 @@ This pathophysiological event involves decreased neuron differentiation (GO:0030
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-an-asxl3-dna-methylation-episignature" data-dismech-node="Absence of an ASXL3 DNA Methylation Episignature" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of an ASXL3 DNA Methylation Episignature</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A negative but mechanistically informative finding. Blood DNA methylation signatures are established for many chromatinopathies, and ASXL1-related Bohring-Opitz syndrome has a robust one. When that classifier was applied to ASXL3 patients their methylation profiles were control-like, and unlike ASXL1 and ASXL2 patients they showed no epigenetic age acceleration. This means (a) there is currently no validated episignature available to help classify ASXL3 variants of uncertain significance, and (b) ASXL3 dysfunction diverges mechanistically from ASXL1 despite paralogy - which is a molecular argument for keeping BRPS and BOS as separate entities.</div>
 
@@ -7066,7 +7162,7 @@ This pathophysiological event involves decreased neuron differentiation (GO:0030
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASXL3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ASXL3\"], \"gene_terms\": [{\"label\": \"ASXL3\", \"id\": \"hgnc:29357\"}], \"association\": \"Heterozygous protein-truncating (nonsense, frameshift, canonical splice-site) variants, clustered in the two large coding exons 11 and 12\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"ASXL3 Haploinsufficiency from Protein-Truncating Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous nonsense, frameshift, or canonical splice-site variant, almost always falling in the two large coding exons 11 and 12, is the initiating lesion. For variants predicted to trigger nonsense-mediated decay the mutant transcript is degraded and total ASXL3 message and protein fall, producing true haploinsufficiency. A second class of truncating variants escapes decay and yields a truncated protein, and the two classes are associated with measurably different clinical severity, which argues that reduced dosage is the dominant but not the only mechanism.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"nonsense-mediated decay of the mutant ASXL3 transcript\"], \"genes\": [\"ASXL3\"], \"gene_terms\": [{\"label\": \"ASXL3\", \"id\": \"hgnc:29357\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"De novo heterozygous truncating ASXL3 alleles. Recorded as UNKNOWN rather than LOSS_OF_FUNCTION: alleles predicted to undergo nonsense-mediated decay reduce ASXL3 dosage (mechanistic_hypotheses#asxl3_nmd_haploinsufficiency), but the NMD-escaping class produces a truncated protein whose activity is untested and whose carriers differ phenotypically (mechanistic_hypotheses#asxl3_nmd_escaping_truncated_protein). See the brps_truncated_protein_mechanism_controversy discussion.\", \"gene_terms\": [{\"label\": \"ASXL3\", \"id\": \"hgnc:29357\"}]}}}, {\"id\": \"Absence of an ASXL3 DNA Methylation Episignature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A negative but mechanistically informative finding. Blood DNA methylation signatures are established for many chromatinopathies, and ASXL1-related Bohring-Opitz syndrome has a robust one. When that classifier was applied to ASXL3 patients their methylation profiles were control-like, and unlike ASXL1 and ASXL2 patients they showed no epigenetic age acceleration. This means (a) there is currently no validated episignature available to help classify ASXL3 variants of uncertain significance, and (b) ASXL3 dysfunction diverges mechanistically from ASXL1 despite paralogy - which is a molecular argument for keeping BRPS and BOS as separate entities.\", \"meta\": {\"evidence_count\": 2, \"role\": \"BIOMARKER\"}}, {\"id\": \"Absent or severely limited speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech and language impairment is the most consistent feature of the syndrome. Most affected individuals are nonverbal or have only a handful of words, and augmentative and alternative communication is a core need.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001344\"}}, {\"id\": \"Anti-reflux management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-reflux medication for gastroesophageal reflux disease, with fundoplication reserved for severe or refractory cases. Reflux control also reduces aspiration risk in a hypotonic child with dysphagia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anti-seizure medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard neurologist-directed management of childhood-onset generalized epilepsy with generalized tonic-clonic and atypical absence seizures. Broad-spectrum agents are the rational choice given the generalized phenotype, but there are no BRPS-specific efficacy data. Confirm that paroxysmal events are epileptic on video-EEG before escalating, since breath-holding, hyperventilation and dystonic episodes in this disorder are non-epileptic.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Behavioral intervention for self-injury\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structured behaviour-analytic assessment and treatment, using functional analysis and differential reinforcement, is the best-evidenced non-pharmacological approach to self-injury in this disorder. Coexisting sleep disruption can confound assessment and should be addressed in parallel.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dental anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental anomalies including crowding are recognized manifestations, and six-monthly dental review from age three is recommended.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000678\"}}, {\"id\": \"Disrupted Neural Cell Fate Specification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The developmental consequence of ASXL3 loss falls on early neural patterning. In a vertebrate embryo model, ASXL3 depletion severely perturbs specification of neural cell fates, with reduced expression of hindbrain, primary neuron, and neural crest markers, while spinal-cord identity is relatively spared. This positions ASXL3 as a chromatin regulator required during the earliest steps of nervous system induction and anteroposterior patterning, which is when the human phenotype is determined.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"developing neuron\"], \"biological_processes\": [\"neural cell fate commitment\", \"nervous system development\", \"neuron differentiation\"]}}, {\"id\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of PR-DUB output leaves H2AK119 monoubiquitination abnormally high. This mark is the repressive output of Polycomb repressive complex 1, and its dynamic removal by PR-DUB is required for normal derepression of developmental target genes. BRPS was the first single-gene disorder attributed to a defect in H2AK119Ub1 deubiquitination, making this the defining chromatin lesion of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"PR-DUB-mediated histone H2A deubiquitination\", \"chromatin organization at Polycomb target loci\"]}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe feeding difficulty is one of the two features that named the disorder. It presents in early infancy, frequently necessitates nasogastric and then gastrostomy feeding, and drives failure to thrive. Feeding tube use is more frequent in the nonsense-mediated-decay and exon 11 variant groups.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Feeding therapy and gastrostomy tube placement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The highest-yield intervention in infancy. Clinical feeding evaluation with a low threshold for referral, feeding therapy, and nasogastric then gastrostomy feeding where oral intake is inadequate. Many children later wean off tube feeding as feeding skills improve with age.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux disease is common, compounds the feeding difficulty and aspiration risk, and may require anti-reflux medication or fundoplication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Genome-Wide Transcriptional Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The aberrant chromatin state translates into widespread transcriptional change. Patient fibroblast transcriptomes show hundreds of differentially expressed genes split almost evenly between up- and downregulated, which is more consistent with loss of a chromatin scaffold that tunes both repression and activation than with loss of a pure repressor. The affected genes are enriched for transcriptional regulation, development, and proliferation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"dysregulated transcription of developmental target genes\", \"epigenetic regulation of gene expression\"]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central hypotonia, often severe and evident from infancy, contributing to feeding failure and motor delay. In many individuals truncal hypotonia later coexists with, or gives way to, increased limb tone and flexion contractures of the elbows, wrists, and fingers.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired PR-DUB Deubiquitinase Complex Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASXL3 is a non-catalytic scaffolding subunit of the Polycomb repressive deubiquitinase (PR-DUB) complex, binding the ubiquitin C-terminal hydrolase BAP1 through its DEUBAD module. BAP1 has little activity on nucleosomes on its own and depends on an ASXL partner, so reduced ASXL3 dosage limits assembly of functional ASXL3-BAP1 PR-DUB and blunts its catalytic output. The ASXL paralogs are epigenetic scaffolds more generally, also engaging EZH2, nuclear receptors and other partners.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"histone H2A deubiquitinase activity of the PR-DUB complex\"]}}, {\"id\": \"Neurodevelopmental and Multisystem Clinical Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal node: a static (non-degenerative) neurodevelopmental phenotype comprising moderate-to-severe intellectual disability, absent or profoundly limited speech, autistic features, central hypotonia evolving toward limb hypertonia, severe infantile feeding difficulty with failure to thrive, gastroesophageal reflux, and a nonspecific craniofacial gestalt, with generalized epilepsy in a minority.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ophthalmological and renal surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"At least annual ophthalmology review for all, given the frequency of strabismus and refractive error. Baseline renal imaging after diagnosis is a newer recommendation arising from the emerging renal phenotype identified in the international natural history study.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Physical therapy and rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physiotherapy for hypotonia, motor delay, joint laxity and contracture prevention, with durable medical equipment and orthotics as needed. Longitudinal data show motor skills improve over time, so rehabilitation goals should be progressive rather than purely maintenance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pregabalin for severe challenging behavior\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reported in a single adult with BRPS, severe intellectual disability, autism and epilepsy admitted for severe self- and hetero-aggression, in whom pregabalin produced rapid stabilization and allowed withdrawal of analgesics, neuroleptics, antidepressants and benzodiazepines, sustained at nine months. This is hypothesis-generating only.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pregabalin\"]}}, {\"id\": \"Preventive dental care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Six-monthly dental review from age three, with preventive measures. Dental anomalies are a recognized feature and oral health is difficult to maintain in a nonverbal child with behavioural challenges.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An emerging renal phenotype was identified in the international natural history study and is the basis for the recommendation of baseline renal imaging after diagnosis. The specific renal lesions and their frequency are not yet characterized.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000077\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of individuals develop childhood-onset generalized epilepsy, typically with generalized tonic-clonic and sometimes atypical absence seizures, and EEG features of generalized epilepsy. Most affected individuals have normal brain MRI. Non-epileptic breath-holding and dystonic episodes are an important mimic, so video-EEG is needed before escalating anti-seizure medication.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Self-injurious behavior and aggression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-injury and aggression are a major source of morbidity and can be severe enough to require inpatient psychiatric admission. They are amenable to structured behavioral intervention.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100716\"}}, {\"id\": \"Speech and language therapy with augmentative and alternative communication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because most affected individuals are nonverbal or minimally verbal, speech and language therapy focused on augmentative and alternative communication is a core, lifelong intervention rather than an optional adjunct.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is the commonest ophthalmological finding and is one of the reasons annual ophthalmology review is recommended for all affected individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}], \"edges\": [{\"source\": \"ASXL3 Haploinsufficiency from Protein-Truncating Variants\", \"target\": \"Impaired PR-DUB Deubiquitinase Complex Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ASXL3 protein limits assembly of the ASXL3-BAP1 PR-DUB complex, of which ASXL3 is an obligate scaffolding subunit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired PR-DUB Deubiquitinase Complex Function\", \"target\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PR-DUB catalytic output leaves the repressive H2AK119 monoubiquitin mark abnormally elevated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"target\": \"Absence of an ASXL3 DNA Methylation Episignature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chromatin lesion does not propagate into a detectable peripheral blood DNA methylation signature: ASXL3 patients profile as control-like on the ASXL1/Bohring-Opitz classifier. The steps that would connect an elevated H2AK119Ub1 mark to a blood DNAm readout are unknown, and this edge asserts the absence of a detectable downstream signature rather than a positive effect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"target\": \"Genome-Wide Transcriptional Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The altered chromatin state produces widespread bidirectional changes in gene expression in patient-derived cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome-Wide Transcriptional Dysregulation\", \"target\": \"Disrupted Neural Cell Fate Specification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transcriptional dysregulation during early neural patterning is inferred to derail cell-fate specification. The specific intermediate target genes in human neural tissue are not known, and the direct evidence is model-organism only.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Derepression of Polycomb target genes at neural patterning loci\", \"Altered dosage of hindbrain, primary neuron, and neural crest fate determinants\"]}, {\"source\": \"Disrupted Neural Cell Fate Specification\", \"target\": \"Neurodevelopmental and Multisystem Clinical Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted early neural specification is inferred to produce the clinical neurodevelopmental phenotype. Because most affected individuals have structurally normal brain imaging, the intervening steps between a patterning defect and the clinical picture are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Feeding therapy and gastrostomy tube placement\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-reflux management\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and language therapy with augmentative and alternative communication\", \"target\": \"Absent or severely limited speech\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy and rehabilitation\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioral intervention for self-injury\", \"target\": \"Self-injurious behavior and aggression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pregabalin for severe challenging behavior\", \"target\": \"Self-injurious behavior and aggression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-seizure medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Preventive dental care\", \"target\": \"Dental anomalies\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological and renal surveillance\", \"target\": \"Strabismus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological and renal surveillance\", \"target\": \"Renal anomalies\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ASXL3\", \"target\": \"ASXL3 Haploinsufficiency from Protein-Truncating Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASXL3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ASXL3\"], \"gene_terms\": [{\"label\": \"ASXL3\", \"id\": \"hgnc:29357\"}], \"association\": \"Heterozygous protein-truncating (nonsense, frameshift, canonical splice-site) variants, clustered in the two large coding exons 11 and 12\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"ASXL3 Haploinsufficiency from Protein-Truncating Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous nonsense, frameshift, or canonical splice-site variant, almost always falling in the two large coding exons 11 and 12, is the initiating lesion. For variants predicted to trigger nonsense-mediated decay the mutant transcript is degraded and total ASXL3 message and protein fall, producing true haploinsufficiency. A second class of truncating variants escapes decay and yields a truncated protein, and the two classes are associated with measurably different clinical severity, which argues that reduced dosage is the dominant but not the only mechanism.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"nonsense-mediated decay of the mutant ASXL3 transcript\"], \"genes\": [\"ASXL3\"], \"gene_terms\": [{\"label\": \"ASXL3\", \"id\": \"hgnc:29357\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"De novo heterozygous truncating ASXL3 alleles. Recorded as UNKNOWN rather than LOSS_OF_FUNCTION: alleles predicted to undergo nonsense-mediated decay reduce ASXL3 dosage (mechanistic_hypotheses#asxl3_nmd_haploinsufficiency), but the NMD-escaping class produces a truncated protein whose activity is untested and whose carriers differ phenotypically (mechanistic_hypotheses#asxl3_nmd_escaping_truncated_protein). See the brps_truncated_protein_mechanism_controversy discussion.\", \"gene_terms\": [{\"label\": \"ASXL3\", \"id\": \"hgnc:29357\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Absence of an ASXL3 DNA Methylation Episignature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A negative but mechanistically informative finding. Blood DNA methylation signatures are established for many chromatinopathies, and ASXL1-related Bohring-Opitz syndrome has a robust one. When that classifier was applied to ASXL3 patients their methylation profiles were control-like, and unlike ASXL1 and ASXL2 patients they showed no epigenetic age acceleration. This means (a) there is currently no validated episignature available to help classify ASXL3 variants of uncertain significance, and (b) ASXL3 dysfunction diverges mechanistically from ASXL1 despite paralogy - which is a molecular argument for keeping BRPS and BOS as separate entities.\", \"meta\": {\"evidence_count\": 2, \"role\": \"BIOMARKER\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Absent or severely limited speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech and language impairment is the most consistent feature of the syndrome. Most affected individuals are nonverbal or have only a handful of words, and augmentative and alternative communication is a core need.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001344\"}}, {\"id\": \"Anti-reflux management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-reflux medication for gastroesophageal reflux disease, with fundoplication reserved for severe or refractory cases. Reflux control also reduces aspiration risk in a hypotonic child with dysphagia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anti-seizure medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard neurologist-directed management of childhood-onset generalized epilepsy with generalized tonic-clonic and atypical absence seizures. Broad-spectrum agents are the rational choice given the generalized phenotype, but there are no BRPS-specific efficacy data. Confirm that paroxysmal events are epileptic on video-EEG before escalating, since breath-holding, hyperventilation and dystonic episodes in this disorder are non-epileptic.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Behavioral intervention for self-injury\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structured behaviour-analytic assessment and treatment, using functional analysis and differential reinforcement, is the best-evidenced non-pharmacological approach to self-injury in this disorder. Coexisting sleep disruption can confound assessment and should be addressed in parallel.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dental anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental anomalies including crowding are recognized manifestations, and six-monthly dental review from age three is recommended.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000678\"}}, {\"id\": \"Disrupted Neural Cell Fate Specification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The developmental consequence of ASXL3 loss falls on early neural patterning. In a vertebrate embryo model, ASXL3 depletion severely perturbs specification of neural cell fates, with reduced expression of hindbrain, primary neuron, and neural crest markers, while spinal-cord identity is relatively spared. This positions ASXL3 as a chromatin regulator required during the earliest steps of nervous system induction and anteroposterior patterning, which is when the human phenotype is determined.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"developing neuron\"], \"biological_processes\": [\"neural cell fate commitment\", \"nervous system development\", \"neuron differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of PR-DUB output leaves H2AK119 monoubiquitination abnormally high. This mark is the repressive output of Polycomb repressive complex 1, and its dynamic removal by PR-DUB is required for normal derepression of developmental target genes. BRPS was the first single-gene disorder attributed to a defect in H2AK119Ub1 deubiquitination, making this the defining chromatin lesion of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"PR-DUB-mediated histone H2A deubiquitination\", \"chromatin organization at Polycomb target loci\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe feeding difficulty is one of the two features that named the disorder. It presents in early infancy, frequently necessitates nasogastric and then gastrostomy feeding, and drives failure to thrive. Feeding tube use is more frequent in the nonsense-mediated-decay and exon 11 variant groups.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Feeding therapy and gastrostomy tube placement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The highest-yield intervention in infancy. Clinical feeding evaluation with a low threshold for referral, feeding therapy, and nasogastric then gastrostomy feeding where oral intake is inadequate. Many children later wean off tube feeding as feeding skills improve with age.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux disease is common, compounds the feeding difficulty and aspiration risk, and may require anti-reflux medication or fundoplication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Genome-Wide Transcriptional Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The aberrant chromatin state translates into widespread transcriptional change. Patient fibroblast transcriptomes show hundreds of differentially expressed genes split almost evenly between up- and downregulated, which is more consistent with loss of a chromatin scaffold that tunes both repression and activation than with loss of a pure repressor. The affected genes are enriched for transcriptional regulation, development, and proliferation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"dysregulated transcription of developmental target genes\", \"epigenetic regulation of gene expression\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central hypotonia, often severe and evident from infancy, contributing to feeding failure and motor delay. In many individuals truncal hypotonia later coexists with, or gives way to, increased limb tone and flexion contractures of the elbows, wrists, and fingers.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired PR-DUB Deubiquitinase Complex Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASXL3 is a non-catalytic scaffolding subunit of the Polycomb repressive deubiquitinase (PR-DUB) complex, binding the ubiquitin C-terminal hydrolase BAP1 through its DEUBAD module. BAP1 has little activity on nucleosomes on its own and depends on an ASXL partner, so reduced ASXL3 dosage limits assembly of functional ASXL3-BAP1 PR-DUB and blunts its catalytic output. The ASXL paralogs are epigenetic scaffolds more generally, also engaging EZH2, nuclear receptors and other partners.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"histone H2A deubiquitinase activity of the PR-DUB complex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Neurodevelopmental and Multisystem Clinical Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal node: a static (non-degenerative) neurodevelopmental phenotype comprising moderate-to-severe intellectual disability, absent or profoundly limited speech, autistic features, central hypotonia evolving toward limb hypertonia, severe infantile feeding difficulty with failure to thrive, gastroesophageal reflux, and a nonspecific craniofacial gestalt, with generalized epilepsy in a minority.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Ophthalmological and renal surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"At least annual ophthalmology review for all, given the frequency of strabismus and refractive error. Baseline renal imaging after diagnosis is a newer recommendation arising from the emerging renal phenotype identified in the international natural history study.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Physical therapy and rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physiotherapy for hypotonia, motor delay, joint laxity and contracture prevention, with durable medical equipment and orthotics as needed. Longitudinal data show motor skills improve over time, so rehabilitation goals should be progressive rather than purely maintenance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pregabalin for severe challenging behavior\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reported in a single adult with BRPS, severe intellectual disability, autism and epilepsy admitted for severe self- and hetero-aggression, in whom pregabalin produced rapid stabilization and allowed withdrawal of analgesics, neuroleptics, antidepressants and benzodiazepines, sustained at nine months. This is hypothesis-generating only.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pregabalin\"]}}, {\"id\": \"Preventive dental care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Six-monthly dental review from age three, with preventive measures. Dental anomalies are a recognized feature and oral health is difficult to maintain in a nonverbal child with behavioural challenges.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An emerging renal phenotype was identified in the international natural history study and is the basis for the recommendation of baseline renal imaging after diagnosis. The specific renal lesions and their frequency are not yet characterized.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000077\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of individuals develop childhood-onset generalized epilepsy, typically with generalized tonic-clonic and sometimes atypical absence seizures, and EEG features of generalized epilepsy. Most affected individuals have normal brain MRI. Non-epileptic breath-holding and dystonic episodes are an important mimic, so video-EEG is needed before escalating anti-seizure medication.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Self-injurious behavior and aggression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-injury and aggression are a major source of morbidity and can be severe enough to require inpatient psychiatric admission. They are amenable to structured behavioral intervention.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100716\"}}, {\"id\": \"Speech and language therapy with augmentative and alternative communication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because most affected individuals are nonverbal or minimally verbal, speech and language therapy focused on augmentative and alternative communication is a core, lifelong intervention rather than an optional adjunct.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is the commonest ophthalmological finding and is one of the reasons annual ophthalmology review is recommended for all affected individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}], \"edges\": [{\"source\": \"ASXL3 Haploinsufficiency from Protein-Truncating Variants\", \"target\": \"Impaired PR-DUB Deubiquitinase Complex Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ASXL3 protein limits assembly of the ASXL3-BAP1 PR-DUB complex, of which ASXL3 is an obligate scaffolding subunit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired PR-DUB Deubiquitinase Complex Function\", \"target\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PR-DUB catalytic output leaves the repressive H2AK119 monoubiquitin mark abnormally elevated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"target\": \"Absence of an ASXL3 DNA Methylation Episignature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chromatin lesion does not propagate into a detectable peripheral blood DNA methylation signature: ASXL3 patients profile as control-like on the ASXL1/Bohring-Opitz classifier. The steps that would connect an elevated H2AK119Ub1 mark to a blood DNAm readout are unknown, and this edge asserts the absence of a detectable downstream signature rather than a positive effect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"target\": \"Genome-Wide Transcriptional Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The altered chromatin state produces widespread bidirectional changes in gene expression in patient-derived cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome-Wide Transcriptional Dysregulation\", \"target\": \"Disrupted Neural Cell Fate Specification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transcriptional dysregulation during early neural patterning is inferred to derail cell-fate specification. The specific intermediate target genes in human neural tissue are not known, and the direct evidence is model-organism only.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Derepression of Polycomb target genes at neural patterning loci\", \"Altered dosage of hindbrain, primary neuron, and neural crest fate determinants\"]}, {\"source\": \"Disrupted Neural Cell Fate Specification\", \"target\": \"Neurodevelopmental and Multisystem Clinical Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted early neural specification is inferred to produce the clinical neurodevelopmental phenotype. Because most affected individuals have structurally normal brain imaging, the intervening steps between a patterning defect and the clinical picture are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Feeding therapy and gastrostomy tube placement\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-reflux management\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and language therapy with augmentative and alternative communication\", \"target\": \"Absent or severely limited speech\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy and rehabilitation\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioral intervention for self-injury\", \"target\": \"Self-injurious behavior and aggression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pregabalin for severe challenging behavior\", \"target\": \"Self-injurious behavior and aggression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-seizure medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Preventive dental care\", \"target\": \"Dental anomalies\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological and renal surveillance\", \"target\": \"Strabismus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological and renal surveillance\", \"target\": \"Renal anomalies\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ASXL3\", \"target\": \"ASXL3 Haploinsufficiency from Protein-Truncating Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7166,6 +7262,9 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as infanti
 
 
                     </div>
+
+
+
 
 
 
@@ -7292,6 +7391,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7397,6 +7499,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7493,6 +7598,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7568,6 +7676,9 @@ This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately annotated at low specificity and with no frequency band: the only source describes &#34;an emerging renal phenotype&#34; without naming the lesions or reporting a rate. A more specific HPO term should replace this once the phenotype is characterized.</div>
@@ -7650,6 +7761,9 @@ This clinical feature is Dental crowding (HP:0000678). HP:0000678 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is asserted. GeneReviews lists dental anomalies only qualitatively (&#34;Other findings may include ...&#34;), the surveillance recommendation is not a frequency statement, and no cached source quantifies dental crowding specifically. Per the frequency-evidence SOP the band is omitted rather than inferred.</div>
@@ -7755,6 +7869,9 @@ This clinical feature is Highly arched eyebrow (HP:0002553). HP:0002553 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7846,6 +7963,9 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7947,6 +8067,9 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8043,6 +8166,9 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8109,6 +8235,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8244,6 +8373,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8365,6 +8497,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8431,6 +8566,9 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8516,6 +8654,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8582,6 +8723,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8710,6 +8854,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8806,6 +8953,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8874,6 +9024,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9000,6 +9153,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9091,6 +9247,9 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9221,6 +9380,9 @@ This clinical feature is Seizure (HP:0001250), qualified as childhood onset. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9342,6 +9504,9 @@ This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9433,6 +9598,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9533,6 +9701,9 @@ This clinical feature is Dystonia (HP:0001332), qualified as infantile onset. HP
                     </div>
 
 
+
+
+
                     <div class="item-desc">Based on a single detailed case report with a de novo ASXL3 nonsense variant, supported by a prior large-scale genomic association between ASXL3 variation and cerebral palsy. No frequency band is asserted.</div>
 
 
@@ -9629,6 +9800,9 @@ This clinical feature is Athetosis (HP:0002305). HP:0002305 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Single case report (n=1). No frequency band is asserted. Previously this feature was named only in the description of the hyperventilation phenotype and carried no ontology term of its own.</div>
 
 
@@ -9709,6 +9883,9 @@ This clinical feature is Hyperventilation (HP:0002883). HP:0002883 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9843,6 +10020,9 @@ This clinical feature is Failure to thrive (HP:0001508), qualified as infantile 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band is asserted: none of the cached sources reports a numeric frequency for failure to thrive specifically, as distinct from feeding difficulty. Per the frequency-evidence SOP, the band is omitted rather than inferred.</div>
 
 
@@ -9914,6 +10094,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is asserted. Both cited sources are qualitative (&#34;Other findings may include poor postnatal growth&#34;; &#34;a tendency for poor post-natal growth&#34;); neither maps to a quantitative band. This applies the same frequency-evidence discipline used for Failure to thrive and Dental anomalies.</div>
@@ -10041,6 +10224,9 @@ This clinical feature is Obesity (HP:0001513), qualified as childhood onset. HP:
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band is asserted: the source describes &#34;novel reports&#34; of obesity without a count or rate, and ascertainment in a natural-history cohort is limited. Treat as an emerging observation.</div>
 
 
@@ -10143,6 +10329,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511), qualified
 
 
                     </div>
+
+
+
 
 
 
@@ -10261,6 +10450,9 @@ This disease-associated gene is ASXL3 (hgnc:29357). hgnc:29357 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 

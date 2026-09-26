@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4966,6 +5008,7 @@ What would settle it is systematic ascertainment - bone age, EEG and renal funct
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rab23-loss-of-function" data-dismech-node="RAB23 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">RAB23 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic RAB23 variants abolish or impair a small GTPase that cycles between GDP-bound inactive and GTP-bound active states. The reported allele spectrum is dominated by truncating changes, with a recurrent founder nonsense allele; the point mutations that have been characterised structurally fall within the GTPase domain, and the Y79 deletion distorts the switch II region, which is the surface through which an activated Rab engages its effectors. The consequence is loss of function rather than a gain or a change of specificity.
 Three molecular routes to that loss have been demonstrated, and they are not variations on one theme. Most truncating alleles never make a protein at all: their transcripts are degraded by nonsense-mediated decay, shown experimentally rather than inferred from the premature stop codon. A frameshift late enough to escape that fate reaches the same endpoint differently, by deleting the C-terminal prenylatable cysteine, so a protein is made but cannot be lipid-anchored to the membranes it must work on. The missense and in-frame alleles leave a full-length, membrane-competent protein whose effector surface is distorted. All three converge on absent RAB23 activity, which is why the entry treats the allele spectrum as functionally uniform despite its structural variety - and is consistent with the absence of any reported genotype-phenotype correlation.</div>
 
@@ -5203,6 +5246,7 @@ This pathophysiological event involves decreased RAB23 GTPase activity, annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ciliary-protein-trafficking" data-dismech-node="Impaired Ciliary Protein Trafficking" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Ciliary Protein Trafficking</div>
+
 
                 <div class="item-desc">RAB23 participates in protein delivery to the primary cilium, the organelle in which vertebrate Hedgehog signal transduction is organised. This places Carpenter syndrome adjacent to the ciliopathies, which it partly resembles clinically, though RAB23 also has functions independent of cilia and of Hedgehog.
 Two ciliary cargoes have been identified, and the specificity of the first is the informative part. Depleting RAB23 lowers the ciliary steady-state level of Smoothened - the Hedgehog transducer - while leaving the control proteins EB1 and Kim1 untouched, so this is not a general collapse of ciliary import but a defect in turnover of a particular cargo. The second is Kif17, a kinesin-2 motor: RAB23 sits in a complex with Kif17 and importin beta-2, and Kif17 fails to reach the cilium in RAB23-depleted cells.
@@ -5455,6 +5499,7 @@ This pathophysiological event involves decreased cilium assembly (GO:0060271). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hedgehog-signalling-dysregulation" data-dismech-node="Hedgehog Signalling Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hedgehog Signalling Dysregulation</div>
+
 
                 <div class="item-desc">RAB23 antagonises Sonic hedgehog signalling, so its loss releases the pathway from negative regulation. This was the first mechanism proposed for Carpenter syndrome and was itself surprising, because craniosynostosis is not typically caused by variants in other Hedgehog pathway components. Mouse work later showed that the Hedgehog change in the suture is one arm of a broader signalling imbalance rather than the whole story.
 The classical genetics says de-repression, and the cell biology does not straightforwardly agree. Two results point the other way: depleting RAB23 lowers ciliary Smoothened, and RAB23-knockout neural progenitors are desensitized to cilium-dependent Hedgehog activation. Smoothened is the pathway&#39;s transducer, so less of it in the cilium and a blunted response to ligand are reduced output, not release from repression. This node is named for the dysregulation rather than for a direction because of that: an earlier name asserting de-repression would have contradicted the node&#39;s own modifier.
@@ -5755,6 +5800,7 @@ This pathophysiological event involves dysregulated smoothened signaling pathway
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-fgf10-fgfr1-erk-signalling-in-the-cranial-suture" data-dismech-node="Elevated FGF10-FGFR1-ERK Signalling in the Cranial Suture" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated FGF10-FGFR1-ERK Signalling in the Cranial Suture</div>
 
+
                 <div class="item-desc">In Rab23-null mouse sutures, FGF10-driven FGFR1 signalling is elevated, with downstream hyperactivation of the ERK1/2 arm of MAPK. This is the arm of the mechanism with the strongest causal evidence, because it was tested by intervention rather than only observed: inhibiting the raised pERK1/2 normalises osteoprogenitor proliferation and prevents the craniosynostosis.</div>
 
 
@@ -5922,6 +5968,7 @@ This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:00703
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-osteoprogenitor-proliferation-and-premature-osteogenesis" data-dismech-node="Aberrant Osteoprogenitor Proliferation and Premature Osteogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Osteoprogenitor Proliferation and Premature Osteogenesis</div>
+
 
                 <div class="item-desc">Suture patency depends on mesenchymal cells at the centre of the suture remaining undifferentiated while progenitors at the osteogenic fronts proliferate and differentiate in a controlled way. In Rab23-null sutures that balance fails: osteoprogenitor proliferation is aberrant and osteogenesis in the suture is elevated, and multiple sutures fuse prematurely.</div>
 
@@ -6129,6 +6176,7 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-limb-patterning-defect" data-dismech-node="Limb Patterning Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Limb Patterning Defect</div>
 
+
                 <div class="item-desc">Abnormal patterning of the developing limb produces the acral phenotype: polydactyly, cutaneous syndactyly and abnormalities of the middle phalanges. The syndactyly is near-universal in reported CRPT1 patients.</div>
 
 
@@ -6329,6 +6377,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -6461,6 +6512,9 @@ This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6536,6 +6590,9 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6623,6 +6680,9 @@ This clinical feature is Corneal anomaly, annotated with Abnormal cornea morphol
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6689,6 +6749,9 @@ This clinical feature is Prominent eyes, annotated with Proptosis (HP:0000520). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6799,6 +6862,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6874,6 +6940,9 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6970,6 +7039,9 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7080,6 +7152,9 @@ This clinical feature is Cutaneous syndactyly (HP:0012725). HP:0012725 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7146,6 +7221,9 @@ This clinical feature is Polydactyly (HP:0010442). HP:0010442 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7247,6 +7325,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7318,6 +7399,9 @@ This clinical feature is Talipes (HP:0001883). HP:0001883 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7384,6 +7468,9 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7464,6 +7551,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7565,6 +7655,9 @@ This clinical feature is Cerebral malformation, annotated with Abnormal brain mo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7631,6 +7724,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7763,6 +7859,9 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7908,6 +8007,9 @@ This disease-associated gene is RAB23 (hgnc:14263). hgnc:14263 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8008,6 +8110,7 @@ This disease-associated gene is RAB23 (hgnc:14263). hgnc:14263 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8027,11 +8130,17 @@ This variant is in RAB23 (hgnc:14263). hgnc:14263 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The founder nonsense allele, homozygous in ten of the patients in the original mapping study and carried on a shared haplotype, indicating a founder effect in individuals of northern European descent. It is the single commonest cause of Carpenter syndrome.</div>
@@ -8094,6 +8203,7 @@ This variant is in RAB23 (hgnc:14263). hgnc:14263 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8113,11 +8223,17 @@ This variant is in RAB23 (hgnc:14263). hgnc:14263 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">DELETION</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">An in-frame deletion within the GTPase domain and the only clinical allele solved crystallographically. It distorts the switch II region, the surface through which an activated Rab engages its effectors, which is how a single-residue deletion produces loss of function without removing the protein.</div>
@@ -8204,6 +8320,7 @@ This variant is in RAB23 (hgnc:14263). hgnc:14263 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8223,11 +8340,17 @@ This variant is in RAB23 (hgnc:14263). hgnc:14263 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">SPLICE SITE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A splice-acceptor variant that activates a cryptic site inside exon 5, deleting eight nucleotides and shifting the frame. It is curated because of where the resulting stop falls: late enough that the transcript is not simply degraded, but early enough to remove the C-terminal prenylatable cysteine. The protein is made and cannot be lipid-anchored to the membranes a Rab GTPase works on, which is a different route to loss of function from the nonsense alleles.</div>
@@ -8314,6 +8437,7 @@ This variant is in RAB23 (hgnc:14263). hgnc:14263 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8333,11 +8457,17 @@ This variant is in RAB23 (hgnc:14263). hgnc:14263 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">FRAMESHIFT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A substitution at the last base of exon 6 that causes the exon to be skipped, shifting the frame and creating a premature stop. It is curated as the allele of the one case with a documented prenatal picture, and as a second example of a coding substitution whose real consequence is on splicing rather than on the amino acid it appears to change.</div>
@@ -8400,6 +8530,7 @@ This variant is in RAB23 (hgnc:14263). hgnc:14263 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8419,11 +8550,17 @@ This variant is in RAB23 (hgnc:14263). hgnc:14263 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A nonsense allele reported homozygous in the first molecularly confirmed case of Carpenter syndrome from continental Africa, with both parents shown to be carriers. It is curated as evidence that the disorder is not confined to the populations the founder allele comes from.</div>
@@ -8486,6 +8623,7 @@ This variant is in RAB23 (hgnc:14263). hgnc:14263 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8505,11 +8643,17 @@ This variant is in RAB23 (hgnc:14263). hgnc:14263 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">FRAMESHIFT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A frameshift allele homozygous in four affected children of one Comorian family. This is the entry&#39;s clearest evidence that genotype does not fix phenotype here: with one allele held constant within a single family, craniosynostosis ranged from a cloverleaf skull to an isolated metopic ridge, hydrocephalus was present in two of four, and mental development was normal in all four.</div>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4202,6 +4244,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-presence-of-extra-x-chromosome" data-dismech-node="Presence of Extra X Chromosome" data-dismech-type="pathophysiology">
                 <div class="item-name">Presence of Extra X Chromosome</div>
 
+
                 <div class="item-desc">Typically results in a 47,XXY karyotype, leading to a range of physical, developmental, and reproductive issues.</div>
 
 
@@ -4330,6 +4373,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-x-chromosome-inactivation-escape-gene-dosage-imbalance" data-dismech-node="X-chromosome Inactivation Escape / Gene Dosage Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">X-chromosome Inactivation Escape / Gene Dosage Imbalance</div>
 
+
                 <div class="item-desc">In 47,XXY, the inactive X chromosome (Xi) does not fully silence expression of a subset of X-linked escape genes (notably DDX3X, USP9X, KDM6A, and other dosage-sensitive loci). The resulting bi-allelic expression of these genes elevates effective gene dosage above the typical male single-X level, contributing to neurodevelopmental, cognitive, and metabolic phenotypes independent of androgen deficiency. The Xi also exerts trans regulatory effects on active-X and autosomal gene expression, broadening the molecular impact of sex-chromosome aneuploidy beyond classic escape.</div>
 
 
@@ -4454,6 +4498,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-testicular-microenvironment-dysfunction" data-dismech-node="Testicular Microenvironment Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Testicular Microenvironment Dysfunction</div>
+
 
                 <div class="item-desc">Immature Sertoli and Leydig cells, proinflammatory macrophage enrichment, extracellular matrix remodeling and microvascular dysfunction impair spermatogenesis and testosterone export.</div>
 
@@ -4798,6 +4843,7 @@ This pathophysiological event occurs in Seminiferous Tubule, annotated with semi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-germ-cell-loss" data-dismech-node="Progressive Germ Cell Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Germ Cell Loss</div>
 
+
                 <div class="item-desc">Accelerated germ cell apoptosis beginning around puberty leads to spermatogenic failure and azoospermia in adulthood.</div>
 
 
@@ -4957,6 +5003,7 @@ This pathophysiological event occurs in Seminiferous Tubule, annotated with semi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypergonadotropic-hypogonadism" data-dismech-node="Hypergonadotropic Hypogonadism" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypergonadotropic Hypogonadism</div>
+
 
                 <div class="item-desc">Leydig cell insufficiency and impaired testosterone export result in elevated LH/FSH and low systemic testosterone despite potentially elevated intratesticular testosterone.</div>
 
@@ -5247,6 +5294,9 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Androgen/estrogen imbalance predisposes to breast tissue development</div>
 
 
@@ -5329,6 +5379,9 @@ This clinical feature is Abnormality of the Cardiovascular System (HP:0001626). 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Elevated risk of cardiovascular disease related to hypogonadism and metabolic dysregulation</div>
 
 
@@ -5407,6 +5460,9 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5533,6 +5589,9 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Not a feature of classic non-mosaic 47,XXY, where external genitalia are typically normal at birth. Reported chiefly in higher-grade X-aneuploidy variants of the Klinefelter spectrum (e.g., 48,XXXY, 49,XXXXY, 49,XXXYY).</div>
 
 
@@ -5627,6 +5686,9 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Severe spermatogenic failure is common, often leading to infertility</div>
 
 
@@ -5698,6 +5760,9 @@ This clinical feature is Small Testes, annotated with Decreased testicular size 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Testicular atrophy with small firm testes reflects germ cell loss and fibrosis</div>
@@ -5780,6 +5845,9 @@ This clinical feature is Insulin Resistance (HP:0000855). HP:0000855 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Increased risk of metabolic syndrome and type 2 diabetes</div>
 
 
@@ -5860,6 +5928,9 @@ This clinical feature is Reduced Muscle Tone, annotated with Hypotonia (HP:00012
                     </div>
 
 
+
+
+
                     <div class="item-desc">A recognized infancy/childhood feature (mild hypotonia and motor delay), though not prominent in adult clinical descriptions. Evidence gap: a quotable primary source for hypotonia in 47,XXY has not yet been cited here. No `frequency:` band is asserted. The band this record previously carried (OCCASIONAL) was left behind when its evidence item was removed, and per the frequency-evidence SOP a band is a separate quantitative claim that needs its own source rather than an inherited default. It would also probably have been the wrong band: infantile hypotonia is described as common in 47,XXY, so OCCASIONAL understates it. Restore a band only together with a quantitative source.</div>
 
 
@@ -5896,6 +5967,9 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Low testosterone and altered bone metabolism contribute to reduced bone density</div>
@@ -5976,6 +6050,9 @@ This clinical feature is Delayed Speech and Language Development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6075,6 +6152,9 @@ This clinical feature is Learning Disabilities, annotated with Specific learning
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6164,6 +6244,9 @@ This clinical feature is Attention Deficit Hyperactivity Disorder (HP:0007018). 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">ADD/ADHD is more common than general population</div>
@@ -6272,6 +6355,9 @@ This clinical feature is Tall Stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6328,6 +6414,9 @@ This clinical feature is Tall Stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">May include shyness, low self-esteem, reduced assertiveness</div>
@@ -6494,6 +6583,9 @@ This disease-associated gene is DDX3X (hgnc:2745). hgnc:2745 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-usp9x" data-dismech-node="USP9X" data-dismech-type="genetic">
@@ -6525,6 +6617,9 @@ This disease-associated gene is USP9X (hgnc:12632). hgnc:12632 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -6568,6 +6663,9 @@ This disease-associated gene is KDM6A (hgnc:12637). hgnc:12637 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-47-xxy-karyotype" data-dismech-node="47,XXY Karyotype" data-dismech-type="genetic">
@@ -6575,6 +6673,9 @@ This disease-associated gene is KDM6A (hgnc:12637). hgnc:12637 is a gene from th
                     47,XXY Karyotype
 
                 </div>
+
+
+
 
 
 
@@ -6699,6 +6800,9 @@ This disease-associated gene is SHOX (hgnc:10853). hgnc:10853 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-tlr7" data-dismech-node="TLR7" data-dismech-type="genetic">
@@ -6730,6 +6834,9 @@ This disease-associated gene is TLR7 (hgnc:15631). hgnc:15631 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6773,6 +6880,9 @@ This disease-associated gene is AR (hgnc:644). hgnc:644 is a gene from the HUGO 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-insl3" data-dismech-node="INSL3" data-dismech-type="genetic">
@@ -6810,6 +6920,9 @@ This disease-associated gene is INSL3 (hgnc:6086). hgnc:6086 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-mosaicism-46-xy-47-xxy" data-dismech-node="Mosaicism (46,XY/47,XXY)" data-dismech-type="genetic">
@@ -6817,6 +6930,9 @@ This disease-associated gene is INSL3 (hgnc:6086). hgnc:6086 is a gene from the 
                     Mosaicism (46,XY/47,XXY)
 
                 </div>
+
+
+
 
 
 

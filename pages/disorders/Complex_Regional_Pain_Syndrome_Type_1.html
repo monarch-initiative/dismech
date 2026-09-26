@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4195,6 +4237,33 @@ Three things distinguish this entry from a generic chronic-pain entry. The autoa
 
 
         <!-- Comorbidities -->
+
+        <div class="card" id="comorbidities">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">C</div>
+                <h2 class="card-title">Comorbidities</h2>
+            </div>
+            <div class="mapping-section">
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Hypermobile_Ehlers-Danlos_Syndrome__Complex_Regional_Pain_Syndrome_Type_1.html">Hypermobile Ehlers-Danlos Syndrome &lt;-&gt; Complex Regional Pain Syndrome Type 1</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease B</span>
+
+
+                        <span class="tag tag-classification">UNKNOWN</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
 
 
         <!-- Mechanistic Hypotheses -->
@@ -4903,6 +4972,7 @@ Three things distinguish this entry from a generic chronic-pain entry. The autoa
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-tissue-trauma" data-dismech-node="Peripheral Tissue Trauma" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral Tissue Trauma</div>
 
+
                 <div class="item-desc">The initiating event, and almost always a common one — distal limb fracture above all, with sprain, crush, surgery, and immobilization also recognized. In the Olmsted County population study every identified case reported an antecedent event and fracture was the trigger in 46%. Because the trigger is ubiquitous and the syndrome is rare, this node is necessary but far from sufficient, which is the premise of the whole entry.</div>
 
 
@@ -5021,6 +5091,7 @@ This pathophysiological event occurs in manus (UBERON:0002398). UBERON:0002398 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurogenic-inflammation" data-dismech-node="Neurogenic Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurogenic Inflammation</div>
+
 
                 <div class="item-desc">Activated C-fibre nociceptors release substance P and CGRP into the injured limb, producing vasodilation, plasma extravasation, oedema, erythema, and increased sweating, and recruiting local immune cells. This node is the direct substrate of three of the four Budapest domains — vasomotor, sudomotor/oedema, and part of the trophic — and it is what makes early CRPS a warm, swollen limb rather than a purely sensory complaint.</div>
 
@@ -5310,6 +5381,7 @@ This pathophysiological event involves increased positive regulation of vascular
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoantibody-production-against-autonomic-receptors" data-dismech-node="Autoantibody Production Against Autonomic Receptors" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoantibody Production Against Autonomic Receptors</div>
 
+
                 <div class="item-desc">Functionally active IgG directed at the second extracellular loop of the beta-2 adrenergic and muscarinic-2 receptors, with agonist-like properties in a cardiomyocyte bioassay. These are not bystander antibodies: they act on the receptors, they are found in a defined subset of patients, and their transfer into injured mice reproduces the syndrome. The node is the hinge of the entry — it converts a post-traumatic inflammatory response into a self-sustaining one.</div>
 
 
@@ -5530,6 +5602,7 @@ This pathophysiological event involves sympathetic neuron (CL:0011103). CL:00111
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spinal-glial-activation" data-dismech-node="Spinal Glial Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Spinal Glial Activation</div>
+
 
                 <div class="item-desc">Microglia and astrocytes in the dorsal horn and in pain-related brain regions become and remain activated. The passive transfer experiment shows this state persisting long after the peripheral inflammatory response has resolved, and identifies microglia-derived IL-1beta as the mediator — with IL-1 receptor blockade both preventing it and reversing an already established phenotype. It is curated separately from the sensitization it produces because the two have different drug targets: IL-1 blockade acts here, NMDA antagonism acts downstream.</div>
 
@@ -5858,6 +5931,7 @@ This pathophysiological event occurs in dorsal horn of spinal cord (UBERON:00022
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-sensitization" data-dismech-node="Central Sensitization" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Sensitization</div>
 
+
                 <div class="item-desc">An NMDA-receptor-dependent lowering of the threshold for nociceptive transmission, so that innocuous input is experienced as painful and painful input as more so, over a territory well beyond the original injury. It is the state that allodynia and hyperalgesia report, and the node ketamine targets: the NMDA receptor is the reason a dissociative anaesthetic has an analgesic role in this disease at all.</div>
 
 
@@ -6002,6 +6076,7 @@ This pathophysiological event occurs in dorsal horn of spinal cord (UBERON:00022
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sympathetic-vasomotor-dysregulation" data-dismech-node="Sympathetic Vasomotor Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sympathetic Vasomotor Dysregulation</div>
 
+
                 <div class="item-desc">Disturbed sympathetic vasomotor control of the affected limb, producing the temperature and colour asymmetry of the vasomotor Budapest domain: an early warm, vasodilated phase and a later cold, cyanotic one. Importantly, not all CRPS pain is sympathetically maintained — a subset is sympathetically independent — which is the clearest explanation for why sympathetic blockade helps some patients and not others, and why this entry does not curate sympathetic block as a general treatment.</div>
 
 
@@ -6096,6 +6171,7 @@ This pathophysiological event involves sympathetic neuron (CL:0011103). CL:00111
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-somatosensory-reorganization" data-dismech-node="Cortical Somatosensory Reorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Somatosensory Reorganization</div>
+
 
                 <div class="item-desc">The cortical representation of the affected hand in primary somatosensory cortex shrinks and its centre shifts toward the lip representation, while tactile-evoked S1 responses on the affected side are increased. The extent of reorganization correlates with pain and, more strongly, with mechanical hyperalgesia, and mechanical hyperalgesia is its best single predictor. This node is the target of the rehabilitative treatments — graded motor imagery and mirror therapy — that work by restoring coherent sensorimotor representation rather than by any pharmacological action.</div>
 
@@ -6203,6 +6279,7 @@ This pathophysiological event occurs in primary somatosensory cortex (UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regional-bone-loss" data-dismech-node="Regional Bone Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Regional Bone Loss</div>
+
 
                 <div class="item-desc">Patchy periarticular demineralization of the affected region — the finding Sudeck originally described as acute inflammatory bone atrophy, and the structural correlate of the intense periarticular uptake on the delayed phase of three-phase bone scintigraphy. It is curated as a distinct node because it is the target of the treatment with the strongest randomized evidence in this disease: intravenous bisphosphonate.</div>
 
@@ -6429,6 +6506,9 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6506,6 +6586,9 @@ This clinical feature is Abnormality of temperature regulation (HP:0004370). HP:
                     </div>
 
 
+
+
+
                     <div class="item-desc">HP:0004370 is broader than the claim — it also covers fever and hypothermia — but HPO has no term for limb temperature or colour asymmetry, and no term beats a bad one. The `preferred_term` and description carry the specificity.</div>
 
 
@@ -6575,6 +6658,9 @@ This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6660,6 +6746,9 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6726,6 +6815,9 @@ This clinical feature is Localized osteoporosis (HP:0040161). HP:0040161 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6804,6 +6896,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6907,6 +7002,9 @@ This clinical feature is Chronic pain (HP:0012532), qualified as temporality chr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6971,6 +7069,9 @@ This clinical feature is Allodynia (HP:0012533). HP:0012533 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7085,6 +7186,9 @@ This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from t
 
 
                 </div>
+
+
+
 
 
 

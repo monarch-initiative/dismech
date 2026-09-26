@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3975,7 +4017,7 @@
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
@@ -4032,7 +4074,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4077,6 +4119,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#literature-summaries">
@@ -4277,8 +4327,288 @@
 
                     </div>
 
-                    <div class="mapping-notes">MONDO:0013146 is_a the MONDO:0015263 anchor of this entry and is defined as its SCN3B subtype (intersection_of RO:0004003 HGNC:20665). The SCN3B-Brugada association rests on heterologous-expression reports of reduced sodium current without informative segregation data (PMID:20031595, PMID:23257389, PMID:39761910), and was reclassified as disputed by the ClinGen Brugada gene-validity reappraisal (PMID:29959160) on the grounds that the two originally implicated variants occur in the general population at or above the prevalence of the disease, so it is covered here inside the disputed and unresolved non-SCN5A heterogeneity this entry curates rather than as a standalone disease root or as a peer subtype of the definitive SCN5A form. narrowMatch rather than exactMatch because the anchor also subsumes the SCN5A form and the genotype-negative majority stratum that this gene-restricted child term excludes.
+                    <div class="mapping-notes">MONDO:0013146 is_a the MONDO:0015263 anchor of this entry and is defined as its SCN3B subtype (intersection_of RO:0004003 HGNC:20665). The SCN3B-Brugada association rests on heterologous-expression reports of reduced sodium current without informative segregation data (PMID:20031595, PMID:23257389, PMID:39761910), and was reclassified as disputed by the ClinGen Brugada gene-validity reappraisal (PMID:29959160) — and refuted outright by ClinGen&#39;s Hereditary Cardiovascular Disease Gene Curation Expert Panel in December 2025 — on the grounds that the two originally implicated variants occur in the general population at or above the prevalence of the disease, so it is covered here inside the disputed and unresolved non-SCN5A heterogeneity this entry curates rather than as a standalone disease root or as a peer subtype of the definitive SCN5A form. narrowMatch rather than exactMatch because the anchor also subsumes the SCN5A form and the genotype-negative majority stratum that this gene-restricted child term excludes.
 </div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0012728" target="_blank" class="missing-ontology-link">MONDO:0012728</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Brugada syndrome 2</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">The GPD1L child term of this entry&#39;s anchor. GPD1L was identified by genetic linkage rather than by candidate-gene screening, but the ClinGen Brugada gene-validity reappraisal (PMID:29959160) still classified it as disputed — the linked region was about 24 million base pairs and was not comprehensively sequenced, the reported variant is now seen in about 1 in 5000 individuals in public databases, and no further family has been described since the 2002 seminal report. ClinGen&#39;s Brugada Syndrome Gene Curation Expert Panel records the same disputed classification against Brugada syndrome 1. Covered here inside the disputed non-SCN5A heterogeneity this entry curates rather than as a subtype row.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0012742" target="_blank" class="missing-ontology-link">MONDO:0012742</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Brugada syndrome 3</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">The CACNA1C child term. MONDO does not put a `RO:0004003` gene edge on this term directly; it inherits CACNA1C through a second parent, `MONDO:0700321 CACNA1C-related disorder`, which is why a gene-keyed diff over this series does not see it. ClinGen&#39;s Hereditary Cardiovascular Disease Gene Curation Expert Panel classified CACNA1C for Brugada syndrome as disputed in 2025, and the earlier reappraisal found segregation in only 2 individuals in 2 generations. The gene&#39;s definitive disease, Timothy syndrome, is curated separately in this KB.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0012743" target="_blank" class="missing-ontology-link">MONDO:0012743</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Brugada syndrome 4</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">The CACNB2 child term. CACNB2 is one of only three reported Brugada genes with more than two segregations within a family, but the reappraisal&#39;s curators found a reported affected individual in that family who did not carry the variant, and ClinGen&#39;s current assertion for CACNB2 — made against the broader `MONDO:0100547 cardiogenetic disease` rather than against Brugada syndrome — is disputed. Covered here rather than as a subtype row.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0013015" target="_blank" class="missing-ontology-link">MONDO:0013015</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Brugada syndrome 5</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">The SCN1B child term. SCN1B is among the 13 genes whose seminal manuscripts reported rare variants in sporadic cases only, with no segregation data and no evidence of rare-variant excess against controls, and ClinGen&#39;s Brugada Syndrome Gene Curation Expert Panel classifies it as disputed. Covered here rather than as a subtype row.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0013145" target="_blank" class="missing-ontology-link">MONDO:0013145</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Brugada syndrome 6</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">The KCNE3 child term. KCNE3 is the second of the three genes reported with more than two segregations, but the reappraisal judged those four segregations insufficient without statistical data, further families or other supporting literature, and ClinGen restated the disputed classification in 2025. Covered here rather than as a subtype row.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0013148" target="_blank" class="missing-ontology-link">MONDO:0013148</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Brugada syndrome 8</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">The HCN4 child term. HCN4 is among the 13 genes whose seminal manuscripts reported rare variants in sporadic cases only, with no segregation data and no evidence of rare-variant excess against controls, and ClinGen&#39;s Brugada Syndrome Gene Curation Expert Panel classifies it as disputed for Brugada syndrome. HCN4 does carry a separate ClinGen assertion for sick sinus syndrome 2, which is a different disease and not this entry&#39;s concern. Covered here rather than as a subtype row.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0014621" target="_blank" class="missing-ontology-link">MONDO:0014621</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Brugada syndrome 9</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">The KCND3 child term. KCND3 is among the 13 genes whose seminal manuscripts reported rare variants in sporadic cases only, with no segregation data and no evidence of rare-variant excess against controls, and ClinGen&#39;s Brugada Syndrome Gene Curation Expert Panel classifies it as disputed. Covered here rather than as a subtype row.</div>
 
                 </div>
 
@@ -4633,7 +4963,7 @@ This subtype is caused by variation in SCN5A (hgnc:10593). hgnc:10593 is a gene 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4682,6 +5012,33 @@ This subtype is caused by variation in SCN5A (hgnc:10593). hgnc:10593 is a gene 
 
 
                 <div class="evidence-explanation">Supports treating non-SCN5A Brugada genes as unresolved or disputed heterogeneity rather than as established monogenic roots.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301690" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301690" target="_blank">PMID:20301690</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A molecular diagnosis can be established in an individual with characteristic features and identification of a heterozygous pathogenic variant in SCN5A or one of the additional 42 genes associated with Brugada syndrome."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews chapter still lists 42 non-SCN5A genes as diagnostic, which the ClinGen reappraisal cited on this entry&#39;s SCN3B record contradicts for 20 of the 21 it curated. Recorded here because the disagreement is between two standard sources rather than between a source and this entry, and it is what this subtype exists to hold.</div>
 
 
 
@@ -5229,6 +5586,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
@@ -5264,6 +5623,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-depolarization-reserve" data-dismech-node="Reduced Depolarization Reserve" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Depolarization Reserve</div>
+
 
                 <div class="item-desc">Brugada syndrome converges on reduced depolarizing reserve in ventricular cardiomyocytes, most often through decreased inward sodium current but also through broader ion-current imbalance involving calcium and potassium channel pathways. At the disease level, the key mechanistic theme is not long-QT-like delayed repolarization alone but reduced inward current and impaired conduction reserve in the right ventricular substrate.</div>
 
@@ -5335,6 +5695,96 @@ This pathophysiological event involves right ventricular cardiomyocyte, annotate
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SCN5A
+
+
+    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:10593</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SCN5A (hgnc:10593), qualified as loss of function. hgnc:10593 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⇓ LOSS OF FUNCTION
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SCN3B
+
+
+    <a href="https://bioregistry.io/hgnc:20665" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:20665</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SCN3B (hgnc:20665), qualified as loss of function. hgnc:20665 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⇓ LOSS OF FUNCTION
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5350,11 +5800,11 @@ This pathophysiological event involves right ventricular cardiomyocyte, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086012" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0086012</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086012" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0086012</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased membrane depolarization during cardiac muscle cell action potential (GO:0086012). GO:0086012 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5384,11 +5834,11 @@ This pathophysiological event involves decreased membrane depolarization during 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0061337</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5418,11 +5868,11 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006814" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006814</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006814" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006814</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased sodium ion transport (GO:0006814). GO:0006814 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5457,11 +5907,11 @@ This pathophysiological event involves decreased sodium ion transport (GO:000681
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0005216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0005216</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves abnormal monoatomic ion channel activity (GO:0005216). GO:0005216 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -5497,11 +5947,11 @@ This pathophysiological event involves abnormal monoatomic ion channel activity 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005953" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0005953</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005953" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0005953</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in outflow tract of right ventricle, annotated with outflow part of right ventricle (UBERON:0005953). UBERON:0005953 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5643,6 +6093,7 @@ This pathophysiological event occurs in outflow tract of right ventricle, annota
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rvot-conduction-slowing" data-dismech-node="RVOT Conduction Slowing" data-dismech-type="pathophysiology">
                 <div class="item-name">RVOT Conduction Slowing</div>
 
+
                 <div class="item-desc">Tissue-level Brugada pathophysiology includes delayed depolarization and conduction dispersion in the right ventricular outflow tract, where reduced conduction reserve creates the proximate substrate for malignant ventricular arrhythmia. Heterogeneous, slowed depolarization and conduction across the RVOT constitute the depolarization-predominant arrhythmogenic substrate of Brugada syndrome.</div>
 
 
@@ -5657,11 +6108,11 @@ This pathophysiological event occurs in outflow tract of right ventricle, annota
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000746</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5687,11 +6138,11 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000046" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:2000046</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000046" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:2000046</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves right ventricular cardiomyocyte, annotated with ventricular cardiac muscle cell (CL:2000046). CL:2000046 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5728,11 +6179,11 @@ This pathophysiological event involves right ventricular cardiomyocyte, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0086001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0086001</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5762,11 +6213,11 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0061337</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5803,11 +6254,11 @@ This pathophysiological event involves dysregulated cardiac conduction (GO:00613
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005953" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0005953</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005953" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0005953</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in outflow tract of right ventricle, annotated with outflow part of right ventricle (UBERON:0005953). UBERON:0005953 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5921,6 +6372,7 @@ This pathophysiological event occurs in outflow tract of right ventricle, annota
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-current-load-mismatch-at-rvot-substrate" data-dismech-node="Current-Load Mismatch at RVOT Substrate" data-dismech-type="pathophysiology">
                 <div class="item-name">Current-Load Mismatch at RVOT Substrate</div>
 
+
                 <div class="item-desc">Structural abnormalities in the RV and RVOT increase current-to-load mismatch and excitation failure, providing a distinct tissue-level mechanism that can cooperate with conduction slowing to destabilize the Brugada substrate.</div>
 
 
@@ -5935,11 +6387,11 @@ This pathophysiological event occurs in outflow tract of right ventricle, annota
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000746</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5965,11 +6417,11 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000046" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:2000046</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000046" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:2000046</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves right ventricular cardiomyocyte, annotated with ventricular cardiac muscle cell (CL:2000046). CL:2000046 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6006,11 +6458,11 @@ This pathophysiological event involves right ventricular cardiomyocyte, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0086001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0086001</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6040,11 +6492,11 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0061337</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6081,11 +6533,11 @@ This pathophysiological event involves dysregulated cardiac conduction (GO:00613
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005953" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0005953</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005953" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0005953</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in outflow tract of right ventricle, annotated with outflow part of right ventricle (UBERON:0005953). UBERON:0005953 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -6179,6 +6631,7 @@ This pathophysiological event occurs in outflow tract of right ventricle, annota
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malignant-ventricular-tachyarrhythmia" data-dismech-node="Malignant Ventricular Tachyarrhythmia" data-dismech-type="pathophysiology">
                 <div class="item-name">Malignant Ventricular Tachyarrhythmia</div>
 
+
                 <div class="item-desc">The clinical consequence of the Brugada substrate is malignant ventricular tachyarrhythmia, especially polymorphic ventricular tachycardia and ventricular fibrillation, with syncope or sudden cardiac death as the major downstream manifestations.</div>
 
 
@@ -6193,11 +6646,11 @@ This pathophysiological event occurs in outflow tract of right ventricle, annota
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000746</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6234,11 +6687,11 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0061337</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6408,6 +6861,7 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-syncope-and-sudden-cardiac-death" data-dismech-node="Syncope and Sudden Cardiac Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Syncope and Sudden Cardiac Death</div>
 
+
                 <div class="item-desc">Loss of effective cardiac output from sustained Brugada-associated polymorphic ventricular tachycardia or ventricular fibrillation causes transient cerebral hypoperfusion (syncope) and, when the arrhythmia does not self-terminate, sudden cardiac death. These are the shared clinical endpoints of Brugada syndrome and are frequently the sentinel manifestation in structurally normal hearts.</div>
 
 
@@ -6517,6 +6971,7 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fever-induced-accentuation-of-sodium-channel-loss-of-function" data-dismech-node="Fever-induced accentuation of sodium-channel loss of function" data-dismech-type="pathophysiology">
                 <div class="item-name">Fever-induced accentuation of sodium-channel loss of function</div>
 
+
                 <div class="item-desc">Elevated body temperature accentuates the loss of function of the cardiac sodium channel (Nav1.5/SCN5A) that underlies Brugada syndrome. The Brugada-associated SCN5A mutation Thr1620Met is arrhythmogenic only at temperatures approaching the physiological range, so fever transiently worsens the depolarization-reserve deficit — unmasking or accentuating the diagnostic type-1 coved ST-segment elevation and, in some patients, precipitating malignant ventricular arrhythmia. Unlike the Timothy-syndrome fever effect (an emerging, model-system hypothesis), fever-unmasking of the Brugada ECG is an established clinical phenomenon.</div>
 
 
@@ -6531,11 +6986,11 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000046" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:2000046</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000046" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:2000046</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves right ventricular cardiomyocyte, annotated with ventricular cardiac muscle cell (CL:2000046). CL:2000046 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6571,11 +7026,11 @@ This pathophysiological event involves right ventricular cardiomyocyte, annotate
         SCN5A
 
 
-    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:10593</a>
+    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:10593</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves SCN5A (hgnc:10593). hgnc:10593 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -6613,11 +7068,11 @@ This pathophysiological event involves SCN5A (hgnc:10593). hgnc:10593 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034605" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0034605</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034605" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0034605</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased cellular response to heat (GO:0034605). GO:0034605 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6652,11 +7107,11 @@ This pathophysiological event involves increased cellular response to heat (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005248" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0005248</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005248" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0005248</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased voltage-gated sodium channel activity (GO:0005248). GO:0005248 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -6692,11 +7147,11 @@ This pathophysiological event involves decreased voltage-gated sodium channel ac
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005953" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0005953</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005953" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0005953</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in outflow tract of right ventricle, annotated with outflow part of right ventricle (UBERON:0005953). UBERON:0005953 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -6820,7 +7275,7 @@ This pathophysiological event occurs in outflow tract of right ventricle, annota
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Current-Load Mismatch at RVOT Substrate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural abnormalities in the RV and RVOT increase current-to-load mismatch and excitation failure, providing a distinct tissue-level mechanism that can cooperate with conduction slowing to destabilize the Brugada substrate.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\", \"right ventricular cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle cell action potential\", \"cardiac conduction\"], \"role\": \"amplifier\", \"locations\": [\"outflow tract of right ventricle\"]}}, {\"id\": \"Epicardial substrate ablation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Epicardial ablation of the Brugada arrhythmogenic substrate is an increasingly used option for symptomatic patients with recurrent BrS-triggered ventricular arrhythmias despite ICD therapy and/or quinidine.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Fever-induced accentuation of sodium-channel loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated body temperature accentuates the loss of function of the cardiac sodium channel (Nav1.5/SCN5A) that underlies Brugada syndrome. The Brugada-associated SCN5A mutation Thr1620Met is arrhythmogenic only at temperatures approaching the physiological range, so fever transiently worsens the depolarization-reserve deficit \\u2014 unmasking or accentuating the diagnostic type-1 coved ST-segment elevation and, in some patients, precipitating malignant ventricular arrhythmia. Unlike the Timothy-syndrome fever effect (an emerging, model-system hypothesis), fever-unmasking of the Brugada ECG is an established clinical phenomenon.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"right ventricular cardiomyocyte\"], \"biological_processes\": [\"cellular response to heat\"], \"molecular_functions\": [\"voltage-gated sodium channel activity\"], \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}], \"role\": \"trigger\", \"locations\": [\"outflow tract of right ventricle\"]}}, {\"id\": \"Implantable cardioverter-defibrillator placement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Device therapy for prevention of sudden cardiac death in high-risk Brugada syndrome, especially after malignant ventricular arrhythmia, syncope with high-risk features, or recurrent ventricular fibrillation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Malignant Ventricular Tachyarrhythmia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical consequence of the Brugada substrate is malignant ventricular tachyarrhythmia, especially polymorphic ventricular tachycardia and ventricular fibrillation, with syncope or sudden cardiac death as the major downstream manifestations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiac conduction\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Scn3b-null mouse (Scn3b-/-)\", \"species\": \"Mouse\", \"genotype\": \"Scn3b homozygous knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Beta-3 loss produces an inducible ventricular arrhythmic phenotype with shortened ventricular effective refractory periods, which the authors read as resembling Scn5a heterozygous hearts.\"}], \"computational_models\": [{\"name\": \"Spatially heterogeneous sodium-channel myocardial ring model\", \"model_type\": \"KINETIC\", \"model_software\": \"C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)\", \"model_format\": \"C source, Autotools build files, and positional text input\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The heterogeneous ring produces phase-2-reentry-mediated circulating excitation, representing a reduced tissue-scale mechanism for Brugada reentrant tachyarrhythmia.\"}]}}, {\"id\": \"Polymorphic ventricular tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Symptomatic or abortive malignant ventricular tachyarrhythmia arising from the Brugada substrate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031677\"}}, {\"id\": \"Quinidine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Quinidine is used as antiarrhythmic pharmacotherapy for suppression of recurrent ventricular arrhythmia and electrical storm in Brugada syndrome, particularly when ICD therapy alone is insufficient or when ablation is not immediately available.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"quinidine\"]}}, {\"id\": \"RVOT Conduction Slowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tissue-level Brugada pathophysiology includes delayed depolarization and conduction dispersion in the right ventricular outflow tract, where reduced conduction reserve creates the proximate substrate for malignant ventricular arrhythmia. Heterogeneous, slowed depolarization and conduction across the RVOT constitute the depolarization-predominant arrhythmogenic substrate of Brugada syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\", \"right ventricular cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle cell action potential\", \"cardiac conduction\"], \"role\": \"amplifier\", \"locations\": [\"outflow tract of right ventricle\"], \"computational_models\": [{\"name\": \"Subcellular sodium-channel myocardial strand model\", \"model_type\": \"KINETIC\", \"model_software\": \"C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)\", \"model_format\": \"C source, Autotools build files, and positional text input\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced lateral sodium conductance lowers modeled upstroke velocity and strand conduction velocity, recapitulating the conduction-slowing component of the Brugada substrate.\"}]}}, {\"id\": \"Reduced Depolarization Reserve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brugada syndrome converges on reduced depolarizing reserve in ventricular cardiomyocytes, most often through decreased inward sodium current but also through broader ion-current imbalance involving calcium and potassium channel pathways. At the disease level, the key mechanistic theme is not long-QT-like delayed repolarization alone but reduced inward current and impaired conduction reserve in the right ventricular substrate.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\", \"right ventricular cardiomyocyte\"], \"biological_processes\": [\"membrane depolarization during cardiac muscle cell action potential\", \"cardiac conduction\", \"sodium ion transport\"], \"molecular_functions\": [\"monoatomic ion channel activity\"], \"role\": \"trigger\", \"locations\": [\"outflow tract of right ventricle\"], \"animal_models\": [{\"name\": \"Scn3b-null mouse (Scn3b-/-)\", \"species\": \"Mouse\", \"genotype\": \"Scn3b homozygous knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Complete loss of the beta-3 subunit reduces peak sodium current density measured directly in ventricular myocytes and slows cardiac conduction in vivo, matching the direction of the reduced sodium current that SCN3B variants produce in transfected cells.\"}], \"computational_models\": [{\"name\": \"Subcellular sodium-channel myocardial strand model\", \"model_type\": \"KINETIC\", \"model_software\": \"C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)\", \"model_format\": \"C source, Autotools build files, and positional text input\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"The model directly reduces lateral-membrane sodium conductance and measures the resulting action-potential changes, rather than reproducing the full genetically and structurally heterogeneous Brugada mechanism.\"}]}}, {\"id\": \"SCN5A loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}], \"subtypes\": [\"SCN5A-related Brugada syndrome\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Scn3b-null mouse (Scn3b-/-)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Germline Scn3b knockout mouse, the only in vivo model of the gene behind Brugada syndrome 7. Scn3b transcript is absent from the atria and the beta-3 protein from cardiac myocytes, while Scn1b and Scn5a transcript levels are unchanged, so the phenotype is attributable to loss of beta-3 specifically. The reported cardiac phenotype spans both chambers, in two papers from the same group: sinus bradycardia, P-wave and PR prolongation, prolonged sinus node recovery, atrioventricular dissociation and inducible atrial tachyarrhythmia, and separately reduced peak sodium current in ventricular myocytes with shortened ventricular effective refractory periods and inducible monomorphic or polymorphic ventricular tachycardia.\"}, {\"id\": \"Spatially heterogeneous sodium-channel myocardial ring model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"A one-dimensional ring of 600 human epicardial ventricular myocytes using the same modified O\u0027Hara-Rudy ionic model, segmented cell membranes, gap junctions, and ephaptic coupling as the companion strand model. Two ring regions are assigned different, markedly reduced lateral-membrane sodium conductances to test whether spatial heterogeneity converts phase-2 reentry into intermittent or persistent circulating reentrant excitation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_software\": \"C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)\", \"model_format\": \"C source, Autotools build files, and positional text input\", \"publication\": \"PMID:33203944\"}}, {\"id\": \"Subcellular sodium-channel myocardial strand model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"A one-dimensional strand of 300 human epicardial ventricular myocytes for studying how subcellular sodium-channel distribution changes action-potential morphology and propagation. Each cell is divided into lateral and pre- and post-junctional membrane segments, represented by a modified O\u0027Hara-Rudy dynamic model with ten Tusscher-Panfilov fast sodium current and an experimentally based rapid delayed-rectifier potassium current. Cells are coupled through gap junctions and ephaptic interactions. The disease-like manipulation reduces lateral-membrane sodium conductance while retaining junctional sodium conductance.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_software\": \"C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)\", \"model_format\": \"C source, Autotools build files, and positional text input\", \"publication\": \"PMID:33203944\"}}, {\"id\": \"Sudden cardiac death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden cardiac death occurs when Brugada-associated polymorphic VT or VF is not promptly terminated.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unexplained syncope due to transient ventricular tachyarrhythmia is a common symptomatic presentation in clinically recognized Brugada syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001279\"}}, {\"id\": \"Syncope and Sudden Cardiac Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of effective cardiac output from sustained Brugada-associated polymorphic ventricular tachycardia or ventricular fibrillation causes transient cerebral hypoperfusion (syncope) and, when the arrhythmia does not self-terminate, sudden cardiac death. These are the shared clinical endpoints of Brugada syndrome and are frequently the sentinel manifestation in structurally normal hearts.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Type 1 coved ST-segment elevation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diagnostic right-precordial type 1 Brugada ECG pattern with coved ST-segment elevation, spontaneous or sodium-channel-blocker-provoked.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6000984\"}}, {\"id\": \"Ventricular fibrillation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular fibrillation is a defining malignant arrhythmia in Brugada syndrome and a proximate cause of cardiac arrest.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001663\"}}], \"edges\": [{\"source\": \"Reduced Depolarization Reserve\", \"target\": \"Type 1 coved ST-segment elevation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced depolarization reserve in the right-precordial substrate produces the diagnostic coved ST-segment elevation pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Depolarization Reserve\", \"target\": \"RVOT Conduction Slowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced depolarizing reserve lowers excitation wavelength and promotes localized conduction delay in the right ventricular outflow tract substrate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RVOT Conduction Slowing\", \"target\": \"Current-Load Mismatch at RVOT Substrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural discontinuities in the RVOT coexist with conduction delay and convert reduced conduction reserve into excitation failure and conduction block.\"}, {\"source\": \"Current-Load Mismatch at RVOT Substrate\", \"target\": \"Malignant Ventricular Tachyarrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excitation failure and conduction block in the RVOT substrate promote reentrant polymorphic VT and VF.\"}, {\"source\": \"Malignant Ventricular Tachyarrhythmia\", \"target\": \"Polymorphic ventricular tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The Brugada arrhythmogenic substrate can produce polymorphic ventricular tachycardia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malignant Ventricular Tachyarrhythmia\", \"target\": \"Ventricular fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The Brugada arrhythmogenic substrate can degenerate into ventricular fibrillation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malignant Ventricular Tachyarrhythmia\", \"target\": \"Syncope and Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained polymorphic ventricular tachycardia or ventricular fibrillation abolishes effective cardiac output, producing syncope and, if not terminated, sudden cardiac death.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syncope and Sudden Cardiac Death\", \"target\": \"Syncope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Syncope is a clinical outcome in Brugada syndrome; the cited cohort classified these events as unexplained and therefore does not establish a documented ventricular tachyarrhythmia for each episode.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Syncope and Sudden Cardiac Death\", \"target\": \"Sudden cardiac death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ventricular tachyarrhythmia that does not terminate causes sudden cardiac death.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fever-induced accentuation of sodium-channel loss of function\", \"target\": \"Type 1 coved ST-segment elevation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fever accentuates sodium-channel loss of function and unmasks or augments the diagnostic type-1 coved ST-segment elevation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fever-induced accentuation of sodium-channel loss of function\", \"target\": \"Malignant Ventricular Tachyarrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In some patients fever precipitates fever-triggered malignant ventricular arrhythmia on the accentuated Brugada substrate.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"accentuated RVOT conduction slowing\"]}, {\"source\": \"Implantable cardioverter-defibrillator placement\", \"target\": \"Malignant Ventricular Tachyarrhythmia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Quinidine\", \"target\": \"Reduced Depolarization Reserve\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Epicardial substrate ablation\", \"target\": \"Current-Load Mismatch at RVOT Substrate\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Scn3b-null mouse (Scn3b-/-)\", \"target\": \"Reduced Depolarization Reserve\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Complete loss of the beta-3 subunit reduces peak sodium current density measured directly in ventricular myocytes and slows cardiac conduction in vivo, matching the direction of the reduced sodium current that SCN3B variants produce in transfected cells.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model is a homozygous null, whereas the reported human variants are heterozygous missense or single-codon deletions, so it speaks to complete loss of beta-3 rather than to the alleles actually found in patients, and those alleles are what the disputed classification turns on. Murine ventricular repolarization also differs substantially from human, the standing caveat for any mouse model of a repolarization-dependent arrhythmia syndrome.\"}, {\"source\": \"Scn3b-null mouse (Scn3b-/-)\", \"target\": \"Malignant Ventricular Tachyarrhythmia\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Beta-3 loss produces an inducible ventricular arrhythmic phenotype with shortened ventricular effective refractory periods, which the authors read as resembling Scn5a heterozygous hearts.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The arrhythmia is induced by programmed electrical stimulation in a Langendorff-perfused heart rather than arising spontaneously, and it is not reported as arising from a right-ventricular outflow-tract substrate with the epicardial repolarization heterogeneity that characterises human Brugada syndrome. As above, the genotype is a homozygous null rather than the heterozygous human alleles.\"}, {\"source\": \"Subcellular sodium-channel myocardial strand model\", \"target\": \"Reduced Depolarization Reserve\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"The model directly reduces lateral-membrane sodium conductance and measures the resulting action-potential changes, rather than reproducing the full genetically and structurally heterogeneous Brugada mechanism.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"Sodium-channel reduction is prescribed phenomenologically rather than generated by an SCN5A allele, trafficking defect, or patient-calibrated expression state. The model does not represent broader calcium- or potassium-channel causes of reduced depolarization reserve.\"}, {\"source\": \"Subcellular sodium-channel myocardial strand model\", \"target\": \"RVOT Conduction Slowing\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reduced lateral sodium conductance lowers modeled upstroke velocity and strand conduction velocity, recapitulating the conduction-slowing component of the Brugada substrate.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a homogeneous one-dimensional generic epicardial ventricular strand, not an anatomically reconstructed RVOT. It omits patient-specific geometry, fibrosis, fiber organization, ECG leads, and clinical conduction maps.\"}, {\"source\": \"Spatially heterogeneous sodium-channel myocardial ring model\", \"target\": \"Malignant Ventricular Tachyarrhythmia\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The heterogeneous ring produces phase-2-reentry-mediated circulating excitation, representing a reduced tissue-scale mechanism for Brugada reentrant tachyarrhythmia.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The 600-cell one-dimensional ring is not an RVOT or whole-heart geometry and cannot reproduce polymorphic VT, ventricular fibrillation, surface ECG, hemodynamics, or patient outcomes. Reentry depends on imposed and locally extreme sodium-conductance heterogeneity rather than measured patient tissue or a disease genotype.\"}, {\"source\": \"SCN5A loss-of-function variants\", \"target\": \"Fever-induced accentuation of sodium-channel loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Current-Load Mismatch at RVOT Substrate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural abnormalities in the RV and RVOT increase current-to-load mismatch and excitation failure, providing a distinct tissue-level mechanism that can cooperate with conduction slowing to destabilize the Brugada substrate.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\", \"right ventricular cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle cell action potential\", \"cardiac conduction\"], \"role\": \"amplifier\", \"locations\": [\"outflow tract of right ventricle\"]}}, {\"id\": \"Epicardial substrate ablation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Epicardial ablation of the Brugada arrhythmogenic substrate is an increasingly used option for symptomatic patients with recurrent BrS-triggered ventricular arrhythmias despite ICD therapy and/or quinidine.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Fever-induced accentuation of sodium-channel loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated body temperature accentuates the loss of function of the cardiac sodium channel (Nav1.5/SCN5A) that underlies Brugada syndrome. The Brugada-associated SCN5A mutation Thr1620Met is arrhythmogenic only at temperatures approaching the physiological range, so fever transiently worsens the depolarization-reserve deficit \\u2014 unmasking or accentuating the diagnostic type-1 coved ST-segment elevation and, in some patients, precipitating malignant ventricular arrhythmia. Unlike the Timothy-syndrome fever effect (an emerging, model-system hypothesis), fever-unmasking of the Brugada ECG is an established clinical phenomenon.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"right ventricular cardiomyocyte\"], \"biological_processes\": [\"cellular response to heat\"], \"molecular_functions\": [\"voltage-gated sodium channel activity\"], \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}], \"role\": \"trigger\", \"locations\": [\"outflow tract of right ventricle\"]}}, {\"id\": \"Implantable cardioverter-defibrillator placement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Device therapy for prevention of sudden cardiac death in high-risk Brugada syndrome, especially after malignant ventricular arrhythmia, syncope with high-risk features, or recurrent ventricular fibrillation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Malignant Ventricular Tachyarrhythmia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical consequence of the Brugada substrate is malignant ventricular tachyarrhythmia, especially polymorphic ventricular tachycardia and ventricular fibrillation, with syncope or sudden cardiac death as the major downstream manifestations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiac conduction\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Scn3b-null mouse (Scn3b-/-)\", \"species\": \"Mouse\", \"genotype\": \"Scn3b homozygous knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Beta-3 loss produces an inducible ventricular arrhythmic phenotype with shortened ventricular effective refractory periods, which the authors read as resembling Scn5a heterozygous hearts.\"}], \"computational_models\": [{\"name\": \"Spatially heterogeneous sodium-channel myocardial ring model\", \"model_type\": \"KINETIC\", \"model_software\": \"C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)\", \"model_format\": \"C source, Autotools build files, and positional text input\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The heterogeneous ring produces phase-2-reentry-mediated circulating excitation, representing a reduced tissue-scale mechanism for Brugada reentrant tachyarrhythmia.\"}]}}, {\"id\": \"Polymorphic ventricular tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Symptomatic or abortive malignant ventricular tachyarrhythmia arising from the Brugada substrate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031677\"}}, {\"id\": \"Quinidine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Quinidine is used as antiarrhythmic pharmacotherapy for suppression of recurrent ventricular arrhythmia and electrical storm in Brugada syndrome, particularly when ICD therapy alone is insufficient or when ablation is not immediately available.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"quinidine\"]}}, {\"id\": \"RVOT Conduction Slowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tissue-level Brugada pathophysiology includes delayed depolarization and conduction dispersion in the right ventricular outflow tract, where reduced conduction reserve creates the proximate substrate for malignant ventricular arrhythmia. Heterogeneous, slowed depolarization and conduction across the RVOT constitute the depolarization-predominant arrhythmogenic substrate of Brugada syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\", \"right ventricular cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle cell action potential\", \"cardiac conduction\"], \"role\": \"amplifier\", \"locations\": [\"outflow tract of right ventricle\"], \"computational_models\": [{\"name\": \"Subcellular sodium-channel myocardial strand model\", \"model_type\": \"KINETIC\", \"model_software\": \"C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)\", \"model_format\": \"C source, Autotools build files, and positional text input\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced lateral sodium conductance lowers modeled upstroke velocity and strand conduction velocity, recapitulating the conduction-slowing component of the Brugada substrate.\"}]}}, {\"id\": \"Reduced Depolarization Reserve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brugada syndrome converges on reduced depolarizing reserve in ventricular cardiomyocytes, most often through decreased inward sodium current but also through broader ion-current imbalance involving calcium and potassium channel pathways. At the disease level, the key mechanistic theme is not long-QT-like delayed repolarization alone but reduced inward current and impaired conduction reserve in the right ventricular substrate.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\", \"right ventricular cardiomyocyte\"], \"biological_processes\": [\"membrane depolarization during cardiac muscle cell action potential\", \"cardiac conduction\", \"sodium ion transport\"], \"molecular_functions\": [\"monoatomic ion channel activity\"], \"genes\": [\"SCN5A\", \"SCN3B\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\", \"modifier\": \"LOSS_OF_FUNCTION\"}, {\"label\": \"SCN3B\", \"id\": \"hgnc:20665\", \"modifier\": \"LOSS_OF_FUNCTION\"}], \"role\": \"trigger\", \"locations\": [\"outflow tract of right ventricle\"], \"animal_models\": [{\"name\": \"Scn3b-null mouse (Scn3b-/-)\", \"species\": \"Mouse\", \"genotype\": \"Scn3b homozygous knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Complete loss of the beta-3 subunit reduces peak sodium current density measured directly in ventricular myocytes and slows cardiac conduction in vivo, matching the direction of the reduced sodium current that SCN3B variants produce in transfected cells.\"}], \"computational_models\": [{\"name\": \"Subcellular sodium-channel myocardial strand model\", \"model_type\": \"KINETIC\", \"model_software\": \"C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)\", \"model_format\": \"C source, Autotools build files, and positional text input\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"The model directly reduces lateral-membrane sodium conductance and measures the resulting action-potential changes, rather than reproducing the full genetically and structurally heterogeneous Brugada mechanism.\"}]}}, {\"id\": \"SCN5A loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}], \"subtypes\": [\"SCN5A-related Brugada syndrome\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Scn3b-null mouse (Scn3b-/-)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Germline Scn3b knockout mouse, the only in vivo model of the gene behind Brugada syndrome 7. Scn3b transcript is absent from the atria and the beta-3 protein from cardiac myocytes, while Scn1b and Scn5a transcript levels are unchanged, so the phenotype is attributable to loss of beta-3 specifically. The reported cardiac phenotype spans both chambers, in two papers from the same group: sinus bradycardia, P-wave and PR prolongation, prolonged sinus node recovery, atrioventricular dissociation and inducible atrial tachyarrhythmia, and separately reduced peak sodium current in ventricular myocytes with shortened ventricular effective refractory periods and inducible monomorphic or polymorphic ventricular tachycardia.\"}, {\"id\": \"Spatially heterogeneous sodium-channel myocardial ring model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"A one-dimensional ring of 600 human epicardial ventricular myocytes using the same modified O\u0027Hara-Rudy ionic model, segmented cell membranes, gap junctions, and ephaptic coupling as the companion strand model. Two ring regions are assigned different, markedly reduced lateral-membrane sodium conductances to test whether spatial heterogeneity converts phase-2 reentry into intermittent or persistent circulating reentrant excitation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_software\": \"C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)\", \"model_format\": \"C source, Autotools build files, and positional text input\", \"publication\": \"PMID:33203944\"}}, {\"id\": \"Subcellular sodium-channel myocardial strand model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"A one-dimensional strand of 300 human epicardial ventricular myocytes for studying how subcellular sodium-channel distribution changes action-potential morphology and propagation. Each cell is divided into lateral and pre- and post-junctional membrane segments, represented by a modified O\u0027Hara-Rudy dynamic model with ten Tusscher-Panfilov fast sodium current and an experimentally based rapid delayed-rectifier potassium current. Cells are coupled through gap junctions and ephaptic interactions. The disease-like manipulation reduces lateral-membrane sodium conductance while retaining junctional sodium conductance.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_software\": \"C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)\", \"model_format\": \"C source, Autotools build files, and positional text input\", \"publication\": \"PMID:33203944\"}}, {\"id\": \"Sudden cardiac death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden cardiac death occurs when Brugada-associated polymorphic VT or VF is not promptly terminated.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unexplained syncope due to transient ventricular tachyarrhythmia is a common symptomatic presentation in clinically recognized Brugada syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001279\"}}, {\"id\": \"Syncope and Sudden Cardiac Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of effective cardiac output from sustained Brugada-associated polymorphic ventricular tachycardia or ventricular fibrillation causes transient cerebral hypoperfusion (syncope) and, when the arrhythmia does not self-terminate, sudden cardiac death. These are the shared clinical endpoints of Brugada syndrome and are frequently the sentinel manifestation in structurally normal hearts.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Type 1 coved ST-segment elevation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diagnostic right-precordial type 1 Brugada ECG pattern with coved ST-segment elevation, spontaneous or sodium-channel-blocker-provoked.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:6000984\"}}, {\"id\": \"Ventricular fibrillation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular fibrillation is a defining malignant arrhythmia in Brugada syndrome and a proximate cause of cardiac arrest.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001663\"}}], \"edges\": [{\"source\": \"Reduced Depolarization Reserve\", \"target\": \"Type 1 coved ST-segment elevation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced depolarization reserve in the right-precordial substrate produces the diagnostic coved ST-segment elevation pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Depolarization Reserve\", \"target\": \"RVOT Conduction Slowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced depolarizing reserve lowers excitation wavelength and promotes localized conduction delay in the right ventricular outflow tract substrate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RVOT Conduction Slowing\", \"target\": \"Current-Load Mismatch at RVOT Substrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural discontinuities in the RVOT coexist with conduction delay and convert reduced conduction reserve into excitation failure and conduction block.\"}, {\"source\": \"Current-Load Mismatch at RVOT Substrate\", \"target\": \"Malignant Ventricular Tachyarrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excitation failure and conduction block in the RVOT substrate promote reentrant polymorphic VT and VF.\"}, {\"source\": \"Malignant Ventricular Tachyarrhythmia\", \"target\": \"Polymorphic ventricular tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The Brugada arrhythmogenic substrate can produce polymorphic ventricular tachycardia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malignant Ventricular Tachyarrhythmia\", \"target\": \"Ventricular fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The Brugada arrhythmogenic substrate can degenerate into ventricular fibrillation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malignant Ventricular Tachyarrhythmia\", \"target\": \"Syncope and Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained polymorphic ventricular tachycardia or ventricular fibrillation abolishes effective cardiac output, producing syncope and, if not terminated, sudden cardiac death.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Syncope and Sudden Cardiac Death\", \"target\": \"Syncope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Syncope is a clinical outcome in Brugada syndrome; the cited cohort classified these events as unexplained and therefore does not establish a documented ventricular tachyarrhythmia for each episode.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Syncope and Sudden Cardiac Death\", \"target\": \"Sudden cardiac death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ventricular tachyarrhythmia that does not terminate causes sudden cardiac death.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fever-induced accentuation of sodium-channel loss of function\", \"target\": \"Type 1 coved ST-segment elevation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fever accentuates sodium-channel loss of function and unmasks or augments the diagnostic type-1 coved ST-segment elevation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fever-induced accentuation of sodium-channel loss of function\", \"target\": \"Malignant Ventricular Tachyarrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In some patients fever precipitates fever-triggered malignant ventricular arrhythmia on the accentuated Brugada substrate.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"accentuated RVOT conduction slowing\"]}, {\"source\": \"Implantable cardioverter-defibrillator placement\", \"target\": \"Malignant Ventricular Tachyarrhythmia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Quinidine\", \"target\": \"Reduced Depolarization Reserve\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Epicardial substrate ablation\", \"target\": \"Current-Load Mismatch at RVOT Substrate\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Scn3b-null mouse (Scn3b-/-)\", \"target\": \"Reduced Depolarization Reserve\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Complete loss of the beta-3 subunit reduces peak sodium current density measured directly in ventricular myocytes and slows cardiac conduction in vivo, matching the direction of the reduced sodium current that SCN3B variants produce in transfected cells.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model is a homozygous null, whereas the reported human variants are heterozygous missense or single-codon deletions, so it speaks to complete loss of beta-3 rather than to the alleles actually found in patients, and those alleles are what the disputed classification turns on. Murine ventricular repolarization also differs substantially from human, the standing caveat for any mouse model of a repolarization-dependent arrhythmia syndrome.\"}, {\"source\": \"Scn3b-null mouse (Scn3b-/-)\", \"target\": \"Malignant Ventricular Tachyarrhythmia\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Beta-3 loss produces an inducible ventricular arrhythmic phenotype with shortened ventricular effective refractory periods, which the authors read as resembling Scn5a heterozygous hearts.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The arrhythmia is induced by programmed electrical stimulation in a Langendorff-perfused heart rather than arising spontaneously, and it is not reported as arising from a right-ventricular outflow-tract substrate with the epicardial repolarization heterogeneity that characterises human Brugada syndrome. As above, the genotype is a homozygous null rather than the heterozygous human alleles.\"}, {\"source\": \"Subcellular sodium-channel myocardial strand model\", \"target\": \"Reduced Depolarization Reserve\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"The model directly reduces lateral-membrane sodium conductance and measures the resulting action-potential changes, rather than reproducing the full genetically and structurally heterogeneous Brugada mechanism.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"Sodium-channel reduction is prescribed phenomenologically rather than generated by an SCN5A allele, trafficking defect, or patient-calibrated expression state. The model does not represent broader calcium- or potassium-channel causes of reduced depolarization reserve.\"}, {\"source\": \"Subcellular sodium-channel myocardial strand model\", \"target\": \"RVOT Conduction Slowing\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reduced lateral sodium conductance lowers modeled upstroke velocity and strand conduction velocity, recapitulating the conduction-slowing component of the Brugada substrate.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a homogeneous one-dimensional generic epicardial ventricular strand, not an anatomically reconstructed RVOT. It omits patient-specific geometry, fibrosis, fiber organization, ECG leads, and clinical conduction maps.\"}, {\"source\": \"Spatially heterogeneous sodium-channel myocardial ring model\", \"target\": \"Malignant Ventricular Tachyarrhythmia\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The heterogeneous ring produces phase-2-reentry-mediated circulating excitation, representing a reduced tissue-scale mechanism for Brugada reentrant tachyarrhythmia.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The 600-cell one-dimensional ring is not an RVOT or whole-heart geometry and cannot reproduce polymorphic VT, ventricular fibrillation, surface ECG, hemodynamics, or patient outcomes. Reentry depends on imposed and locally extreme sodium-conductance heterogeneity rather than measured patient tissue or a disease genotype.\"}, {\"source\": \"SCN5A loss-of-function variants\", \"target\": \"Fever-induced accentuation of sodium-channel loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN5A loss-of-function variants\", \"target\": \"Reduced Depolarization Reserve\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6852,15 +7307,18 @@ This pathophysiological event occurs in outflow tract of right ventricle, annota
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000984" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:6000984</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000984" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:6000984</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Type 1 coved ST-segment elevation, annotated with Coved type ST segment elevation (HP:6000984). HP:6000984 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6921,15 +7379,18 @@ This clinical feature is Type 1 coved ST-segment elevation, annotated with Coved
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001279</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001279</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6990,15 +7451,18 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0031677</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0031677</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is polymorphic ventricular tachycardia (HP:0031677). HP:0031677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7059,15 +7523,18 @@ This clinical feature is polymorphic ventricular tachycardia (HP:0031677). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001663</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventricular fibrillation (HP:0001663). HP:0001663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7128,15 +7595,18 @@ This clinical feature is Ventricular fibrillation (HP:0001663). HP:0001663 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001645</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7193,7 +7663,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">9</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-scn5a-loss-of-function-variants" data-dismech-node="SCN5A loss-of-function variants" data-dismech-type="genetic">
@@ -7214,10 +7684,10 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                         Gene: SCN5A
 
 
-    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:10593</a>
+    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:10593</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7231,9 +7701,12 @@ This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -7287,6 +7760,35 @@ This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from th
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_9f832392-a92b-408d-8d1a-e2037905fab3-2025-10-08T160000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_9f832392-a92b-408d-8d1a-e2037905fab3-2025-10-08T160000.000Z" target="_blank">CGGV:assertion_9f832392-a92b-408d-8d1a-e2037905fab3-2025-10-08T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SCN5A | HGNC:10593 | SCN5A-related cardiac rhythm disorder | MONDO:1010181 | AD | Definitive | SOP11 | Hereditary Cardiovascular Disease Gene Curation Expert Panel | 2025-10-08T16:00:00.000Z"</div>
+
+
+                <div class="evidence-explanation">ClinGen&#39;s current definitive assertion for SCN5A, and the source for this record&#39;s statement that it is made against the gene-named concept MONDO:1010181 rather than against Brugada syndrome.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -7313,10 +7815,10 @@ This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from th
                         Gene: SCN3B
 
 
-    <a href="https://bioregistry.io/hgnc:20665" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:20665</a>
+    <a href="https://bioregistry.io/hgnc:20665" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:20665</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SCN3B (hgnc:20665). hgnc:20665 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7330,9 +7832,12 @@ This disease-associated gene is SCN3B (hgnc:20665). hgnc:20665 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (11 references)
+            Show evidence (12 references)
         </summary>
         <div class="evidence-list">
 
@@ -7418,7 +7923,809 @@ This disease-associated gene is SCN3B (hgnc:20665). hgnc:20665 is a gene from th
             </div>
 
 
-            <div class="evidence-more">+ 8 more references</div>
+            <div class="evidence-more">+ 9 more references</div>
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-gpd1l-variants" data-dismech-node="GPD1L variants" data-dismech-type="genetic">
+                <div class="item-name">
+                    GPD1L variants
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Disputed)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GPD1L
+
+
+    <a href="https://bioregistry.io/hgnc:28956" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:28956</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GPD1L (hgnc:28956). hgnc:28956 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: DISPUTED</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Notably, the GPD1L gene received limited evidence classification by all 3 curator teams and a final classification of disputed, despite its identification through the use of genetic linkage."</div>
+
+
+                <div class="evidence-explanation">The expert-panel verdict on GPD1L, and the observation that it holds even though this gene was found by linkage rather than by candidate-gene screening.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the observation that the reported variant in this gene is now recognized to be present in 1/5000 individuals in public databases"</div>
+
+
+                <div class="evidence-explanation">The population-frequency argument against the reported GPD1L allele, the same kind of argument that undercut the SCN3B alleles.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"curators and the expert panel noted the extensive size of the linked genomic region, the select sequencing of only a limited number of genes within this large region"</div>
+
+
+                <div class="evidence-explanation">The specific methodological objection to the GPD1L linkage result: the linked interval was large and was not comprehensively sequenced, so an alternative causal gene inside it was never excluded.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-cacna1c-variants" data-dismech-node="CACNA1C variants" data-dismech-type="genetic">
+                <div class="item-name">
+                    CACNA1C variants
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Disputed)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CACNA1C
+
+
+    <a href="https://bioregistry.io/hgnc:1390" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:1390</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CACNA1C (hgnc:1390). hgnc:1390 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: DISPUTED</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Three genes were reported with limited segregation in only 2 individuals in 2 generations (CACNA1C, KCNE5, and SCN10A)."</div>
+
+
+                <div class="evidence-explanation">Names CACNA1C among the genes whose founding Brugada reports showed segregation in only two individuals, the specific basis for the disputed classification.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_0d869dbe-c00c-4875-93c8-80ba0436b895-2025-02-25T010000.000Z" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_0d869dbe-c00c-4875-93c8-80ba0436b895-2025-02-25T010000.000Z" target="_blank">CGGV:assertion_0d869dbe-c00c-4875-93c8-80ba0436b895-2025-02-25T010000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CACNA1C | HGNC:1390 | Brugada syndrome | MONDO:0015263 | AD | Disputed | SOP11 | Hereditary Cardiovascular Disease Gene Curation Expert Panel | 2025-02-25T01:00:00.000Z"</div>
+
+
+                <div class="evidence-explanation">ClinGen&#39;s current gene-disease validity assertion for CACNA1C against Brugada syndrome, made under SOP11 and dated 2025.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-cacnb2-variants" data-dismech-node="CACNB2 variants" data-dismech-type="genetic">
+                <div class="item-name">
+                    CACNB2 variants
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Disputed)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CACNB2
+
+
+    <a href="https://bioregistry.io/hgnc:1402" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:1402</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CACNB2 (hgnc:1402). hgnc:1402 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: DISPUTED</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Only 3 genes (CACNB2, KCNE3, PKP2) were reported to have &gt;2 segregations within a family."</div>
+
+
+                <div class="evidence-explanation">Records that CACNB2&#39;s founding report carried more segregations than most disputed Brugada genes, which is the reason its disposition needs the specific refutation quoted below rather than the generic one.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"our curators noted a reported affected individual who did not carry the reported variant in CACNB2."</div>
+
+
+                <div class="evidence-explanation">The specific segregation failure in the founding CACNB2 family: an affected individual without the variant.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_1dd59b42-2ed6-4685-b93b-39ba49ece50b-2025-07-22T160000.000Z" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_1dd59b42-2ed6-4685-b93b-39ba49ece50b-2025-07-22T160000.000Z" target="_blank">CGGV:assertion_1dd59b42-2ed6-4685-b93b-39ba49ece50b-2025-07-22T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CACNB2 | HGNC:1402 | cardiogenetic disease | MONDO:0100547 | AD | Disputed | SOP11 | Hereditary Cardiovascular Disease Gene Curation Expert Panel | 2025-07-22T16:00:00.000Z"</div>
+
+
+                <div class="evidence-explanation">ClinGen&#39;s current CACNB2 assertion. Graded INDIRECT because it is made against the broad cardiogenetic-disease concept rather than against Brugada syndrome specifically, so it bears on the Brugada claim by inclusion rather than directly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-scn1b-variants" data-dismech-node="SCN1B variants" data-dismech-type="genetic">
+                <div class="item-name">
+                    SCN1B variants
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Disputed)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SCN1B
+
+
+    <a href="https://bioregistry.io/hgnc:10586" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:10586</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: DISPUTED</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seminal manuscripts for 13 of the 19 genes reported rare variants in only sporadic cases with no segregation data or evidence of rare variant excess compared with control subjects (ABCC9, ANK2, CACNA2D1, HCN4, KCND3, KCNH2, KCNJ8, RANGRF, SCN1B, SCN2B, SCN3B, SLMAP, TRPM4)."</div>
+
+
+                <div class="evidence-explanation">Names SCN1B among the genes whose founding reports lacked segregation data or rare-variant excess, which is the specific basis for the disputed classification here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All other genes (20 of 21) received a final classification of disputed with regard to assertions toward causality for BrS by a clinical domain expert panel."</div>
+
+
+                <div class="evidence-explanation">The expert-panel verdict that places SCN1B, along with every other reported non-SCN5A Brugada gene, in the disputed tier.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-kcne3-variants" data-dismech-node="KCNE3 variants" data-dismech-type="genetic">
+                <div class="item-name">
+                    KCNE3 variants
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Disputed)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: KCNE3
+
+
+    <a href="https://bioregistry.io/hgnc:6243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:6243</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNE3 (hgnc:6243). hgnc:6243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: DISPUTED</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Similarly, 4 and 3 segregations were reported in original manuscripts using preconceived candidate gene approaches implicating KCNE3 and PKP2, respectively, but without sufficient statistical data, additional families or supporting evidence in the literature."</div>
+
+
+                <div class="evidence-explanation">Gives the exact reason the KCNE3 claim failed despite four reported segregations: no statistical data, no further families, no supporting literature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_733a6f42-add7-434a-9d4f-a8f11c11c41a-2025-07-22T190000.000Z" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_733a6f42-add7-434a-9d4f-a8f11c11c41a-2025-07-22T190000.000Z" target="_blank">CGGV:assertion_733a6f42-add7-434a-9d4f-a8f11c11c41a-2025-07-22T190000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"KCNE3 | HGNC:6243 | Brugada syndrome | MONDO:0015263 | AD | Disputed | SOP11 | Hereditary Cardiovascular Disease Gene Curation Expert Panel | 2025-07-22T19:00:00.000Z"</div>
+
+
+                <div class="evidence-explanation">ClinGen&#39;s current gene-disease validity assertion for KCNE3 against Brugada syndrome, made under SOP11 and dated 2025.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-hcn4-variants" data-dismech-node="HCN4 variants" data-dismech-type="genetic">
+                <div class="item-name">
+                    HCN4 variants
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Disputed)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: HCN4
+
+
+    <a href="https://bioregistry.io/hgnc:16882" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:16882</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: DISPUTED</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seminal manuscripts for 13 of the 19 genes reported rare variants in only sporadic cases with no segregation data or evidence of rare variant excess compared with control subjects (ABCC9, ANK2, CACNA2D1, HCN4, KCND3, KCNH2, KCNJ8, RANGRF, SCN1B, SCN2B, SCN3B, SLMAP, TRPM4)."</div>
+
+
+                <div class="evidence-explanation">Names HCN4 among the genes whose founding reports lacked segregation data or rare-variant excess, which is the specific basis for the disputed classification here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All other genes (20 of 21) received a final classification of disputed with regard to assertions toward causality for BrS by a clinical domain expert panel."</div>
+
+
+                <div class="evidence-explanation">The expert-panel verdict that places HCN4, along with every other reported non-SCN5A Brugada gene, in the disputed tier.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-kcnd3-variants" data-dismech-node="KCND3 variants" data-dismech-type="genetic">
+                <div class="item-name">
+                    KCND3 variants
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Disputed)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: KCND3
+
+
+    <a href="https://bioregistry.io/hgnc:6239" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:6239</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCND3 (hgnc:6239). hgnc:6239 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: DISPUTED</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seminal manuscripts for 13 of the 19 genes reported rare variants in only sporadic cases with no segregation data or evidence of rare variant excess compared with control subjects (ABCC9, ANK2, CACNA2D1, HCN4, KCND3, KCNH2, KCNJ8, RANGRF, SCN1B, SCN2B, SCN3B, SLMAP, TRPM4)."</div>
+
+
+                <div class="evidence-explanation">Names KCND3 among the genes whose founding reports lacked segregation data or rare-variant excess, which is the specific basis for the disputed classification here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959160" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959160" target="_blank">PMID:29959160</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All other genes (20 of 21) received a final classification of disputed with regard to assertions toward causality for BrS by a clinical domain expert panel."</div>
+
+
+                <div class="evidence-explanation">The expert-panel verdict that places KCND3, along with every other reported non-SCN5A Brugada gene, in the disputed tier.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -7453,7 +8760,7 @@ This disease-associated gene is SCN3B (hgnc:20665). hgnc:20665 is a gene from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">implantable cardioverter-defibrillator placement<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">implantable cardioverter-defibrillator placement<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435). NCIT:C80435 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7606,7 +8913,7 @@ This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435)
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7647,11 +8954,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28593" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:28593</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28593" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:28593</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses quinidine (CHEBI:28593). CHEBI:28593 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -7780,7 +9087,7 @@ This treatment uses quinidine (CHEBI:28593). CHEBI:28593 is a therapeutic agent 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">epicardial ablation<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">epicardial ablation<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is epicardial ablation (NCIT:C157843). NCIT:C157843 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8298,11 +9605,11 @@ This treatment is epicardial ablation (NCIT:C157843). NCIT:C157843 is a clinical
         SCN3B
 
 
-    <a href="https://bioregistry.io/hgnc:20665" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:20665</a>
+    <a href="https://bioregistry.io/hgnc:20665" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:20665</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns SCN3B (hgnc:20665). hgnc:20665 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9526,7 +10833,9 @@ mappings:
       association rests on heterologous-expression reports of reduced sodium
       current without informative segregation data (PMID:20031595,
       PMID:23257389, PMID:39761910), and was reclassified as disputed by the
-      ClinGen Brugada gene-validity reappraisal (PMID:29959160) on the grounds
+      ClinGen Brugada gene-validity reappraisal (PMID:29959160) — and refuted
+      outright by ClinGen&#39;s Hereditary Cardiovascular Disease Gene Curation Expert
+      Panel in December 2025 — on the grounds
       that the two originally implicated variants occur in the general
       population at or above the prevalence of the disease, so it is covered
       here inside the disputed and unresolved non-SCN5A heterogeneity this entry
@@ -9534,6 +10843,95 @@ mappings:
       definitive SCN5A form. narrowMatch rather than exactMatch because the anchor
       also subsumes the SCN5A form and the genotype-negative majority stratum that
       this gene-restricted child term excludes.
+  - term:
+      id: MONDO:0012728
+      label: Brugada syndrome 2
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      The GPD1L child term of this entry&#39;s anchor. GPD1L was identified by genetic
+      linkage rather than by candidate-gene screening, but the ClinGen Brugada
+      gene-validity reappraisal (PMID:29959160) still classified it as disputed —
+      the linked region was about 24 million base pairs and was not
+      comprehensively sequenced, the reported variant is now seen in about 1 in
+      5000 individuals in public databases, and no further family has been
+      described since the 2002 seminal report. ClinGen&#39;s Brugada Syndrome Gene
+      Curation Expert Panel records the same disputed classification against
+      Brugada syndrome 1. Covered here inside the disputed non-SCN5A
+      heterogeneity this entry curates rather than as a subtype row.
+  - term:
+      id: MONDO:0012742
+      label: Brugada syndrome 3
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      The CACNA1C child term. MONDO does not put a `RO:0004003` gene edge on this
+      term directly; it inherits CACNA1C through a second parent,
+      `MONDO:0700321 CACNA1C-related disorder`, which is why a gene-keyed diff
+      over this series does not see it. ClinGen&#39;s Hereditary Cardiovascular
+      Disease Gene Curation Expert Panel classified CACNA1C for Brugada syndrome
+      as disputed in 2025, and the earlier reappraisal found segregation in only
+      2 individuals in 2 generations. The gene&#39;s definitive disease, Timothy
+      syndrome, is curated separately in this KB.
+  - term:
+      id: MONDO:0012743
+      label: Brugada syndrome 4
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      The CACNB2 child term. CACNB2 is one of only three reported Brugada genes
+      with more than two segregations within a family, but the reappraisal&#39;s
+      curators found a reported affected individual in that family who did not
+      carry the variant, and ClinGen&#39;s current assertion for CACNB2 — made
+      against the broader `MONDO:0100547 cardiogenetic disease` rather than
+      against Brugada syndrome — is disputed. Covered here rather than as a
+      subtype row.
+  - term:
+      id: MONDO:0013015
+      label: Brugada syndrome 5
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      The SCN1B child term. SCN1B is among the 13 genes whose seminal manuscripts
+      reported rare variants in sporadic cases only, with no segregation data and
+      no evidence of rare-variant excess against controls, and ClinGen&#39;s Brugada
+      Syndrome Gene Curation Expert Panel classifies it as disputed. Covered here
+      rather than as a subtype row.
+  - term:
+      id: MONDO:0013145
+      label: Brugada syndrome 6
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      The KCNE3 child term. KCNE3 is the second of the three genes reported with
+      more than two segregations, but the reappraisal judged those four
+      segregations insufficient without statistical data, further families or
+      other supporting literature, and ClinGen restated the disputed
+      classification in 2025. Covered here rather than as a subtype row.
+  - term:
+      id: MONDO:0013148
+      label: Brugada syndrome 8
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      The HCN4 child term. HCN4 is among the 13 genes whose seminal manuscripts
+      reported rare variants in sporadic cases only, with no segregation data and
+      no evidence of rare-variant excess against controls, and ClinGen&#39;s Brugada
+      Syndrome Gene Curation Expert Panel classifies it as disputed for Brugada
+      syndrome. HCN4 does carry a separate ClinGen assertion for sick sinus
+      syndrome 2, which is a different disease and not this entry&#39;s concern.
+      Covered here rather than as a subtype row.
+  - term:
+      id: MONDO:0014621
+      label: Brugada syndrome 9
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      The KCND3 child term. KCND3 is among the 13 genes whose seminal manuscripts
+      reported rare variants in sporadic cases only, with no segregation data and
+      no evidence of rare-variant excess against controls, and ClinGen&#39;s Brugada
+      Syndrome Gene Curation Expert Panel classifies it as disputed. Covered here
+      rather than as a subtype row.
 parents:
 - Cardiac Arrhythmia
 - Channelopathy
@@ -9608,6 +11006,22 @@ has_subtypes:
     evidence_source: OTHER
     snippet: &#34;Variants occurring in at least 26 different genes have been previously considered causative, although the causative effect of all but the SCN5A gene has been recently challenged, due to the lack of systematic, evidence-based evaluations, such as a variant&#39;s frequency among the general population, family segregation analyses, and functional studies.&#34;
     explanation: Supports treating non-SCN5A Brugada genes as unresolved or disputed heterogeneity rather than as established monogenic roots.
+  - reference: PMID:20301690
+    reference_title: Brugada Syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      A molecular diagnosis can be established in an individual with
+      characteristic features and identification of a heterozygous pathogenic
+      variant in SCN5A or one of the additional 42 genes associated with Brugada
+      syndrome.
+    explanation: &gt;-
+      The GeneReviews chapter still lists 42 non-SCN5A genes as diagnostic, which
+      the ClinGen reappraisal cited on this entry&#39;s SCN3B record contradicts for
+      20 of the 21 it curated. Recorded here because the disagreement is between
+      two standard sources rather than between a source and this entry, and it is
+      what this subtype exists to hold.
 definitions:
 - name: &gt;-
     Fever-associated type-1 Brugada ECG case-finding query for latent
@@ -9691,6 +11105,29 @@ pathophysiology:
     channel pathways. At the disease level, the key mechanistic theme is not
     long-QT-like delayed repolarization alone but reduced inward current and
     impaired conduction reserve in the right ventricular substrate.
+  genes:
+  - preferred_term: SCN5A
+    term:
+      id: hgnc:10593
+      label: SCN5A
+    modifier: LOSS_OF_FUNCTION
+  - preferred_term: SCN3B
+    term:
+      id: hgnc:20665
+      label: SCN3B
+    modifier: LOSS_OF_FUNCTION
+  notes: &gt;-
+    The two genes on this node are not graded alike, and the difference is in
+    `genetic:` rather than here. SCN5A is CAUSATIVE. SCN3B is DISPUTED: the
+    ClinGen Brugada reappraisal rejected its reported alleles on population
+    frequency and absent segregation, while the mechanism those alleles were
+    reported to act through — reduced peak sodium current in ventricular
+    myocytes — is the mechanism this node represents and is supported in the
+    Scn3b-null mouse. SCN3B is bound here because the mechanism claim is the one
+    a pathograph node makes; read the allele-level verdict off its `genetic:`
+    record. Note that the KGX exporter reads neither `relationship_type` nor this
+    note (dismech#12320), so a downstream consumer of the export will see the two
+    genes undifferentiated.
   cell_types:
   - preferred_term: cardiomyocyte
     term:
@@ -10187,6 +11624,14 @@ genetic:
     NaV1.5 loss-of-function subtype. SCN5A accounts for a minority of all
     clinically diagnosed Brugada syndrome but dominates the curated
     high-confidence variant literature and often marks a more severe phenotype.
+    It is the only one of the 21 genes the ClinGen Brugada reappraisal curated
+    that reached a definitive classification, and ClinGen&#39;s current assertion is
+    definitive — made not against Brugada syndrome itself but against
+    MONDO:1010181 SCN5A-related cardiac rhythm disorder, the gene-named concept
+    that MONDO also uses as the second parent of Brugada syndrome 1. That routing
+    is why MONDO carries no direct causal-gene edge on MONDO:0011001: the gene is
+    inherited from the gene-named parent, so a gene-keyed comparison over the
+    numbered Brugada series does not see the SCN5A form at all.
   gene_term:
     preferred_term: SCN5A
     term:
@@ -10205,6 +11650,26 @@ genetic:
     evidence_source: COMPUTATIONAL
     snippet: &#34;We observed an over-representation of clinically relevant mutations (∼80%) in SCN5A gene and also identified several candidate genes, including GPD1L, TRPM4, and SCN10A.&#34;
     explanation: Supports SCN5A as the dominant high-confidence gene within the clinically curated Brugada variant landscape.
+  - reference: CGGV:assertion_9f832392-a92b-408d-8d1a-e2037905fab3-2025-10-08T160000.000Z
+    reference_title: &#34;SCN5A / SCN5A-related cardiac rhythm disorder (Definitive)&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;SCN5A | HGNC:10593 | SCN5A-related cardiac rhythm disorder | MONDO:1010181 | AD | Definitive | SOP11 | Hereditary Cardiovascular Disease Gene Curation Expert Panel | 2025-10-08T16:00:00.000Z&#34;
+    explanation: &gt;-
+      ClinGen&#39;s current definitive assertion for SCN5A, and the source for this
+      record&#39;s statement that it is made against the gene-named concept
+      MONDO:1010181 rather than against Brugada syndrome.
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;The SCN5A gene was the only gene, among the 21 curated, to be classified as definitive by all 3 curation teams.&#34;
+    explanation: &gt;-
+      Establishes SCN5A as the single gene in the reappraisal that all three
+      curation teams classified as definitive, which is what separates this record
+      from the eight disputed ones below it.
 - name: SCN3B variants
   association: Disputed
   relationship_type: DISPUTED
@@ -10237,7 +11702,13 @@ genetic:
     homozygous null while the reported patient variants are heterozygous. SCN3B
     is therefore curated as part of the disputed non-SCN5A heterogeneity rather
     than as a validated monogenic cause: the mechanism is plausible and
-    supported in vivo, and the specific reported alleles are what fail.
+    supported in vivo, and the specific reported alleles are what fail. ClinGen
+    has since gone further than the 2018 reappraisal: its Hereditary
+    Cardiovascular Disease Gene Curation Expert Panel classified SCN3B for
+    Brugada syndrome as refuted in December 2025, not merely disputed. This
+    record keeps `relationship_type: DISPUTED` because that enum has no refuted
+    value, and the refutation is stated here and carried by the ClinGen evidence
+    item below.
   gene_term:
     preferred_term: SCN3B
     term:
@@ -10298,6 +11769,7 @@ genetic:
     supports: REFUTE
     directness: DIRECT
     evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
     snippet: &#34;Two curated genes in this study were originally implicated on the basis of variants suggested to be rare in the original studies, only to be subsequently noted to have heterozygosity frequency in public databases greater than or equal to the prevalence of BrS (KCNJ8 p.Ser422Leu, 1/250; SCN3B p.Leu10Pro, p.Val110Ile, both 1/2500).&#34;
     explanation: &gt;-
       Names both SCN3B variants and gives the specific reason the association
@@ -10358,6 +11830,330 @@ genetic:
     snippet: &#34;All other genes (20 of 21) received a final classification of disputed with regard to assertions toward causality for BrS by a clinical domain expert panel.&#34;
     explanation: &gt;-
       The expert-panel verdict that places SCN3B, along with every other reported
+      non-SCN5A Brugada gene, in the disputed tier.
+  - reference: CGGV:assertion_a08c3aaa-cae9-4060-b1df-1f24c781bb14-2025-12-16T010000.000Z
+    reference_title: &#34;SCN3B / Brugada syndrome (Refuted)&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;SCN3B | HGNC:20665 | Brugada syndrome | MONDO:0015263 | AD | Refuted | SOP11 | Hereditary Cardiovascular Disease Gene Curation Expert Panel | 2025-12-16T01:00:00.000Z&#34;
+    explanation: &gt;-
+      ClinGen&#39;s current SCN3B assertion, which is refuted rather than disputed and
+      postdates the 2018 reappraisal cited above.
+- name: GPD1L variants
+  association: Disputed
+  relationship_type: DISPUTED
+  gene_term:
+    preferred_term: GPD1L
+    term:
+      id: hgnc:28956
+      label: GPD1L
+  features: &gt;-
+    GPD1L is the gene behind the numbered series term Brugada syndrome 2
+    (MONDO:0012728) and is one of only four genes present on every Brugada
+    multigene test panel surveyed in 2017. It is also the one disputed Brugada
+    gene that was found by genetic linkage rather than by candidate-gene
+    screening, which is why the reappraisal discusses it separately: all three
+    curator teams nonetheless scored it limited, and the expert panel classified
+    it disputed. The stated reasons are that the linked region was very large and
+    was not comprehensively sequenced, so an alternative gene in the interval was
+    never excluded; that the reported variant is now seen in about 1 in 5000
+    individuals in public databases; and that no further family has been reported
+    since the seminal 2002 publication. Curated here as disputed non-SCN5A
+    heterogeneity rather than as a subtype row.
+  evidence:
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;Notably, the GPD1L gene received limited evidence classification by all 3 curator teams and a final classification of disputed, despite its identification through the use of genetic linkage.&#34;
+    explanation: &gt;-
+      The expert-panel verdict on GPD1L, and the observation that it holds even
+      though this gene was found by linkage rather than by candidate-gene
+      screening.
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;the observation that the reported variant in this gene is now recognized to be present in 1/5000 individuals in public databases&#34;
+    explanation: &gt;-
+      The population-frequency argument against the reported GPD1L allele, the
+      same kind of argument that undercut the SCN3B alleles.
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;curators and the expert panel noted the extensive size of the linked genomic region, the select sequencing of only a limited number of genes within this large region&#34;
+    explanation: &gt;-
+      The specific methodological objection to the GPD1L linkage result: the
+      linked interval was large and was not comprehensively sequenced, so an
+      alternative causal gene inside it was never excluded.
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;and the absence of any subsequent familial descriptions since the seminal publication in 2002.&#34;
+    explanation: &gt;-
+      Source for this record&#39;s statement that no further family has been reported
+      since the 2002 seminal publication.
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: OTHER
+    snippet: &#34;Only 4 genes were present on all testing panels (SCN5A, GPD1L, CACNA1C, and CACNB2).&#34;
+    explanation: &gt;-
+      Records how entrenched GPD1L is in clinical Brugada testing, which is why
+      the disputed classification is worth stating explicitly here rather than
+      leaving the gene unmentioned. Graded INDIRECT because panel membership is
+      evidence about testing practice, not about causation.
+- name: CACNA1C variants
+  association: Disputed
+  relationship_type: DISPUTED
+  gene_term:
+    preferred_term: CACNA1C
+    term:
+      id: hgnc:1390
+      label: CACNA1C
+  features: &gt;-
+    CACNA1C is the gene behind Brugada syndrome 3 (MONDO:0012742). MONDO puts no
+    causal-gene edge on that term directly — the gene is inherited from its second
+    parent, MONDO:0700321 CACNA1C-related disorder — so a gene-keyed comparison
+    over the numbered Brugada series does not surface it. The Brugada claim rests
+    on segregation in only two individuals in two generations, and ClinGen&#39;s
+    Hereditary Cardiovascular Disease Gene Curation Expert Panel classified
+    CACNA1C for Brugada syndrome as disputed in February 2025. This says nothing
+    against CACNA1C&#39;s definitive disease: Timothy syndrome is a separate entry in
+    this KB, and this entry&#39;s fever-unmasking node and definitions explicitly
+    contrast the Timothy-syndrome fever effect rather than treating CACNA1C as a
+    Brugada cause.
+  evidence:
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;Three genes were reported with limited segregation in only 2 individuals in 2 generations (CACNA1C, KCNE5, and SCN10A).&#34;
+    explanation: &gt;-
+      Names CACNA1C among the genes whose founding Brugada reports showed
+      segregation in only two individuals, the specific basis for the disputed
+      classification.
+  - reference: CGGV:assertion_0d869dbe-c00c-4875-93c8-80ba0436b895-2025-02-25T010000.000Z
+    reference_title: &#34;CACNA1C / Brugada syndrome (Disputed)&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;CACNA1C | HGNC:1390 | Brugada syndrome | MONDO:0015263 | AD | Disputed | SOP11 | Hereditary Cardiovascular Disease Gene Curation Expert Panel | 2025-02-25T01:00:00.000Z&#34;
+    explanation: &gt;-
+      ClinGen&#39;s current gene-disease validity assertion for CACNA1C against
+      Brugada syndrome, made under SOP11 and dated 2025.
+- name: CACNB2 variants
+  association: Disputed
+  relationship_type: DISPUTED
+  gene_term:
+    preferred_term: CACNB2
+    term:
+      id: hgnc:1402
+      label: CACNB2
+  features: &gt;-
+    CACNB2 is the gene behind Brugada syndrome 4 (MONDO:0012743) and, like GPD1L
+    and CACNA1C, appears on every Brugada test panel surveyed. It is one of only
+    three reported Brugada genes with more than two segregations within a family,
+    so its founding evidence was stronger than most; what defeated it was that the
+    reappraisal&#39;s curators found a reported affected member of that family who did
+    not carry the variant, and that no further report supplied enough genetic or
+    statistical evidence to move it above the disputed tier. Note that ClinGen&#39;s
+    current CACNB2 assertion is made against the broader concept
+    MONDO:0100547 cardiogenetic disease rather than against Brugada syndrome, and
+    is also disputed.
+  evidence:
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: OTHER
+    snippet: &#34;Only 3 genes (CACNB2, KCNE3, PKP2) were reported to have &gt;2 segregations within a family.&#34;
+    explanation: &gt;-
+      Records that CACNB2&#39;s founding report carried more segregations than most
+      disputed Brugada genes, which is the reason its disposition needs the
+      specific refutation quoted below rather than the generic one.
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;our curators noted a reported affected individual who did not carry the reported variant in CACNB2.&#34;
+    explanation: &gt;-
+      The specific segregation failure in the founding CACNB2 family: an affected
+      individual without the variant.
+  - reference: CGGV:assertion_1dd59b42-2ed6-4685-b93b-39ba49ece50b-2025-07-22T160000.000Z
+    reference_title: &#34;CACNB2 / cardiogenetic disease (Disputed)&#34;
+    supports: REFUTE
+    directness: INDIRECT
+    evidence_source: OTHER
+    snippet: &#34;CACNB2 | HGNC:1402 | cardiogenetic disease | MONDO:0100547 | AD | Disputed | SOP11 | Hereditary Cardiovascular Disease Gene Curation Expert Panel | 2025-07-22T16:00:00.000Z&#34;
+    explanation: &gt;-
+      ClinGen&#39;s current CACNB2 assertion. Graded INDIRECT because it is made
+      against the broad cardiogenetic-disease concept rather than against Brugada
+      syndrome specifically, so it bears on the Brugada claim by inclusion rather
+      than directly.
+- name: SCN1B variants
+  association: Disputed
+  relationship_type: DISPUTED
+  gene_term:
+    preferred_term: SCN1B
+    term:
+      id: hgnc:10586
+      label: SCN1B
+  features: &gt;-
+    SCN1B encodes the beta-1 subunit of the voltage-gated sodium channel (HGNC
+    approved name: sodium voltage-gated channel beta subunit 1) and is the gene
+    behind Brugada syndrome 5 (MONDO:0013015) — the sibling claim to
+    the SCN3B one this entry already curates, and it failed reappraisal for the
+    same reason: the seminal manuscripts reported rare variants in sporadic cases
+    only, with no segregation data and no demonstration of rare-variant excess
+    against controls. ClinGen&#39;s Brugada Syndrome Gene Curation Expert Panel
+    classifies SCN1B as disputed for Brugada syndrome. The ClinGen gene-validity
+    download committed in this repository (`cache/clingen/gene_validity.csv`) also
+    records definitive SCN1B assertions for generalized epilepsy with febrile
+    seizures plus and for developmental and epileptic encephalopathy; those are
+    different diseases and are not this entry&#39;s concern.
+  evidence:
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;Seminal manuscripts for 13 of the 19 genes reported rare variants in only sporadic cases with no segregation data or evidence of rare variant excess compared with control subjects (ABCC9, ANK2, CACNA2D1, HCN4, KCND3, KCNH2, KCNJ8, RANGRF, SCN1B, SCN2B, SCN3B, SLMAP, TRPM4).&#34;
+    explanation: &gt;-
+      Names SCN1B among the genes whose founding reports lacked segregation data
+      or rare-variant excess, which is the specific basis for the disputed
+      classification here.
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;All other genes (20 of 21) received a final classification of disputed with regard to assertions toward causality for BrS by a clinical domain expert panel.&#34;
+    explanation: &gt;-
+      The expert-panel verdict that places SCN1B, along with every other reported
+      non-SCN5A Brugada gene, in the disputed tier.
+- name: KCNE3 variants
+  association: Disputed
+  relationship_type: DISPUTED
+  gene_term:
+    preferred_term: KCNE3
+    term:
+      id: hgnc:6243
+      label: KCNE3
+  features: &gt;-
+    KCNE3 is the gene behind Brugada syndrome 6 (MONDO:0013145) and the second of
+    the three reported Brugada genes with more than two segregations in a family.
+    Four segregations were reported, but the reappraisal judged them insufficient
+    in the absence of statistical data, additional families or other supporting
+    literature, and ClinGen&#39;s Hereditary Cardiovascular Disease Gene Curation
+    Expert Panel restated the disputed classification against Brugada syndrome in
+    July 2025. Curated here as disputed non-SCN5A heterogeneity rather than as a
+    subtype row.
+  evidence:
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;Similarly, 4 and 3 segregations were reported in original manuscripts using preconceived candidate gene approaches implicating KCNE3 and PKP2, respectively, but without sufficient statistical data, additional families or supporting evidence in the literature.&#34;
+    explanation: &gt;-
+      Gives the exact reason the KCNE3 claim failed despite four reported
+      segregations: no statistical data, no further families, no supporting
+      literature.
+  - reference: CGGV:assertion_733a6f42-add7-434a-9d4f-a8f11c11c41a-2025-07-22T190000.000Z
+    reference_title: &#34;KCNE3 / Brugada syndrome (Disputed)&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;KCNE3 | HGNC:6243 | Brugada syndrome | MONDO:0015263 | AD | Disputed | SOP11 | Hereditary Cardiovascular Disease Gene Curation Expert Panel | 2025-07-22T19:00:00.000Z&#34;
+    explanation: &gt;-
+      ClinGen&#39;s current gene-disease validity assertion for KCNE3 against Brugada
+      syndrome, made under SOP11 and dated 2025.
+- name: HCN4 variants
+  association: Disputed
+  relationship_type: DISPUTED
+  gene_term:
+    preferred_term: HCN4
+    term:
+      id: hgnc:16882
+      label: HCN4
+  features: &gt;-
+    HCN4 (HGNC approved name: hyperpolarization activated cyclic nucleotide gated
+    potassium channel 4) is the gene behind Brugada syndrome 8 (MONDO:0013148). Its Brugada claim is among the 13 whose seminal manuscripts
+    reported rare variants in sporadic cases only, with no segregation data and
+    no demonstration of rare-variant excess against controls, and ClinGen&#39;s
+    Brugada Syndrome Gene Curation Expert Panel classifies it as disputed for
+    Brugada syndrome. The same ClinGen download that records the disputed Brugada
+    assertion (`cache/clingen/gene_validity.csv`) records a definitive HCN4
+    assertion for autosomal dominant sick sinus syndrome 2, a different disease
+    that is not curated here.
+  evidence:
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;Seminal manuscripts for 13 of the 19 genes reported rare variants in only sporadic cases with no segregation data or evidence of rare variant excess compared with control subjects (ABCC9, ANK2, CACNA2D1, HCN4, KCND3, KCNH2, KCNJ8, RANGRF, SCN1B, SCN2B, SCN3B, SLMAP, TRPM4).&#34;
+    explanation: &gt;-
+      Names HCN4 among the genes whose founding reports lacked segregation data or
+      rare-variant excess, which is the specific basis for the disputed
+      classification here.
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;All other genes (20 of 21) received a final classification of disputed with regard to assertions toward causality for BrS by a clinical domain expert panel.&#34;
+    explanation: &gt;-
+      The expert-panel verdict that places HCN4, along with every other reported
+      non-SCN5A Brugada gene, in the disputed tier.
+- name: KCND3 variants
+  association: Disputed
+  relationship_type: DISPUTED
+  gene_term:
+    preferred_term: KCND3
+    term:
+      id: hgnc:6239
+      label: KCND3
+  features: &gt;-
+    KCND3 (HGNC approved name: potassium voltage-gated channel subfamily D member
+    3, alias Kv4.3) is the gene behind Brugada syndrome 9 (MONDO:0014621). Its
+    Brugada claim is among the 13 whose seminal manuscripts reported rare variants
+    in sporadic cases only, with no segregation data and no demonstration of
+    rare-variant excess against controls, and ClinGen&#39;s Brugada Syndrome Gene
+    Curation Expert Panel classifies it as disputed. Curated here as disputed
+    non-SCN5A heterogeneity rather than as a subtype row.
+  evidence:
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;Seminal manuscripts for 13 of the 19 genes reported rare variants in only sporadic cases with no segregation data or evidence of rare variant excess compared with control subjects (ABCC9, ANK2, CACNA2D1, HCN4, KCND3, KCNH2, KCNJ8, RANGRF, SCN1B, SCN2B, SCN3B, SLMAP, TRPM4).&#34;
+    explanation: &gt;-
+      Names KCND3 among the genes whose founding reports lacked segregation data
+      or rare-variant excess, which is the specific basis for the disputed
+      classification here.
+  - reference: PMID:29959160
+    reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: OTHER
+    snippet: &#34;All other genes (20 of 21) received a final classification of disputed with regard to assertions toward causality for BrS by a clinical domain expert panel.&#34;
+    explanation: &gt;-
+      The expert-panel verdict that places KCND3, along with every other reported
       non-SCN5A Brugada gene, in the disputed tier.
 treatments:
 - name: Implantable cardioverter-defibrillator placement
@@ -11026,6 +12822,7 @@ discussions:
     reference_title: &#34;Reappraisal of Reported Genes for Sudden Arrhythmic Death: Evidence-Based Evaluation of Gene Validity for Brugada Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
     snippet: &#34;Two curated genes in this study were originally implicated on the basis of variants suggested to be rare in the original studies, only to be subsequently noted to have heterozygosity frequency in public databases greater than or equal to the prevalence of BrS (KCNJ8 p.Ser422Leu, 1/250; SCN3B p.Leu10Pro, p.Val110Ile, both 1/2500).&#34;
     explanation: &gt;-
       The human-side half of the mismatch: the specific reported alleles are too
@@ -11045,10 +12842,30 @@ notes: &gt;-
   series are to be bound here as skos:narrowMatch mappings rather than as
   has_subtypes rows, so ontology coverage is recorded without placing a disputed
   gene at the same structural weight as the definitive SCN5A form.
-  MONDO:0013146 (Brugada syndrome 7, SCN3B) is the first bound this way, and
-  SCN3B itself is curated in the genetic section with relationship_type
-  DISPUTED. The remaining series terms (Brugada syndrome 2, 3, 4, 5, 6, 8 and 9)
-  are not yet mapped.
+  MONDO:0013146 (Brugada syndrome 7, SCN3B) was the first bound this way, and the
+  series is now complete: Brugada syndrome 2 (GPD1L), 3 (CACNA1C), 4 (CACNB2),
+  5 (SCN1B), 6 (KCNE3), 8 (HCN4) and 9 (KCND3) are all bound as skos:narrowMatch
+  mappings, and each of those genes now has a genetic-section record with
+  relationship_type DISPUTED carrying the specific reappraisal finding against it.
+
+  Two things checked in the same pass are recorded because they explain why a
+  gene-keyed comparison over this series misreports it. Brugada syndrome 1
+  (MONDO:0011001) and Brugada syndrome 3 (MONDO:0012742) carry no direct
+  RO:0004003 gene edge in MONDO at all; each inherits its gene from a second,
+  gene-named parent — MONDO:1010181 SCN5A-related cardiac rhythm disorder and
+  MONDO:0700321 CACNA1C-related disorder respectively — so a comparison keyed on
+  gene edges omits the one Brugada gene ClinGen calls definitive. And ClinGen has
+  moved past the 2018 reappraisal for three of these genes: SCN3B is now refuted
+  rather than disputed, and current SOP11 assertions exist for CACNA1C, CACNB2
+  and KCNE3.
+
+  SCN3B remains the only disputed gene wired onto a pathophysiology node. The
+  eight other disputed records are deliberately not wired: placing a disputed
+  gene on the reduced-depolarization-reserve node would assert in this disease
+  exactly the causal role ClinGen declined to accept. SCN3B is the exception this
+  entry already argued for on the strength of its Scn3b-null mouse phenotype, and
+  that argument stays inside its own record rather than being generalised to the
+  rest.
 datasets:
 - accession: geo:GSE264359
   title: A rare non-coding enhancer variant in SCN5A contributes to the high prevalence of Brugada syndrome in Thailand
@@ -11113,6 +12930,12 @@ datasets:
       label: Homo sapiens
   data_type: WES
   notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Brugada syndrome&#34;); description-level mentions were not accepted. EGA study_type: Exome Sequencing. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+references:
+- reference: PMID:20301690
+  title: &#34;Brugada Syndrome.&#34;
+  tags:
+  - GeneReviews
+  findings: []
 </pre>
             </div>
         </div>
@@ -11123,6 +12946,31 @@ datasets:
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">1</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301690" target="_blank">PMID:20301690</a>
+                            </div>
+
+                            <div class="reference-title">Brugada Syndrome.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
             </div>
 
 
@@ -11556,7 +13404,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Brugada syndrome", "mondoId": "MONDO:0015263", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brugada_syndrome", "yamlRevision": "074f71e5a5d7"};
+        const OS_CONFIG = {"diseaseName": "Brugada syndrome", "mondoId": "MONDO:0015263", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brugada_syndrome", "yamlRevision": "236aa96f439a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

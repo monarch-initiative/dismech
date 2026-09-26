@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Dilated%20Cardiomyopathy%201X"
@@ -4011,7 +4053,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">12</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4240,6 +4282,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-fukutin-ribitol-phosphate-transferase-activity" data-dismech-node="Reduced Fukutin Ribitol-Phosphate Transferase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Fukutin Ribitol-Phosphate Transferase Activity</div>
 
+
                 <div class="item-desc">Biallelic hypomorphic FKTN variants reduce, without abolishing, the Golgi ribitol-phosphate transferase activity of fukutin. Fukutin and fukutin-related protein act sequentially to transfer ribitol phosphate from CDP-ribitol, which is synthesised by ISPD, onto the core M3 O-mannosyl glycan of alpha-dystroglycan. The residual activity in this allele combination is what separates CMD1X from the null genotypes that cause Fukuyama congenital muscular dystrophy.</div>
 
 
@@ -4295,6 +4338,8 @@ This genetic context concerns FKTN (hgnc:3622). hgnc:3622 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">zygosity: COMPOUND_HETEROZYGOUS</span>
 
 
@@ -4302,6 +4347,9 @@ This genetic context concerns FKTN (hgnc:3622). hgnc:3622 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4431,6 +4479,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-dystroglycan-hypoglycosylation-and-loss-of-laminin-binding" data-dismech-node="Alpha-Dystroglycan Hypoglycosylation and Loss of Laminin Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-Dystroglycan Hypoglycosylation and Loss of Laminin Binding</div>
+
 
                 <div class="item-desc">The incompletely glycosylated alpha-dystroglycan cannot bind laminin, agrin and perlecan in the basement membrane. In CMD1X this is demonstrable in both compartments: skeletal muscle biopsy shows altered glycosylation and reduced laminin binding despite near-normal histology, and the one cardiac biopsy in the founding series showed the same glycosylation defect seen in Fukuyama congenital muscular dystrophy.</div>
 
@@ -4571,6 +4620,7 @@ This pathophysiological event involves decreased laminin binding (GO:0043236). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-weakened-sarcolemma-to-basement-membrane-linkage-in-cardiomyocytes" data-dismech-node="Weakened Sarcolemma-to-Basement-Membrane Linkage in Cardiomyocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Weakened Sarcolemma-to-Basement-Membrane Linkage in Cardiomyocytes</div>
 
+
                 <div class="item-desc">The dystrophin-glycoprotein complex normally transmits force between the cardiomyocyte cytoskeleton and the basement membrane. With alpha-dystroglycan unable to bind laminin, that linkage is weakened and the sarcolemma is less able to withstand the mechanical load of repeated contraction. Mouse data make the important qualification that this membrane-fragility route is not on its own sufficient to produce contractile failure.</div>
 
 
@@ -4710,6 +4760,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-compensatory-hypertrophic-signaling" data-dismech-node="Impaired Compensatory Hypertrophic Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Compensatory Hypertrophic Signaling</div>
+
 
                 <div class="item-desc">Fukutin-deficient cardiomyocytes fail to mount the adaptive hypertrophic response that normally offsets haemodynamic load. In the mouse, adrenergic and pressure-overload stress that produces compensated hypertrophy in controls instead produces chamber dilation, fibrosis and contractile failure, with loss of the expected Akt phosphorylation and a disrupted MEF2-histone deacetylase axis. This is the branch that best explains why the human disease is stress-sensitive and variable in onset rather than uniformly congenital.</div>
 
@@ -4870,6 +4921,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-remodeling-and-myocardial-fibrosis" data-dismech-node="Ventricular Remodeling and Myocardial Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Remodeling and Myocardial Fibrosis</div>
 
+
                 <div class="item-desc">Cardiomyocyte injury and failed compensation give way to increased myocyte cross-sectional area, interstitial fibrosis and chamber dilation. In the cardiac-specific fukutin knockout these changes appear in middle-aged animals and are accompanied by disorganised myofilaments and impaired calcium handling during excitation-contraction coupling.</div>
 
 
@@ -4948,6 +5000,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dilated-cardiomyopathy-with-systolic-failure" data-dismech-node="Dilated Cardiomyopathy with Systolic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Dilated Cardiomyopathy with Systolic Failure</div>
 
+
                 <div class="item-desc">The clinical endpoint is a dilated, hypokinetic left ventricle with reduced ejection fraction, presenting as heart failure. The course is variable: the founding series included both a child who died of rapidly progressive disease and an adolescent who reached transplantation.</div>
 
 
@@ -5008,6 +5061,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-relative-sparing-of-skeletal-muscle-and-brain" data-dismech-node="Relative Sparing of Skeletal Muscle and Brain" data-dismech-type="pathophysiology">
                 <div class="item-name">Relative Sparing of Skeletal Muscle and Brain</div>
+
 
                 <div class="item-desc">The defining feature of CMD1X is what does not happen. The same hypoglycosylation of alpha-dystroglycan that destroys skeletal muscle and brain in Fukuyama congenital muscular dystrophy leaves these patients with normal intelligence and no or minimal limb girdle weakness, and with skeletal muscle biopsies showing only minimal dystrophic change. The residual fukutin activity of the hypomorphic allele combination is the usual explanation, but it does not by itself say why the myocardium is the tissue that cannot tolerate the shortfall. This tissue-selectivity is recorded as an open question rather than resolved.</div>
 
@@ -5092,7 +5146,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-Dystroglycan Hypoglycosylation and Loss of Laminin Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The incompletely glycosylated alpha-dystroglycan cannot bind laminin, agrin and perlecan in the basement membrane. In CMD1X this is demonstrable in both compartments: skeletal muscle biopsy shows altered glycosylation and reduced laminin binding despite near-normal histology, and the one cardiac biopsy in the founding series showed the same glycosylation defect seen in Fukuyama congenital muscular dystrophy.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"laminin binding\"]}}, {\"id\": \"Cardiac transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transplantation is the definitive treatment for end-stage disease and has been reached by reported patients in adolescence.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiac-specific fukutin knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Cardiomyocyte-restricted elimination of Fktn, both constitutively and inducibly in the adult heart. The model is the principal source of mechanistic information about how fukutin loss causes cardiac failure.\"}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Heart failure symptoms follow the decline in systolic function and drive the clinical burden, up to transplantation in severe cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Dilated Cardiomyopathy with Systolic Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint is a dilated, hypokinetic left ventricle with reduced ejection fraction, presenting as heart failure. The course is variable: the founding series included both a child who died of rapidly progressive disease and an adolescent who reached transplantation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left ventricular dilation with hypokinesis and reduced ejection fraction is the presenting and dominant feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Guideline-directed heart failure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no FKTN-specific therapy. Management follows standard treatment for heart failure with reduced ejection fraction. This is recorded as the prevailing standard of care rather than as an intervention tested in CMD1X, for which no trial evidence exists.\", \"meta\": {\"therapeutic_agents\": [\"angiotensin-converting enzyme inhibitor\", \"beta-adrenergic blocker\"]}}, {\"id\": \"Haemodynamic load of pregnancy\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Pregnancy is a documented precipitant of decompensation in established CMD1X. It is not causal, and the entry does not treat it as such: the reported course is a fall in cardiac function from the third trimester, requiring bed rest and elective early delivery, with the cardiac parameters returning to their pre-pregnancy baseline about a month postpartum. The skeletal muscle behaved differently in the same patient, with weakness that persisted afterwards, so the two compartments did not recover in step.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Compensatory Hypertrophic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fukutin-deficient cardiomyocytes fail to mount the adaptive hypertrophic response that normally offsets haemodynamic load. In the mouse, adrenergic and pressure-overload stress that produces compensated hypertrophy in controls instead produces chamber dilation, fibrosis and contractile failure, with loss of the expected Akt phosphorylation and a disrupted MEF2-histone deacetylase axis. This is the branch that best explains why the human disease is stress-sensitive and variable in onset rather than uniformly congenital.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"animal_models\": [{\"name\": \"Cardiac-specific fukutin knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Fktn flox/flox; MCK-Cre (constitutive) and Fktn flox/flox; alphaMHC-MerCreMer (inducible)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Establishes the Akt and MEF2-histone deacetylase signaling lesion, and the stress-dependence of the phenotype.\"}]}}, {\"id\": \"Reduced Fukutin Ribitol-Phosphate Transferase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic hypomorphic FKTN variants reduce, without abolishing, the Golgi ribitol-phosphate transferase activity of fukutin. Fukutin and fukutin-related protein act sequentially to transfer ribitol phosphate from CDP-ribitol, which is synthesised by ISPD, onto the core M3 O-mannosyl glycan of alpha-dystroglycan. The residual activity in this allele combination is what separates CMD1X from the null genotypes that cause Fukuyama congenital muscular dystrophy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein O-linked mannosylation\"], \"genetic_context\": {\"zygosity\": \"COMPOUND_HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"FKTN\", \"id\": \"hgnc:3622\"}]}}}, {\"id\": \"Ventricular Remodeling and Myocardial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiomyocyte injury and failed compensation give way to increased myocyte cross-sectional area, interstitial fibrosis and chamber dilation. In the cardiac-specific fukutin knockout these changes appear in middle-aged animals and are accompanied by disorganised myofilaments and impaired calcium handling during excitation-contraction coupling.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Weakened Sarcolemma-to-Basement-Membrane Linkage in Cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dystrophin-glycoprotein complex normally transmits force between the cardiomyocyte cytoskeleton and the basement membrane. With alpha-dystroglycan unable to bind laminin, that linkage is weakened and the sarcolemma is less able to withstand the mechanical load of repeated contraction. Mouse data make the important qualification that this membrane-fragility route is not on its own sufficient to produce contractile failure.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"animal_models\": [{\"name\": \"Cardiac-specific fukutin knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Fktn flox/flox; MCK-Cre (constitutive) and Fktn flox/flox; alphaMHC-MerCreMer (inducible)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the loss of sarcolemmal alpha-dystroglycan glycosylation and dystrophin-glycoprotein complex, while showing that this alone does not produce contractile failure.\"}]}}], \"edges\": [{\"source\": \"Reduced Fukutin Ribitol-Phosphate Transferase Activity\", \"target\": \"Alpha-Dystroglycan Hypoglycosylation and Loss of Laminin Binding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ribitol-phosphate transfer leaves the M3 glycan incomplete, so the matriglycan chain that carries ligand-binding activity cannot be built out.\"}, {\"source\": \"Alpha-Dystroglycan Hypoglycosylation and Loss of Laminin Binding\", \"target\": \"Weakened Sarcolemma-to-Basement-Membrane Linkage in Cardiomyocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of ligand binding uncouples the dystrophin-glycoprotein complex from the extracellular matrix at the cardiomyocyte surface.\"}, {\"source\": \"Weakened Sarcolemma-to-Basement-Membrane Linkage in Cardiomyocytes\", \"target\": \"Impaired Compensatory Hypertrophic Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Beyond mechanical fragility, fukutin loss disables the signaling response that would normally let the myocyte compensate for haemodynamic load.\"}, {\"source\": \"Weakened Sarcolemma-to-Basement-Membrane Linkage in Cardiomyocytes\", \"target\": \"Ventricular Remodeling and Myocardial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated contraction-induced injury to a poorly anchored sarcolemma drives cardiomyocyte loss and replacement fibrosis.\"}, {\"source\": \"Impaired Compensatory Hypertrophic Signaling\", \"target\": \"Ventricular Remodeling and Myocardial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A myocyte that cannot compensate for load remodels maladaptively instead.\"}, {\"source\": \"Ventricular Remodeling and Myocardial Fibrosis\", \"target\": \"Dilated Cardiomyopathy with Systolic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive loss of contractile tissue and chamber dilation present clinically as dilated cardiomyopathy.\"}, {\"source\": \"Dilated cardiomyopathy\", \"target\": \"Congestive heart failure\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive systolic dysfunction produces heart failure.\"}, {\"source\": \"Haemodynamic load of pregnancy\", \"target\": \"Dilated Cardiomyopathy with Systolic Failure\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"The volume and afterload changes of gestation are superimposed on a ventricle that already cannot mount a compensatory hypertrophic response, so function falls further.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Guideline-directed heart failure pharmacotherapy\", \"target\": \"Ventricular Remodeling and Myocardial Fibrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiac transplantation\", \"target\": \"Dilated Cardiomyopathy with Systolic Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiac-specific fukutin knockout mouse\", \"target\": \"Impaired Compensatory Hypertrophic Signaling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes the Akt and MEF2-histone deacetylase signaling lesion, and the stress-dependence of the phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The knockout is a complete null restricted to the heart, whereas human CMD1X arises from a hypomorphic biallelic genotype affecting every tissue. The model therefore cannot address why human skeletal muscle is spared, and the mouse phenotype is engineered to be cardiac-restricted rather than being so for the reasons the human disease is.\"}, {\"source\": \"Cardiac-specific fukutin knockout mouse\", \"target\": \"Weakened Sarcolemma-to-Basement-Membrane Linkage in Cardiomyocytes\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the loss of sarcolemmal alpha-dystroglycan glycosylation and dystrophin-glycoprotein complex, while showing that this alone does not produce contractile failure.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Graded PARTIALLY_RECAPITULATES because the model reproduces the membrane lesion but explicitly dissociates it from the functional phenotype, so it does not establish the membrane-fragility route as sufficient in humans.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-Dystroglycan Hypoglycosylation and Loss of Laminin Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The incompletely glycosylated alpha-dystroglycan cannot bind laminin, agrin and perlecan in the basement membrane. In CMD1X this is demonstrable in both compartments: skeletal muscle biopsy shows altered glycosylation and reduced laminin binding despite near-normal histology, and the one cardiac biopsy in the founding series showed the same glycosylation defect seen in Fukuyama congenital muscular dystrophy.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"laminin binding\"]}}, {\"id\": \"Cardiac transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transplantation is the definitive treatment for end-stage disease and has been reached by reported patients in adolescence.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiac-specific fukutin knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Cardiomyocyte-restricted elimination of Fktn, both constitutively and inducibly in the adult heart. The model is the principal source of mechanistic information about how fukutin loss causes cardiac failure.\"}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Heart failure symptoms follow the decline in systolic function and drive the clinical burden, up to transplantation in severe cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Dilated Cardiomyopathy with Systolic Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint is a dilated, hypokinetic left ventricle with reduced ejection fraction, presenting as heart failure. The course is variable: the founding series included both a child who died of rapidly progressive disease and an adolescent who reached transplantation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left ventricular dilation with hypokinesis and reduced ejection fraction is the presenting and dominant feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001644\"}}, {\"id\": \"FKTN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"FKTN\"], \"gene_terms\": [{\"label\": \"FKTN\", \"id\": \"hgnc:3622\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Guideline-directed heart failure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no FKTN-specific therapy. Management follows standard treatment for heart failure with reduced ejection fraction. This is recorded as the prevailing standard of care rather than as an intervention tested in CMD1X, for which no trial evidence exists.\", \"meta\": {\"therapeutic_agents\": [\"angiotensin-converting enzyme inhibitor\", \"beta-adrenergic blocker\"]}}, {\"id\": \"Haemodynamic load of pregnancy\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Pregnancy is a documented precipitant of decompensation in established CMD1X. It is not causal, and the entry does not treat it as such: the reported course is a fall in cardiac function from the third trimester, requiring bed rest and elective early delivery, with the cardiac parameters returning to their pre-pregnancy baseline about a month postpartum. The skeletal muscle behaved differently in the same patient, with weakness that persisted afterwards, so the two compartments did not recover in step.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Compensatory Hypertrophic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fukutin-deficient cardiomyocytes fail to mount the adaptive hypertrophic response that normally offsets haemodynamic load. In the mouse, adrenergic and pressure-overload stress that produces compensated hypertrophy in controls instead produces chamber dilation, fibrosis and contractile failure, with loss of the expected Akt phosphorylation and a disrupted MEF2-histone deacetylase axis. This is the branch that best explains why the human disease is stress-sensitive and variable in onset rather than uniformly congenital.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"animal_models\": [{\"name\": \"Cardiac-specific fukutin knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Fktn flox/flox; MCK-Cre (constitutive) and Fktn flox/flox; alphaMHC-MerCreMer (inducible)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Establishes the Akt and MEF2-histone deacetylase signaling lesion, and the stress-dependence of the phenotype.\"}]}}, {\"id\": \"Reduced Fukutin Ribitol-Phosphate Transferase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic hypomorphic FKTN variants reduce, without abolishing, the Golgi ribitol-phosphate transferase activity of fukutin. Fukutin and fukutin-related protein act sequentially to transfer ribitol phosphate from CDP-ribitol, which is synthesised by ISPD, onto the core M3 O-mannosyl glycan of alpha-dystroglycan. The residual activity in this allele combination is what separates CMD1X from the null genotypes that cause Fukuyama congenital muscular dystrophy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein O-linked mannosylation\"], \"genetic_context\": {\"zygosity\": \"COMPOUND_HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"FKTN\", \"id\": \"hgnc:3622\"}]}}}, {\"id\": \"Ventricular Remodeling and Myocardial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiomyocyte injury and failed compensation give way to increased myocyte cross-sectional area, interstitial fibrosis and chamber dilation. In the cardiac-specific fukutin knockout these changes appear in middle-aged animals and are accompanied by disorganised myofilaments and impaired calcium handling during excitation-contraction coupling.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Weakened Sarcolemma-to-Basement-Membrane Linkage in Cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dystrophin-glycoprotein complex normally transmits force between the cardiomyocyte cytoskeleton and the basement membrane. With alpha-dystroglycan unable to bind laminin, that linkage is weakened and the sarcolemma is less able to withstand the mechanical load of repeated contraction. Mouse data make the important qualification that this membrane-fragility route is not on its own sufficient to produce contractile failure.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"animal_models\": [{\"name\": \"Cardiac-specific fukutin knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Fktn flox/flox; MCK-Cre (constitutive) and Fktn flox/flox; alphaMHC-MerCreMer (inducible)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the loss of sarcolemmal alpha-dystroglycan glycosylation and dystrophin-glycoprotein complex, while showing that this alone does not produce contractile failure.\"}]}}], \"edges\": [{\"source\": \"Reduced Fukutin Ribitol-Phosphate Transferase Activity\", \"target\": \"Alpha-Dystroglycan Hypoglycosylation and Loss of Laminin Binding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ribitol-phosphate transfer leaves the M3 glycan incomplete, so the matriglycan chain that carries ligand-binding activity cannot be built out.\"}, {\"source\": \"Alpha-Dystroglycan Hypoglycosylation and Loss of Laminin Binding\", \"target\": \"Weakened Sarcolemma-to-Basement-Membrane Linkage in Cardiomyocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of ligand binding uncouples the dystrophin-glycoprotein complex from the extracellular matrix at the cardiomyocyte surface.\"}, {\"source\": \"Weakened Sarcolemma-to-Basement-Membrane Linkage in Cardiomyocytes\", \"target\": \"Impaired Compensatory Hypertrophic Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Beyond mechanical fragility, fukutin loss disables the signaling response that would normally let the myocyte compensate for haemodynamic load.\"}, {\"source\": \"Weakened Sarcolemma-to-Basement-Membrane Linkage in Cardiomyocytes\", \"target\": \"Ventricular Remodeling and Myocardial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated contraction-induced injury to a poorly anchored sarcolemma drives cardiomyocyte loss and replacement fibrosis.\"}, {\"source\": \"Impaired Compensatory Hypertrophic Signaling\", \"target\": \"Ventricular Remodeling and Myocardial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A myocyte that cannot compensate for load remodels maladaptively instead.\"}, {\"source\": \"Ventricular Remodeling and Myocardial Fibrosis\", \"target\": \"Dilated Cardiomyopathy with Systolic Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive loss of contractile tissue and chamber dilation present clinically as dilated cardiomyopathy.\"}, {\"source\": \"Dilated cardiomyopathy\", \"target\": \"Congestive heart failure\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive systolic dysfunction produces heart failure.\"}, {\"source\": \"Haemodynamic load of pregnancy\", \"target\": \"Dilated Cardiomyopathy with Systolic Failure\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"The volume and afterload changes of gestation are superimposed on a ventricle that already cannot mount a compensatory hypertrophic response, so function falls further.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Guideline-directed heart failure pharmacotherapy\", \"target\": \"Ventricular Remodeling and Myocardial Fibrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiac transplantation\", \"target\": \"Dilated Cardiomyopathy with Systolic Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiac-specific fukutin knockout mouse\", \"target\": \"Impaired Compensatory Hypertrophic Signaling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes the Akt and MEF2-histone deacetylase signaling lesion, and the stress-dependence of the phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The knockout is a complete null restricted to the heart, whereas human CMD1X arises from a hypomorphic biallelic genotype affecting every tissue. The model therefore cannot address why human skeletal muscle is spared, and the mouse phenotype is engineered to be cardiac-restricted rather than being so for the reasons the human disease is.\"}, {\"source\": \"Cardiac-specific fukutin knockout mouse\", \"target\": \"Weakened Sarcolemma-to-Basement-Membrane Linkage in Cardiomyocytes\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the loss of sarcolemmal alpha-dystroglycan glycosylation and dystrophin-glycoprotein complex, while showing that this alone does not produce contractile failure.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Graded PARTIALLY_RECAPITULATES because the model reproduces the membrane lesion but explicitly dissociates it from the functional phenotype, so it does not establish the membrane-fragility route as sufficient in humans.\"}, {\"source\": \"FKTN\", \"target\": \"Reduced Fukutin Ribitol-Phosphate Transferase Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5174,6 +5228,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644), qualified as cours
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5247,6 +5304,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5332,6 +5392,9 @@ This clinical feature is Limb girdle muscle weakness, annotated with Pelvic gird
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5393,7 +5456,7 @@ This clinical feature is Limb girdle muscle weakness, annotated with Pelvic gird
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -5403,10 +5466,13 @@ This clinical feature is Limb girdle muscle weakness, annotated with Pelvic gird
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase activity, annotated with Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5468,6 +5534,9 @@ This clinical feature is Elevated circulating creatine kinase activity, annotate
 
 
                     </div>
+
+
+
 
 
 
@@ -5584,6 +5653,9 @@ This disease-associated gene is FKTN (hgnc:3622). hgnc:3622 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7161,7 +7233,7 @@ phenotypes:
     preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:35743126
     reference_title: Compound Heterozygous FKTN Variants in a Patient with Dilated Cardiomyopathy Led to an Aberrant α-Dystroglycan Pattern.
@@ -8323,7 +8395,7 @@ Validation: just validate, just validate-terms, just count-verified-snippets (19
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dilated Cardiomyopathy 1X", "mondoId": "MONDO:0012704", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dilated_Cardiomyopathy_1X", "yamlRevision": "7b6a51086b9b"};
+        const OS_CONFIG = {"diseaseName": "Dilated Cardiomyopathy 1X", "mondoId": "MONDO:0012704", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dilated_Cardiomyopathy_1X", "yamlRevision": "3f93ca11ebe6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

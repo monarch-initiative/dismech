@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4930,6 +4972,13 @@ This experiment is of type DNA methylation episignature study.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-brpf1-loss-of-function-variation" data-dismech-node="Heterozygous BRPF1 Loss-of-Function Variation" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous BRPF1 Loss-of-Function Variation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is a heterozygous BRPF1 variant, either de novo or inherited. Reported alleles are predominantly protein-truncating (nonsense, frameshift) or whole-gene/partial deletions, with a smaller number of missense and stop-loss alleles; a single 3p25 contiguous deletion can remove BRPF1 together with SETD5.</div>
 
 
@@ -5025,6 +5074,8 @@ This genetic context concerns BRPF1 (hgnc:14255). hgnc:14255 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5037,6 +5088,9 @@ This genetic context concerns BRPF1 (hgnc:14255). hgnc:14255 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous BRPF1 truncating, splice, deletion and missense alleles. Recorded as LOSS_OF_FUNCTION (haploinsufficiency).</div>
 
@@ -5158,6 +5212,13 @@ This genetic context concerns BRPF1 (hgnc:14255). hgnc:14255 is a gene from the 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brpf1-haploinsufficiency" data-dismech-node="BRPF1 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">BRPF1 Haploinsufficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Loss of one functional BRPF1 allele halves the dose of the chromatin-reader scaffold. Haploinsufficiency, rather than a gain-of-function or dominant-negative product, is the accepted mechanism; the phenotypic contribution of BRPF1 dosage was isolated by comparing individuals with BRPF1-only lesions, SETD5-only lesions, and 3p25 deletions spanning both genes.</div>
 
 
@@ -5243,6 +5304,13 @@ This genetic context concerns BRPF1 (hgnc:14255). hgnc:14255 is a gene from the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brpf1-kat6-acetyltransferase-complex-function" data-dismech-node="Impaired BRPF1-KAT6 Acetyltransferase Complex Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired BRPF1-KAT6 Acetyltransferase Complex Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">BRPF1 is the scaffold subunit of tetrameric MYST acetyltransferase complexes built around KAT6A (MOZ), KAT6B (MORF), or KAT7 (HBO1) plus ING4/ING5 and MEAF6. Reduced BRPF1 dose destabilizes assembly and activation of these complexes. This node is the mechanistic point at which BRPF1 disease converges with, but is not identical to, KAT6A- and KAT6B-related disorders: the enzymes have BRPF1-independent activities and BRPF1 has partners beyond KAT6A/KAT6B, which is the accepted explanation for the partial rather than complete clinical overlap.</div>
 
@@ -5475,6 +5543,13 @@ This pathophysiological event involves abnormal MOZ/MORF histone acetyltransfera
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-histone-h3k23-acetylation" data-dismech-node="Deficient Histone H3K23 Acetylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Histone H3K23 Acetylation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Loss of BRPF1 scaffold activity lowers acetylation of histone H3 lysine 23, an abundant chromatin mark that BRPF1 itself also reads. In human embryonic stem cells, BRPF1, H3K4me3 and H3K23ac co-occupy open chromatin at stemness genes, so the deficit is coupled to a reader-writer circuit rather than being a bulk enzymatic loss.</div>
 
 
@@ -5634,6 +5709,13 @@ This pathophysiological event involves decreased histone H3K23 acetyltransferase
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-histone-h3k23-propionylation" data-dismech-node="Deficient Histone H3K23 Propionylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Histone H3K23 Propionylation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">BRPF1-KAT6 complexes also propionylate H3K23, and patient BRPF1 variants impair this acylation. Brpf1 deletion abolishes the mark in mouse embryos and fibroblasts. Because the propionylation and acetylation deficits co-occur in every patient sample studied, the independent contribution of propionylation loss to the human phenotype is unresolved.</div>
 
 
@@ -5792,6 +5874,13 @@ This pathophysiological event involves decreased peptidyl-lysine propionylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-chromatin-accessibility-and-developmental-transcriptional-programs" data-dismech-node="Altered Chromatin Accessibility and Developmental Transcriptional Programs" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Chromatin Accessibility and Developmental Transcriptional Programs</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of the BRPF1-dependent H3K23 acyl marks closes chromatin at BRPF1-occupied loci and shifts developmental gene expression. In Brpf1-deficient mouse forebrain neurons the affected transcripts are enriched for neural development, synapse function and memory genes. This is the hub from which the multisystem phenotype diverges; the individual steps from chromatin state to each organ-level endpoint are not resolved in humans.</div>
 
@@ -6046,6 +6135,13 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-ocular-and-periocular-developmental-transcription-factor-programs" data-dismech-node="Deregulated Ocular and Periocular Developmental Transcription Factor Programs" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Ocular and Periocular Developmental Transcription Factor Programs</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">The ocular and periocular arm of the phenotype - ptosis, blepharophimosis and strabismus, the features that discriminate BRPF1 from co-deleted SETD5 - has until now had no mechanistic route in this graph. The proposed route is that BRPF1 loss deregulates transcription of the ocular developmental transcription factors Pitx2, Hmx1 and Pax6, each independently implicated in ocular developmental malformation, and that the resulting disruption of periocular morphogenesis produces the eyelid and ocular-alignment phenotypes. This is an inference drawn by the authors of the largest cohort from the animal and cell-based BRPF1 literature, not a demonstration in human periocular tissue: no BRPF1 model reproduces ptosis or blepharophimosis, so the node is marked HYPOTHETICAL and is the subject of an open HUMAN_MODEL_MISMATCH discussion.</div>
 
 
@@ -6254,6 +6350,13 @@ This pathophysiological event involves abnormal regulation of transcription by R
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-cortical-neurogenesis-and-callosal-development" data-dismech-node="Aberrant Cortical Neurogenesis and Callosal Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Cortical Neurogenesis and Callosal Development</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Forebrain-specific Brpf1 inactivation in mouse produces neocortical abnormalities and partial callosal agenesis, with a reduced pool of Tbr2-positive intermediate neuronal progenitors and aberrant neurogenesis. Transcriptionally, Brpf1 loss both decreases neocortical developmental genes (Robo3, Otx1) and de-represses Hox and other transcription factors, so BRPF1 acts as both activator and silencer. This node supplies the developmental mechanism for the human corpus callosum anomalies, but the mouse model is a conditional homozygous null and is far more severe (early postnatal lethality) than human heterozygous disease.</div>
 
 
@@ -6390,6 +6493,13 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hematopoietic-stem-and-progenitor-cell-maintenance" data-dismech-node="Impaired Hematopoietic Stem and Progenitor Cell Maintenance" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hematopoietic Stem and Progenitor Cell Maintenance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A separate organ arm. In mice, blood-specific Brpf1 deletion causes acute bone marrow failure and aplastic anemia with severe loss of hematopoietic stem cells and progenitors, raised reactive oxygen species, senescence and apoptosis, and reduced multipotency-gene expression - and BRPF1 is required for H3K23 acetylation in this compartment too. In humans only one family with anemia and thrombocytopenia has been reported, and the mouse data are homozygous conditional nulls, so this arm is biologically plausible but clinically unproven.</div>
 
@@ -6597,6 +6707,13 @@ This pathophysiological event involves decreased hemopoiesis (GO:0030097). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-dendritic-arborization-and-spine-formation" data-dismech-node="Impaired Dendritic Arborization and Spine Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Dendritic Arborization and Spine Formation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In Brpf1 heterozygous mice, hippocampal granule cells and cortical pyramidal neurons show reduced dendritic complexity, lower spine density, and altered spine and synapse morphology. This is the best-characterized cellular substrate for the cognitive phenotype, but it has been demonstrated only in mouse; no equivalent human neuronal data exist.</div>
 
@@ -6838,6 +6955,13 @@ This pathophysiological event involves abnormal dendritic spine development (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-excitatory-synaptic-transmission-in-forebrain-neurons" data-dismech-node="Reduced Excitatory Synaptic Transmission in Forebrain Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Excitatory Synaptic Transmission in Forebrain Neurons</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Brpf1 loss lowers the frequency (and, in some preparations, amplitude) of miniature excitatory postsynaptic currents in hippocampal and forebrain excitatory neurons. Notably, in acute knockdown the electrophysiological deficit precedes any measurable change in dendritic morphology, indicating a partly morphology-independent synaptic effect.</div>
 
 
@@ -6975,6 +7099,13 @@ This pathophysiological event involves decreased excitatory postsynaptic potenti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-inhibitory-neurotransmission-in-gabaergic-interneurons" data-dismech-node="Reduced Inhibitory Neurotransmission in GABAergic Interneurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Inhibitory Neurotransmission in GABAergic Interneurons</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A parallel inhibitory arm: Brpf1 knockdown in mouse medial-ganglionic-eminence (MGE)-derived GABAergic interneurons raises the action-potential firing threshold, reduces evoked firing, and lowers miniature inhibitory postsynaptic current amplitude, again before any change in dendritic morphology or migration. No behavioral testing was performed on this arm, so its contribution to the cognitive phenotype is inferred rather than shown; the node is deliberately left terminal.</div>
 
 
@@ -7107,6 +7238,13 @@ This pathophysiological event involves decreased inhibitory postsynaptic potenti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-learning-and-memory" data-dismech-node="Impaired Learning and Memory" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Learning and Memory</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Brpf1-deficient mice show impaired spatial learning and memory (Morris water maze) and impaired fear memory, together with reduced anxiety. This is the organism-level readout that the mouse literature offers as a proxy for the human cognitive phenotype; its fidelity to human intellectual disability is not established, especially given that some human carriers have normal IQ.</div>
 
@@ -7242,7 +7380,7 @@ This pathophysiological event involves abnormal learning or memory (GO:0007611).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Cortical Neurogenesis and Callosal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Forebrain-specific Brpf1 inactivation in mouse produces neocortical abnormalities and partial callosal agenesis, with a reduced pool of Tbr2-positive intermediate neuronal progenitors and aberrant neurogenesis. Transcriptionally, Brpf1 loss both decreases neocortical developmental genes (Robo3, Otx1) and de-represses Hox and other transcription factors, so BRPF1 acts as both activator and silencer. This node supplies the developmental mechanism for the human corpus callosum anomalies, but the mouse model is a conditional homozygous null and is far more severe (early postnatal lethality) than human heterozygous disease.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"forebrain development\"]}}, {\"id\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of the BRPF1-dependent H3K23 acyl marks closes chromatin at BRPF1-occupied loci and shifts developmental gene expression. In Brpf1-deficient mouse forebrain neurons the affected transcripts are enriched for neural development, synapse function and memory genes. This is the hub from which the multisystem phenotype diverges; the individual steps from chromatin state to each organ-level endpoint are not resolved in humans.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\", \"regulation of transcription by RNA polymerase II\", \"forebrain development\"]}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Amblyopia, often secondary to ptosis, strabismus or uncorrected refractive error, is a recognized and treatable complication - the main clinical reason early ophthalmological review matters.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000646\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia was described in a single Turkish family with a novel BRPF1 nonsense variant and had not previously been reported in IDDDFP. BRPF1 has an established role in fetal and adult hematopoietic stem cell biology, which makes the observation biologically plausible, but it rests on one family and should not be treated as an established feature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Attention Deficit Hyperactivity Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADHD has been reported in BRPF1 variant carriers alongside mild intellectual disability and speech delay. Systematic behavioural phenotyping is lacking; one study noted adaptive behaviour was a relative strength compared with other chromatin-related neurodevelopmental disorders.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"BRPF1 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of one functional BRPF1 allele halves the dose of the chromatin-reader scaffold. Haploinsufficiency, rather than a gain-of-function or dominant-negative product, is the accepted mechanism; the phenotypic contribution of BRPF1 dosage was isolated by comparing individuals with BRPF1-only lesions, SETD5-only lesions, and 3p25 deletions spanning both genes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"BRPF1 Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"BRPF1\"], \"gene_terms\": [{\"label\": \"BRPF1\", \"id\": \"hgnc:14255\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Behavioural Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A behavioural phenotype is present in the majority of individuals and is a major contributor to caregiver burden. It is heterogeneous rather than stereotyped, spanning attention deficit/hyperactivity, low frustration tolerance, anxiety, agitation, inappropriate laughter and autistic behaviour.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Behavioural and ADHD Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A behavioural disorder is present in 18/29 (62%) of the largest cohort and is a leading source of caregiver burden, yet it is the phenotype least served by the otherwise developmental focus of care. Management is symptom-directed and follows generic neurodevelopmental practice: behavioural assessment and counselling for the attention/hyperactivity, low frustration tolerance, anxiety and agitation components, sleep hygiene for the 31% with sleep disturbance, and standard ADHD pharmacotherapy where behavioural measures are insufficient. No BRPF1-specific behavioural intervention or drug-selection evidence exists, so nothing here is disorder-specific beyond the indication.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Blepharophimosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Horizontally short palpebral fissures accompany ptosis in a large share of individuals and form the recognizable periocular gestalt together with downslanted palpebral fissures.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000581\"}}, {\"id\": \"Childhood Apraxia of Speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A motor-planning speech disorder (childhood apraxia of speech) occurs in a substantial minority, alongside phonological delay and phonological disorder. Its recognition changes therapy targets, since apraxia requires motor-programming-focused intervention rather than generic language therapy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011098\"}}, {\"id\": \"Congenital Cardiac Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac malformations occur in a minority of BRPF1 patients. Reported anomalies include patent ductus arteriosus and atrial or ventricular septal defects.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Corpus Callosum Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain findings, notably agenesis or hypoplasia of the corpus callosum, occur in a minority of patients. In an early review only 5 of 22 reported patients had structural brain abnormalities, and the largest cohort confirms callosal anomalies while noting differences from earlier series.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002079\"}}, {\"id\": \"Deficient Histone H3K23 Acetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of BRPF1 scaffold activity lowers acetylation of histone H3 lysine 23, an abundant chromatin mark that BRPF1 itself also reads. In human embryonic stem cells, BRPF1, H3K4me3 and H3K23ac co-occupy open chromatin at stemness genes, so the deficit is coupled to a reader-writer circuit rather than being a bulk enzymatic loss.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"histone H3K23 acetyltransferase activity\"]}}, {\"id\": \"Deficient Histone H3K23 Propionylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRPF1-KAT6 complexes also propionylate H3K23, and patient BRPF1 variants impair this acylation. Brpf1 deletion abolishes the mark in mouse embryos and fibroblasts. Because the propionylation and acetylation deficits co-occur in every patient sample studied, the independent contribution of propionylation loss to the human phenotype is unresolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"peptidyl-lysine propionylation\"]}}, {\"id\": \"Deregulated Ocular and Periocular Developmental Transcription Factor Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ocular and periocular arm of the phenotype - ptosis, blepharophimosis and strabismus, the features that discriminate BRPF1 from co-deleted SETD5 - has until now had no mechanistic route in this graph. The proposed route is that BRPF1 loss deregulates transcription of the ocular developmental transcription factors Pitx2, Hmx1 and Pax6, each independently implicated in ocular developmental malformation, and that the resulting disruption of periocular morphogenesis produces the eyelid and ocular-alignment phenotypes. This is an inference drawn by the authors of the largest cohort from the animal and cell-based BRPF1 literature, not a demonstration in human periocular tissue: no BRPF1 model reproduces ptosis or blepharophimosis, so the node is marked HYPOTHETICAL and is the subject of an open HUMAN_MODEL_MISMATCH discussion.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"eye development\", \"regulation of transcription by RNA polymerase II\"]}}, {\"id\": \"Experimental Pharmacologic Restoration of H3K23 Acylation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical only. Because the molecular lesion is a deficit of H3K23 acetylation and propionylation, agents that raise histone acylation - propionate and butyrate as acyl-CoA precursors, and the histone deacetylase inhibitors valproate and vorinostat - were shown to promote H3K23 acylation in cell systems, and the authors proposed mutation-based therapy on that basis. There is no clinical trial, no in vivo efficacy data, and no evidence of benefit in BRPF1 patients; valproate in particular is a known human teratogen and neurodevelopmental risk and must not be inferred as a treatment for this disorder from these data.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"butyrate\", \"propionate\", \"vorinostat\"]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay affecting motor, language and adaptive domains is the presenting feature in most reported individuals, and was the reason for ascertainment in the founding series.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heterozygous BRPF1 Loss-of-Function Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous BRPF1 variant, either de novo or inherited. Reported alleles are predominantly protein-truncating (nonsense, frameshift) or whole-gene/partial deletions, with a smaller number of missense and stop-loss alleles; a single 3p25 contiguous deletion can remove BRPF1 together with SETD5.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"BRPF1\"], \"gene_terms\": [{\"label\": \"BRPF1\", \"id\": \"hgnc:14255\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous BRPF1 truncating, splice, deletion and missense alleles. Recorded as LOSS_OF_FUNCTION (haploinsufficiency).\", \"gene_terms\": [{\"label\": \"BRPF1\", \"id\": \"hgnc:14255\"}]}}}, {\"id\": \"Impaired BRPF1-KAT6 Acetyltransferase Complex Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRPF1 is the scaffold subunit of tetrameric MYST acetyltransferase complexes built around KAT6A (MOZ), KAT6B (MORF), or KAT7 (HBO1) plus ING4/ING5 and MEAF6. Reduced BRPF1 dose destabilizes assembly and activation of these complexes. This node is the mechanistic point at which BRPF1 disease converges with, but is not identical to, KAT6A- and KAT6B-related disorders: the enzymes have BRPF1-independent activities and BRPF1 has partners beyond KAT6A/KAT6B, which is the accepted explanation for the partial rather than complete clinical overlap.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"histone acetyltransferase activity\"]}}, {\"id\": \"Impaired Dendritic Arborization and Spine Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Brpf1 heterozygous mice, hippocampal granule cells and cortical pyramidal neurons show reduced dendritic complexity, lower spine density, and altered spine and synapse morphology. This is the best-characterized cellular substrate for the cognitive phenotype, but it has been demonstrated only in mouse; no equivalent human neuronal data exist.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hippocampal pyramidal neuron\", \"hippocampal granule cell\", \"cortical pyramidal neuron\"], \"biological_processes\": [\"dendrite morphogenesis\", \"dendritic spine development\"]}}, {\"id\": \"Impaired Hematopoietic Stem and Progenitor Cell Maintenance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A separate organ arm. In mice, blood-specific Brpf1 deletion causes acute bone marrow failure and aplastic anemia with severe loss of hematopoietic stem cells and progenitors, raised reactive oxygen species, senescence and apoptosis, and reduced multipotency-gene expression - and BRPF1 is required for H3K23 acetylation in this compartment too. In humans only one family with anemia and thrombocytopenia has been reported, and the mouse data are homozygous conditional nulls, so this arm is biologically plausible but clinically unproven.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fetal hematopoietic stem cell\", \"hematopoietic multipotent progenitor cell\"], \"biological_processes\": [\"hemopoiesis\"]}}, {\"id\": \"Impaired Learning and Memory\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brpf1-deficient mice show impaired spatial learning and memory (Morris water maze) and impaired fear memory, together with reduced anxiety. This is the organism-level readout that the mouse literature offers as a proxy for the human cognitive phenotype; its fidelity to human intellectual disability is not established, especially given that some human carriers have normal IQ.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"learning or memory\"]}}, {\"id\": \"Infantile Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia with infantile onset is a core feature, contributing to early motor delay and to feeding difficulty. It is generally non-progressive and improves with age.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is the defining feature of the OMIM entity but is not obligate. Where present it is predominantly mild to moderate, with variability between verbal and visual cognitive profiles. A speech-ascertained cohort found all four individuals formally tested had FSIQ at or above 70, and at least one reported individual with a pathogenic BRPF1 variant has normal intellectual development, so the band below is a population frequency, not an obligate feature.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Both fine and gross motor delay are common in early childhood and frequently resolve later, an important prognostic point for counselling.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Multidisciplinary Supportive and Developmental Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no disease-modifying therapy. Management is symptomatic and developmental, coordinating early intervention, physiotherapy and occupational therapy for hypotonia and motor delay, feeding support in infancy, educational support, and ophthalmological and behavioural care.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Physical and Occupational Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physiotherapy and occupational therapy target infantile hypotonia, fine and gross motor delay, muscular weakness, and feeding and daily-living skills. The prognosis for the motor domain is comparatively good, since motor delays frequently resolve in later childhood.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ptosis, frequently congenital and sometimes unilateral, is the single most discriminating physical sign and gives the disorder its OMIM name. It may be the presenting complaint that leads to genetic diagnosis, and it is the feature specifically attributed to BRPF1 rather than SETD5 dosage in 3p25 deletions.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Ptosis Repair Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical correction of ptosis addresses the syndrome\u0027s defining sign and, more importantly, removes an amblyogenic visual-axis obstruction. Because vision impairment is reported in the large majority of patients and amblyopia is documented, timing relative to visual development matters. Direct outcome data for ptosis surgery specifically in BRPF1 patients have not been published; the rationale is the documented ptosis plus amblyopia risk rather than a BRPF1-specific surgical series.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Excitatory Synaptic Transmission in Forebrain Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brpf1 loss lowers the frequency (and, in some preparations, amplitude) of miniature excitatory postsynaptic currents in hippocampal and forebrain excitatory neurons. Notably, in acute knockdown the electrophysiological deficit precedes any measurable change in dendritic morphology, indicating a partly morphology-independent synaptic effect.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"excitatory postsynaptic potential\"]}}, {\"id\": \"Reduced Inhibitory Neurotransmission in GABAergic Interneurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A parallel inhibitory arm: Brpf1 knockdown in mouse medial-ganglionic-eminence (MGE)-derived GABAergic interneurons raises the action-potential firing threshold, reduces evoked firing, and lowers miniature inhibitory postsynaptic current amplitude, again before any change in dendritic morphology or migration. No behavioral testing was performed on this arm, so its contribution to the cognitive phenotype is inferred rather than shown; the node is deliberately left terminal.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"MGE-derived GABAergic interneuron\"], \"biological_processes\": [\"inhibitory postsynaptic potential\"]}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep disturbance is a frequent and under-recognized component of the behavioural burden and a practical management target.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech and Language Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech and language impairment is the most consistent feature of the disorder, present essentially universally and often disproportionate to general cognition. Deficits span receptive, expressive, written and social-pragmatic domains and are usually mild to moderate. Phonological delay and disorder are the commonest speech diagnoses.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language therapy is the highest-yield intervention given the near universal speech and language disorder. Because childhood apraxia of speech is present in a substantial minority, therapy should be selected on the basis of a formal differential speech diagnosis rather than a generic \\\"speech delay\\\" label - the explicit message of the dedicated speech-pathology study.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is among the recurrent non-eyelid ocular findings and is one driver of the recommendation for systematic ophthalmological assessment.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytopenia was reported together with anemia in the same single Turkish family and, like the anemia, is a novel and unreplicated observation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001873\"}}], \"edges\": [{\"source\": \"Heterozygous BRPF1 Loss-of-Function Variation\", \"target\": \"BRPF1 Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"BRPF1 Haploinsufficiency\", \"target\": \"Impaired BRPF1-KAT6 Acetyltransferase Complex Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"BRPF1 Haploinsufficiency\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"BRPF1 Haploinsufficiency\", \"target\": \"Blepharophimosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired BRPF1-KAT6 Acetyltransferase Complex Function\", \"target\": \"Deficient Histone H3K23 Acetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"h3k23_acetylation_loss\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired BRPF1-KAT6 Acetyltransferase Complex Function\", \"target\": \"Deficient Histone H3K23 Propionylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"h3k23_propionylation_loss\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Histone H3K23 Acetylation\", \"target\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"h3k23_acetylation_loss\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Histone H3K23 Propionylation\", \"target\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"h3k23_propionylation_loss\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Impaired Dendritic Arborization and Spine Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Reduced Inhibitory Neurotransmission in GABAergic Interneurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Speech and Language Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Infantile Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Aberrant Cortical Neurogenesis and Callosal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Impaired Hematopoietic Stem and Progenitor Cell Maintenance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Congenital Cardiac Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Deregulated Ocular and Periocular Developmental Transcription Factor Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deregulated Ocular and Periocular Developmental Transcription Factor Programs\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deregulated Ocular and Periocular Developmental Transcription Factor Programs\", \"target\": \"Blepharophimosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deregulated Ocular and Periocular Developmental Transcription Factor Programs\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Cortical Neurogenesis and Callosal Development\", \"target\": \"Corpus Callosum Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Hematopoietic Stem and Progenitor Cell Maintenance\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Hematopoietic Stem and Progenitor Cell Maintenance\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Dendritic Arborization and Spine Formation\", \"target\": \"Reduced Excitatory Synaptic Transmission in Forebrain Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Excitatory Synaptic Transmission in Forebrain Neurons\", \"target\": \"Impaired Learning and Memory\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Learning and Memory\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multidisciplinary Supportive and Developmental Care\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Speech and Language Disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Childhood Apraxia of Speech\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ptosis Repair Surgery\", \"target\": \"Ptosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ptosis Repair Surgery\", \"target\": \"Amblyopia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Infantile Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Motor Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Experimental Pharmacologic Restoration of H3K23 Acylation\", \"target\": \"Deficient Histone H3K23 Acetylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Experimental Pharmacologic Restoration of H3K23 Acylation\", \"target\": \"Deficient Histone H3K23 Propionylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Behavioural and ADHD Management\", \"target\": \"Behavioural Disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioural and ADHD Management\", \"target\": \"Attention Deficit Hyperactivity Disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioural and ADHD Management\", \"target\": \"Sleep Disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"BRPF1 Pathogenic Variants\", \"target\": \"Heterozygous BRPF1 Loss-of-Function Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Cortical Neurogenesis and Callosal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Forebrain-specific Brpf1 inactivation in mouse produces neocortical abnormalities and partial callosal agenesis, with a reduced pool of Tbr2-positive intermediate neuronal progenitors and aberrant neurogenesis. Transcriptionally, Brpf1 loss both decreases neocortical developmental genes (Robo3, Otx1) and de-represses Hox and other transcription factors, so BRPF1 acts as both activator and silencer. This node supplies the developmental mechanism for the human corpus callosum anomalies, but the mouse model is a conditional homozygous null and is far more severe (early postnatal lethality) than human heterozygous disease.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"forebrain development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of the BRPF1-dependent H3K23 acyl marks closes chromatin at BRPF1-occupied loci and shifts developmental gene expression. In Brpf1-deficient mouse forebrain neurons the affected transcripts are enriched for neural development, synapse function and memory genes. This is the hub from which the multisystem phenotype diverges; the individual steps from chromatin state to each organ-level endpoint are not resolved in humans.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\", \"regulation of transcription by RNA polymerase II\", \"forebrain development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Amblyopia, often secondary to ptosis, strabismus or uncorrected refractive error, is a recognized and treatable complication - the main clinical reason early ophthalmological review matters.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000646\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia was described in a single Turkish family with a novel BRPF1 nonsense variant and had not previously been reported in IDDDFP. BRPF1 has an established role in fetal and adult hematopoietic stem cell biology, which makes the observation biologically plausible, but it rests on one family and should not be treated as an established feature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Attention Deficit Hyperactivity Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADHD has been reported in BRPF1 variant carriers alongside mild intellectual disability and speech delay. Systematic behavioural phenotyping is lacking; one study noted adaptive behaviour was a relative strength compared with other chromatin-related neurodevelopmental disorders.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"BRPF1 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of one functional BRPF1 allele halves the dose of the chromatin-reader scaffold. Haploinsufficiency, rather than a gain-of-function or dominant-negative product, is the accepted mechanism; the phenotypic contribution of BRPF1 dosage was isolated by comparing individuals with BRPF1-only lesions, SETD5-only lesions, and 3p25 deletions spanning both genes.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"BRPF1 Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"BRPF1\"], \"gene_terms\": [{\"label\": \"BRPF1\", \"id\": \"hgnc:14255\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Behavioural Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A behavioural phenotype is present in the majority of individuals and is a major contributor to caregiver burden. It is heterogeneous rather than stereotyped, spanning attention deficit/hyperactivity, low frustration tolerance, anxiety, agitation, inappropriate laughter and autistic behaviour.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Behavioural and ADHD Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A behavioural disorder is present in 18/29 (62%) of the largest cohort and is a leading source of caregiver burden, yet it is the phenotype least served by the otherwise developmental focus of care. Management is symptom-directed and follows generic neurodevelopmental practice: behavioural assessment and counselling for the attention/hyperactivity, low frustration tolerance, anxiety and agitation components, sleep hygiene for the 31% with sleep disturbance, and standard ADHD pharmacotherapy where behavioural measures are insufficient. No BRPF1-specific behavioural intervention or drug-selection evidence exists, so nothing here is disorder-specific beyond the indication.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Blepharophimosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Horizontally short palpebral fissures accompany ptosis in a large share of individuals and form the recognizable periocular gestalt together with downslanted palpebral fissures.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000581\"}}, {\"id\": \"Childhood Apraxia of Speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A motor-planning speech disorder (childhood apraxia of speech) occurs in a substantial minority, alongside phonological delay and phonological disorder. Its recognition changes therapy targets, since apraxia requires motor-programming-focused intervention rather than generic language therapy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011098\"}}, {\"id\": \"Congenital Cardiac Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac malformations occur in a minority of BRPF1 patients. Reported anomalies include patent ductus arteriosus and atrial or ventricular septal defects.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Corpus Callosum Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain findings, notably agenesis or hypoplasia of the corpus callosum, occur in a minority of patients. In an early review only 5 of 22 reported patients had structural brain abnormalities, and the largest cohort confirms callosal anomalies while noting differences from earlier series.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002079\"}}, {\"id\": \"Deficient Histone H3K23 Acetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of BRPF1 scaffold activity lowers acetylation of histone H3 lysine 23, an abundant chromatin mark that BRPF1 itself also reads. In human embryonic stem cells, BRPF1, H3K4me3 and H3K23ac co-occupy open chromatin at stemness genes, so the deficit is coupled to a reader-writer circuit rather than being a bulk enzymatic loss.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"histone H3K23 acetyltransferase activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Deficient Histone H3K23 Propionylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRPF1-KAT6 complexes also propionylate H3K23, and patient BRPF1 variants impair this acylation. Brpf1 deletion abolishes the mark in mouse embryos and fibroblasts. Because the propionylation and acetylation deficits co-occur in every patient sample studied, the independent contribution of propionylation loss to the human phenotype is unresolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"peptidyl-lysine propionylation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Deregulated Ocular and Periocular Developmental Transcription Factor Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ocular and periocular arm of the phenotype - ptosis, blepharophimosis and strabismus, the features that discriminate BRPF1 from co-deleted SETD5 - has until now had no mechanistic route in this graph. The proposed route is that BRPF1 loss deregulates transcription of the ocular developmental transcription factors Pitx2, Hmx1 and Pax6, each independently implicated in ocular developmental malformation, and that the resulting disruption of periocular morphogenesis produces the eyelid and ocular-alignment phenotypes. This is an inference drawn by the authors of the largest cohort from the animal and cell-based BRPF1 literature, not a demonstration in human periocular tissue: no BRPF1 model reproduces ptosis or blepharophimosis, so the node is marked HYPOTHETICAL and is the subject of an open HUMAN_MODEL_MISMATCH discussion.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"eye development\", \"regulation of transcription by RNA polymerase II\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Experimental Pharmacologic Restoration of H3K23 Acylation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical only. Because the molecular lesion is a deficit of H3K23 acetylation and propionylation, agents that raise histone acylation - propionate and butyrate as acyl-CoA precursors, and the histone deacetylase inhibitors valproate and vorinostat - were shown to promote H3K23 acylation in cell systems, and the authors proposed mutation-based therapy on that basis. There is no clinical trial, no in vivo efficacy data, and no evidence of benefit in BRPF1 patients; valproate in particular is a known human teratogen and neurodevelopmental risk and must not be inferred as a treatment for this disorder from these data.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"butyrate\", \"propionate\", \"vorinostat\"]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay affecting motor, language and adaptive domains is the presenting feature in most reported individuals, and was the reason for ascertainment in the founding series.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heterozygous BRPF1 Loss-of-Function Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous BRPF1 variant, either de novo or inherited. Reported alleles are predominantly protein-truncating (nonsense, frameshift) or whole-gene/partial deletions, with a smaller number of missense and stop-loss alleles; a single 3p25 contiguous deletion can remove BRPF1 together with SETD5.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"BRPF1\"], \"gene_terms\": [{\"label\": \"BRPF1\", \"id\": \"hgnc:14255\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous BRPF1 truncating, splice, deletion and missense alleles. Recorded as LOSS_OF_FUNCTION (haploinsufficiency).\", \"gene_terms\": [{\"label\": \"BRPF1\", \"id\": \"hgnc:14255\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired BRPF1-KAT6 Acetyltransferase Complex Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRPF1 is the scaffold subunit of tetrameric MYST acetyltransferase complexes built around KAT6A (MOZ), KAT6B (MORF), or KAT7 (HBO1) plus ING4/ING5 and MEAF6. Reduced BRPF1 dose destabilizes assembly and activation of these complexes. This node is the mechanistic point at which BRPF1 disease converges with, but is not identical to, KAT6A- and KAT6B-related disorders: the enzymes have BRPF1-independent activities and BRPF1 has partners beyond KAT6A/KAT6B, which is the accepted explanation for the partial rather than complete clinical overlap.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"histone acetyltransferase activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Dendritic Arborization and Spine Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Brpf1 heterozygous mice, hippocampal granule cells and cortical pyramidal neurons show reduced dendritic complexity, lower spine density, and altered spine and synapse morphology. This is the best-characterized cellular substrate for the cognitive phenotype, but it has been demonstrated only in mouse; no equivalent human neuronal data exist.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hippocampal pyramidal neuron\", \"hippocampal granule cell\", \"cortical pyramidal neuron\"], \"biological_processes\": [\"dendrite morphogenesis\", \"dendritic spine development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Hematopoietic Stem and Progenitor Cell Maintenance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A separate organ arm. In mice, blood-specific Brpf1 deletion causes acute bone marrow failure and aplastic anemia with severe loss of hematopoietic stem cells and progenitors, raised reactive oxygen species, senescence and apoptosis, and reduced multipotency-gene expression - and BRPF1 is required for H3K23 acetylation in this compartment too. In humans only one family with anemia and thrombocytopenia has been reported, and the mouse data are homozygous conditional nulls, so this arm is biologically plausible but clinically unproven.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fetal hematopoietic stem cell\", \"hematopoietic multipotent progenitor cell\"], \"biological_processes\": [\"hemopoiesis\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Learning and Memory\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brpf1-deficient mice show impaired spatial learning and memory (Morris water maze) and impaired fear memory, together with reduced anxiety. This is the organism-level readout that the mouse literature offers as a proxy for the human cognitive phenotype; its fidelity to human intellectual disability is not established, especially given that some human carriers have normal IQ.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"learning or memory\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Infantile Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia with infantile onset is a core feature, contributing to early motor delay and to feeding difficulty. It is generally non-progressive and improves with age.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is the defining feature of the OMIM entity but is not obligate. Where present it is predominantly mild to moderate, with variability between verbal and visual cognitive profiles. A speech-ascertained cohort found all four individuals formally tested had FSIQ at or above 70, and at least one reported individual with a pathogenic BRPF1 variant has normal intellectual development, so the band below is a population frequency, not an obligate feature.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Both fine and gross motor delay are common in early childhood and frequently resolve later, an important prognostic point for counselling.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Multidisciplinary Supportive and Developmental Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no disease-modifying therapy. Management is symptomatic and developmental, coordinating early intervention, physiotherapy and occupational therapy for hypotonia and motor delay, feeding support in infancy, educational support, and ophthalmological and behavioural care.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Physical and Occupational Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physiotherapy and occupational therapy target infantile hypotonia, fine and gross motor delay, muscular weakness, and feeding and daily-living skills. The prognosis for the motor domain is comparatively good, since motor delays frequently resolve in later childhood.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ptosis, frequently congenital and sometimes unilateral, is the single most discriminating physical sign and gives the disorder its OMIM name. It may be the presenting complaint that leads to genetic diagnosis, and it is the feature specifically attributed to BRPF1 rather than SETD5 dosage in 3p25 deletions.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Ptosis Repair Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical correction of ptosis addresses the syndrome\u0027s defining sign and, more importantly, removes an amblyogenic visual-axis obstruction. Because vision impairment is reported in the large majority of patients and amblyopia is documented, timing relative to visual development matters. Direct outcome data for ptosis surgery specifically in BRPF1 patients have not been published; the rationale is the documented ptosis plus amblyopia risk rather than a BRPF1-specific surgical series.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Excitatory Synaptic Transmission in Forebrain Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brpf1 loss lowers the frequency (and, in some preparations, amplitude) of miniature excitatory postsynaptic currents in hippocampal and forebrain excitatory neurons. Notably, in acute knockdown the electrophysiological deficit precedes any measurable change in dendritic morphology, indicating a partly morphology-independent synaptic effect.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"excitatory postsynaptic potential\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Reduced Inhibitory Neurotransmission in GABAergic Interneurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A parallel inhibitory arm: Brpf1 knockdown in mouse medial-ganglionic-eminence (MGE)-derived GABAergic interneurons raises the action-potential firing threshold, reduces evoked firing, and lowers miniature inhibitory postsynaptic current amplitude, again before any change in dendritic morphology or migration. No behavioral testing was performed on this arm, so its contribution to the cognitive phenotype is inferred rather than shown; the node is deliberately left terminal.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"MGE-derived GABAergic interneuron\"], \"biological_processes\": [\"inhibitory postsynaptic potential\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep disturbance is a frequent and under-recognized component of the behavioural burden and a practical management target.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech and Language Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech and language impairment is the most consistent feature of the disorder, present essentially universally and often disproportionate to general cognition. Deficits span receptive, expressive, written and social-pragmatic domains and are usually mild to moderate. Phonological delay and disorder are the commonest speech diagnoses.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language therapy is the highest-yield intervention given the near universal speech and language disorder. Because childhood apraxia of speech is present in a substantial minority, therapy should be selected on the basis of a formal differential speech diagnosis rather than a generic \\\"speech delay\\\" label - the explicit message of the dedicated speech-pathology study.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is among the recurrent non-eyelid ocular findings and is one driver of the recommendation for systematic ophthalmological assessment.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytopenia was reported together with anemia in the same single Turkish family and, like the anemia, is a novel and unreplicated observation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001873\"}}], \"edges\": [{\"source\": \"Heterozygous BRPF1 Loss-of-Function Variation\", \"target\": \"BRPF1 Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"BRPF1 Haploinsufficiency\", \"target\": \"Impaired BRPF1-KAT6 Acetyltransferase Complex Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"BRPF1 Haploinsufficiency\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"BRPF1 Haploinsufficiency\", \"target\": \"Blepharophimosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired BRPF1-KAT6 Acetyltransferase Complex Function\", \"target\": \"Deficient Histone H3K23 Acetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"h3k23_acetylation_loss\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired BRPF1-KAT6 Acetyltransferase Complex Function\", \"target\": \"Deficient Histone H3K23 Propionylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"h3k23_propionylation_loss\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Histone H3K23 Acetylation\", \"target\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"h3k23_acetylation_loss\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Histone H3K23 Propionylation\", \"target\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"h3k23_propionylation_loss\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Impaired Dendritic Arborization and Spine Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Reduced Inhibitory Neurotransmission in GABAergic Interneurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Speech and Language Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Infantile Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Aberrant Cortical Neurogenesis and Callosal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Impaired Hematopoietic Stem and Progenitor Cell Maintenance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Congenital Cardiac Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Chromatin Accessibility and Developmental Transcriptional Programs\", \"target\": \"Deregulated Ocular and Periocular Developmental Transcription Factor Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deregulated Ocular and Periocular Developmental Transcription Factor Programs\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deregulated Ocular and Periocular Developmental Transcription Factor Programs\", \"target\": \"Blepharophimosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deregulated Ocular and Periocular Developmental Transcription Factor Programs\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Cortical Neurogenesis and Callosal Development\", \"target\": \"Corpus Callosum Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Hematopoietic Stem and Progenitor Cell Maintenance\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Hematopoietic Stem and Progenitor Cell Maintenance\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Dendritic Arborization and Spine Formation\", \"target\": \"Reduced Excitatory Synaptic Transmission in Forebrain Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Excitatory Synaptic Transmission in Forebrain Neurons\", \"target\": \"Impaired Learning and Memory\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Learning and Memory\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multidisciplinary Supportive and Developmental Care\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Speech and Language Disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Childhood Apraxia of Speech\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ptosis Repair Surgery\", \"target\": \"Ptosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ptosis Repair Surgery\", \"target\": \"Amblyopia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Infantile Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Motor Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Experimental Pharmacologic Restoration of H3K23 Acylation\", \"target\": \"Deficient Histone H3K23 Acetylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Experimental Pharmacologic Restoration of H3K23 Acylation\", \"target\": \"Deficient Histone H3K23 Propionylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Behavioural and ADHD Management\", \"target\": \"Behavioural Disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioural and ADHD Management\", \"target\": \"Attention Deficit Hyperactivity Disorder\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioural and ADHD Management\", \"target\": \"Sleep Disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"BRPF1 Pathogenic Variants\", \"target\": \"Heterozygous BRPF1 Loss-of-Function Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7319,6 +7457,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: 1 of 25 patients with haematological data in Colson et al. 2025 had anaemia. 1/25 = 4%, which falls in the VERY_RARE band (&lt;5%). The founding observation was a single Turkish family in which the feature was newly described.</div>
@@ -7417,6 +7558,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: 1 of 25 patients with haematological data in Colson et al. 2025 had thrombocytopenia. 1/25 = 4%, which falls in the VERY_RARE band (&lt;5%).</div>
@@ -7528,6 +7672,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: Colson et al. 2025 pool the published cases and report cardiac anomalies in 9 of 49. 9/49 = 18%, which falls in the OCCASIONAL band (5-29%); their own cohort contributed 1/25 (4%).</div>
 
 
@@ -7633,6 +7780,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency deliberately omitted. Quotable denominators disagree across bands (12% versus 53-57%); the discrepancy most likely reflects ascertainment - earlier reports and the speech/feeding-focused cohort both enrich for oromotor involvement - but no source reconciles them, so no band is claimed.</div>
 
 
@@ -7731,6 +7881,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: reflux in 9 of 29 patients (31%) in Colson et al. 2025 and 4 of 15 (27%) in the independent Morison cohort. 31% falls in the FREQUENT band (30-79%) at its lower edge; the second estimate sits just below in OCCASIONAL, so the band should be read as borderline.</div>
 
 
@@ -7802,6 +7955,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: constipation in 14% of the 29-patient Colson et al. 2025 cohort. 14% falls in the OCCASIONAL band (5-29%).</div>
@@ -7884,6 +8040,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: Colson et al. 2025 report ptosis in 20 of 29 patients. 20/29 = 69%, which falls in the FREQUENT band (30-79%). This is the eponymous feature of IDDDFP and the highest-frequency craniofacial sign in the cohort, but it is not obligate.</div>
@@ -8009,6 +8168,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: strabismus present in 13 of 29 patients (48%) in Colson et al. 2025 (the same paper&#39;s discussion gives the strabismus denominator as 13/27). Both 48% and 13/27 = 48% fall in the FREQUENT band (30-79%).</div>
 
 
@@ -8105,6 +8267,9 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: amblyopia in 3 of 29 patients in Colson et al. 2025. 3/29 = 10%, which falls in the OCCASIONAL band (5-29%). The same paper describes amblyopia as a sporadic finding in the wider literature.</div>
@@ -8230,6 +8395,9 @@ This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: Colson et al. 2025 describe coloboma among the sporadic ocular findings of the literature and record none in their own 29-patient cohort (their ocular tally lists strabismus, myopia, hypermetropia, nystagmus, amblyopia and cataract, but no coloboma). The author wording &#34;sporadic cases&#34; maps to VERY_RARE (&lt;5%) under the DisMech qualitative mapping.</div>
 
 
@@ -8351,6 +8519,9 @@ This clinical feature is Optic neuropathy (HP:0001138). HP:0001138 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency deliberately omitted. The only source is a two-patient OCT series with no cohort denominator, and because detection requires OCT the observed rate in any cohort not systematically imaged is uninformative. Colson et al. 2025 note only that two patients with frameshift variants have been described with optic neuropathy.</div>
 
 
@@ -8447,6 +8618,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: hypertelorism in 14 of 29 patients in Colson et al. 2025. 14/29 = 48%, which falls in the FREQUENT band (30-79%).</div>
@@ -8547,6 +8721,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: 41 of 53 patients (77%) in the Colson et al. 2025 literature review are reported to have visual impairments, which falls in the FREQUENT band (30-79%). The deep-phenotyping cohort reported a higher figure, 13/15 (87%, VERY_FREQUENT band); FREQUENT is retained because it rests on the much larger denominator.</div>
 
 
@@ -8645,6 +8822,9 @@ This clinical feature is Abnormality of refraction (HP:0000539). HP:0000539 is a
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: refractive disorders in seven of 29 patients in Colson et al. 2025. 7/29 = 24%, which falls in the OCCASIONAL band (5-29%), comprising myopia 5/29 and hypermetropia 2/29.</div>
@@ -8754,6 +8934,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: cryptorchidism in 5 of 27 patients in Colson et al. 2025. 5/27 = 19%, which falls in the OCCASIONAL band (5-29%). The denominator is the whole cohort rather than males only, so the male-specific rate is higher.</div>
 
 
@@ -8834,6 +9017,9 @@ This clinical feature is Blepharophimosis (HP:0000581). HP:0000581 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: blepharophimosis in 10 of 29 patients in Colson et al. 2025. 10/29 = 34%, which falls in the FREQUENT band (30-79%), at its lower edge.</div>
@@ -8957,6 +9143,9 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency deliberately omitted. Colson et al. 2025 tabulate up-slanting (7/29) and narrow (10/29) palpebral fissures but do not report a downslanting count, and the only quotable source here is a four-member single family in which all four were affected - a denominator too small and too ascertainment-biased to support a population band.</div>
 
 
@@ -9030,6 +9219,9 @@ This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency deliberately omitted. The largest cohort names a broad nasal bridge among the characteristic features but reports a count only for bulbous nose (14/28), not for the nasal bridge itself, so no numerator and denominator exist to derive a band from.</div>
 
 
@@ -9101,6 +9293,9 @@ This clinical feature is Retrognathia (HP:0000278). HP:0000278 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: retrognathia in 12 of 29 patients in Colson et al. 2025. 12/29 = 41%, which falls in the FREQUENT band (30-79%).</div>
@@ -9201,6 +9396,9 @@ This clinical feature is Palpebral edema (HP:0100540). HP:0100540 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: palpebral oedema in 8 of 29 patients in Colson et al. 2025. 8/29 = 28%, which falls in the OCCASIONAL band (5-29%).</div>
 
 
@@ -9299,6 +9497,9 @@ This clinical feature is Facial palsy (HP:0010628). HP:0010628 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency deliberately omitted. Single-case evidence with no denominator; the feature is not tabulated in any BRPF1 cohort, including the 29-patient 2025 series.</div>
 
 
@@ -9370,6 +9571,9 @@ This clinical feature is Round face (HP:0000311). HP:0000311 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: round face in 17 of 27 patients in Colson et al. 2025. 17/27 = 63%, which falls in the FREQUENT band (30-79%).</div>
@@ -9470,6 +9674,9 @@ This clinical feature is Bulbous nose (HP:0000414). HP:0000414 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: bulbous nose in 14 of 28 patients in Colson et al. 2025. 14/28 = 50%, which falls in the FREQUENT band (30-79%).</div>
 
 
@@ -9543,6 +9750,9 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: high palate in 14 of 29 patients in Colson et al. 2025. 14/29 = 48%, which falls in the FREQUENT band (30-79%).</div>
 
 
@@ -9614,6 +9824,9 @@ This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: epicanthus in 12 of 29 patients in Colson et al. 2025. 12/29 = 41%, which falls in the FREQUENT band (30-79%). Epicanthus inversus specifically was present in 5/29 (17%, OCCASIONAL).</div>
@@ -9714,6 +9927,9 @@ This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: synophrys in 10 of 28 patients in Colson et al. 2025. 10/28 = 36%, which falls in the FREQUENT band (30-79%).</div>
 
 
@@ -9785,6 +10001,9 @@ This clinical feature is Laterally extended eyebrow (HP:0011230). HP:0011230 is 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: laterally extended eyebrows in 8 of 29 patients in Colson et al. 2025. 8/29 = 28%, which falls in the OCCASIONAL band (5-29%).</div>
@@ -9860,6 +10079,9 @@ This clinical feature is Low hanging columella (HP:0009765). HP:0009765 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: low columella in 9 of 29 patients in Colson et al. 2025. 9/29 = 31%, which falls in the FREQUENT band (30-79%), at its lower edge.</div>
 
 
@@ -9931,6 +10153,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: two of 29 patients in Colson et al. 2025 had congenital microcephaly and none acquired it. 2/29 = 7%, which falls in the OCCASIONAL band (5-29%). Earlier reports give higher rates, which is consistent with the historical over-representation of contiguous 3p25 deletions.</div>
@@ -10040,6 +10265,9 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: hypertrichosis, mostly on the back and arms, in 9 of 29 patients in Colson et al. 2025. 9/29 = 31%, which falls in the FREQUENT band (30-79%), at its lower edge.</div>
 
 
@@ -10140,6 +10368,9 @@ This clinical feature is Abnormal hair morphology (HP:0001595). HP:0001595 is a 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: various hair abnormalities in 12 of 29 patients in Colson et al. 2025. 12/29 = 41%, which falls in the FREQUENT band (30-79%).</div>
 
 
@@ -10211,6 +10442,9 @@ This clinical feature is Prominent fingertip pads (HP:0001212). HP:0001212 is a 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: prominent fingertip pads in 6 of 27 patients in Colson et al. 2025. 6/27 = 22%, which falls in the OCCASIONAL band (5-29%).</div>
@@ -10297,6 +10531,9 @@ This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: clinodactyly of the fifth digit in 8 of 27 patients in Colson et al. 2025. 8/27 = 30%, which falls in the FREQUENT band (30-79%), exactly at its lower boundary.</div>
 
 
@@ -10377,6 +10614,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: two independent cohorts agree on the band - infant hypotonia in 9/15 (60%) in the speech-phenotyping cohort (PMID:38346666) and hypotonia in 11/29 (40%) in Colson et al. 2025. Both fall in the FREQUENT band (30-79%).</div>
@@ -10500,6 +10740,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency deliberately omitted. Weakness is named in the founding series and in a single case report but is not tabulated separately from hypotonia in any cohort, so no numerator and denominator exist for it.</div>
 
 
@@ -10580,6 +10823,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: Colson et al. 2025 (29 patients, 20 families) state &#34;ID/DD was observed in the majority of patients&#34; and quantify the ID component at 16/29 (55%). 55% falls in the FREQUENT band (30-79%), and the authors&#39; own wording &#34;majority&#34; maps to FREQUENT under the DisMech qualitative mapping.</div>
@@ -10723,6 +10969,9 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as seve
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: Colson et al. 2025 report ID in 16 of 29 patients with available data (55%), of whom six were mild and 10 moderate. 16/29 = 55%, which falls in the FREQUENT band (30-79%). The band is not OBLIGATE: a speech-ascertained cohort found FSIQ &gt;= 70 in all four formally tested participants (PMID:38346666) and at least one carrier has normal intellect (PMID:35243762).</div>
 
 
@@ -10850,6 +11099,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: the dedicated speech-pathology cohort found language disorder in 11/12 assessed (92%), which falls in the VERY_FREQUENT band (80-99%), and describes involvement as universal. The band is retained against a lower figure in Colson et al. 2025, where &#34;delayed speech and language development&#34; was recorded as a reported developmental-milestone item in 13/29 (46%, FREQUENT band) rather than by formal speech-language assessment; the two numbers measure different things and only the former is a direct measurement of the phenotype.</div>
 
 
@@ -10975,6 +11227,9 @@ This clinical feature is Speech apraxia (HP:0011098). HP:0011098 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: childhood apraxia of speech in 3 of 9 formally assessed participants (PMID:38346666). 3/9 = 33%, which falls in the FREQUENT band (30-79%). The denominator is small and speech-ascertained, so the estimate is provisional.</div>
 
 
@@ -11046,6 +11301,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: gross motor delay 10/15 (67%) and fine motor delay 8/15 (53%) in the speech-phenotyping cohort (PMID:38346666), and motor delay in 52% of Colson et al. 2025. All three figures fall in the FREQUENT band (30-79%).</div>
@@ -11146,6 +11404,9 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: of the 17 Colson et al. 2025 patients who had brain MRI, two (12%) had agenesis of the corpus callosum; 12% falls in the OCCASIONAL band (5-29%). An independent review found structural brain abnormalities in 5 of 22 previously reported patients (23%), also OCCASIONAL. Both denominators are restricted to those imaged, and MRI was ordered on clinical indication rather than systematically.</div>
@@ -11271,6 +11532,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: epilepsy documented in 4 of 29 patients in Colson et al. 2025. 4/29 = 14%, which falls in the OCCASIONAL band (5-29%).</div>
 
 
@@ -11367,6 +11631,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: attention deficit/hyperactivity in 33% of the 29-patient Colson et al. 2025 cohort, reported as a component of the 62% with any behavioural disorder. 33% falls in the FREQUENT band (30-79%).</div>
@@ -11469,6 +11736,9 @@ This clinical feature is Behavioural disorder, annotated with Atypical behavior 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: 18 of 29 patients (62%) in Colson et al. 2025 had behavioural disorders. 62% falls in the FREQUENT band (30-79%). The HPO term label is &#34;Atypical behavior&#34;; the preferred_term keeps the clinical wording used by the source.</div>
 
 
@@ -11542,6 +11812,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: anxiety in 21% of the 29-patient Colson et al. 2025 cohort. 21% falls in the OCCASIONAL band (5-29%).</div>
 
 
@@ -11613,6 +11886,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: autistic behaviour in 15% of the 29-patient Colson et al. 2025 cohort. 15% falls in the OCCASIONAL band (5-29%).</div>
@@ -11713,6 +11989,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency derivation: sleep disturbance reported by nine of 29 patients in Colson et al. 2025. 9/29 = 31%, which falls in the FREQUENT band (30-79%), at its lower edge.</div>
 
 
@@ -11782,6 +12061,9 @@ This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency deliberately omitted. The largest cohort reports cerebral malformations collectively (13/26 in the literature, 3/17 in their own imaged patients) without breaking out a Chiari-specific count, and the only individually reported case has no denominator.</div>
@@ -11889,6 +12171,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency deliberately omitted. The two quotable denominators straddle bands - 6/29 (21%, OCCASIONAL) in the prospectively phenotyped 2025 cohort versus 17/42 (40%, FREQUENT) in that paper&#39;s literature comparison - and no source reconciles them, so no band is claimed.</div>
 
 
@@ -11985,6 +12270,9 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency derivation: four of 28 patients (14%) in Colson et al. 2025 were obese. 14% falls in the OCCASIONAL band (5-29%).</div>
@@ -12105,6 +12393,9 @@ This disease-associated gene is BRPF1 (hgnc:14255). hgnc:14255 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

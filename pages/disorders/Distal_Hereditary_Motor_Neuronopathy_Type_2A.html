@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4287,6 +4329,7 @@ Three nodes declare conformance to mechanism modules. The axon-degeneration node
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hspb8-alpha-crystallin-domain-hot-spot-variant" data-dismech-node="HSPB8 Alpha-Crystallin Domain Hot-Spot Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">HSPB8 Alpha-Crystallin Domain Hot-Spot Variant</div>
 
+
                 <div class="item-desc">Heterozygous missense substitution of the K141 lysine in the alpha-crystallin domain of HSPB8. The two reported founding alleles, K141N and K141E, change the same positively charged residue, which is required for the structural and functional integrity of small heat shock proteins of this family.</div>
 
 
@@ -4297,6 +4340,8 @@ Three nodes declare conformance to mechanism modules. The axon-degeneration node
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4316,6 +4361,9 @@ Three nodes declare conformance to mechanism modules. The axon-degeneration node
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Curated as a toxic gain of function rather than haploinsufficiency. The mutant protein binds its partner small heat shock protein more avidly than wild type and drives aggregate formation, which is an acquired behaviour rather than an absent one; a null allele would not explain either observation.</div>
 
@@ -4436,7 +4484,7 @@ This pathophysiological event involves HSPB8 chaperone client handling, annotate
                 <div class="evidence-snippet">"Mice expressing mutant Hspb8 (Lys141Asn) mimic the human disease, whereas mice lacking Hspb8 show no overt phenotype."</div>
 
 
-                <div class="evidence-explanation">Demonstrates that the mutation produces pathology in vivo while a null allele does not, supporting the gain-of-function interpretation over haploinsufficiency.</div>
+                <div class="evidence-explanation">Directly demonstrates that a null allele does not recapitulate the disease, supporting the gain-of-function interpretation over haploinsufficiency. The K141N knock-in model reproduces the human phenotype while the knockout does not.</div>
 
 
 
@@ -4451,6 +4499,7 @@ This pathophysiological event involves HSPB8 chaperone client handling, annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-hspb8-hspb1-chaperone-binding" data-dismech-node="Increased HSPB8-HSPB1 Chaperone Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased HSPB8-HSPB1 Chaperone Binding</div>
+
 
                 <div class="item-desc">Both K141 mutants coimmunoprecipitate more of the partner small heat shock protein HSPB1 than wild-type HSPB8 does, indicating an abnormally avid rather than an absent chaperone interaction.</div>
 
@@ -4527,6 +4576,7 @@ This pathophysiological event involves HSPB8 chaperone client handling, annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-chaperone-assisted-selective-autophagy" data-dismech-node="Impaired Chaperone-Assisted Selective Autophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Chaperone-Assisted Selective Autophagy</div>
+
 
                 <div class="item-desc">HSPB8 works with the co-chaperone BAG3 as the sub-complex at the base of chaperone-assisted selective autophagy (CASA), which disposes of damaged and misfolded clients through Hsc70, the ubiquitin ligase CHIP and the autophagy adaptor p62. Disturbance of this complex is the proteostatic failure curated as the cellular lesion of dHMN2A. Note that the CASA machinery is characterised in muscle and in BAG3-mutant cell models rather than in K141-HSPB8 motor neurons.</div>
 
@@ -4765,6 +4815,7 @@ This pathophysiological event involves protein ubiquitination by CHIP during CAS
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracellular-protein-aggregate-formation" data-dismech-node="Intracellular Protein Aggregate Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Intracellular Protein Aggregate Formation</div>
 
+
                 <div class="item-desc">Expression of mutant HSPB8 promotes formation of intracellular aggregates in cultured cells. Protein aggregation and inclusion body formation is one of the recurring pathogenic mechanisms of the distal hereditary motor neuropathies as a group.</div>
 
 
@@ -4900,6 +4951,7 @@ This pathophysiological event involves cellular response to heat (GO:0034605). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-length-dependent-distal-motor-axon-degeneration" data-dismech-node="Length-Dependent Distal Motor Axon Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Length-Dependent Distal Motor Axon Degeneration</div>
 
+
                 <div class="item-desc">Degeneration of the distal portions of the longest lower motor neuron axons, which is the lesion shared across the distal hereditary motor neuropathies and the reason weakness begins in the feet and progresses proximally.</div>
 
 
@@ -4976,7 +5028,7 @@ This pathophysiological event involves distal motor axon, annotated with axon (G
                     <div class="crosslink-list">
 
                         <div class="crosslink-item">
-                            <a href="#animal-model-hspb8-k141n-knock-in-mouse">Hspb8 K141N Knock-in Mouse</a>
+                            <a href="#animal-model-hspb8-lys141asn-knock-in-mouse">Hspb8 Lys141Asn Knock-In Mouse</a>
 
                             <span class="crosslink-meta">Mouse</span>
 
@@ -5077,7 +5129,7 @@ This pathophysiological event involves distal motor axon, annotated with axon (G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Distal amyotrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe atrophy and wasting of distal limb muscles secondary to chronic denervation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003693\"}}, {\"id\": \"Distal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive, length-dependent weakness of distal limb muscles, the defining clinical feature of the distal hereditary motor neuropathies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002460\"}}, {\"id\": \"HSPB8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HSPB8\"], \"gene_terms\": [{\"label\": \"HSPB8\", \"id\": \"hgnc:30171\"}], \"association\": \"Heterozygous missense variants at the K141 hot-spot residue in the alpha-crystallin domain of HSPB8. K141N was found in two dHMN type II pedigrees and K141E in two smaller families; the same residue is essential to the structural and functional integrity of alphaA-crystallin, and its mutation in other small heat shock proteins produces other human disorders.\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"HSPB8 Alpha-Crystallin Domain Hot-Spot Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous missense substitution of the K141 lysine in the alpha-crystallin domain of HSPB8. The two reported founding alleles, K141N and K141E, change the same positively charged residue, which is required for the structural and functional integrity of small heat shock proteins of this family.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"HSPB8 chaperone client handling\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Curated as a toxic gain of function rather than haploinsufficiency. The mutant protein binds its partner small heat shock protein more avidly than wild type and drives aggregate formation, which is an acquired behaviour rather than an absent one; a null allele would not explain either observation.\"}}}, {\"id\": \"Hspb8 K141N Knock-in Mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false}, {\"id\": \"Impaired Chaperone-Assisted Selective Autophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HSPB8 works with the co-chaperone BAG3 as the sub-complex at the base of chaperone-assisted selective autophagy (CASA), which disposes of damaged and misfolded clients through Hsc70, the ubiquitin ligase CHIP and the autophagy adaptor p62. Disturbance of this complex is the proteostatic failure curated as the cellular lesion of dHMN2A. Note that the CASA machinery is characterised in muscle and in BAG3-mutant cell models rather than in K141-HSPB8 motor neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"spinal cord motor neuron\"], \"biological_processes\": [\"chaperone-assisted selective autophagy\", \"autophagic clearance of CASA clients\", \"protein ubiquitination by CHIP during CASA\"]}}, {\"id\": \"Increased HSPB8-HSPB1 Chaperone Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both K141 mutants coimmunoprecipitate more of the partner small heat shock protein HSPB1 than wild-type HSPB8 does, indicating an abnormally avid rather than an absent chaperone interaction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intracellular Protein Aggregate Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expression of mutant HSPB8 promotes formation of intracellular aggregates in cultured cells. Protein aggregation and inclusion body formation is one of the recurring pathogenic mechanisms of the distal hereditary motor neuropathies as a group.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cellular response to heat\"]}}, {\"id\": \"K141E\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Second missense substitution at the same codon, found in two smaller families.\"}, {\"id\": \"K141N\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution of the hot-spot lysine at codon 141 in the alpha-crystallin domain, found in two dHMN type II pedigrees linked to 12q24.3.\"}, {\"id\": \"Length-Dependent Distal Motor Axon Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration of the distal portions of the longest lower motor neuron axons, which is the lesion shared across the distal hereditary motor neuropathies and the reason weakness begins in the feet and progresses proximally.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"spinal cord motor neuron\"], \"animal_models\": [{\"name\": \"Hspb8 K141N Knock-in Mouse\", \"species\": \"Mouse\", \"genotype\": \"Hspb8 knock-in, Lys141Asn (K141N) homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Knock-in mice carrying the Hspb8 Lys141Asn allele at the endogenous mouse locus recapitulate the motor axon degeneration phenotype. Expression is from the native locus rather than from a human transgene, which is what makes this model informative for the entry\u0027s gain-of-function argument.\"}]}}, {\"id\": \"P173SfsX43\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift variant (c.151insC) outside the K141 hot-spot, reported in a family with dominant distal myopathy showing myofibrillar aggregates and rimmed vacuoles combined with a neurogenic component. Marks an allelic axis within HSPB8: the phenotype reported for this allele extends beyond the pure motor neuronopathy this entry curates.\"}], \"edges\": [{\"source\": \"HSPB8 Alpha-Crystallin Domain Hot-Spot Variant\", \"target\": \"Increased HSPB8-HSPB1 Chaperone Binding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substituted residue changes how mutant HSPB8 engages its partner small heat shock protein.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased HSPB8-HSPB1 Chaperone Binding\", \"target\": \"Impaired Chaperone-Assisted Selective Autophagy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Curated as the mechanistic link between the altered small heat shock protein interaction and the CASA pathway that HSPB8 serves. The sources here establish HSPB8\u0027s role in that pathway and the mutants\u0027 altered binding; they do not measure CASA flux in K141 HSPB8 motor neurons, so the edge is marked indirect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Chaperone-Assisted Selective Autophagy\", \"target\": \"Intracellular Protein Aggregate Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to clear misfolded clients leaves them to accumulate as aggregates.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular Protein Aggregate Formation\", \"target\": \"Length-Dependent Distal Motor Axon Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mutant HSPB8 expression causes neurite degeneration in motor neurons. Cell-type selectivity studies establish that this phenotype is motor-neuron-specific. The length-dependent distal distribution is curator inference from the clinical pattern of the disease, not a finding of the cited cell-culture work.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Length-Dependent Distal Motor Axon Degeneration\", \"target\": \"Distal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Distal Motor Axon Degeneration\", \"target\": \"Distal amyotrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hspb8 K141N Knock-in Mouse\", \"target\": \"Length-Dependent Distal Motor Axon Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Knock-in mice carrying the Hspb8 Lys141Asn allele at the endogenous mouse locus recapitulate the motor axon degeneration phenotype. Expression is from the native locus rather than from a human transgene, which is what makes this model informative for the entry\u0027s gain-of-function argument.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The homozygous mouse model requires two mutant alleles to manifest disease, whereas the human disease is dominant with heterozygous variants causing the neuropathy.\"}, {\"source\": \"K141N\", \"target\": \"HSPB8\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"K141E\", \"target\": \"HSPB8\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"P173SfsX43\", \"target\": \"HSPB8\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Distal amyotrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe atrophy and wasting of distal limb muscles secondary to chronic denervation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003693\"}}, {\"id\": \"Distal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive, length-dependent weakness of distal limb muscles, the defining clinical feature of the distal hereditary motor neuropathies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002460\"}}, {\"id\": \"HSPB8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HSPB8\"], \"gene_terms\": [{\"label\": \"HSPB8\", \"id\": \"hgnc:30171\"}], \"association\": \"Heterozygous missense variants at the K141 hot-spot residue in the alpha-crystallin domain of HSPB8. K141N was found in two dHMN type II pedigrees and K141E in two smaller families; the same residue is essential to the structural and functional integrity of alphaA-crystallin, and its mutation in other small heat shock proteins produces other human disorders.\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"HSPB8 Alpha-Crystallin Domain Hot-Spot Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous missense substitution of the K141 lysine in the alpha-crystallin domain of HSPB8. The two reported founding alleles, K141N and K141E, change the same positively charged residue, which is required for the structural and functional integrity of small heat shock proteins of this family.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"HSPB8 chaperone client handling\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"Curated as a toxic gain of function rather than haploinsufficiency. The mutant protein binds its partner small heat shock protein more avidly than wild type and drives aggregate formation, which is an acquired behaviour rather than an absent one; a null allele would not explain either observation.\"}}}, {\"id\": \"Hspb8 Lys141Asn Knock-In Mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Knock-in mouse carrying the K141N substitution in exon 2 of the endogenous mouse Hspb8 gene. Homozygous mice show motor neuropathy phenotypes that mimic the human disease. Heterozygotes are behaviourally indistinguishable from wild type and show no myelinated-axon loss at 12 months, but their distal sciatic nerve does display milder ultrastructural changes - regenerative clusters, macrophage infiltration, and axoplasmic accumulation - so the heterozygous state is subclinical rather than wholly unaffected.\"}, {\"id\": \"Impaired Chaperone-Assisted Selective Autophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HSPB8 works with the co-chaperone BAG3 as the sub-complex at the base of chaperone-assisted selective autophagy (CASA), which disposes of damaged and misfolded clients through Hsc70, the ubiquitin ligase CHIP and the autophagy adaptor p62. Disturbance of this complex is the proteostatic failure curated as the cellular lesion of dHMN2A. Note that the CASA machinery is characterised in muscle and in BAG3-mutant cell models rather than in K141-HSPB8 motor neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"spinal cord motor neuron\"], \"biological_processes\": [\"chaperone-assisted selective autophagy\", \"autophagic clearance of CASA clients\", \"protein ubiquitination by CHIP during CASA\"]}}, {\"id\": \"Increased HSPB8-HSPB1 Chaperone Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both K141 mutants coimmunoprecipitate more of the partner small heat shock protein HSPB1 than wild-type HSPB8 does, indicating an abnormally avid rather than an absent chaperone interaction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intracellular Protein Aggregate Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expression of mutant HSPB8 promotes formation of intracellular aggregates in cultured cells. Protein aggregation and inclusion body formation is one of the recurring pathogenic mechanisms of the distal hereditary motor neuropathies as a group.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cellular response to heat\"]}}, {\"id\": \"K141E\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Second missense substitution at the same codon, found in two smaller families.\"}, {\"id\": \"K141N\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense substitution of the hot-spot lysine at codon 141 in the alpha-crystallin domain, found in two dHMN type II pedigrees linked to 12q24.3.\"}, {\"id\": \"Length-Dependent Distal Motor Axon Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration of the distal portions of the longest lower motor neuron axons, which is the lesion shared across the distal hereditary motor neuropathies and the reason weakness begins in the feet and progresses proximally.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"spinal cord motor neuron\"], \"animal_models\": [{\"name\": \"Hspb8 Lys141Asn Knock-In Mouse\", \"species\": \"Mouse\", \"genotype\": \"Hspb8K141N/K141N (p.Lys141Asn homozygous knock-in)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Knock-in mice carrying the Hspb8 Lys141Asn allele at the endogenous mouse locus recapitulate the motor axon degeneration phenotype. Expression is from the native locus rather than from a human transgene, which is what makes this model informative for the entry\u0027s gain-of-function argument.\"}]}}, {\"id\": \"P173SfsX43\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift variant (c.151insC) outside the K141 hot-spot, reported in a family with dominant distal myopathy showing myofibrillar aggregates and rimmed vacuoles combined with a neurogenic component. Marks an allelic axis within HSPB8: the phenotype reported for this allele extends beyond the pure motor neuronopathy this entry curates.\"}], \"edges\": [{\"source\": \"HSPB8 Alpha-Crystallin Domain Hot-Spot Variant\", \"target\": \"Increased HSPB8-HSPB1 Chaperone Binding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substituted residue changes how mutant HSPB8 engages its partner small heat shock protein.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased HSPB8-HSPB1 Chaperone Binding\", \"target\": \"Impaired Chaperone-Assisted Selective Autophagy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Curated as the mechanistic link between the altered small heat shock protein interaction and the CASA pathway that HSPB8 serves. The sources here establish HSPB8\u0027s role in that pathway and the mutants\u0027 altered binding; they do not measure CASA flux in K141 HSPB8 motor neurons, so the edge is marked indirect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Chaperone-Assisted Selective Autophagy\", \"target\": \"Intracellular Protein Aggregate Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to clear misfolded clients leaves them to accumulate as aggregates.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular Protein Aggregate Formation\", \"target\": \"Length-Dependent Distal Motor Axon Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mutant HSPB8 expression causes neurite degeneration in motor neurons. Cell-type selectivity studies establish that this phenotype is motor-neuron-specific. The length-dependent distal distribution is curator inference from the clinical pattern of the disease, not a finding of the cited cell-culture work.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Length-Dependent Distal Motor Axon Degeneration\", \"target\": \"Distal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Distal Motor Axon Degeneration\", \"target\": \"Distal amyotrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hspb8 Lys141Asn Knock-In Mouse\", \"target\": \"Length-Dependent Distal Motor Axon Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Knock-in mice carrying the Hspb8 Lys141Asn allele at the endogenous mouse locus recapitulate the motor axon degeneration phenotype. Expression is from the native locus rather than from a human transgene, which is what makes this model informative for the entry\u0027s gain-of-function argument.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The knock-in mouse requires homozygosity to manifest disease, whereas the human disease is dominant and manifests in the heterozygous state. This is a difference in genetic dosage requirement between the mouse model and the human condition.\"}, {\"source\": \"K141N\", \"target\": \"HSPB8\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"K141E\", \"target\": \"HSPB8\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"P173SfsX43\", \"target\": \"HSPB8\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5136,6 +5188,9 @@ This clinical feature is Talipes (HP:0001883). HP:0001883 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5207,6 +5262,9 @@ This clinical feature is Congenital hip dysplasia, annotated with Congenital hip
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5308,6 +5366,9 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5372,6 +5433,9 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5450,6 +5514,9 @@ This clinical feature is Motor axonal neuropathy (HP:0007002). HP:0007002 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5546,6 +5613,9 @@ This clinical feature is Minor distal sensory abnormality, annotated with Distal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5610,6 +5680,9 @@ This clinical feature is Delayed acquisition of walking, annotated with Delayed 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5681,6 +5754,9 @@ This clinical feature is Brisk deep tendon reflexes, annotated with Brisk reflex
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5801,6 +5877,9 @@ This disease-associated gene is HSPB8 (hgnc:30171). hgnc:30171 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5900,6 +5979,12 @@ This disease-associated gene is HSPB8 (hgnc:30171). hgnc:30171 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Missense substitution of the hot-spot lysine at codon 141 in the alpha-crystallin domain, found in two dHMN type II pedigrees linked to 12q24.3.</div>
 
 
@@ -5924,6 +6009,12 @@ This disease-associated gene is HSPB8 (hgnc:30171). hgnc:30171 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Second missense substitution at the same codon, found in two smaller families.</div>
 
 
@@ -5946,6 +6037,12 @@ This disease-associated gene is HSPB8 (hgnc:30171). hgnc:30171 is a gene from th
         P173SfsX43
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Frameshift variant (c.151insC) outside the K141 hot-spot, reported in a family with dominant distal myopathy showing myofibrillar aggregates and rimmed vacuoles combined with a neurogenic component. Marks an allelic axis within HSPB8: the phenotype reported for this allele extends beyond the pure motor neuronopathy this entry curates.</div>
@@ -6768,11 +6865,13 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             </div>
 
 
-            <div class="item-box exp-model-box anchor-target" id="animal-model-hspb8-k141n-knock-in-mouse" data-dismech-node="Hspb8 K141N Knock-in Mouse" data-dismech-type="animal_model">
+            <div class="item-box exp-model-box anchor-target" id="animal-model-hspb8-lys141asn-knock-in-mouse" data-dismech-node="Hspb8 Lys141Asn Knock-In Mouse" data-dismech-type="animal_model">
                 <div class="item-name">
-                    Hspb8 K141N Knock-in Mouse
+                    Hspb8 Lys141Asn Knock-In Mouse
 
                 </div>
+
+                <div class="item-desc">Knock-in mouse carrying the K141N substitution in exon 2 of the endogenous mouse Hspb8 gene. Homozygous mice show motor neuropathy phenotypes that mimic the human disease. Heterozygotes are behaviourally indistinguishable from wild type and show no myelinated-axon loss at 12 months, but their distal sciatic nerve does display milder ultrastructural changes - regenerative clusters, macrophage infiltration, and axoplasmic accumulation - so the heterozygous state is subclinical rather than wholly unaffected.</div>
 
 
 
@@ -6786,12 +6885,24 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Genotype</div>
-                        <div class="model-detail-value">Hspb8 knock-in, Lys141Asn (K141N) homozygous</div>
+                        <div class="model-detail-value">Hspb8K141N/K141N (p.Lys141Asn homozygous knock-in)</div>
                     </div>
 
 
 
 
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/28780615" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:28780615">PMID:28780615</a>
+
+
+                        </div>
+                    </div>
 
                 </div>
 
@@ -6813,7 +6924,54 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="crosslink-desc">Knock-in mice carrying the Hspb8 Lys141Asn allele at the endogenous mouse locus recapitulate the motor axon degeneration phenotype. Expression is from the native locus rather than from a human transgene, which is what makes this model informative for the entry&#39;s gain-of-function argument.</span>
 
 
-                <div class="mapping-notes">Limitations: The homozygous mouse model requires two mutant alleles to manifest disease, whereas the human disease is dominant with heterozygous variants causing the neuropathy.</div>
+                <div class="mapping-notes">Limitations: The knock-in mouse requires homozygosity to manifest disease, whereas the human disease is dominant and manifests in the heterozygous state. This is a difference in genetic dosage requirement between the mouse model and the human condition.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28780615" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28780615" target="_blank">PMID:28780615</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"homozygous expression of Hspb8K141N mutation induces motor behavioural and electrophysiological impairments without sensory abnormalities similar to the dHMN type II phenotype"</div>
+
+
+                <div class="evidence-explanation">The model paper&#39;s own statement that the homozygous knock-in reproduces the dHMN type II phenotype, which is what licenses RECAPITULATES on this node.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -6823,6 +6981,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28780615" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28780615" target="_blank">PMID:28780615</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"While the homozygous knock-in mice developed motor deficits associated with degeneration of peripheral nerves and severe muscle atrophy corroborating patient data, homozygous knock-out mice had locomotor performances equivalent to those of wild-type animals."</div>
+
+
+                <div class="evidence-explanation">Establishes the model and the knock-in/knock-out contrast that makes it informative for this entry&#39;s gain-of-function mechanism.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:39972648" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -6843,27 +7026,15 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="evidence-snippet">"Mice expressing mutant Hspb8 (Lys141Asn) mimic the human disease, whereas mice lacking Hspb8 show no overt phenotype."</div>
 
 
-                <div class="evidence-explanation">Carries the recapitulation claim itself: the knock-in allele reproduces the human disease in vivo, which is what licenses RECAPITULATES against this node.</div>
+                <div class="evidence-explanation">A later independent group treats the same model as reproducing the human disease, and reports the knockout contrast as a finding rather than a methods line.</div>
 
 
 
             </div>
 
-
-            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
-
-
-            </div>
-
-        </div>
-    </div>
-
-
-
-
 
 
             </div>
@@ -7106,9 +7277,10 @@ pathophysiology:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Mice expressing mutant Hspb8 (Lys141Asn) mimic the human disease, whereas mice lacking Hspb8 show no overt phenotype.&#34;
     explanation: &gt;-
-      Demonstrates that the mutation produces pathology in vivo while a null
-      allele does not, supporting the gain-of-function interpretation over
-      haploinsufficiency.
+      Directly demonstrates that a null allele does not recapitulate the disease,
+      supporting the gain-of-function interpretation over haploinsufficiency. The
+      K141N knock-in model reproduces the human phenotype while the knockout does
+      not.
 - name: Increased HSPB8-HSPB1 Chaperone Binding
   description: &gt;-
     Both K141 mutants coimmunoprecipitate more of the partner small heat shock
@@ -7477,42 +7649,6 @@ phenotypes:
     snippet: &#34;HSPB8-related HMN may manifest at birth with talipes and congenital hip dysplasia. Delayed acquisition of walking is followed by a mild disease course despite the presence of distal atrophy. DTR can be brisk.&#34;
     explanation: &gt;-
       States that deep tendon reflexes can be brisk in HSPB8-related HMN.
-animal_models:
-- name: Hspb8 K141N Knock-in Mouse
-  species: Mouse
-  genotype: Hspb8 knock-in, Lys141Asn (K141N) homozygous
-  modeled_mechanisms:
-  - target: Length-Dependent Distal Motor Axon Degeneration
-    relationship: RECAPITULATES
-    fidelity: MODERATE
-    model_scale: ORGANISM
-    description: &gt;-
-      Knock-in mice carrying the Hspb8 Lys141Asn allele at the endogenous mouse
-      locus recapitulate the motor axon degeneration phenotype. Expression is
-      from the native locus rather than from a human transgene, which is what
-      makes this model informative for the entry&#39;s gain-of-function argument.
-    limitations: &gt;-
-      The homozygous mouse model requires two mutant alleles to manifest disease,
-      whereas the human disease is dominant with heterozygous variants causing
-      the neuropathy.
-    evidence:
-    - reference: PMID:39972648
-      reference_title: &#34;RNA Interference Targeting Small Heat Shock Protein B8 Failed to Improve Distal Hereditary Motor Neuropathy in the Mouse Model.&#34;
-      supports: SUPPORT
-      evidence_source: MODEL_ORGANISM
-      snippet: &#34;Mice expressing mutant Hspb8 (Lys141Asn) mimic the human disease, whereas mice lacking Hspb8 show no overt phenotype.&#34;
-      explanation: &gt;-
-        Carries the recapitulation claim itself: the knock-in allele reproduces
-        the human disease in vivo, which is what licenses RECAPITULATES against
-        this node.
-    - reference: PMID:39972648
-      reference_title: &#34;RNA Interference Targeting Small Heat Shock Protein B8 Failed to Improve Distal Hereditary Motor Neuropathy in the Mouse Model.&#34;
-      supports: SUPPORT
-      evidence_source: MODEL_ORGANISM
-      snippet: &#34;We used human induced pluripotent stem cells and the Hspb8 knock-in mouse model.&#34;
-      explanation: &gt;-
-        Attests that the knock-in mouse is an established system in this work,
-        alongside the recapitulation result above.
 prevalence:
 - population: Worldwide
   measure_type: POINT_PREVALENCE
@@ -7656,6 +7792,92 @@ treatments:
       id: NCIT:C15240
       label: Genetic Counseling
   therapeutic_modality: BEHAVIORAL
+animal_models:
+- name: Hspb8 Lys141Asn Knock-In Mouse
+  species: Mouse
+  genotype: Hspb8K141N/K141N (p.Lys141Asn homozygous knock-in)
+  description: &gt;-
+    Knock-in mouse carrying the K141N substitution in exon 2 of the endogenous
+    mouse Hspb8 gene. Homozygous mice show motor neuropathy phenotypes that mimic
+    the human disease. Heterozygotes are behaviourally indistinguishable from
+    wild type and show no myelinated-axon loss at 12 months, but their distal
+    sciatic nerve does display milder ultrastructural changes - regenerative
+    clusters, macrophage infiltration, and axoplasmic accumulation - so the
+    heterozygous state is subclinical rather than wholly unaffected.
+  modeled_mechanisms:
+  - target: Length-Dependent Distal Motor Axon Degeneration
+    relationship: RECAPITULATES
+    fidelity: MODERATE
+    model_scale: ORGANISM
+    description: &gt;-
+      Knock-in mice carrying the Hspb8 Lys141Asn allele at the endogenous mouse
+      locus recapitulate the motor axon degeneration phenotype. Expression is
+      from the native locus rather than from a human transgene, which is what
+      makes this model informative for the entry&#39;s gain-of-function argument.
+    limitations: &gt;-
+      The knock-in mouse requires homozygosity to manifest disease, whereas the
+      human disease is dominant and manifests in the heterozygous state. This is a
+      difference in genetic dosage requirement between the mouse model and the
+      human condition.
+    divergences:
+    - divergence_type: POPULATION_MISMATCH
+      materiality: QUALIFYING
+      description: &gt;-
+        Human dHMN2A is autosomal dominant and manifests in K141N heterozygotes.
+        In this mouse, heterozygous Hspb8K141N/+ animals perform indistinguishably
+        from wild type and only Hspb8K141N/K141N homozygotes develop the overt
+        behavioural and electrophysiological phenotype, so the genotype that
+        models the disease is not the genotype patients carry. The mismatch is in
+        the threshold for an overt phenotype rather than in the presence of
+        pathology: heterozygous nerves do show the same ultrastructural lesions to
+        a lesser extent, which is why this divergence is QUALIFYING rather than
+        INVALIDATING.
+    evidence:
+    - reference: PMID:28780615
+      reference_title: &#34;A knock-in/knock-out mouse model of HSPB8-associated distal hereditary motor neuropathy and myopathy reveals toxic gain-of-function of mutant Hspb8.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;homozygous expression of Hspb8K141N mutation induces motor behavioural and electrophysiological impairments without sensory abnormalities similar to the dHMN type II phenotype&#34;
+      explanation: &gt;-
+        The model paper&#39;s own statement that the homozygous knock-in reproduces the
+        dHMN type II phenotype, which is what licenses RECAPITULATES on this node.
+    - reference: PMID:28780615
+      reference_title: &#34;A knock-in/knock-out mouse model of HSPB8-associated distal hereditary motor neuropathy and myopathy reveals toxic gain-of-function of mutant Hspb8.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;the heterozygous Hspb8K141N/+ mice performances did not differ from the WT&#34;
+      explanation: &gt;-
+        Sources the zygosity limitation and the POPULATION_MISMATCH divergence: the
+        heterozygous state that corresponds to the human genotype is behaviourally
+        silent in this model.
+    - reference: PMID:28780615
+      reference_title: &#34;A knock-in/knock-out mouse model of HSPB8-associated distal hereditary motor neuropathy and myopathy reveals toxic gain-of-function of mutant Hspb8.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Interestingly, the distal sciatic nerve of heterozygous Hspb8K141N/+ mice also displayed, although to a lesser extent, regenerative clusters, macrophage infiltration, and accumulation of axoplasmic material&#34;
+      explanation: &gt;-
+        Bounds the preceding item: the heterozygote is silent behaviourally but not
+        histologically, so the dosage divergence is a threshold for overt disease
+        rather than an absence of the lesion.
+  publication: PMID:28780615
+  evidence:
+  - reference: PMID:28780615
+    reference_title: &#34;A knock-in/knock-out mouse model of HSPB8-associated distal hereditary motor neuropathy and myopathy reveals toxic gain-of-function of mutant Hspb8.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;While the homozygous knock-in mice developed motor deficits associated with degeneration of peripheral nerves and severe muscle atrophy corroborating patient data, homozygous knock-out mice had locomotor performances equivalent to those of wild-type animals.&#34;
+    explanation: &gt;-
+      Establishes the model and the knock-in/knock-out contrast that makes it
+      informative for this entry&#39;s gain-of-function mechanism.
+  - reference: PMID:39972648
+    reference_title: &#34;RNA Interference Targeting Small Heat Shock Protein B8 Failed to Improve Distal Hereditary Motor Neuropathy in the Mouse Model.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Mice expressing mutant Hspb8 (Lys141Asn) mimic the human disease, whereas mice lacking Hspb8 show no overt phenotype.&#34;
+    explanation: &gt;-
+      A later independent group treats the same model as reproducing the human
+      disease, and reports the knockout contrast as a finding rather than a
+      methods line.
 </pre>
             </div>
         </div>
@@ -8137,7 +8359,7 @@ Model identifier omitted from this record under this session&#39;s policy agains
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Distal Hereditary Motor Neuronopathy Type 2A", "mondoId": "MONDO:0008025", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Distal_Hereditary_Motor_Neuronopathy_Type_2A", "yamlRevision": "6bd41b02b8bb"};
+        const OS_CONFIG = {"diseaseName": "Distal Hereditary Motor Neuronopathy Type 2A", "mondoId": "MONDO:0008025", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Distal_Hereditary_Motor_Neuronopathy_Type_2A", "yamlRevision": "1290271d0eae"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

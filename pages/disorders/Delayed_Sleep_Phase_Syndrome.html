@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4463,6 +4505,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-circadian-clock-gene-polymorphisms" data-dismech-node="Circadian Clock Gene Polymorphisms" data-dismech-type="pathophysiology">
                 <div class="item-name">Circadian Clock Gene Polymorphisms</div>
 
+
                 <div class="item-desc">Variants in core circadian clock genes alter the molecular oscillator that drives the sleep-wake cycle. The circadian clock operates via transcription-translation feedback loops involving CLOCK, BMAL1, PER, and CRY gene families. A gain-of-function mutation in CRY1 (c.1657+3A&gt;C) creates a transcriptional inhibitor with enhanced affinity for Clock and Bmal1, lengthening the circadian period by approximately 30 minutes. Additional polymorphisms in PER3 and CLOCK contribute to DSPS susceptibility.</div>
 
 
@@ -4786,6 +4829,7 @@ This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-melatonin-secretion-timing" data-dismech-node="Altered Melatonin Secretion Timing" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Melatonin Secretion Timing</div>
 
+
                 <div class="item-desc">DSPS patients exhibit a delayed dim light melatonin onset (DLMO), reflecting a shifted circadian pacemaker. The suprachiasmatic nucleus (SCN) signal to the pineal gland for melatonin synthesis is phase-delayed, resulting in later endogenous melatonin rise and consequently delayed sleep propensity. This delay in melatonin secretion is a hallmark biomarker of the condition. However, approximately 40% of DSWPD cases may have normal melatonin timing, suggesting heterogeneity in the underlying mechanism.</div>
 
 
@@ -4955,6 +4999,7 @@ This pathophysiological event involves Melatonin Biosynthetic Process (GO:003018
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-photic-entrainment" data-dismech-node="Impaired Photic Entrainment" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Photic Entrainment</div>
 
+
                 <div class="item-desc">The circadian system normally entrains to the 24-hour light-dark cycle through retinal light input to the SCN via melanopsin-containing intrinsically photosensitive retinal ganglion cells (ipRGCs). In DSPS, there may be increased sensitivity to the melatonin-suppressing effect of evening light, and potentially impaired melanopsin-dependent phototransduction, resulting in a net phase delay of the circadian oscillator.</div>
 
 
@@ -5098,6 +5143,7 @@ This pathophysiological event involves Entrainment of Circadian Clock (GO:000964
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-misalignment-between-circadian-phase-and-social-schedule" data-dismech-node="Misalignment Between Circadian Phase and Social Schedule" data-dismech-type="pathophysiology">
                 <div class="item-name">Misalignment Between Circadian Phase and Social Schedule</div>
+
 
                 <div class="item-desc">The rate-limiting step, and a relation rather than a state of the clock alone: it requires both a delayed endogenous phase and an externally imposed schedule that the phase cannot meet. This is what makes delayed sleep-wake phase disorder unusual among diseases - the same physiology is pathological or benign depending only on what the person is required to do, and an extreme evening chronotype with a permissive schedule is not a patient. Sleep attempted during the circadian wake-maintenance zone is delayed in onset and curtailed by the alarm clock, while wake required near the core temperature minimum brings maximal sleepiness and severe sleep inertia. Released from the schedule, the same person sleeps normally at their own phase - the diagnostic hallmark separating this disorder from chronic insomnia, with which it is routinely confused and with which it shares no treatment.</div>
 
@@ -5343,6 +5389,9 @@ This clinical feature is Abnormal pineal melatonin secretion (HP:0012689). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5423,6 +5472,9 @@ This clinical feature is Sleep onset insomnia (HP:0031354). HP:0031354 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5491,6 +5543,9 @@ This clinical feature is Excessive daytime sleepiness, annotated with Drowsiness
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5567,6 +5622,9 @@ This clinical feature is Sleep-wake cycle disturbance (HP:0006979). HP:0006979 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5633,6 +5691,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Depression is frequently comorbid with DSPS rather than a core phenotype. It may be driven by chronic sleep deprivation, circadian misalignment, and/or shared genetic factors (CRY1 variant carriers show phenome-wide associations with major depressive disorder). Retained as a phenotype because the bidirectional relationship and high frequency in DSWPD populations make it clinically relevant.</div>
@@ -5731,6 +5792,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5872,6 +5936,9 @@ This disease-associated gene is CRY1 (hgnc:2384). hgnc:2384 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -5977,6 +6044,9 @@ This disease-associated gene is PER3 (hgnc:8847). hgnc:8847 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6045,6 +6115,9 @@ This disease-associated gene is PER2 (hgnc:8846). hgnc:8846 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -6991,10 +7064,10 @@ This treatment is cognitive and behavioral intervention, annotated with Behavior
 
                 </div>
 
-                <div class="evidence-snippet">"the prevalence of DSWPD is estimated to be approximately 3% with little racial differences between Caucasians and Asians"</div>
+                <div class="evidence-snippet">"Delayed sleep-wake phase disorder (DSWPD) is a sleep disorder in which the habitual sleep-wake timing is delayed, resulting in difficulty in falling asleep and waking up at the desired time. ... DSWPD is typically prevalent during adolescence and young adulthood. Although there are no studies..."</div>
 
 
-                <div class="evidence-explanation">Provides a consensus prevalence estimate of approximately 3% with minimal racial differences.</div>
+                <div class="evidence-explanation">The review estimates DSWPD prevalence at approximately 3% and identifies adolescence and young adulthood as typical affected ages. It explicitly notes the absence of international comparative studies.</div>
 
 
 
@@ -8054,11 +8127,15 @@ prevalence:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      the prevalence of DSWPD is estimated to be approximately 3% with little
-      racial differences between Caucasians and Asians
+      Delayed sleep-wake phase disorder (DSWPD) is a sleep disorder in which the habitual sleep-wake
+      timing is delayed, resulting in difficulty in falling asleep and waking up at the desired
+      time. ... DSWPD is typically prevalent during adolescence and young adulthood. Although there
+      are no studies comparing internationally, the prevalence of DSWPD is estimated to be
+      approximately 3% with little racial differences between Caucasians and Asians.
     explanation: &gt;-
-      Provides a consensus prevalence estimate of approximately 3% with
-      minimal racial differences.
+      The review estimates DSWPD prevalence at approximately 3% and identifies adolescence and young
+      adulthood as typical affected ages. It explicitly notes the absence of international
+      comparative studies.
 inheritance:
 - name: Complex/Multifactorial
   evidence:
@@ -8535,7 +8612,7 @@ PMIDs were not present in the extracted text snippets for the key primary geneti
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Delayed Sleep Phase Syndrome", "mondoId": "MONDO:0024377", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Delayed_Sleep_Phase_Syndrome", "yamlRevision": "1401fa24bdad"};
+        const OS_CONFIG = {"diseaseName": "Delayed Sleep Phase Syndrome", "mondoId": "MONDO:0024377", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Delayed_Sleep_Phase_Syndrome", "yamlRevision": "7b71c3a89ba1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4299,6 +4341,13 @@ The other development worth recording is structural. High-resolution ultrasound 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multifactorial-susceptibility-to-brachial-plexus-immune-attack" data-dismech-node="Multifactorial Susceptibility to Brachial Plexus Immune Attack" data-dismech-type="pathophysiology">
                 <div class="item-name">Multifactorial Susceptibility to Brachial Plexus Immune Attack</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Neuralgic amyotrophy is not attributed to a single initiating lesion. Genetic, biomechanical and immunologic factors are all implicated, and it is this multifactorial etiology - rather than a lack of study - that limits the ability to predict or prevent the recurrences that are common in this disease. The biomechanical component is what is thought to localise an otherwise systemic immune event to particular nerves.</div>
 
 
@@ -4397,6 +4446,13 @@ The other development worth recording is structural. High-resolution ultrasound 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multifocal-inflammatory-attack-on-peripheral-nerve" data-dismech-node="Multifocal Inflammatory Attack on Peripheral Nerve" data-dismech-type="pathophysiology">
                 <div class="item-name">Multifocal Inflammatory Attack on Peripheral Nerve</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Brachial plexus biopsy in affected patients shows florid multifocal mononuclear inflammatory cell infiltrates, which is the direct histopathological basis for calling the disorder immune-mediated. The infiltrate in the constricted segments is composed of CD8-positive T lymphocytes, and the lesion involves the perineurium with marked edema. &#34;Multifocal&#34; is doing real work here: the attack picks out individual nerves and even individual fascicles, which is why the resulting weakness is patchy rather than following a plexus territory.</div>
 
@@ -4627,6 +4683,13 @@ This pathophysiological event occurs in brachial plexus, annotated with brachial
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-neuropathic-pain-attack" data-dismech-node="Severe Neuropathic Pain Attack" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Neuropathic Pain Attack</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The illness opens with sudden, severe pain in the shoulder girdle. The pain is the presenting symptom and the window for immunomodulating treatment: it precedes the weakness, and it is while the patient is still in pain that corticosteroids are advised.</div>
 
 
@@ -4700,6 +4763,13 @@ This pathophysiological event occurs in brachial plexus, annotated with brachial
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-nerve-constriction-and-torsion" data-dismech-node="Focal Nerve Constriction and Torsion" data-dismech-type="pathophysiology">
                 <div class="item-name">Focal Nerve Constriction and Torsion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In a subset of patients the inflamed, swollen nerve develops a very focal constriction, with thickening proximal and distal to it, or frank torsion of the nerve or some of its fascicles. Ultrasound findings have been grouped as nerve swelling, swelling with incomplete constriction, swelling with complete constriction, and fascicular entwinement, which has been read as a continuum. The clinical importance is that these lesions do badly without surgery and well with it, so recognising them changes management.</div>
 
@@ -4800,6 +4870,13 @@ This pathophysiological event occurs in brachial plexus, annotated with brachial
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multifocal-axonal-injury" data-dismech-node="Multifocal Axonal Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Multifocal Axonal Injury</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The affected nerves sustain axonal loss, typically a severe axonotmesis on neurophysiological testing. This produces the patchy paresis and, over weeks, the amyotrophy the disease is named for. Importantly the axonal damage is not the whole story of long-term disability - see the maladaptive motor pattern node downstream.</div>
 
 
@@ -4897,6 +4974,13 @@ This pathophysiological event occurs in brachial plexus, annotated with brachial
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-nerve-endurance-and-maladaptive-motor-pattern" data-dismech-node="Reduced Nerve Endurance and Maladaptive Motor Pattern" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Nerve Endurance and Maladaptive Motor Pattern</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The distinctive claim of the modern literature on this disease: persisting symptoms are caused mainly by a combination of decreased endurance in the affected nerves and an altered posture and movement pattern, and not by the axonal damage itself. This is why the long-term treatment target is scapular coordination and energy distribution rather than nerve regeneration, and why rehabilitation here is disease-modifying rather than supportive.</div>
 
@@ -5000,7 +5084,7 @@ This pathophysiological event occurs in brachial plexus, annotated with brachial
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antecedent infection or vaccination\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The general immune trigger the first pathophysiology node depends on. A prospective matched case-control study confirmed a microbiologically documented infectious trigger in 26.3% of patients and considered COVID-19 vaccination a potential trigger in a further 12.3%, giving a confirmed immune trigger in 38.6% overall. An acute viral infection was associated with bilateral brachial plexus involvement, which is the clinically useful part: the trigger is not just antecedent, it shapes the attack.\\nThis is the better-evidenced and more general trigger claim; the hepatitis E entry below is a specific, clinically distinctive instance of it rather than an alternative to it. Note that a confirmed trigger in 38.6% means the majority of attacks still have none identified, so this is a contributing precipitant in a susceptible individual and not a necessary cause.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Diaphragmatic weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Phrenic nerve involvement occurs in 8% of patients and is often debilitating. It is called out separately in the literature because identifying it early matters for recovery.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0009113\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent fatigue is one of the two dominant residual symptoms, alongside pain, and is the clinical readout of this entry\u0027s central mechanistic claim: it is not explained by residual paresis. The cohort study found no correlation between fatigue and the level of residual weakness on the MRC scale, which is the observation that separates this from simple deconditioning after nerve injury, and which is why the long-term treatment target is energy distribution rather than strength.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Focal Nerve Constriction and Torsion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a subset of patients the inflamed, swollen nerve develops a very focal constriction, with thickening proximal and distal to it, or frank torsion of the nerve or some of its fascicles. Ultrasound findings have been grouped as nerve swelling, swelling with incomplete constriction, swelling with complete constriction, and fascicular entwinement, which has been read as a continuum. The clinical importance is that these lesions do badly without surgery and well with it, so recognising them changes management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatitis E virus infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"HEV, characteristically genotype 3, is a recurrently reported trigger of a neuralgic amyotrophy attack, and the association is clinically distinctive rather than incidental: the HEV-associated cases are enriched for phrenic nerve involvement and diaphragmatic paralysis rather than the usual shoulder-girdle picture. One series found 13 such patients in three years with normal liver enzymes in all of them, which is why the association is missed - the trigger leaves no hepatic signal by the time the neuropathy presents.\\nCurated as an environmental trigger rather than a cause. NA is not a manifestation of hepatitis E; the virus is one of several precipitants acting on an already-susceptible plexus, which is the model this entry\u0027s first pathophysiology node describes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"High-Dose Oral Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A short trial of high-dose oral corticosteroids in the acute phase, advised for patients seen early while still in pain. The aim is to damp the inflammatory attack during the window in which it is still active.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Intravenous Immunoglobulin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Immunomodulating treatment in the acute phase, cited alongside steroids as potentially beneficial. Early immunomodulation is presented as important for optimal recovery.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Multifactorial Susceptibility to Brachial Plexus Immune Attack\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuralgic amyotrophy is not attributed to a single initiating lesion. Genetic, biomechanical and immunologic factors are all implicated, and it is this multifactorial etiology - rather than a lack of study - that limits the ability to predict or prevent the recurrences that are common in this disease. The biomechanical component is what is thought to localise an otherwise systemic immune event to particular nerves.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Multifocal Axonal Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The affected nerves sustain axonal loss, typically a severe axonotmesis on neurophysiological testing. This produces the patchy paresis and, over weeks, the amyotrophy the disease is named for. Importantly the axonal damage is not the whole story of long-term disability - see the maladaptive motor pattern node downstream.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brachial plexus biopsy in affected patients shows florid multifocal mononuclear inflammatory cell infiltrates, which is the direct histopathological basis for calling the disorder immune-mediated. The infiltrate in the constricted segments is composed of CD8-positive T lymphocytes, and the lesion involves the perineurium with marked edema. \\\"Multifocal\\\" is doing real work here: the attack picks out individual nerves and even individual fascicles, which is why the resulting weakness is patchy rather than following a plexus territory.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD8-positive T lymphocyte\"], \"biological_processes\": [\"inflammatory response in peripheral nerve\"], \"locations\": [\"brachial plexus\"]}}, {\"id\": \"Paresthesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory symptoms in the territory of an affected mixed nerve, sometimes preceding the motor deficit. The disease is predominantly but not exclusively motor.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003401\"}}, {\"id\": \"Peripheral Nerve Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical treatment of hourglass constrictions and nerve torsion identified on high-resolution imaging. This is the treatment that the structural findings made possible, and it applies to the constriction subgroup rather than to neuralgic amyotrophy generally.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Phrenic Nerve Reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical repair of the injured phrenic nerve for symptomatic diaphragm paralysis, in selected patients. Curated because diaphragmatic weakness is a phenotype of this entry with no other treatment linked to it, and because it is the intervention that follows from the HEV-associated phrenic presentation.\\nThe evidence is weaker than for the other surgical entry here: this is a narrative review of phrenic nerve reconstruction across all causes of phrenic injury, of which neuralgic amyotrophy is one, not a series of NA patients. It reports no NA-specific outcome.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Reduced Nerve Endurance and Maladaptive Motor Pattern\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The distinctive claim of the modern literature on this disease: persisting symptoms are caused mainly by a combination of decreased endurance in the affected nerves and an altered posture and movement pattern, and not by the axonal damage itself. This is why the long-term treatment target is scapular coordination and energy distribution rather than nerve regeneration, and why rehabilitation here is disease-modifying rather than supportive.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Scapular Coordination Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multidisciplinary rehabilitation focused on scapular coordination, energy distribution strategies and self-management. Because persisting symptoms are attributed to reduced nerve endurance and an altered movement pattern rather than to axon loss, this targets the actual driver of long-term disability and is not merely supportive.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Scapular winging\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal scapular position and movement, both from weakness of the periscapular muscles and from the altered movement pattern that develops afterwards. It is the specific target of the rehabilitation strategy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003691\"}}, {\"id\": \"Severe Neuropathic Pain Attack\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The illness opens with sudden, severe pain in the shoulder girdle. The pain is the presenting symptom and the window for immunomodulating treatment: it precedes the weakness, and it is while the patient is still in pain that corticosteroids are advised.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Shoulder pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden, severe pain in the shoulder girdle opening the illness, before any weakness is apparent. Adequate analgesia may require opioids as well as NSAIDs.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030834\"}}, {\"id\": \"Skeletal muscle atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wasting of the denervated shoulder-girdle and upper limb muscles, the amyotrophy in the disease name, developing over weeks after the axonal injury.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003202\"}}, {\"id\": \"Upper limb muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patchy paresis of the upper extremity following the pain. The patchiness reflects the multifocal nature of the nerve attack rather than a single plexus lesion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003484\"}}], \"edges\": [{\"source\": \"Multifactorial Susceptibility to Brachial Plexus Immune Attack\", \"target\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"target\": \"Severe Neuropathic Pain Attack\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"target\": \"Focal Nerve Constriction and Torsion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"target\": \"Multifocal Axonal Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Neuropathic Pain Attack\", \"target\": \"Shoulder pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Focal Nerve Constriction and Torsion\", \"target\": \"Multifocal Axonal Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Axonal Injury\", \"target\": \"Upper limb muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Axonal Injury\", \"target\": \"Skeletal muscle atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Axonal Injury\", \"target\": \"Diaphragmatic weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Axonal Injury\", \"target\": \"Paresthesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Axonal Injury\", \"target\": \"Reduced Nerve Endurance and Maladaptive Motor Pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Nerve Endurance and Maladaptive Motor Pattern\", \"target\": \"Scapular winging\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Nerve Endurance and Maladaptive Motor Pattern\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antecedent infection or vaccination\", \"target\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"An antecedent immune challenge precipitates the multifocal inflammatory attack in a susceptible plexus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatitis E virus infection\", \"target\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Infection precipitates the immune attack on the plexus, with a predilection for the phrenic nerve that distinguishes HEV-triggered attacks from other precipitants.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"High-Dose Oral Corticosteroids\", \"target\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous Immunoglobulin\", \"target\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Peripheral Nerve Surgery\", \"target\": \"Focal Nerve Constriction and Torsion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phrenic Nerve Reconstruction\", \"target\": \"Diaphragmatic weakness\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Scapular Coordination Rehabilitation\", \"target\": \"Reduced Nerve Endurance and Maladaptive Motor Pattern\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antecedent infection or vaccination\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The general immune trigger the first pathophysiology node depends on. A prospective matched case-control study confirmed a microbiologically documented infectious trigger in 26.3% of patients and considered COVID-19 vaccination a potential trigger in a further 12.3%, giving a confirmed immune trigger in 38.6% overall. An acute viral infection was associated with bilateral brachial plexus involvement, which is the clinically useful part: the trigger is not just antecedent, it shapes the attack.\\nThis is the better-evidenced and more general trigger claim; the hepatitis E entry below is a specific, clinically distinctive instance of it rather than an alternative to it. Note that a confirmed trigger in 38.6% means the majority of attacks still have none identified, so this is a contributing precipitant in a susceptible individual and not a necessary cause.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Diaphragmatic weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Phrenic nerve involvement occurs in 8% of patients and is often debilitating. It is called out separately in the literature because identifying it early matters for recovery.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0009113\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent fatigue is one of the two dominant residual symptoms, alongside pain, and is the clinical readout of this entry\u0027s central mechanistic claim: it is not explained by residual paresis. The cohort study found no correlation between fatigue and the level of residual weakness on the MRC scale, which is the observation that separates this from simple deconditioning after nerve injury, and which is why the long-term treatment target is energy distribution rather than strength.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Focal Nerve Constriction and Torsion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a subset of patients the inflamed, swollen nerve develops a very focal constriction, with thickening proximal and distal to it, or frank torsion of the nerve or some of its fascicles. Ultrasound findings have been grouped as nerve swelling, swelling with incomplete constriction, swelling with complete constriction, and fascicular entwinement, which has been read as a continuum. The clinical importance is that these lesions do badly without surgery and well with it, so recognising them changes management.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Hepatitis E virus infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"HEV, characteristically genotype 3, is a recurrently reported trigger of a neuralgic amyotrophy attack, and the association is clinically distinctive rather than incidental: the HEV-associated cases are enriched for phrenic nerve involvement and diaphragmatic paralysis rather than the usual shoulder-girdle picture. One series found 13 such patients in three years with normal liver enzymes in all of them, which is why the association is missed - the trigger leaves no hepatic signal by the time the neuropathy presents.\\nCurated as an environmental trigger rather than a cause. NA is not a manifestation of hepatitis E; the virus is one of several precipitants acting on an already-susceptible plexus, which is the model this entry\u0027s first pathophysiology node describes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"High-Dose Oral Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A short trial of high-dose oral corticosteroids in the acute phase, advised for patients seen early while still in pain. The aim is to damp the inflammatory attack during the window in which it is still active.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Intravenous Immunoglobulin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Immunomodulating treatment in the acute phase, cited alongside steroids as potentially beneficial. Early immunomodulation is presented as important for optimal recovery.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Multifactorial Susceptibility to Brachial Plexus Immune Attack\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuralgic amyotrophy is not attributed to a single initiating lesion. Genetic, biomechanical and immunologic factors are all implicated, and it is this multifactorial etiology - rather than a lack of study - that limits the ability to predict or prevent the recurrences that are common in this disease. The biomechanical component is what is thought to localise an otherwise systemic immune event to particular nerves.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Multifocal Axonal Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The affected nerves sustain axonal loss, typically a severe axonotmesis on neurophysiological testing. This produces the patchy paresis and, over weeks, the amyotrophy the disease is named for. Importantly the axonal damage is not the whole story of long-term disability - see the maladaptive motor pattern node downstream.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brachial plexus biopsy in affected patients shows florid multifocal mononuclear inflammatory cell infiltrates, which is the direct histopathological basis for calling the disorder immune-mediated. The infiltrate in the constricted segments is composed of CD8-positive T lymphocytes, and the lesion involves the perineurium with marked edema. \\\"Multifocal\\\" is doing real work here: the attack picks out individual nerves and even individual fascicles, which is why the resulting weakness is patchy rather than following a plexus territory.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD8-positive T lymphocyte\"], \"biological_processes\": [\"inflammatory response in peripheral nerve\"], \"locations\": [\"brachial plexus\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Paresthesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory symptoms in the territory of an affected mixed nerve, sometimes preceding the motor deficit. The disease is predominantly but not exclusively motor.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003401\"}}, {\"id\": \"Peripheral Nerve Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical treatment of hourglass constrictions and nerve torsion identified on high-resolution imaging. This is the treatment that the structural findings made possible, and it applies to the constriction subgroup rather than to neuralgic amyotrophy generally.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Phrenic Nerve Reconstruction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical repair of the injured phrenic nerve for symptomatic diaphragm paralysis, in selected patients. Curated because diaphragmatic weakness is a phenotype of this entry with no other treatment linked to it, and because it is the intervention that follows from the HEV-associated phrenic presentation.\\nThe evidence is weaker than for the other surgical entry here: this is a narrative review of phrenic nerve reconstruction across all causes of phrenic injury, of which neuralgic amyotrophy is one, not a series of NA patients. It reports no NA-specific outcome.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Reduced Nerve Endurance and Maladaptive Motor Pattern\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The distinctive claim of the modern literature on this disease: persisting symptoms are caused mainly by a combination of decreased endurance in the affected nerves and an altered posture and movement pattern, and not by the axonal damage itself. This is why the long-term treatment target is scapular coordination and energy distribution rather than nerve regeneration, and why rehabilitation here is disease-modifying rather than supportive.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Scapular Coordination Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multidisciplinary rehabilitation focused on scapular coordination, energy distribution strategies and self-management. Because persisting symptoms are attributed to reduced nerve endurance and an altered movement pattern rather than to axon loss, this targets the actual driver of long-term disability and is not merely supportive.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Scapular winging\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal scapular position and movement, both from weakness of the periscapular muscles and from the altered movement pattern that develops afterwards. It is the specific target of the rehabilitation strategy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003691\"}}, {\"id\": \"Severe Neuropathic Pain Attack\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The illness opens with sudden, severe pain in the shoulder girdle. The pain is the presenting symptom and the window for immunomodulating treatment: it precedes the weakness, and it is while the patient is still in pain that corticosteroids are advised.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Shoulder pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden, severe pain in the shoulder girdle opening the illness, before any weakness is apparent. Adequate analgesia may require opioids as well as NSAIDs.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030834\"}}, {\"id\": \"Skeletal muscle atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wasting of the denervated shoulder-girdle and upper limb muscles, the amyotrophy in the disease name, developing over weeks after the axonal injury.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003202\"}}, {\"id\": \"Upper limb muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patchy paresis of the upper extremity following the pain. The patchiness reflects the multifocal nature of the nerve attack rather than a single plexus lesion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003484\"}}], \"edges\": [{\"source\": \"Multifactorial Susceptibility to Brachial Plexus Immune Attack\", \"target\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"target\": \"Severe Neuropathic Pain Attack\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"target\": \"Focal Nerve Constriction and Torsion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"target\": \"Multifocal Axonal Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Neuropathic Pain Attack\", \"target\": \"Shoulder pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Focal Nerve Constriction and Torsion\", \"target\": \"Multifocal Axonal Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Axonal Injury\", \"target\": \"Upper limb muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Axonal Injury\", \"target\": \"Skeletal muscle atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Axonal Injury\", \"target\": \"Diaphragmatic weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Axonal Injury\", \"target\": \"Paresthesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Axonal Injury\", \"target\": \"Reduced Nerve Endurance and Maladaptive Motor Pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Nerve Endurance and Maladaptive Motor Pattern\", \"target\": \"Scapular winging\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Nerve Endurance and Maladaptive Motor Pattern\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antecedent infection or vaccination\", \"target\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"An antecedent immune challenge precipitates the multifocal inflammatory attack in a susceptible plexus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatitis E virus infection\", \"target\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Infection precipitates the immune attack on the plexus, with a predilection for the phrenic nerve that distinguishes HEV-triggered attacks from other precipitants.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"High-Dose Oral Corticosteroids\", \"target\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous Immunoglobulin\", \"target\": \"Multifocal Inflammatory Attack on Peripheral Nerve\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Peripheral Nerve Surgery\", \"target\": \"Focal Nerve Constriction and Torsion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phrenic Nerve Reconstruction\", \"target\": \"Diaphragmatic weakness\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Scapular Coordination Rehabilitation\", \"target\": \"Reduced Nerve Endurance and Maladaptive Motor Pattern\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5063,6 +5147,9 @@ This clinical feature is Patchy upper limb paresis, annotated with Upper limb mu
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5134,6 +5221,9 @@ This clinical feature is Scapular winging and dyskinesis, annotated with Scapula
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5221,6 +5311,9 @@ This clinical feature is Amyotrophy of the affected upper limb muscles, annotate
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5289,6 +5382,9 @@ This clinical feature is Phrenic neuropathy with diaphragmatic weakness, annotat
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5369,6 +5465,9 @@ This clinical feature is Paresthesia in the affected nerve territory, annotated 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5497,6 +5596,9 @@ This clinical feature is Severe shoulder-girdle pain, annotated with Shoulder pa
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5563,6 +5665,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7216,10 +7321,10 @@ The recommendation is stated at a lower level of confidence than the imaging abo
 
                 </div>
 
-                <div class="evidence-snippet">"As a typically patchy disorder NA can affect almost any nerve in the brachial plexus, although damage in the upper and middle trunk distribution with involvement of the long thoracic and/or suprascapular nerve occurred most frequently (71.1%)."</div>
+                <div class="evidence-snippet">"We investigated the symptoms, course and prognosis of neuralgic amyotrophy (NA) in a large group of patients with idiopathic neuralgic amyotrophy (INA, n = 199) and hereditary neuralgic amyotrophy (HNA, n = 47) to gain more insight into the broad clinical spectrum of the disorder. ... Generally,..."</div>
 
 
-                <div class="evidence-explanation">The anatomical distribution of the paresis, with the dominant pattern quantified.</div>
+                <div class="evidence-explanation">Identifies neuralgic amyotrophy, initial pain followed by paresis and the common patchy upper/middle-trunk nerve distribution.</div>
 
 
 
@@ -8037,8 +8142,20 @@ progression:
     reference_title: &#34;The clinical spectrum of neuralgic amyotrophy in 246 cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;As a typically patchy disorder NA can affect almost any nerve in the brachial plexus, although damage in the upper and middle trunk distribution with involvement of the long thoracic and/or suprascapular nerve occurred most frequently (71.1%).&#34;
-    explanation: The anatomical distribution of the paresis, with the dominant pattern quantified.
+    snippet: &gt;-
+      We investigated the symptoms, course and prognosis of neuralgic amyotrophy (NA) in a large
+      group of patients with idiopathic neuralgic amyotrophy (INA, n = 199) and hereditary neuralgic
+      amyotrophy (HNA, n = 47) to gain more insight into the broad clinical spectrum of the
+      disorder. ... Generally, the course of the pain manifests itself in three consecutive phases
+      with an initial severe, continuous pain lasting for approximately 4 weeks on average. Sensory
+      involvement was quite common and found in 78.4% of patients but was clinically less impairing
+      than the initial pain and subsequent paresis. As a typically patchy disorder NA can affect
+      almost any nerve in the brachial plexus, although damage in the upper and middle trunk
+      distribution with involvement of the long thoracic and/or suprascapular nerve occurred most
+      frequently (71.1%).
+    explanation: &gt;-
+      Identifies neuralgic amyotrophy, initial pain followed by paresis and the common patchy
+      upper/middle-trunk nerve distribution.
 - phase: Residual phase
   notes: &gt;-
     Slow and often incomplete recovery. This is the phase the modern rehabilitation approach
@@ -8073,10 +8190,9 @@ treatments:
   notes: &gt;-
     Bound to CHEBI:50858 rather than the NCIT Corticosteroid term. NCIT:C2322 does resolve to
     &#34;Corticosteroid&#34;, but it is not reachable from NCIT:C1909 and so fails the
-    ChemicalEntityTerm dynamic enum. CLAUDE.md currently offers NCIT:C2322 as an example
-    therapeutic_agent, which does not validate. Filed as dismech#10978, with the root cause:
-    NCIT classifies corticosteroids under Hormone rather than Pharmacologic Substance, so the
-    enum&#39;s NCIT:C1909 root cannot reach them.
+    ChemicalEntityTerm dynamic enum: NCIT classifies corticosteroids under Hormone rather
+    than Pharmacologic Substance, so the enum&#39;s NCIT:C1909 root cannot reach them
+    (dismech#10978).
   target_mechanisms:
   - target: Multifocal Inflammatory Attack on Peripheral Nerve
     description: Suppresses the acute inflammatory attack on the nerve during the painful phase.
@@ -9539,7 +9655,7 @@ Resolving is not the same as being relevant, though - see the references listed 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Neuralgic Amyotrophy", "mondoId": "MONDO:0017362", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neuralgic_Amyotrophy", "yamlRevision": "150ad7617b27"};
+        const OS_CONFIG = {"diseaseName": "Neuralgic Amyotrophy", "mondoId": "MONDO:0017362", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neuralgic_Amyotrophy", "yamlRevision": "dba89f903ff6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

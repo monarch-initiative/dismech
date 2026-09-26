@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4986,6 +5028,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-actn2-pathogenic-variants-alter-alpha-actinin-2" data-dismech-node="ACTN2 pathogenic variants alter alpha-actinin-2" data-dismech-type="pathophysiology">
                 <div class="item-name">ACTN2 pathogenic variants alter alpha-actinin-2</div>
 
+
                 <div class="item-desc">Heterozygous pathogenic variants in ACTN2 alter alpha-actinin-2, a sarcomeric Z-disk protein. Two dominant classes are recognized: missense variants (the original Spanish and Swedish actininopathy families) and single-nucleotide deletions in the last exon that shift the reading frame and append a novel, unstructured, slightly extended C-terminal sequence.
 </div>
 
@@ -5213,6 +5256,7 @@ This pathophysiological event involves abnormal actin filament binding (GO:00510
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-actinin-2-conformational-destabilization" data-dismech-node="Alpha-actinin-2 conformational destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-actinin-2 conformational destabilization</div>
 
+
                 <div class="item-desc">A candidate step upstream of aggregation, and one of the few leads on the missense class whose mechanism is otherwise undetermined. Systematic biophysical profiling of ACTN2 missense variants shows reduced solubility, reduced thermal and proteolytic stability, and a strong propensity to aggregate in solution, with the actin-binding domain the most vulnerable region. Structural work on actin-binding-domain variants shows the same variants incorporate less well into the Z-disc and that the unincorporated protein forms aggregates outside it. Both lines of evidence come from ACTN2 hypertrophic-cardiomyopathy variant panels rather than MPD6 alleles, so this node states a plausible shared property of destabilizing ACTN2 missense variants, not a demonstrated MPD6 mechanism.
 </div>
 
@@ -5348,6 +5392,7 @@ This pathophysiological event involves abnormal actin filament binding (GO:00510
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-actinin-2-protein-aggregation" data-dismech-node="Alpha-actinin-2 protein aggregation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-actinin-2 protein aggregation</div>
+
 
                 <div class="item-desc">Dominant frameshift variants that extend the alpha-actinin-2 protein cause it to form intracellular aggregates in muscle-cell models, whereas recessive missense variants do not, implicating alpha-actinin-2 aggregation as the disease mechanism for this class of dominant actininopathy.
 </div>
@@ -5506,6 +5551,7 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-z-disk-and-myofibrillar-disorganization" data-dismech-node="Z-disk and myofibrillar disorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Z-disk and myofibrillar disorganization</div>
+
 
                 <div class="item-desc">Loss of normal alpha-actinin-2 Z-disk cross-linking, together with abnormal accumulation of the protein, produces disorganized Z-lines and myofibrillar disarray. Muscle-sample analysis shows increased alpha-actinin-2 expression and abnormal Z-line organization.
 </div>
@@ -5711,6 +5757,7 @@ This pathophysiological event involves abnormal sarcomere organization (GO:00452
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-skeletal-muscle-degeneration-and-weakness" data-dismech-node="Distal skeletal muscle degeneration and weakness" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal skeletal muscle degeneration and weakness</div>
+
 
                 <div class="item-desc">Chronic myofibrillar degeneration is expressed histologically as internalized nuclei, myofibrillar disorganization, rimmed vacuoles, and in some families multi-minicores, and clinically as slowly progressive distal muscle weakness that begins in the anterior lower leg and later extends proximally.
 </div>
@@ -5969,6 +6016,9 @@ This clinical feature is Weakness of facial musculature (HP:0030319). HP:0030319
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6078,6 +6128,9 @@ This clinical feature is Distal lower limb muscle weakness (HP:0009053), qualifi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6172,6 +6225,9 @@ This clinical feature is Foot dorsiflexor weakness (HP:0009027). HP:0009027 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6243,6 +6299,9 @@ This clinical feature is Limb-girdle muscle weakness (HP:0003325). HP:0003325 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6304,7 +6363,7 @@ This clinical feature is Limb-girdle muscle weakness (HP:0003325). HP:0003325 is
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -6314,10 +6373,13 @@ This clinical feature is Limb-girdle muscle weakness (HP:0003325). HP:0003325 is
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6419,6 +6481,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6483,6 +6548,9 @@ This clinical feature is Rimmed vacuoles (HP:0003805). HP:0003805 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6559,6 +6627,9 @@ This clinical feature is Centrally nucleated skeletal muscle fibers (HP:0003687)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6623,6 +6694,9 @@ This clinical feature is Minicore myopathy (HP:0003789). HP:0003789 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6694,6 +6768,9 @@ This clinical feature is Fatty replacement of anterolateral lower-leg compartmen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6810,6 +6887,9 @@ This disease-associated gene is ACTN2 (hgnc:164). hgnc:164 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -6921,6 +7001,7 @@ This disease-associated gene is ACTN2 (hgnc:164). hgnc:164 is a gene from the HU
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6942,7 +7023,13 @@ This variant is in ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomen
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense founder variant of the Basque-Spanish actininopathy families, the original MPD6 kindreds. Carried on a shared haplotype consistent with common ancestry. Named at the protein level only: the cDNA change is not stated in any source cited here. No clinical_significance is asserted either - multi-family cosegregation on a shared haplotype is good evidence, but no cited source states an ACMG or ClinVar classification for this allele, and the ACTN2 mutation update cited elsewhere in this entry cautions that supporting data are limited for most reported ACTN2 missense variants.</div>
@@ -7028,6 +7115,7 @@ This variant is in ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7049,7 +7137,13 @@ This variant is in ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomen
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense founder variant of the Belgian families in the largest dominant cohort, on its own distinct haplotype. No clinical_significance is asserted, for the same reason as p.Cys487Arg: the cited evidence establishes founder haplotype and cosegregation, not a stated variant classification.</div>
@@ -7110,6 +7204,7 @@ This variant is in ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7131,7 +7226,13 @@ This variant is in ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomen
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Frameshift allele of the adult-onset family with multi-minicores. Functional work on this family&#39;s muscle is what links the frameshift class to raised alpha-actinin-2 levels and disorganized Z-lines in patient tissue rather than in a cell model.</div>
@@ -7218,6 +7319,7 @@ p.Phe835Serfs*66) within ACTN2 in a family including three patients."</div>
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7239,7 +7341,13 @@ This variant is in ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomen
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The fourth of the four original actininopathy families is Swedish and carries a different ACTN2 missense variant from the shared Basque-Spanish allele. The cited abstract does not name it, so it is recorded as a distinct allele without an HGVS designation rather than assigned one from an uncited source.</div>
@@ -7302,6 +7410,7 @@ This variant is in ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7323,7 +7432,13 @@ This variant is in ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomen
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Out-of-frame deletions in the last exon that append a novel extended C-terminus. This is the protein-extending class shown to aggregate in the C2C12 model, and the class associated with the distinctive facial weakness.</div>
@@ -10785,10 +10900,10 @@ phenotypes:
     Serum CK is mildly elevated. The elevation is modest enough that a normal or
     near-normal value does not exclude the diagnosis.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:33458580
     reference_title: Panorama of the distal myopathies.
@@ -13616,7 +13731,7 @@ MISFOLDING  ── branch A (dominant frameshift/extension) ──► Z-disk AGG
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Distal Myopathy 6, Adult-Onset, Autosomal Dominant", "mondoId": "MONDO:0032853", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Distal_Myopathy_6,_Adult-Onset,_Autosomal_Dominant", "yamlRevision": "c061cb7e6792"};
+        const OS_CONFIG = {"diseaseName": "Distal Myopathy 6, Adult-Onset, Autosomal Dominant", "mondoId": "MONDO:0032853", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Distal_Myopathy_6,_Adult-Onset,_Autosomal_Dominant", "yamlRevision": "6ab8ffb735bf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

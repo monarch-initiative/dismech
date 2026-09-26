@@ -4,7 +4,6 @@ status: IN_PROGRESS
 description: 'Extends the antimicrobial drug–bug mechanism layer to antiviral therapy: viral-target modules (polymerase, protease, entry/fusion, integrase, release) plus the latency/reservoir gating axis. Five target-class modules plus the gating module are now built and validated.'
 diseases:
 - Acquired_Immunodeficiency_Syndrome
-- Hepatitis_C
 - COVID-19
 - Hepatitis_B
 - Hepatitis_C
@@ -39,7 +38,7 @@ treatment `target_mechanisms` edges), tracked in §7.
 | Module (built ✓) | Target / principle | Drug classes | Current / candidate conformers (existing entries) |
 |---|---|---|---|
 | `viral_polymerase_inhibition` | RdRp / reverse transcriptase / viral DNA polymerase; nucleos(t)ide chain termination + non-nucleoside allosteric block | NRTIs, NNRTIs, nucleotide analogs | Hepatitis_B (tenofovir, entecavir), Hepatitis_C (sofosbuvir), COVID-19 (remdesivir, molnupiravir), Acquired_Immunodeficiency_Syndrome (tenofovir/emtricitabine) |
-| `viral_protease_inhibition` | Virus-encoded polyprotein-processing protease; replicase-protein release (SARS-CoV-2 Mpro, HCV NS3/4A) versus structural virion maturation (HIV PR) | protease inhibitors | **Wired:** COVID-19 (nirmatrelvir), Hepatitis_C (glecaprevir). **Candidates:** Hepatitis_C (glecaprevir/grazoprevir), Acquired_Immunodeficiency_Syndrome (atazanavir/darunavir, ritonavir boost) |
+| `viral_protease_inhibition` | Virus-encoded polyprotein-processing protease; replicase-protein release (SARS-CoV-2 Mpro, HCV NS3/4A) versus structural virion maturation (HIV PR) | protease inhibitors | **Wired:** COVID-19 (nirmatrelvir), Hepatitis_C (glecaprevir). **Candidates:** Hepatitis_C (grazoprevir), Acquired_Immunodeficiency_Syndrome (atazanavir/darunavir, ritonavir boost) |
 | `viral_entry_fusion_inhibition` | Receptor attachment / co-receptor / membrane fusion / host-factor uptake | gp41 fusion, CCR5 antagonist, attachment, NTCP | Acquired_Immunodeficiency_Syndrome (maraviroc, enfuvirtide, fostemsavir) |
 | `viral_integrase_inhibition` | Retroviral integrase strand transfer (provirus formation) | INSTIs | Acquired_Immunodeficiency_Syndrome (dolutegravir, bictegravir) |
 | `viral_assembly_release_inhibition` | Virion assembly / budding / egress (influenza neuraminidase, HCV NS5A replication complex, HBV capsid) | NA inhibitors, NS5A inhibitors, capsid assembly modulators | Influenza (oseltamivir, baloxavir target is endonuclease — see notes), Hepatitis_C (velpatasvir/ledipasvir) |

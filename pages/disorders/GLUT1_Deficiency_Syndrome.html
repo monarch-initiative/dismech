@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4395,6 +4437,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                SLC2A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11005</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SLC2A1 (hgnc:11005). hgnc:11005 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">The most common and severe presentation, with onset in infancy to early childhood. Predominant clinical findings are paroxysmal eye-head movements, pharmacoresistant seizures of varying types, deceleration of head growth, and developmental delay, followed by complex movement disorders and intellectual disability ranging from mild to severe.</div>
@@ -4455,6 +4516,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                SLC2A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11005</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SLC2A1 (hgnc:11005). hgnc:11005 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -5049,11 +5129,11 @@
 
 
 
-    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-3">
 
         cell-type-resolved metabolic and excitability mapping experiment
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this experiment is of type this experiment type
 This experiment is of type cell-type-resolved metabolic and excitability mapping experiment.</span>
     </span>
 
@@ -5159,11 +5239,11 @@ This experiment is of type cell-type-resolved metabolic and excitability mapping
 
 
 
-    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-2">
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-4">
 
         multielectrode array recording
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this readout is measured by this assay
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this readout is measured by this assay
 This readout is measured by multielectrode array recording.</span>
     </span>
 
@@ -5192,11 +5272,11 @@ This readout is measured by multielectrode array recording.</span>
 
 
 
-    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-3">
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
 
         electroencephalography
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this readout is measured by this assay
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this readout is measured by this assay
 This readout is measured by electroencephalography.</span>
     </span>
 
@@ -5427,11 +5507,11 @@ This readout is measured by electroencephalography.</span>
 
 
 
-    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-4">
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-6">
 
         treatment-timing endpoint dissociation experiment
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this experiment is of type this experiment type
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this experiment is of type this experiment type
 This experiment is of type treatment-timing endpoint dissociation experiment.</span>
     </span>
 
@@ -5537,11 +5617,11 @@ This experiment is of type treatment-timing endpoint dissociation experiment.</s
 
 
 
-    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-7">
 
         electroencephalography
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this readout is measured by this assay
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this readout is measured by this assay
 This readout is measured by electroencephalography.</span>
     </span>
 
@@ -5604,11 +5684,11 @@ This readout is measured by electroencephalography.</span>
 
 
 
-    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-6">
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-8">
 
         behavioral assay
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this readout is measured by this assay
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this readout is measured by this assay
 This readout is measured by behavioral assay.</span>
     </span>
 
@@ -5859,11 +5939,11 @@ This readout is measured by behavioral assay.</span>
 
 
 
-    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-7">
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-9">
 
         provocation phenotyping experiment
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this experiment is of type this experiment type
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">Relation: this experiment is of type this experiment type
 This experiment is of type provocation phenotyping experiment.</span>
     </span>
 
@@ -5928,11 +6008,11 @@ This experiment is of type provocation phenotyping experiment.</span>
 
 
 
-    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-8">
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-10">
 
         behavioral assay
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this readout is measured by this assay
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">Relation: this readout is measured by this assay
 This readout is measured by behavioral assay.</span>
     </span>
 
@@ -5961,11 +6041,11 @@ This readout is measured by behavioral assay.</span>
 
 
 
-    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-9">
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-11">
 
         electroencephalography
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-9">Relation: this readout is measured by this assay
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">Relation: this readout is measured by this assay
 This readout is measured by electroencephalography.</span>
     </span>
 
@@ -6262,6 +6342,13 @@ This readout is measured by electroencephalography.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc2a1-loss-of-function-variant" data-dismech-node="SLC2A1 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">SLC2A1 Loss-of-Function Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Heterozygous (rarely biallelic) pathogenic variants in SLC2A1 reduce the amount or function of the GLUT1 facilitative glucose transporter protein, typically through haploinsufficiency.</div>
 
 
@@ -6293,11 +6380,11 @@ This readout is measured by electroencephalography.</span>
         SLC2A1
 
 
-    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11005</a>
+    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:11005</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves SLC2A1 (hgnc:11005). hgnc:11005 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -6336,11 +6423,11 @@ This pathophysiological event involves SLC2A1 (hgnc:11005). hgnc:11005 is a gene
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055056" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0055056</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055056" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0055056</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased D-glucose transmembrane transporter activity (GO:0055056). GO:0055056 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -6519,6 +6606,13 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-glut1-transporter-function-at-the-blood-brain-barrier" data-dismech-node="Reduced GLUT1 Transporter Function at the Blood-Brain Barrier" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced GLUT1 Transporter Function at the Blood-Brain Barrier</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">GLUT1 is the transporter responsible for facilitated glucose diffusion across the endothelial cells that form the blood-brain barrier, as well as glucose uptake into erythrocytes. Reduced GLUT1 activity impairs the rate at which glucose can be delivered from blood to brain, independent of blood glucose concentration.</div>
 
 
@@ -6551,11 +6645,11 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000044" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:2000044</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000044" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:2000044</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Brain Microvascular Endothelial Cell (CL:2000044). CL:2000044 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6592,11 +6686,11 @@ This pathophysiological event involves Brain Microvascular Endothelial Cell (CL:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1904659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:1904659</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1904659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:1904659</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased D-glucose transmembrane transport (GO:1904659). GO:1904659 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6631,11 +6725,11 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055056" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0055056</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055056" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0055056</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased D-glucose transmembrane transporter activity (GO:0055056). GO:0055056 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -6671,11 +6765,11 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000120" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0000120</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000120" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0000120</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in blood-brain barrier, annotated with blood brain barrier (UBERON:0000120). UBERON:0000120 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -6827,6 +6921,13 @@ This pathophysiological event occurs in blood-brain barrier, annotated with bloo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebral-glucose-energy-deficit" data-dismech-node="Cerebral Glucose Energy Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebral Glucose Energy Deficit</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Chronic under-supply of glucose to neurons and glia produces a state of cerebral energy insufficiency during the period of childhood brain development when glucose demand is highest, driving neuronal hyperexcitability, impaired neurodevelopment, and deceleration of brain (and hence head) growth.</div>
 
 
@@ -6852,11 +6953,11 @@ This pathophysiological event occurs in blood-brain barrier, annotated with bloo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6882,11 +6983,11 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000127</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6923,11 +7024,11 @@ This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006091" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006091</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006091" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006091</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Generation of Precursor Metabolites and Energy (GO:0006091). GO:0006091 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6964,11 +7065,11 @@ This pathophysiological event involves decreased Generation of Precursor Metabol
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0000955</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7163,6 +7264,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-hyperexcitability-and-hypersynchrony" data-dismech-node="Neuronal Hyperexcitability and Hypersynchrony" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Hyperexcitability and Hypersynchrony</div>
 
+
                 <div class="item-desc">Cortical and subcortical neuronal networks deprived of adequate glucose fuel become hyperexcitable, producing hypersynchronous discharges that manifest as pharmacoresistant seizures of varying semiology. This node conforms to the shared epilepsy excitation-inhibition-imbalance final common pathway, substituting a metabolic (energy-deficit) upstream driver rather than a primary ion-channel lesion.</div>
 
 
@@ -7177,11 +7279,11 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -7221,11 +7323,11 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0000956</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7387,6 +7489,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neurodevelopment-and-movement-disorder" data-dismech-node="Impaired Neurodevelopment and Movement Disorder" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neurodevelopment and Movement Disorder</div>
 
+
                 <div class="item-desc">Chronic cerebral energy deficit produces a complex, often paroxysmal movement disorder (ataxia, dystonia, spasticity), speech difficulty, and intellectual disability that can present alone or alongside epilepsy, reflecting the breadth of the GLUT1DS phenotypic spectrum.</div>
 
 
@@ -7401,11 +7504,11 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -7442,11 +7545,11 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007420" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0007420</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007420" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0007420</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased brain development (GO:0007420). GO:0007420 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7657,6 +7760,7 @@ This pathophysiological event involves decreased brain development (GO:0007420).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-pharmacoresistant-seizures" data-dismech-node="Recurrent Pharmacoresistant Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Pharmacoresistant Seizures</div>
 
+
                 <div class="item-desc">The clinical endpoint of cortical hyperexcitability is recurrent, typically pharmacoresistant, epileptic seizures of varying types beginning in infancy or early childhood.</div>
 
 
@@ -7671,11 +7775,11 @@ This pathophysiological event involves decreased brain development (GO:0007420).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -7839,6 +7943,13 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erythrocyte-glut1-dysfunction" data-dismech-node="Erythrocyte GLUT1 Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Erythrocyte GLUT1 Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Erythrocytes express the same GLUT1 transporter as the brain endothelium, so the haploinsufficient state is measurable outside the brain as reduced 3-O-methyl-D-glucose uptake (typically about half of control Vmax with an unchanged Km) and, with flow cytometry, as reduced surface GLUT1. Residual uptake tracks clinical severity. Certain pore-region alleles additionally render the mutant transporter leaky to cations, disturbing red-cell sodium, potassium and calcium and producing echinocytosis and hemolysis. This node is chiefly a diagnostic surrogate of the primary lesion; only the cation leak branch is itself pathogenic.</div>
 
 
@@ -7864,11 +7975,11 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000232</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -7905,11 +8016,11 @@ This pathophysiological event involves Erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1904659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:1904659</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1904659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:1904659</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased D-glucose transmembrane transport (GO:1904659). GO:1904659 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -8059,6 +8170,13 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arrested-cerebral-angiogenesis-and-microvascular-diminution" data-dismech-node="Arrested Cerebral Angiogenesis and Microvascular Diminution" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrested Cerebral Angiogenesis and Microvascular Diminution</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">In Glut1-deficient mice, low endothelial GLUT1 arrests postnatal cerebral angiogenesis and leaves a profoundly reduced brain microvasculature while barrier integrity is preserved. Pre-symptomatic AAV9-mediated GLUT1 repletion averts the vascular defect and the disease; late (adult) repletion does not. The 2020 consensus statement adopts impaired microvascular development as a complication of delayed treatment, but direct human vascular data are lacking, so this node is provisional and is the structural basis of an emerging, non-fuel mechanism.</div>
 
 
@@ -8084,11 +8202,11 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000044" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:2000044</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000044" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:2000044</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Brain Microvascular Endothelial Cell (CL:2000044). CL:2000044 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -8125,11 +8243,11 @@ This pathophysiological event involves Brain Microvascular Endothelial Cell (CL:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0001525</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cerebral angiogenesis, annotated with angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -8166,11 +8284,11 @@ This pathophysiological event involves decreased cerebral angiogenesis, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-31">UBERON:0000955</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8308,6 +8426,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exertion-and-fasting-sensitive-basal-ganglia-energy-failure" data-dismech-node="Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Under sustained exertion or fasting, the marginal glucose supply of the energy-deficient brain is transiently overwhelmed in corticostriatal circuits, producing episodes of choreoathetosis or dystonia affecting mainly the legs (paroxysmal exercise-induced dyskinesia). The same triggers aggravate seizures and paroxysmal ataxia. Functional imaging in PED families implicates altered glucose metabolism in the corticostriate pathways; the exertion-induced energy-deficit model is proposed rather than directly measured in the basal ganglia.</div>
 
 
@@ -8333,11 +8458,11 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-32">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -8374,11 +8499,11 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006091" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0006091</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006091" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0006091</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Generation of Precursor Metabolites and Energy (GO:0006091). GO:0006091 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -8415,11 +8540,11 @@ This pathophysiological event involves decreased Generation of Precursor Metabol
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-32">UBERON:0002420</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-34">UBERON:0002420</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in basal ganglia, annotated with basal ganglion (UBERON:0002420). UBERON:0002420 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8569,7 +8694,7 @@ This pathophysiological event occurs in basal ganglia, annotated with basal gang
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV9-Mediated GLUT1 Gene Replacement (Experimental)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Experimental, preclinical only. In Glut1-deficient mice, pre-symptomatic AAV9-mediated repletion of GLUT1 averts the brain microvascular defect and prevents disease, and repletion in early-symptomatic animals still restores the microvasculature and ameliorates disease, whereas adult repletion gives no benefit. The 2020 consensus notes that interventions to restore GLUT1 protein content and function are in development. No human trial of GLUT1 gene replacement is cited here.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Absence seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence seizures, including early-onset absence epilepsy beginning before age four, are a characteristic seizure type; SLC2A1 variants account for about one in ten cases of absence epilepsy screened in a Danish series.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002121\"}}, {\"id\": \"Arrested Cerebral Angiogenesis and Microvascular Diminution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Glut1-deficient mice, low endothelial GLUT1 arrests postnatal cerebral angiogenesis and leaves a profoundly reduced brain microvasculature while barrier integrity is preserved. Pre-symptomatic AAV9-mediated GLUT1 repletion averts the vascular defect and the disease; late (adult) repletion does not. The 2020 consensus statement adopts impaired microvascular development as a complication of delayed treatment, but direct human vascular data are lacking, so this node is provisional and is the structural basis of an emerging, non-fuel mechanism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Brain Microvascular Endothelial Cell\"], \"biological_processes\": [\"cerebral angiogenesis\"], \"role\": \"mediator\", \"locations\": [\"brain\"], \"animal_models\": [{\"name\": \"Glut1-deficient mouse with AAV9-mediated Glut1 repletion\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1-deficient model mice, with or without AAV9-mediated Glut1 repletion at defined ages\", \"category\": \"Genetically engineered with gene-replacement rescue\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"description\": \"The vascular phenotype is defined in this model; the human counterpart has not been measured.\"}, {\"name\": \"Glut1-deficient mouse with AAV9-mediated Glut1 repletion\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1-deficient model mice, with or without AAV9-mediated Glut1 repletion at defined ages\", \"category\": \"Genetically engineered with gene-replacement rescue\", \"relationship\": \"RESCUES\", \"fidelity\": \"UNKNOWN\", \"description\": \"Early AAV9-Glut1 repletion restores the microvasculature; adult repletion does not.\"}]}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impaired coordination of voluntary movement, part of the complex movement disorder that emerges as GLUT1DS progresses.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cerebral Glucose Energy Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic under-supply of glucose to neurons and glia produces a state of cerebral energy insufficiency during the period of childhood brain development when glucose demand is highest, driving neuronal hyperexcitability, impaired neurodevelopment, and deceleration of brain (and hence head) growth.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Generation of Precursor Metabolites and Energy\"], \"role\": \"mediator\", \"locations\": [\"brain\"], \"animal_models\": [{\"name\": \"Glut1 Rgsc200 ENU missense mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1 Rgsc200 heterozygous missense at residue 324; homozygotes embryonic lethal\", \"category\": \"Chemically induced by ENU mutagenesis\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced brain glucose transport with compensatory hexokinase upregulation reproduces the supply-limited energy state.\"}]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sustained or intermittent muscle contractions causing abnormal, often repetitive movements or postures; part of the complex movement disorder of GLUT1DS and the dominant feature of the paroxysmal-dyskinesia-predominant subtype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Erythrocyte 3-O-methyl-D-glucose uptake\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Decreased\", \"readouts\": [{\"target\": \"Erythrocyte GLUT1 Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced uptake reports the transport capacity of the haploinsufficient GLUT1 population on the erythrocyte membrane.\"}]}}, {\"id\": \"Erythrocyte GLUT1 Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Erythrocytes express the same GLUT1 transporter as the brain endothelium, so the haploinsufficient state is measurable outside the brain as reduced 3-O-methyl-D-glucose uptake (typically about half of control Vmax with an unchanged Km) and, with flow cytometry, as reduced surface GLUT1. Residual uptake tracks clinical severity. Certain pore-region alleles additionally render the mutant transporter leaky to cations, disturbing red-cell sodium, potassium and calcium and producing echinocytosis and hemolysis. This node is chiefly a diagnostic surrogate of the primary lesion; only the cation leak branch is itself pathogenic.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Erythrocyte\"], \"biological_processes\": [\"D-glucose transmembrane transport\"], \"role\": \"mediator\"}}, {\"id\": \"Erythrocyte surface GLUT1 (METAglut1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Decreased\", \"readouts\": [{\"target\": \"Erythrocyte GLUT1 Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced surface GLUT1 reports the reduced transporter content of the erythrocyte membrane.\"}]}}, {\"id\": \"Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under sustained exertion or fasting, the marginal glucose supply of the energy-deficient brain is transiently overwhelmed in corticostriatal circuits, producing episodes of choreoathetosis or dystonia affecting mainly the legs (paroxysmal exercise-induced dyskinesia). The same triggers aggravate seizures and paroxysmal ataxia. Functional imaging in PED families implicates altered glucose metabolism in the corticostriate pathways; the exertion-induced energy-deficit model is proposed rather than directly measured in the basal ganglia.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Generation of Precursor Metabolites and Energy\"], \"role\": \"mediator\", \"locations\": [\"basal ganglia\"]}}, {\"id\": \"Fasting and hunger\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Fasting or hunger lowers substrate supply to an already glucose-limited brain. Hunger was the most frequent aggravating factor for paroxysmal events in the Japanese nationwide cohort, fasting sensitivity discriminates SLC2A1-positive patients, and pre-prandial EEG abnormalities improve after feeding.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Focal seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Partial (focal-onset) seizures occur alongside the generalized seizure types, particularly in infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007359\"}}, {\"id\": \"Gait disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait disturbance reflecting the combined ataxia, dystonia and spasticity; percent-predicted 6-Minute Walk distance tracks overall neurological severity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001288\"}}, {\"id\": \"Generalized 2.5-4 Hz spike-wave EEG\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Interictal EEG is most often normal, but when abnormal the characteristic finding from about two years of age is generalized 2.5-4 Hz spike-wave discharges, which improve after food intake; focal discharges and slowing predominate in infants.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0010850\"}}, {\"id\": \"Generalized tonic-clonic seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized tonic or clonic seizures were the most frequent seizure type in a 20-child series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002069\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed acquisition of motor and cognitive milestones, typically apparent from infancy, with mild-to-severe intellectual disability persisting into later childhood and adulthood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glut1 Rgsc200 ENU missense mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An ENU-induced missense allele at residue 324 of Glut1. Heterozygotes show decreased CSF glucose, contextual learning deficits, reduced body size, seizure-like behaviour, spontaneous EEG abnormalities and a longer wake and shorter NREM sleep pattern; FDG-PET kinetics show reduced glucose transport with enhanced hexokinase activity. Homozygotes die in utero, paralleling the presumed lethality of complete GLUT1 loss in humans.\"}, {\"id\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The first mouse model of Glut1DS: heterozygous disruption of the Glut1 promoter and exon 1 reduces brain Glut1 to 66% of wild type and produces epileptiform EEG discharges, impaired motor activity and incoordination, hypoglycorrhachia, microencephaly and reduced brain glucose uptake on PET, mimicking the classical human presentation.\"}, {\"id\": \"Glut1-deficient mouse with AAV9-mediated Glut1 repletion\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Glut1-deficient model mice used to show that low Glut1 arrests cerebral angiogenesis and diminishes the brain microvasculature without breaching the blood-brain barrier, and that pre-symptomatic or early-symptomatic AAV9-mediated Glut1 repletion restores the microvasculature and prevents or ameliorates disease, whereas adult repletion does not.\"}, {\"id\": \"Hemolytic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemolytic anemia with echinocytosis and altered erythrocyte ion concentrations occurs in the subset of families whose SLC2A1 allele creates a cation leak through the mutant transporter; it is absent with alleles that only reduce glucose transport.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001878\"}}, {\"id\": \"Hypoglycorrhachia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"presence\": \"Decreased\", \"term_id\": \"HP:0011972\", \"term_label\": \"Hypoglycorrhachia\", \"readouts\": [{\"target\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A low CSF:blood glucose ratio reports reduced GLUT1-mediated glucose transport across the blood-brain barrier independent of systemic glucose levels.\"}]}}, {\"id\": \"Hypoglycorrhachia (low CSF glucose)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low CSF glucose (typically below 2.5 mmol/L, mean about 1.7 mmol/L) with a CSF:blood glucose ratio usually below 0.5 in the presence of normal blood glucose. Present in essentially all genetically confirmed patients when age-specific reference values are applied, so it is the diagnostic laboratory phenotype; rare reports of apparently normal CSF glucose exist.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011972\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced muscle tone, frequently observed alongside ataxia and dystonia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Neurodevelopment and Movement Disorder\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic cerebral energy deficit produces a complex, often paroxysmal movement disorder (ataxia, dystonia, spasticity), speech difficulty, and intellectual disability that can present alone or alongside epilepsy, reflecting the breadth of the GLUT1DS phenotypic spectrum.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"brain development\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1 heterozygous null, targeted disruption of the promoter and exon 1\", \"category\": \"Genetically engineered\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Microencephaly, impaired motor activity and incoordination reproduce the growth and motor consequences.\"}]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment ranging from mild learning difficulty to severe intellectual disability, present in essentially all classic cases and in the non-classical movement-disorder phenotype; it was the initial symptom in over 40% of a French national cohort.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Ketogenic Diet Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Age-specific ketogenic diet therapies (KDTs) supply ketone bodies as an alternative fuel for brain energy metabolism, bypassing the GLUT1 transport defect. Earlier initiation, ideally in infancy, is associated with better seizure control and long-term neurologic outcome. Effective for both seizure control and the movement disorder.\", \"meta\": {\"evidence_count\": 7}}, {\"id\": \"Modified Atkins Diet and other ketogenic dietary variants\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Less restrictive ketogenic dietary therapies (modified Atkins diet, medium-chain-triglyceride diet, low-glycaemic-index treatment) are used, particularly in older children and adults, and in a large family survey gave seizure-freedom rates comparable to the classic 4:1 diet. They act by the same ketone-supply mechanism as the classic diet.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Myoclonic seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonic seizures occur in a substantial minority and mark the more severe end of the spectrum, with worse intellectual and motor outcome than early-onset absence epilepsy in the French national cohort.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032794\"}}, {\"id\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cortical and subcortical neuronal networks deprived of adequate glucose fuel become hyperexcitable, producing hypersynchronous discharges that manifest as pharmacoresistant seizures of varying semiology. This node conforms to the shared epilepsy excitation-inhibition-imbalance final common pathway, substituting a metabolic (energy-deficit) upstream driver rather than a primary ion-channel lesion.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\"], \"role\": \"central_effector\", \"locations\": [\"cerebral cortex\"], \"animal_models\": [{\"name\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1 heterozygous null, targeted disruption of the promoter and exon 1\", \"category\": \"Genetically engineered\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Spontaneous epileptiform EEG discharges reproduce the hyperexcitable network state.\"}, {\"name\": \"Glut1 Rgsc200 ENU missense mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1 Rgsc200 heterozygous missense at residue 324; homozygotes embryonic lethal\", \"category\": \"Chemically induced by ENU mutagenesis\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Spontaneous EEG abnormalities and seizure-like behaviour both occur, but were not observed concurrently.\"}]}}, {\"id\": \"Paroxysmal Exercise/Exertion-Induced Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic dystonic or dyskinetic attacks of the extremities triggered by prolonged physical exertion, hunger, fever, or fatigue; the dominant presenting feature of the milder GLUT1DS2/DYT18 phenotype but also reported in classic disease.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007166\"}}, {\"id\": \"Paroxysmal eye-head movements\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paroxysmal, often multidirectional eye movements accompanied by head movements in the same direction are among the earliest signs in infancy and are frequently misread as seizures.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007704\"}}, {\"id\": \"Pharmacoresistant Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures of varying types (often including absence, myoclonic, or generalized tonic-clonic seizures), typically beginning in infancy and frequently resistant to conventional anti-seizure medications, but responsive to ketogenic diet therapy.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Progressive (Acquired) Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deceleration of head growth after a normal birth head circumference, reflecting impaired postnatal brain growth from the underlying cerebral energy deficit.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0005484\"}}, {\"id\": \"Prolonged or strenuous exercise\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sustained physical exertion is the defining trigger of paroxysmal exercise-induced dyskinesia and also aggravates paroxysmal ataxia, weakness and seizures. A standardised 6-Minute Walk Test reproducibly provokes episodes in long-term follow-up, and exertion sensitivity discriminates SLC2A1-positive from SLC2A1-negative patients.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Recurrent Pharmacoresistant Seizures\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint of cortical hyperexcitability is recurrent, typically pharmacoresistant, epileptic seizures of varying types beginning in infancy or early childhood.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Reduced CSF lactate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CSF lactate is low-to-normal, at or below the 10th percentile in about 80% of patients with reported values, in contrast to the raised CSF lactate of mitochondrial encephalopathies; this helps separate a transport defect from an oxidative one.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030086\"}}, {\"id\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GLUT1 is the transporter responsible for facilitated glucose diffusion across the endothelial cells that form the blood-brain barrier, as well as glucose uptake into erythrocytes. Reduced GLUT1 activity impairs the rate at which glucose can be delivered from blood to brain, independent of blood glucose concentration.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Brain Microvascular Endothelial Cell\"], \"biological_processes\": [\"D-glucose transmembrane transport\"], \"molecular_functions\": [\"D-glucose transmembrane transporter activity\"], \"role\": \"mediator\", \"locations\": [\"blood-brain barrier\"], \"animal_models\": [{\"name\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1 heterozygous null, targeted disruption of the promoter and exon 1\", \"category\": \"Genetically engineered\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reduced brain glucose uptake and hypoglycorrhachia reproduce the barrier transport failure.\"}]}}, {\"id\": \"SLC2A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"SLC2A1\"], \"gene_terms\": [{\"label\": \"SLC2A1\", \"id\": \"hgnc:11005\"}], \"frequency\": \"About 90% de novo; about 10% inherited from a parent\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SLC2A1 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous (rarely biallelic) pathogenic variants in SLC2A1 reduce the amount or function of the GLUT1 facilitative glucose transporter protein, typically through haploinsufficiency.\", \"meta\": {\"evidence_count\": 6, \"molecular_functions\": [\"D-glucose transmembrane transporter activity\"], \"genes\": [\"SLC2A1\"], \"gene_terms\": [{\"label\": \"SLC2A1\", \"id\": \"hgnc:11005\"}], \"role\": \"trigger\", \"animal_models\": [{\"name\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1 heterozygous null, targeted disruption of the promoter and exon 1\", \"category\": \"Genetically engineered\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The heterozygous null allele reproduces the haploinsufficient state, with brain Glut1 reduced to 66%.\"}]}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased muscle tone contributing to the complex movement disorder of GLUT1DS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Speech Difficulty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysarthria and other speech production difficulties associated with the movement disorder and developmental impairment of GLUT1DS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001260\"}}, {\"id\": \"Triheptanoin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Triheptanoin is an anaplerotic odd-chain (C7) medium-chain triglyceride that provides Krebs-cycle substrates and an alternative brain fuel independent of GLUT1. An open-label study reported marked reduction of non-epileptic paroxysmal manifestations and normalized brain bioenergetics, but a subsequent randomized placebo-controlled trial did not show a significant reduction in seizure frequency in patients not on a ketogenic diet, leaving its efficacy for the epilepsy phenotype unproven.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Triheptanoin\"]}}], \"edges\": [{\"source\": \"SLC2A1 Loss-of-Function Variant\", \"target\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss-of-function SLC2A1 variants reduce the density or activity of GLUT1 transporters expressed on brain microvascular endothelial cells.\", \"hypothesis_groups\": [\"canonical_glut1_energy_deficit\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SLC2A1 Loss-of-Function Variant\", \"target\": \"Erythrocyte GLUT1 Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same haploinsufficient transporter is expressed on erythrocytes, so red-cell hexose uptake falls in parallel with brain transport and serves as the accessible functional surrogate of the lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"target\": \"Cerebral Glucose Energy Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insufficient transendothelial glucose flux starves brain tissue of its principal metabolic substrate, independent of normal peripheral blood glucose levels.\", \"hypothesis_groups\": [\"canonical_glut1_energy_deficit\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"target\": \"Hypoglycorrhachia (low CSF glucose)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced endothelial glucose flux lowers glucose in the CSF and brain interstitium while blood glucose stays normal, so the CSF:blood glucose ratio falls.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"target\": \"Arrested Cerebral Angiogenesis and Microvascular Diminution\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Beyond fuel delivery, endothelial GLUT1 is required for postnatal cerebral angiogenesis; low GLUT1 arrests microvessel expansion in model mice.\", \"hypothesis_groups\": [\"microvascular_developmental_defect\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Glucose Energy Deficit\", \"target\": \"Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When energy demand rises (sustained exertion) or substrate supply falls (fasting), the marginal glucose supply to metabolically expensive basal ganglia circuits is transiently exceeded.\", \"hypothesis_groups\": [\"canonical_glut1_energy_deficit\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Glucose Energy Deficit\", \"target\": \"Reduced CSF lactate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower glycolytic substrate delivery is the presumed reason CSF lactate is low-to-normal rather than raised; the intermediate steps are inferred, and the finding distinguishes Glut1DS from mitochondrial disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral Glucose Energy Deficit\", \"target\": \"Paroxysmal eye-head movements\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Paroxysmal eye-head movements are among the earliest signs of the infantile energy deficit; the circuit through which they arise is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral Glucose Energy Deficit\", \"target\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy-deficient neurons and cortical circuits become hyperexcitable and hypersynchronous, generating the pharmacoresistant seizures characteristic of Glut1DS.\", \"hypothesis_groups\": [\"canonical_glut1_energy_deficit\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral Glucose Energy Deficit\", \"target\": \"Impaired Neurodevelopment and Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained cerebral energy insufficiency during critical developmental windows impairs neurodevelopment and produces a complex movement disorder combining ataxia, dystonia, and spasticity, together with deceleration of head growth (acquired/progressive microcephaly).\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"target\": \"Recurrent Pharmacoresistant Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperexcitable, hypersynchronous cortical networks manifest clinically as recurrent seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"target\": \"Generalized 2.5-4 Hz spike-wave EEG\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The interictal electrographic signature of the hypersynchronous network, most prominent from about two years of age.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Progressive (Acquired) Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced postnatal brain growth is expressed as deceleration of head growth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Speech Difficulty\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Gait disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gait disturbance is the functional composite of ataxia, dystonia and spasticity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Recurrent Pharmacoresistant Seizures\", \"target\": \"Pharmacoresistant Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Pharmacoresistant Seizures\", \"target\": \"Absence seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Pharmacoresistant Seizures\", \"target\": \"Myoclonic seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Pharmacoresistant Seizures\", \"target\": \"Generalized tonic-clonic seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Pharmacoresistant Seizures\", \"target\": \"Focal seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Erythrocyte GLUT1 Dysfunction\", \"target\": \"Hemolytic anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Restricted to alleles that create a cation leak (e.g. Q282_S285del); alleles that only reduce transport (A275T, G314S) do not cause hemolysis.\", \"hypothesis_groups\": [\"erythrocyte_cation_leak_hemolysis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrested Cerebral Angiogenesis and Microvascular Diminution\", \"target\": \"Impaired Neurodevelopment and Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A diminished microvascular bed is proposed to compound the fuel deficit and contribute to cognitive dysfunction; the human contribution is unquantified.\", \"hypothesis_groups\": [\"microvascular_developmental_defect\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure\", \"target\": \"Paroxysmal Exercise/Exertion-Induced Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_glut1_energy_deficit\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged or strenuous exercise\", \"target\": \"Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Sustained muscular activity raises whole-body and cerebral glucose demand beyond what the haploinsufficient transporter can deliver to corticostriatal circuits.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fasting and hunger\", \"target\": \"Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Reduced blood glucose availability lowers an already marginal cerebral supply.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fasting and hunger\", \"target\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Pre-prandial worsening and post-prandial improvement of spike-wave discharges tie network hyperexcitability to the fuel state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ketogenic Diet Therapy\", \"target\": \"Cerebral Glucose Energy Deficit\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic Diet Therapy\", \"target\": \"Pharmacoresistant Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ketogenic Diet Therapy\", \"target\": \"Paroxysmal Exercise/Exertion-Induced Dyskinesia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Modified Atkins Diet and other ketogenic dietary variants\", \"target\": \"Cerebral Glucose Energy Deficit\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triheptanoin\", \"target\": \"Cerebral Glucose Energy Deficit\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV9-Mediated GLUT1 Gene Replacement (Experimental)\", \"target\": \"SLC2A1 Loss-of-Function Variant\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV9-Mediated GLUT1 Gene Replacement (Experimental)\", \"target\": \"Arrested Cerebral Angiogenesis and Microvascular Diminution\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"target\": \"SLC2A1 Loss-of-Function Variant\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The heterozygous null allele reproduces the haploinsufficient state, with brain Glut1 reduced to 66%.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"target\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced brain glucose uptake and hypoglycorrhachia reproduce the barrier transport failure.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"target\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Spontaneous epileptiform EEG discharges reproduce the hyperexcitable network state.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Discharges are reported, not the human electroclinical syndrome; whether the mouse shows absence-like 2.5-4 Hz spike-wave or a food-responsive EEG is not stated in the abstract.\"}, {\"source\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"target\": \"Impaired Neurodevelopment and Movement Disorder\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Microencephaly, impaired motor activity and incoordination reproduce the growth and motor consequences.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mouse motor impairment does not reproduce human dystonia, spasticity or paroxysmal exertion-induced dyskinesia, and rodent learning measures differ in kind from human intellectual disability; see the HUMAN_MODEL_MISMATCH discussion on paroxysmal phenotype fidelity.\"}, {\"source\": \"Glut1 Rgsc200 ENU missense mouse\", \"target\": \"Cerebral Glucose Energy Deficit\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced brain glucose transport with compensatory hexokinase upregulation reproduces the supply-limited energy state.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A missense allele of unknown residual transport, so the depth of the deficit is not calibrated against the human haploinsufficient range, and the enhanced hexokinase activity is a mouse observation not yet shown in patients.\"}, {\"source\": \"Glut1 Rgsc200 ENU missense mouse\", \"target\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Spontaneous EEG abnormalities and seizure-like behaviour both occur, but were not observed concurrently.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"EEG abnormality and seizure-like behaviour were dissociated in time, so electroclinical seizures were not demonstrated in this model.\"}, {\"source\": \"Glut1-deficient mouse with AAV9-mediated Glut1 repletion\", \"target\": \"Arrested Cerebral Angiogenesis and Microvascular Diminution\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The vascular phenotype is defined in this model; the human counterpart has not been measured.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"limitations\": \"Fidelity cannot be graded because no human cerebral microvascular data exist for comparison, which is itself the subject of an open HUMAN_MODEL_MISMATCH question.\"}, {\"source\": \"Glut1-deficient mouse with AAV9-mediated Glut1 repletion\", \"target\": \"Arrested Cerebral Angiogenesis and Microvascular Diminution\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Early AAV9-Glut1 repletion restores the microvasculature; adult repletion does not.\", \"relationship\": \"RESCUES\", \"fidelity\": \"UNKNOWN\"}, {\"source\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"target\": \"Hypoglycorrhachia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A low CSF:blood glucose ratio reports reduced GLUT1-mediated glucose transport across the blood-brain barrier independent of systemic glucose levels.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Erythrocyte GLUT1 Dysfunction\", \"target\": \"Erythrocyte 3-O-methyl-D-glucose uptake\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced uptake reports the transport capacity of the haploinsufficient GLUT1 population on the erythrocyte membrane.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Erythrocyte GLUT1 Dysfunction\", \"target\": \"Erythrocyte surface GLUT1 (METAglut1)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced surface GLUT1 reports the reduced transporter content of the erythrocyte membrane.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SLC2A1\", \"target\": \"SLC2A1 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV9-Mediated GLUT1 Gene Replacement (Experimental)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Experimental, preclinical only. In Glut1-deficient mice, pre-symptomatic AAV9-mediated repletion of GLUT1 averts the brain microvascular defect and prevents disease, and repletion in early-symptomatic animals still restores the microvasculature and ameliorates disease, whereas adult repletion gives no benefit. The 2020 consensus notes that interventions to restore GLUT1 protein content and function are in development. No human trial of GLUT1 gene replacement is cited here.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Absence seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence seizures, including early-onset absence epilepsy beginning before age four, are a characteristic seizure type; SLC2A1 variants account for about one in ten cases of absence epilepsy screened in a Danish series.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002121\"}}, {\"id\": \"Arrested Cerebral Angiogenesis and Microvascular Diminution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Glut1-deficient mice, low endothelial GLUT1 arrests postnatal cerebral angiogenesis and leaves a profoundly reduced brain microvasculature while barrier integrity is preserved. Pre-symptomatic AAV9-mediated GLUT1 repletion averts the vascular defect and the disease; late (adult) repletion does not. The 2020 consensus statement adopts impaired microvascular development as a complication of delayed treatment, but direct human vascular data are lacking, so this node is provisional and is the structural basis of an emerging, non-fuel mechanism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Brain Microvascular Endothelial Cell\"], \"biological_processes\": [\"cerebral angiogenesis\"], \"role\": \"mediator\", \"locations\": [\"brain\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Glut1-deficient mouse with AAV9-mediated Glut1 repletion\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1-deficient model mice, with or without AAV9-mediated Glut1 repletion at defined ages\", \"category\": \"Genetically engineered with gene-replacement rescue\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"description\": \"The vascular phenotype is defined in this model; the human counterpart has not been measured.\"}, {\"name\": \"Glut1-deficient mouse with AAV9-mediated Glut1 repletion\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1-deficient model mice, with or without AAV9-mediated Glut1 repletion at defined ages\", \"category\": \"Genetically engineered with gene-replacement rescue\", \"relationship\": \"RESCUES\", \"fidelity\": \"UNKNOWN\", \"description\": \"Early AAV9-Glut1 repletion restores the microvasculature; adult repletion does not.\"}]}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impaired coordination of voluntary movement, part of the complex movement disorder that emerges as GLUT1DS progresses.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cerebral Glucose Energy Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic under-supply of glucose to neurons and glia produces a state of cerebral energy insufficiency during the period of childhood brain development when glucose demand is highest, driving neuronal hyperexcitability, impaired neurodevelopment, and deceleration of brain (and hence head) growth.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Generation of Precursor Metabolites and Energy\"], \"role\": \"mediator\", \"locations\": [\"brain\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Glut1 Rgsc200 ENU missense mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1 Rgsc200 heterozygous missense at residue 324; homozygotes embryonic lethal\", \"category\": \"Chemically induced by ENU mutagenesis\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced brain glucose transport with compensatory hexokinase upregulation reproduces the supply-limited energy state.\"}]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sustained or intermittent muscle contractions causing abnormal, often repetitive movements or postures; part of the complex movement disorder of GLUT1DS and the dominant feature of the paroxysmal-dyskinesia-predominant subtype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Erythrocyte 3-O-methyl-D-glucose uptake\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Decreased\", \"readouts\": [{\"target\": \"Erythrocyte GLUT1 Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced uptake reports the transport capacity of the haploinsufficient GLUT1 population on the erythrocyte membrane.\"}]}}, {\"id\": \"Erythrocyte GLUT1 Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Erythrocytes express the same GLUT1 transporter as the brain endothelium, so the haploinsufficient state is measurable outside the brain as reduced 3-O-methyl-D-glucose uptake (typically about half of control Vmax with an unchanged Km) and, with flow cytometry, as reduced surface GLUT1. Residual uptake tracks clinical severity. Certain pore-region alleles additionally render the mutant transporter leaky to cations, disturbing red-cell sodium, potassium and calcium and producing echinocytosis and hemolysis. This node is chiefly a diagnostic surrogate of the primary lesion; only the cation leak branch is itself pathogenic.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Erythrocyte\"], \"biological_processes\": [\"D-glucose transmembrane transport\"], \"role\": \"mediator\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Erythrocyte surface GLUT1 (METAglut1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Decreased\", \"readouts\": [{\"target\": \"Erythrocyte GLUT1 Dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced surface GLUT1 reports the reduced transporter content of the erythrocyte membrane.\"}]}}, {\"id\": \"Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under sustained exertion or fasting, the marginal glucose supply of the energy-deficient brain is transiently overwhelmed in corticostriatal circuits, producing episodes of choreoathetosis or dystonia affecting mainly the legs (paroxysmal exercise-induced dyskinesia). The same triggers aggravate seizures and paroxysmal ataxia. Functional imaging in PED families implicates altered glucose metabolism in the corticostriate pathways; the exertion-induced energy-deficit model is proposed rather than directly measured in the basal ganglia.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Generation of Precursor Metabolites and Energy\"], \"role\": \"mediator\", \"locations\": [\"basal ganglia\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Fasting and hunger\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Fasting or hunger lowers substrate supply to an already glucose-limited brain. Hunger was the most frequent aggravating factor for paroxysmal events in the Japanese nationwide cohort, fasting sensitivity discriminates SLC2A1-positive patients, and pre-prandial EEG abnormalities improve after feeding.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Focal seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Partial (focal-onset) seizures occur alongside the generalized seizure types, particularly in infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007359\"}}, {\"id\": \"Gait disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait disturbance reflecting the combined ataxia, dystonia and spasticity; percent-predicted 6-Minute Walk distance tracks overall neurological severity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001288\"}}, {\"id\": \"Generalized 2.5-4 Hz spike-wave EEG\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Interictal EEG is most often normal, but when abnormal the characteristic finding from about two years of age is generalized 2.5-4 Hz spike-wave discharges, which improve after food intake; focal discharges and slowing predominate in infants.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0010850\"}}, {\"id\": \"Generalized tonic-clonic seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized tonic or clonic seizures were the most frequent seizure type in a 20-child series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002069\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed acquisition of motor and cognitive milestones, typically apparent from infancy, with mild-to-severe intellectual disability persisting into later childhood and adulthood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glut1 Rgsc200 ENU missense mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An ENU-induced missense allele at residue 324 of Glut1. Heterozygotes show decreased CSF glucose, contextual learning deficits, reduced body size, seizure-like behaviour, spontaneous EEG abnormalities and a longer wake and shorter NREM sleep pattern; FDG-PET kinetics show reduced glucose transport with enhanced hexokinase activity. Homozygotes die in utero, paralleling the presumed lethality of complete GLUT1 loss in humans.\"}, {\"id\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The first mouse model of Glut1DS: heterozygous disruption of the Glut1 promoter and exon 1 reduces brain Glut1 to 66% of wild type and produces epileptiform EEG discharges, impaired motor activity and incoordination, hypoglycorrhachia, microencephaly and reduced brain glucose uptake on PET, mimicking the classical human presentation.\"}, {\"id\": \"Glut1-deficient mouse with AAV9-mediated Glut1 repletion\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Glut1-deficient model mice used to show that low Glut1 arrests cerebral angiogenesis and diminishes the brain microvasculature without breaching the blood-brain barrier, and that pre-symptomatic or early-symptomatic AAV9-mediated Glut1 repletion restores the microvasculature and prevents or ameliorates disease, whereas adult repletion does not.\"}, {\"id\": \"Hemolytic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemolytic anemia with echinocytosis and altered erythrocyte ion concentrations occurs in the subset of families whose SLC2A1 allele creates a cation leak through the mutant transporter; it is absent with alleles that only reduce glucose transport.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001878\"}}, {\"id\": \"Hypoglycorrhachia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"presence\": \"Decreased\", \"term_id\": \"HP:0011972\", \"term_label\": \"Hypoglycorrhachia\", \"readouts\": [{\"target\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A low CSF:blood glucose ratio reports reduced GLUT1-mediated glucose transport across the blood-brain barrier independent of systemic glucose levels.\"}]}}, {\"id\": \"Hypoglycorrhachia (low CSF glucose)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low CSF glucose (typically below 2.5 mmol/L, mean about 1.7 mmol/L) with a CSF:blood glucose ratio usually below 0.5 in the presence of normal blood glucose. Present in essentially all genetically confirmed patients when age-specific reference values are applied, so it is the diagnostic laboratory phenotype; rare reports of apparently normal CSF glucose exist.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011972\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced muscle tone, frequently observed alongside ataxia and dystonia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Neurodevelopment and Movement Disorder\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic cerebral energy deficit produces a complex, often paroxysmal movement disorder (ataxia, dystonia, spasticity), speech difficulty, and intellectual disability that can present alone or alongside epilepsy, reflecting the breadth of the GLUT1DS phenotypic spectrum.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"brain development\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1 heterozygous null, targeted disruption of the promoter and exon 1\", \"category\": \"Genetically engineered\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Microencephaly, impaired motor activity and incoordination reproduce the growth and motor consequences.\"}]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment ranging from mild learning difficulty to severe intellectual disability, present in essentially all classic cases and in the non-classical movement-disorder phenotype; it was the initial symptom in over 40% of a French national cohort.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Ketogenic Diet Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Age-specific ketogenic diet therapies (KDTs) supply ketone bodies as an alternative fuel for brain energy metabolism, bypassing the GLUT1 transport defect. Earlier initiation, ideally in infancy, is associated with better seizure control and long-term neurologic outcome. Effective for both seizure control and the movement disorder.\", \"meta\": {\"evidence_count\": 7}}, {\"id\": \"Modified Atkins Diet and other ketogenic dietary variants\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Less restrictive ketogenic dietary therapies (modified Atkins diet, medium-chain-triglyceride diet, low-glycaemic-index treatment) are used, particularly in older children and adults, and in a large family survey gave seizure-freedom rates comparable to the classic 4:1 diet. They act by the same ketone-supply mechanism as the classic diet.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Myoclonic seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonic seizures occur in a substantial minority and mark the more severe end of the spectrum, with worse intellectual and motor outcome than early-onset absence epilepsy in the French national cohort.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032794\"}}, {\"id\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cortical and subcortical neuronal networks deprived of adequate glucose fuel become hyperexcitable, producing hypersynchronous discharges that manifest as pharmacoresistant seizures of varying semiology. This node conforms to the shared epilepsy excitation-inhibition-imbalance final common pathway, substituting a metabolic (energy-deficit) upstream driver rather than a primary ion-channel lesion.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\"], \"role\": \"central_effector\", \"locations\": [\"cerebral cortex\"], \"animal_models\": [{\"name\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1 heterozygous null, targeted disruption of the promoter and exon 1\", \"category\": \"Genetically engineered\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Spontaneous epileptiform EEG discharges reproduce the hyperexcitable network state.\"}, {\"name\": \"Glut1 Rgsc200 ENU missense mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1 Rgsc200 heterozygous missense at residue 324; homozygotes embryonic lethal\", \"category\": \"Chemically induced by ENU mutagenesis\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Spontaneous EEG abnormalities and seizure-like behaviour both occur, but were not observed concurrently.\"}]}}, {\"id\": \"Paroxysmal Exercise/Exertion-Induced Dyskinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic dystonic or dyskinetic attacks of the extremities triggered by prolonged physical exertion, hunger, fever, or fatigue; the dominant presenting feature of the milder GLUT1DS2/DYT18 phenotype but also reported in classic disease.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007166\"}}, {\"id\": \"Paroxysmal eye-head movements\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paroxysmal, often multidirectional eye movements accompanied by head movements in the same direction are among the earliest signs in infancy and are frequently misread as seizures.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007704\"}}, {\"id\": \"Pharmacoresistant Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures of varying types (often including absence, myoclonic, or generalized tonic-clonic seizures), typically beginning in infancy and frequently resistant to conventional anti-seizure medications, but responsive to ketogenic diet therapy.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Progressive (Acquired) Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deceleration of head growth after a normal birth head circumference, reflecting impaired postnatal brain growth from the underlying cerebral energy deficit.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0005484\"}}, {\"id\": \"Prolonged or strenuous exercise\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sustained physical exertion is the defining trigger of paroxysmal exercise-induced dyskinesia and also aggravates paroxysmal ataxia, weakness and seizures. A standardised 6-Minute Walk Test reproducibly provokes episodes in long-term follow-up, and exertion sensitivity discriminates SLC2A1-positive from SLC2A1-negative patients.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Recurrent Pharmacoresistant Seizures\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint of cortical hyperexcitability is recurrent, typically pharmacoresistant, epileptic seizures of varying types beginning in infancy or early childhood.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Reduced CSF lactate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CSF lactate is low-to-normal, at or below the 10th percentile in about 80% of patients with reported values, in contrast to the raised CSF lactate of mitochondrial encephalopathies; this helps separate a transport defect from an oxidative one.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030086\"}}, {\"id\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GLUT1 is the transporter responsible for facilitated glucose diffusion across the endothelial cells that form the blood-brain barrier, as well as glucose uptake into erythrocytes. Reduced GLUT1 activity impairs the rate at which glucose can be delivered from blood to brain, independent of blood glucose concentration.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Brain Microvascular Endothelial Cell\"], \"biological_processes\": [\"D-glucose transmembrane transport\"], \"molecular_functions\": [\"D-glucose transmembrane transporter activity\"], \"role\": \"mediator\", \"locations\": [\"blood-brain barrier\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1 heterozygous null, targeted disruption of the promoter and exon 1\", \"category\": \"Genetically engineered\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reduced brain glucose uptake and hypoglycorrhachia reproduce the barrier transport failure.\"}]}}, {\"id\": \"SLC2A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"SLC2A1\"], \"gene_terms\": [{\"label\": \"SLC2A1\", \"id\": \"hgnc:11005\"}], \"frequency\": \"About 90% de novo; about 10% inherited from a parent\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SLC2A1 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous (rarely biallelic) pathogenic variants in SLC2A1 reduce the amount or function of the GLUT1 facilitative glucose transporter protein, typically through haploinsufficiency.\", \"meta\": {\"evidence_count\": 6, \"molecular_functions\": [\"D-glucose transmembrane transporter activity\"], \"genes\": [\"SLC2A1\"], \"gene_terms\": [{\"label\": \"SLC2A1\", \"id\": \"hgnc:11005\"}], \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc2a1 heterozygous null, targeted disruption of the promoter and exon 1\", \"category\": \"Genetically engineered\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The heterozygous null allele reproduces the haploinsufficient state, with brain Glut1 reduced to 66%.\"}]}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased muscle tone contributing to the complex movement disorder of GLUT1DS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Speech Difficulty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysarthria and other speech production difficulties associated with the movement disorder and developmental impairment of GLUT1DS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001260\"}}, {\"id\": \"Triheptanoin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Triheptanoin is an anaplerotic odd-chain (C7) medium-chain triglyceride that provides Krebs-cycle substrates and an alternative brain fuel independent of GLUT1. An open-label study reported marked reduction of non-epileptic paroxysmal manifestations and normalized brain bioenergetics, but a subsequent randomized placebo-controlled trial did not show a significant reduction in seizure frequency in patients not on a ketogenic diet, leaving its efficacy for the epilepsy phenotype unproven.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Triheptanoin\"]}}], \"edges\": [{\"source\": \"SLC2A1 Loss-of-Function Variant\", \"target\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss-of-function SLC2A1 variants reduce the density or activity of GLUT1 transporters expressed on brain microvascular endothelial cells.\", \"hypothesis_groups\": [\"canonical_glut1_energy_deficit\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SLC2A1 Loss-of-Function Variant\", \"target\": \"Erythrocyte GLUT1 Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same haploinsufficient transporter is expressed on erythrocytes, so red-cell hexose uptake falls in parallel with brain transport and serves as the accessible functional surrogate of the lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"target\": \"Cerebral Glucose Energy Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insufficient transendothelial glucose flux starves brain tissue of its principal metabolic substrate, independent of normal peripheral blood glucose levels.\", \"hypothesis_groups\": [\"canonical_glut1_energy_deficit\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"target\": \"Hypoglycorrhachia (low CSF glucose)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced endothelial glucose flux lowers glucose in the CSF and brain interstitium while blood glucose stays normal, so the CSF:blood glucose ratio falls.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"target\": \"Arrested Cerebral Angiogenesis and Microvascular Diminution\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Beyond fuel delivery, endothelial GLUT1 is required for postnatal cerebral angiogenesis; low GLUT1 arrests microvessel expansion in model mice.\", \"hypothesis_groups\": [\"microvascular_developmental_defect\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Glucose Energy Deficit\", \"target\": \"Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When energy demand rises (sustained exertion) or substrate supply falls (fasting), the marginal glucose supply to metabolically expensive basal ganglia circuits is transiently exceeded.\", \"hypothesis_groups\": [\"canonical_glut1_energy_deficit\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebral Glucose Energy Deficit\", \"target\": \"Reduced CSF lactate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower glycolytic substrate delivery is the presumed reason CSF lactate is low-to-normal rather than raised; the intermediate steps are inferred, and the finding distinguishes Glut1DS from mitochondrial disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral Glucose Energy Deficit\", \"target\": \"Paroxysmal eye-head movements\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Paroxysmal eye-head movements are among the earliest signs of the infantile energy deficit; the circuit through which they arise is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral Glucose Energy Deficit\", \"target\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy-deficient neurons and cortical circuits become hyperexcitable and hypersynchronous, generating the pharmacoresistant seizures characteristic of Glut1DS.\", \"hypothesis_groups\": [\"canonical_glut1_energy_deficit\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral Glucose Energy Deficit\", \"target\": \"Impaired Neurodevelopment and Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained cerebral energy insufficiency during critical developmental windows impairs neurodevelopment and produces a complex movement disorder combining ataxia, dystonia, and spasticity, together with deceleration of head growth (acquired/progressive microcephaly).\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"target\": \"Recurrent Pharmacoresistant Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperexcitable, hypersynchronous cortical networks manifest clinically as recurrent seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"target\": \"Generalized 2.5-4 Hz spike-wave EEG\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The interictal electrographic signature of the hypersynchronous network, most prominent from about two years of age.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Progressive (Acquired) Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced postnatal brain growth is expressed as deceleration of head growth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Speech Difficulty\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neurodevelopment and Movement Disorder\", \"target\": \"Gait disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gait disturbance is the functional composite of ataxia, dystonia and spasticity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Recurrent Pharmacoresistant Seizures\", \"target\": \"Pharmacoresistant Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Pharmacoresistant Seizures\", \"target\": \"Absence seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Pharmacoresistant Seizures\", \"target\": \"Myoclonic seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Pharmacoresistant Seizures\", \"target\": \"Generalized tonic-clonic seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Pharmacoresistant Seizures\", \"target\": \"Focal seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Erythrocyte GLUT1 Dysfunction\", \"target\": \"Hemolytic anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Restricted to alleles that create a cation leak (e.g. Q282_S285del); alleles that only reduce transport (A275T, G314S) do not cause hemolysis.\", \"hypothesis_groups\": [\"erythrocyte_cation_leak_hemolysis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrested Cerebral Angiogenesis and Microvascular Diminution\", \"target\": \"Impaired Neurodevelopment and Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A diminished microvascular bed is proposed to compound the fuel deficit and contribute to cognitive dysfunction; the human contribution is unquantified.\", \"hypothesis_groups\": [\"microvascular_developmental_defect\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure\", \"target\": \"Paroxysmal Exercise/Exertion-Induced Dyskinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_glut1_energy_deficit\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged or strenuous exercise\", \"target\": \"Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Sustained muscular activity raises whole-body and cerebral glucose demand beyond what the haploinsufficient transporter can deliver to corticostriatal circuits.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fasting and hunger\", \"target\": \"Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Reduced blood glucose availability lowers an already marginal cerebral supply.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fasting and hunger\", \"target\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Pre-prandial worsening and post-prandial improvement of spike-wave discharges tie network hyperexcitability to the fuel state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ketogenic Diet Therapy\", \"target\": \"Cerebral Glucose Energy Deficit\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic Diet Therapy\", \"target\": \"Pharmacoresistant Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ketogenic Diet Therapy\", \"target\": \"Paroxysmal Exercise/Exertion-Induced Dyskinesia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Modified Atkins Diet and other ketogenic dietary variants\", \"target\": \"Cerebral Glucose Energy Deficit\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triheptanoin\", \"target\": \"Cerebral Glucose Energy Deficit\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV9-Mediated GLUT1 Gene Replacement (Experimental)\", \"target\": \"SLC2A1 Loss-of-Function Variant\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV9-Mediated GLUT1 Gene Replacement (Experimental)\", \"target\": \"Arrested Cerebral Angiogenesis and Microvascular Diminution\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"target\": \"SLC2A1 Loss-of-Function Variant\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The heterozygous null allele reproduces the haploinsufficient state, with brain Glut1 reduced to 66%.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"target\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced brain glucose uptake and hypoglycorrhachia reproduce the barrier transport failure.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"target\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Spontaneous epileptiform EEG discharges reproduce the hyperexcitable network state.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Discharges are reported, not the human electroclinical syndrome; whether the mouse shows absence-like 2.5-4 Hz spike-wave or a food-responsive EEG is not stated in the abstract.\"}, {\"source\": \"Glut1 haploinsufficient (GLUT-1+/-) mouse\", \"target\": \"Impaired Neurodevelopment and Movement Disorder\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Microencephaly, impaired motor activity and incoordination reproduce the growth and motor consequences.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mouse motor impairment does not reproduce human dystonia, spasticity or paroxysmal exertion-induced dyskinesia, and rodent learning measures differ in kind from human intellectual disability; see the HUMAN_MODEL_MISMATCH discussion on paroxysmal phenotype fidelity.\"}, {\"source\": \"Glut1 Rgsc200 ENU missense mouse\", \"target\": \"Cerebral Glucose Energy Deficit\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced brain glucose transport with compensatory hexokinase upregulation reproduces the supply-limited energy state.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A missense allele of unknown residual transport, so the depth of the deficit is not calibrated against the human haploinsufficient range, and the enhanced hexokinase activity is a mouse observation not yet shown in patients.\"}, {\"source\": \"Glut1 Rgsc200 ENU missense mouse\", \"target\": \"Neuronal Hyperexcitability and Hypersynchrony\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Spontaneous EEG abnormalities and seizure-like behaviour both occur, but were not observed concurrently.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"EEG abnormality and seizure-like behaviour were dissociated in time, so electroclinical seizures were not demonstrated in this model.\"}, {\"source\": \"Glut1-deficient mouse with AAV9-mediated Glut1 repletion\", \"target\": \"Arrested Cerebral Angiogenesis and Microvascular Diminution\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The vascular phenotype is defined in this model; the human counterpart has not been measured.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"limitations\": \"Fidelity cannot be graded because no human cerebral microvascular data exist for comparison, which is itself the subject of an open HUMAN_MODEL_MISMATCH question.\"}, {\"source\": \"Glut1-deficient mouse with AAV9-mediated Glut1 repletion\", \"target\": \"Arrested Cerebral Angiogenesis and Microvascular Diminution\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Early AAV9-Glut1 repletion restores the microvasculature; adult repletion does not.\", \"relationship\": \"RESCUES\", \"fidelity\": \"UNKNOWN\"}, {\"source\": \"Reduced GLUT1 Transporter Function at the Blood-Brain Barrier\", \"target\": \"Hypoglycorrhachia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A low CSF:blood glucose ratio reports reduced GLUT1-mediated glucose transport across the blood-brain barrier independent of systemic glucose levels.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Erythrocyte GLUT1 Dysfunction\", \"target\": \"Erythrocyte 3-O-methyl-D-glucose uptake\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced uptake reports the transport capacity of the haploinsufficient GLUT1 population on the erythrocyte membrane.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Erythrocyte GLUT1 Dysfunction\", \"target\": \"Erythrocyte surface GLUT1 (METAglut1)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced surface GLUT1 reports the reduced transporter content of the erythrocyte membrane.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SLC2A1\", \"target\": \"SLC2A1 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8625,15 +8750,18 @@ This pathophysiological event occurs in basal ganglia, annotated with basal gang
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hemolytic anemia with echinocytosis, annotated with Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8705,15 +8833,18 @@ This clinical feature is Hemolytic anemia with echinocytosis, annotated with Hem
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0007704</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0007704</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Paroxysmal eye-head movements, annotated with Paroxysmal involuntary eye movements (HP:0007704). HP:0007704 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8810,10 +8941,10 @@ This clinical feature is Paroxysmal eye-head movements, annotated with Paroxysma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005484" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0005484</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005484" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0005484</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acquired (postnatal) microcephaly, annotated with Secondary microcephaly (HP:0005484), qualified as course progressive. HP:0005484 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8837,6 +8968,9 @@ This clinical feature is Acquired (postnatal) microcephaly, annotated with Secon
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Re-bound from HP:0000253 (Progressive microcephaly) to HP:0005484 (Secondary microcephaly, synonym &#34;acquired microcephaly&#34;) because the defining feature is a normal head circumference at birth followed by postnatal deceleration; the clinical_course qualifier carries the progressive aspect.</div>
@@ -8960,15 +9094,18 @@ This clinical feature is Acquired (postnatal) microcephaly, annotated with Secon
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011972" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0011972</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011972" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0011972</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoglycorrhachia (HP:0011972). HP:0011972 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9081,15 +9218,18 @@ This clinical feature is Hypoglycorrhachia (HP:0011972). HP:0011972 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030086" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0030086</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030086" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0030086</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Low-to-normal CSF lactate, annotated with Reduced CSF lactate (HP:0030086). HP:0030086 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9211,15 +9351,18 @@ This clinical feature is Low-to-normal CSF lactate, annotated with Reduced CSF l
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9282,15 +9425,18 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9362,10 +9508,10 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250), qualified as temporality recurrent. HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9389,6 +9535,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
                     </div>
+
+
+
 
 
 
@@ -9516,6 +9665,7 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9575,15 +9725,18 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9646,15 +9799,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9717,15 +9873,18 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9828,6 +9987,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9889,10 +10049,10 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0007166</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0007166</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Paroxysmal dyskinesia (HP:0007166), qualified as temporality recurrent. HP:0007166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9916,6 +10076,9 @@ This clinical feature is Paroxysmal dyskinesia (HP:0007166), qualified as tempor
 
 
                     </div>
+
+
+
 
 
 
@@ -10030,15 +10193,18 @@ This clinical feature is Paroxysmal dyskinesia (HP:0007166), qualified as tempor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001260</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10101,15 +10267,18 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10222,15 +10391,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002121</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absence seizure, annotated with Generalized non-motor (absence) seizure (HP:0002121). HP:0002121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10341,15 +10513,18 @@ This clinical feature is Absence seizure, annotated with Generalized non-motor (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0032794</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0032794</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10437,15 +10612,18 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002069</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002069</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized tonic-clonic seizure, annotated with Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10508,15 +10686,18 @@ This clinical feature is Generalized tonic-clonic seizure, annotated with Bilate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0007359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0007359</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10579,15 +10760,18 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010850" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0010850</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010850" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0010850</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized 2.5-4 Hz spike-wave discharges, annotated with EEG with spike-wave complexes (HP:0010850). HP:0010850 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10673,15 +10857,18 @@ This clinical feature is Generalized 2.5-4 Hz spike-wave discharges, annotated w
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001288</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001288</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10785,10 +10972,10 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
                         Gene: SLC2A1
 
 
-    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:11005</a>
+    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:11005</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SLC2A1 (hgnc:11005). hgnc:11005 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -10800,6 +10987,9 @@ This disease-associated gene is SLC2A1 (hgnc:11005). hgnc:11005 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10923,7 +11113,7 @@ This disease-associated gene is SLC2A1 (hgnc:11005). hgnc:11005 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">ketogenic diet intake<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">ketogenic diet intake<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11047,11 +11237,11 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001250</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -11064,11 +11254,11 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0007166</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0007166</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Paroxysmal dyskinesia (HP:0007166). HP:0007166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -11178,7 +11368,7 @@ This treatment targets Paroxysmal dyskinesia (HP:0007166). HP:0007166 is a pheno
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">modified Atkins and other ketogenic dietary therapies<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">modified Atkins and other ketogenic dietary therapies<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is modified Atkins and other ketogenic dietary therapies, annotated with Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11334,7 +11524,7 @@ This treatment is modified Atkins and other ketogenic dietary therapies, annotat
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11375,11 +11565,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_757060" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-59">CHEBI:757060</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_757060" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-61">CHEBI:757060</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses Triheptanoin (CHEBI:757060). CHEBI:757060 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -11610,7 +11800,7 @@ This treatment uses Triheptanoin (CHEBI:757060). CHEBI:757060 is a therapeutic a
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11711,7 +11901,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11837,7 +12027,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">targeted SLC2A1 variant testing of at-risk relatives<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">targeted SLC2A1 variant testing of at-risk relatives<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted SLC2A1 variant testing of at-risk relatives, annotated with Molecular Analysis (NCIT:C19770). NCIT:C19770 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11964,7 +12154,7 @@ This treatment is targeted SLC2A1 variant testing of at-risk relatives, annotate
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">scheduled neurological re-evaluation<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">scheduled neurological re-evaluation<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is scheduled neurological re-evaluation, annotated with Diagnostic Procedure (NCIT:C18020). NCIT:C18020 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -12066,7 +12256,7 @@ This treatment is scheduled neurological re-evaluation, annotated with Diagnosti
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">AAV9 SLC2A1 gene replacement<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">AAV9 SLC2A1 gene replacement<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is AAV9 SLC2A1 gene replacement, annotated with Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -12295,11 +12485,11 @@ This treatment is AAV9 SLC2A1 gene replacement, annotated with Gene Therapy (NCI
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000031" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-65">ECTO:6000031</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000031" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-67">ECTO:6000031</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
 This environmental factor is exposure to prolonged or strenuous exercise, annotated with exposure to strenuous exercise (ECTO:6000031). ECTO:6000031 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
@@ -12444,10 +12634,10 @@ This environmental factor is exposure to prolonged or strenuous exercise, annota
 
 
 
-                    <span class="tag tag-env" tabindex="0" aria-describedby="pill-tip-66">
+                    <span class="tag tag-env" tabindex="0" aria-describedby="pill-tip-68">
                         fasting
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Relation: this environmental factor is this exposure
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Relation: this environmental factor is this exposure
 This environmental factor is fasting.</span>
                     </span>
 
@@ -13212,11 +13402,11 @@ This environmental factor is fasting.</span>
         lumbar puncture with paired CSF and blood glucose
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15327" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-67">NCIT:C15327</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15327" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-69">NCIT:C15327</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -13356,11 +13546,11 @@ This environmental factor is fasting.</span>
         SLC2A1 sequence and deletion/duplication analysis
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-68">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-70">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-70">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -13471,11 +13661,11 @@ This environmental factor is fasting.</span>
         erythrocyte 3-O-methyl-D-glucose uptake assay
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-69">NCIT:C18020</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-71">NCIT:C18020</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-71">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -13586,11 +13776,11 @@ This environmental factor is fasting.</span>
         METAglut1 erythrocyte surface GLUT1 flow cytometry
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-70">NCIT:C18020</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-72">NCIT:C18020</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-70">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-72">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -13701,11 +13891,11 @@ This environmental factor is fasting.</span>
         electroencephalography
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38054" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-71">NCIT:C38054</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38054" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-73">NCIT:C38054</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-71">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-73">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -14625,11 +14815,11 @@ This environmental factor is fasting.</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0007166</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0007166</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Paroxysmal dyskinesia (HP:0007166). HP:0007166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -14780,11 +14970,11 @@ This clinical trial targets Paroxysmal dyskinesia (HP:0007166). HP:0007166 is a 
         SLC2A1
 
 
-    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-73">hgnc:11005</a>
+    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-75">hgnc:11005</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-73">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-75">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns SLC2A1 (hgnc:11005). hgnc:11005 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -15362,11 +15552,11 @@ This experimental model concerns SLC2A1 (hgnc:11005). hgnc:11005 is a gene from 
         SLC2A1
 
 
-    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-74">hgnc:11005</a>
+    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-76">hgnc:11005</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-74">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-76">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns SLC2A1 (hgnc:11005). hgnc:11005 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -15712,11 +15902,11 @@ This experimental model concerns SLC2A1 (hgnc:11005). hgnc:11005 is a gene from 
         SLC2A1
 
 
-    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-75">hgnc:11005</a>
+    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-77">hgnc:11005</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-75">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-77">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns SLC2A1 (hgnc:11005). hgnc:11005 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -16116,6 +16306,11 @@ has_subtypes:
     pharmacoresistant seizures of varying types, deceleration of head growth,
     and developmental delay, followed by complex movement disorders and
     intellectual disability ranging from mild to severe.
+  genes:
+  - preferred_term: SLC2A1
+    term:
+      id: hgnc:11005
+      label: SLC2A1
   evidence:
   - reference: PMID:20301603
     reference_title: &#34;Glucose Transporter Type 1 Deficiency Syndrome.&#34;
@@ -16142,6 +16337,11 @@ has_subtypes:
     paraparesis: the German/Dutch DYT9 pedigree was shown to carry a causative
     SLC2A1 mutation, making DYT9 and DYT18 allelic rather than distinct
     entities.
+  genes:
+  - preferred_term: SLC2A1
+    term:
+      id: hgnc:11005
+      label: SLC2A1
   evidence:
   - reference: PMID:21649651
     reference_title: &#34;Milder phenotypes of glucose transporter type 1 deficiency syndrome.&#34;
@@ -20780,7 +20980,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "GLUT1 Deficiency Syndrome", "mondoId": "MONDO:0000188", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "GLUT1_Deficiency_Syndrome", "yamlRevision": "24cb48519840"};
+        const OS_CONFIG = {"diseaseName": "GLUT1 Deficiency Syndrome", "mondoId": "MONDO:0000188", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "GLUT1_Deficiency_Syndrome", "yamlRevision": "08268690bf31"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

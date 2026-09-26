@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4094,6 +4136,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kat6b-protein-truncating-variants-proximal-nmd-sensitive-and-distal-last-exon-alleles" data-dismech-node="KAT6B protein-truncating variants (proximal NMD-sensitive and distal last-exon alleles)" data-dismech-type="pathophysiology">
                 <div class="item-name">KAT6B protein-truncating variants (proximal NMD-sensitive and distal last-exon alleles)</div>
 
+
                 <div class="item-desc">SBBYSS is caused by heterozygous, almost always de novo, protein-truncating variants in KAT6B (10q22.2), which encodes a MYST-family histone acetyltransferase. Two distinct allelic classes produce the SBBYSS phenotype: (i) variants distributed throughout the gene proximal to the terminal exon, whose transcripts undergo nonsense-mediated decay and therefore act through haploinsufficiency, and (ii) variants located *distally* within the terminal exon (exon 18), distal to the cluster that causes genitopatellar syndrome, which escape nonsense-mediated decay but are not associated with the gain-of-function activities proposed to explain the GPS-specific features. A recurrent de novo synonymous variant in exon 16 (c.3147G&gt;A, p.(Pro1049Pro)) acts as a splice-site mutation and is a mutational hot spot for SBBYSS. This positional distinction is the molecular basis for the clinical separation of SBBYSS from the allelic, more severe genitopatellar syndrome.
 </div>
 
@@ -4343,6 +4386,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-histone-acetylation-and-transcriptional-dysregulation" data-dismech-node="Reduced histone acetylation and transcriptional dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced histone acetylation and transcriptional dysregulation</div>
+
 
                 <div class="item-desc">KAT6B is a MYST-family histone acetyltransferase that acetylates histone H3 within a tetrameric chromatin-modifying complex with BRPF1, ING5 (or its paralog ING4) and MEAF6, and acts as a transcriptional coactivator. In human cells carrying SBBYSS-specific KAT6B mutations and in Kat6b heterozygous mice, KAT6B deficiency reduces histone H3 lysine 9 acetylation, and CRISPR-engineered KAT6B truncating alleles dysregulate chromatin accessibility and the transcriptome. Loss of KAT6B-dependent acetylation is therefore the proximate molecular lesion linking the KAT6B variant to abnormal developmental and neuronal gene programs; critically, the chromatin lesion is in principle reversible, which is the rationale for acetylation-restoring therapeutic strategies.
 </div>
@@ -4599,6 +4643,7 @@ This pathophysiological event involves chromatin (GO:0000785). GO:0000785 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-craniofacial-limb-skeletal-thyroid-and-cns-developmental-programs" data-dismech-node="Disrupted craniofacial, limb, skeletal, thyroid and CNS developmental programs" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted craniofacial, limb, skeletal, thyroid and CNS developmental programs</div>
+
 
                 <div class="item-desc">KAT6B is upregulated during mammalian development specifically in the developing central nervous system, facial structures, and limb buds, so loss of KAT6B-dependent acetylation preferentially derails those developmental programs. Hypomorphic and null Kat6b mouse models recapitulate the human features: the Qkf hypomorph shows small eyes, ventrally placed ears and long first digits, and germline Kat6b deletion causes premature ossification with shortened craniofacial elements, driven by a shift of mesenchymal progenitors toward an osteoblast-progenitor state with upregulated RUNX2 targets and downregulated SOX9. Convergent dysregulation of these programs produces the multisystem SBBYSS phenotype: the mask-like face with blepharophimosis and ptosis, long thumbs and great toes, patellar and other skeletal anomalies, congenital hypothyroidism, and the neurodevelopmental phenotype.
 </div>
@@ -5257,6 +5302,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5362,6 +5410,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5455,6 +5506,9 @@ This clinical feature is Intestinal malrotation (HP:0002566). HP:0002566 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5592,6 +5646,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5667,6 +5724,9 @@ This clinical feature is Congenital hypothyroidism (HP:0000851). HP:0000851 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5777,6 +5837,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5871,6 +5934,9 @@ This clinical feature is Keratoconus (HP:0000563). HP:0000563 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5935,6 +6001,9 @@ This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6015,6 +6084,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6125,6 +6197,9 @@ This clinical feature is Blepharophimosis (HP:0000581). HP:0000581 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6216,6 +6291,9 @@ This clinical feature is Mask-like facies (HP:0000298). HP:0000298 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6319,6 +6397,9 @@ This clinical feature is Abnormal lacrimal duct morphology (HP:0011481). HP:0011
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6412,6 +6493,9 @@ This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6513,6 +6597,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6606,6 +6693,9 @@ This clinical feature is Bulbous nose (HP:0000414). HP:0000414 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6714,6 +6804,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6789,6 +6882,9 @@ This clinical feature is Long thumb (HP:0032524). HP:0032524 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6887,6 +6983,9 @@ This clinical feature is Long hallux (HP:0001847). HP:0001847 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7006,6 +7105,9 @@ This clinical feature is Patellar hypoplasia (HP:0003065). HP:0003065 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7134,6 +7236,9 @@ This clinical feature is Talipes (HP:0001883). HP:0001883 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7198,6 +7303,9 @@ This clinical feature is Postaxial polydactyly (HP:0100259). HP:0100259 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7308,6 +7416,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7404,6 +7515,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7470,6 +7584,9 @@ This clinical feature is Increased susceptibility to fractures (HP:0002659). HP:
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7550,6 +7667,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7651,6 +7771,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7717,6 +7840,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7813,6 +7939,9 @@ This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7918,6 +8047,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8034,6 +8166,9 @@ This disease-associated gene is KAT6B (hgnc:17582). hgnc:17582 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

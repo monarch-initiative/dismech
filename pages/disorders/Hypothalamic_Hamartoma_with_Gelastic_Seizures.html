@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4636,6 +4678,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-sonic-hedgehog-pathway-mutation" data-dismech-node="Somatic Sonic Hedgehog Pathway Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Sonic Hedgehog Pathway Mutation</div>
 
+
                 <div class="item-desc">Post-zygotic somatic mutations in Sonic hedgehog (Shh) pathway genes, present in hamartoma tissue but absent from leukocyte DNA, were identified in 37% of individuals with HH. Affected genes include GLI3 and PRKACA, the ligands SHH and IHH, the receptor SMO, and other downstream pathway members; large brain-tissue-specific copy-number and loss-of-heterozygosity variants also occur. The mosaic, brain-restricted nature of the lesion explains why the disorder is typically sporadic.</div>
 
 
@@ -4832,6 +4875,7 @@ This pathophysiological event involves dysregulated smoothened signaling pathway
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypothalamic-hamartoma-formation" data-dismech-node="Hypothalamic Hamartoma Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypothalamic Hamartoma Formation</div>
 
+
                 <div class="item-desc">A congenital, non-neoplastic malformation of the ventral hypothalamus forms at or adjacent to the floor of the third ventricle. Its microarchitecture is relatively simple, consisting of nodular clusters of neurons of varying size and abundance with poorly defined boundaries. Lesions may be pedunculated (more often presenting with precocious puberty) or sessile (more often presenting with the epileptic phenotype).</div>
 
 
@@ -4993,6 +5037,7 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-small-gabaergic-neuron-spontaneous-pacemaker-firing" data-dismech-node="Small GABAergic Neuron Spontaneous Pacemaker Firing" data-dismech-type="pathophysiology">
                 <div class="item-name">Small GABAergic Neuron Spontaneous Pacemaker Firing</div>
+
 
                 <div class="item-desc">Approximately 80-90% of HH neurons have an interneuron-like phenotype with small, round soma and short unbranched processes lacking spines. They express glutamic acid decarboxylase and use GABA as their primary neurotransmitter, and possess intrinsic membrane properties that produce spontaneous, pacemaker-like firing. These small neurons additionally show functional GABA-A receptor rundown on repetitive GABA exposure — a defect intrinsic to the HH receptor protein and much less marked in the large neurons — further degrading inhibitory control. This autonomous firing is the proposed cellular origin of ictogenesis within the lesion.</div>
 
@@ -5194,6 +5239,7 @@ This pathophysiological event involves dysregulated GABA-A receptor activity (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paradoxical-gaba-mediated-excitation-of-large-projection-neurons" data-dismech-node="Paradoxical GABA-Mediated Excitation of Large Projection Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Paradoxical GABA-Mediated Excitation of Large Projection Neurons</div>
 
+
                 <div class="item-desc">The minority population of large HH neurons have pleomorphic, often pyramidal soma with branched, spiny dendrites and appear to be excitatory projection-type neurons. Functionally immature, they depolarize and fire in response to GABA ligands rather than being inhibited — so the GABA released by the small pacemaker neurons drives, rather than dampens, output from the lesion. This immature, depolarizing GABA response is attributed to the immature transmembrane chloride gradient of these neurons rather than to an abnormality of the GABA-A receptor itself.</div>
 
 
@@ -5303,6 +5349,7 @@ This pathophysiological event involves large excitatory projection-type HH neuro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intrinsic-ictogenesis-within-the-hamartoma" data-dismech-node="Intrinsic Ictogenesis within the Hamartoma" data-dismech-type="pathophysiology">
                 <div class="item-name">Intrinsic Ictogenesis within the Hamartoma</div>
+
 
                 <div class="item-desc">The hamartoma is intrinsically epileptogenic: the gelastic seizures are generated within the lesion itself rather than in cortical structures, a finding that overturned the conventional assumption of cortical seizure origin. The irregular neuronal clusters are hypothesized to be the functional unit for ictogenesis. This is the defining mechanistic feature of the syndrome and the rationale for lesion-directed therapy.</div>
 
@@ -5475,6 +5522,7 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-epileptogenesis-in-extrahypothalamic-networks" data-dismech-node="Secondary Epileptogenesis in Extrahypothalamic Networks" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Epileptogenesis in Extrahypothalamic Networks</div>
 
+
                 <div class="item-desc">Over time, propagation of hamartoma-generated discharges induces independent epileptogenicity in extrahypothalamic (cortical) networks — a kindling-like process that establishes seizure generators outside the lesion itself.</div>
 
 
@@ -5550,6 +5598,7 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-epileptic-encephalopathy" data-dismech-node="Progressive Epileptic Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Epileptic Encephalopathy</div>
+
 
                 <div class="item-desc">The clinical consequence of secondary epileptogenesis: patients accumulate additional focal and generalized seizure types beyond the original gelastic seizures, with progressive cognitive decline and behavioral/psychiatric deterioration. This progressive encephalopathy is the principal driver of long-term disability and the rationale for early lesion-directed intervention, since successful ablation can reverse it.</div>
 
@@ -5667,6 +5716,7 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-gnrh-secretion" data-dismech-node="Ectopic GnRH Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic GnRH Secretion</div>
+
 
                 <div class="item-desc">Hamartoma tissue can secrete gonadotropin-releasing hormone autonomously, outside normal hypothalamic regulatory control, prematurely activating the hypothalamic-pituitary-gonadal axis and producing central (GnRH-dependent) precocious puberty. This endocrine arm is independent of the epileptic arm and is more often associated with pedunculated lesions.</div>
 
@@ -5970,6 +6020,9 @@ This clinical feature is Central hypothyroidism (HP:0011787). HP:0011787 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6036,6 +6089,9 @@ This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6139,6 +6195,9 @@ This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:000561
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6255,6 +6314,9 @@ This clinical feature is Focal emotional seizure with laughing (HP:0010821), qua
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6351,6 +6413,9 @@ This clinical feature is Focal emotional seizure with crying (HP:0010820). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6442,6 +6507,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6561,6 +6629,9 @@ This clinical feature is Mental deterioration (HP:0001268), qualified as course 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6625,6 +6696,9 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6696,6 +6770,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6779,6 +6856,9 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6845,6 +6925,9 @@ This clinical feature is Reduced growth velocity, annotated with Growth delay (H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6925,6 +7008,9 @@ This clinical feature is Hypothalamic hamartoma (HP:0002444). HP:0002444 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7045,6 +7131,9 @@ This disease-associated gene is GLI3 (hgnc:4319). hgnc:4319 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7140,6 +7229,9 @@ This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 

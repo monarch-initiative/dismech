@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4782,6 +4824,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alk-fusion-oncoprotein-formation" data-dismech-node="ALK fusion oncoprotein formation" data-dismech-type="pathophysiology">
                 <div class="item-name">ALK fusion oncoprotein formation</div>
 
+
                 <div class="item-desc">A somatic inversion or translocation preserves the ALK kinase domain and joins it to an N-terminal partner. EML4::ALK is the dominant exemplar in NSCLC; other partners can create the same disease-defining class without necessarily reproducing every EML4-specific assembly property.</div>
 
 
@@ -5025,6 +5068,7 @@ This pathophysiological event involves increased protein tyrosine kinase activit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-alk-mitogenic-and-survival-signaling" data-dismech-node="Constitutive ALK mitogenic and survival signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive ALK mitogenic and survival signaling</div>
 
+
                 <div class="item-desc">Active EML4::ALK assembles cytoplasmic signaling foci containing MAPK and PI3K pathway components. Sustained kinase output engages MEK-ERK and PI3K-AKT survival programs; JAK-STAT is not asserted here as a universal disease-level branch because the attached evidence is variant- and context-dependent.</div>
 
 
@@ -5229,6 +5273,7 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alk-dependent-tumor-cell-proliferation-and-survival" data-dismech-node="ALK-dependent tumor-cell proliferation and survival" data-dismech-type="pathophysiology">
                 <div class="item-name">ALK-dependent tumor-cell proliferation and survival</div>
 
+
                 <div class="item-desc">ALK-rearranged tumor cells depend on continued fusion-kinase signaling for proliferation and survival. This is a targetable oncogene dependence, not a claim that ALK expression alone transforms every human lung-cell context.</div>
 
 
@@ -5417,6 +5462,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alk-tki-therapeutic-selection-pressure" data-dismech-node="ALK TKI therapeutic selection pressure" data-dismech-type="pathophysiology">
                 <div class="item-name">ALK TKI therapeutic selection pressure</div>
+
 
                 <div class="item-desc">ALK-directed therapy suppresses sensitive tumor cells while creating a treatment-conditioned selection environment in which resistant on-target clones, adaptive signaling programs, microenvironmental rescue, or altered cell states can persist and expand. Treatment exposure—not oncogene dependence by itself—is the proximal context for acquired resistance.</div>
 
@@ -5611,6 +5657,7 @@ This pathophysiological event involves abnormal response to xenobiotic stimulus 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alk-kinase-domain-mutation-mediated-resistance" data-dismech-node="ALK kinase-domain mutation-mediated resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">ALK kinase-domain mutation-mediated resistance</div>
 
+
                 <div class="item-desc">Secondary ALK kinase-domain substitutions can change inhibitor binding or ATP competition. G1202R is a solvent-front resistance mutation, while T1151K illustrates drug-specific resistance that may retain sensitivity to another ALK inhibitor. This node does not assert that a single agent covers all compound mutations.</div>
 
 
@@ -5778,6 +5825,13 @@ This pathophysiological event involves abnormal response to xenobiotic stimulus 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adaptive-kinase-bypass-resistance" data-dismech-node="Adaptive kinase-bypass resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Adaptive kinase-bypass resistance</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Resistant tumor cells can restore survival output through alternate receptor or intracellular kinases, including EGFR and SRC. The attached perturbation evidence is preclinical, so proposed combination strategies are not represented as established care.</div>
 
 
@@ -5902,6 +5956,13 @@ This pathophysiological event involves increased cell surface receptor protein t
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microenvironment-mediated-alk-bypass-resistance" data-dismech-node="Microenvironment-mediated ALK bypass resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Microenvironment-mediated ALK bypass resistance</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Cancer-associated fibroblasts and tumor-associated macrophages can supply paracrine or matrix-associated signals that maintain resistant-cell survival through MET-integrin or GAS6-AXL pathways.</div>
 
 
@@ -6025,6 +6086,13 @@ This pathophysiological event involves increased cell surface receptor protein t
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-emt-associated-alk-tki-resistance" data-dismech-node="EMT-associated ALK TKI resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">EMT-associated ALK TKI resistance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In an EML4::ALK G1202R cell model, STAT3-Slug activation induces an epithelial-to-mesenchymal state with increased migration and invasion and reduced ceritinib sensitivity. Its prevalence and treatment implications in patients remain unresolved.</div>
 
@@ -6254,7 +6322,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALK\"], \"gene_terms\": [{\"label\": \"ALK\", \"id\": \"hgnc:427\"}], \"association\": \"Somatic Rearrangement\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"ALK TKI therapeutic selection pressure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALK-directed therapy suppresses sensitive tumor cells while creating a treatment-conditioned selection environment in which resistant on-target clones, adaptive signaling programs, microenvironmental rescue, or altered cell states can persist and expand. Treatment exposure\\u2014not oncogene dependence by itself\\u2014is the proximal context for acquired resistance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to xenobiotic stimulus\"], \"role\": \"trigger\"}}, {\"id\": \"ALK fusion oncoprotein formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A somatic inversion or translocation preserves the ALK kinase domain and joins it to an N-terminal partner. EML4::ALK is the dominant exemplar in NSCLC; other partners can create the same disease-defining class without necessarily reproducing every EML4-specific assembly property.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"protein tyrosine kinase activity\"], \"genes\": [\"ALK\", \"EML4\"], \"gene_terms\": [{\"label\": \"ALK\", \"id\": \"hgnc:427\"}, {\"label\": \"EML4\", \"id\": \"hgnc:1316\"}], \"role\": \"trigger\"}}, {\"id\": \"ALK kinase-domain mutation-mediated resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Secondary ALK kinase-domain substitutions can change inhibitor binding or ATP competition. G1202R is a solvent-front resistance mutation, while T1151K illustrates drug-specific resistance that may retain sensitivity to another ALK inhibitor. This node does not assert that a single agent covers all compound mutations.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to xenobiotic stimulus\"], \"genes\": [\"ALK\"], \"gene_terms\": [{\"label\": \"ALK\", \"id\": \"hgnc:427\"}], \"role\": \"effector\"}}, {\"id\": \"ALK-dependent tumor-cell proliferation and survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALK-rearranged tumor cells depend on continued fusion-kinase signaling for proliferation and survival. This is a targetable oncogene dependence, not a claim that ALK expression alone transforms every human lung-cell context.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\", \"apoptotic process\"], \"role\": \"consequence\"}}, {\"id\": \"Adaptive kinase-bypass resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resistant tumor cells can restore survival output through alternate receptor or intracellular kinases, including EGFR and SRC. The attached perturbation evidence is preclinical, so proposed combination strategies are not represented as established care.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell surface receptor protein tyrosine kinase signaling pathway\"], \"role\": \"effector\"}}, {\"id\": \"Alectinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A second-generation ALK inhibitor used in advanced ALK-positive NSCLC and, in a distinct disease setting, as adjuvant therapy after complete resection. In ALEX it prolonged progression-free survival relative to crizotinib; in ALINA it improved disease-free survival relative to platinum chemotherapy for resected stage IB (tumors at least 4 cm), II, or IIIA disease. Overall survival data from ALINA were immature in the cited analysis.\", \"meta\": {\"evidence_count\": 3, \"pdb_structures\": [{\"pdb_id\": \"3AOX\", \"description\": \"Wild-type ALK kinase domain in complex with CH5424802 (alectinib); this structure should not be interpreted as a mutant co-crystal.\", \"resolution_angstrom\": 1.75, \"method\": \"X-ray\", \"ligand\": \"alectinib\", \"target_protein\": \"ALK (anaplastic lymphoma kinase)\"}], \"therapeutic_agents\": [\"alectinib\"]}}, {\"id\": \"Brain Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain metastases are a frequent manifestation of advanced ALK-translocated NSCLC. Treatment-specific intracranial efficacy is represented under the relevant ALK inhibitors rather than as phenotype evidence.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030692\"}}, {\"id\": \"Brigatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A second-generation ALK inhibitor with randomized first-line evidence in advanced ALK-positive NSCLC. Final ALTA-1L results showed longer progression-free survival than crizotinib; overall survival was not reached in either group in that analysis.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"brigatinib\"]}}, {\"id\": \"Ceritinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A second-generation ALK inhibitor with randomized first-line evidence in advanced ALK-rearranged nonsquamous NSCLC. ASCEND-4 showed longer progression-free survival than platinum/pemetrexed chemotherapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ceritinib\"]}}, {\"id\": \"Constitutive ALK mitogenic and survival signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active EML4::ALK assembles cytoplasmic signaling foci containing MAPK and PI3K pathway components. Sustained kinase output engages MEK-ERK and PI3K-AKT survival programs; JAK-STAT is not asserted here as a universal disease-level branch because the attached evidence is variant- and context-dependent.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Ras protein signal transduction\", \"ERK1 and ERK2 cascade\", \"phosphatidylinositol 3-kinase signaling\"], \"role\": \"central_effector\"}}, {\"id\": \"Crizotinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The first ALK inhibitor to establish randomized clinical benefit in advanced ALK-positive NSCLC. PROFILE 1014 showed longer progression-free survival than platinum/pemetrexed chemotherapy. It remains historically foundational while later-generation inhibitors provide other options.\", \"meta\": {\"evidence_count\": 2, \"pdb_structures\": [{\"pdb_id\": \"2XP2\", \"description\": \"Wild-type human ALK kinase domain in complex with crizotinib; this entry is distinct from the c-MET structure used earlier in structure-guided development.\", \"resolution_angstrom\": 1.9, \"method\": \"X-ray\", \"ligand\": \"crizotinib\", \"target_protein\": \"ALK (anaplastic lymphoma kinase)\"}], \"therapeutic_agents\": [\"crizotinib\"]}}, {\"id\": \"EML4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EML4\"], \"gene_terms\": [{\"label\": \"EML4\", \"id\": \"hgnc:1316\"}], \"association\": \"Fusion Partner\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"EMT-associated ALK TKI resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In an EML4::ALK G1202R cell model, STAT3-Slug activation induces an epithelial-to-mesenchymal state with increased migration and invasion and reduced ceritinib sensitivity. Its prevalence and treatment implications in patients remain unresolved.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epithelial to mesenchymal transition\"], \"role\": \"effector\"}}, {\"id\": \"Ensartinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An oral ALK inhibitor evaluated as first-line therapy for advanced ALK-positive NSCLC. In the phase III eXALT3 trial, ensartinib prolonged progression-free survival and improved intracranial response relative to crizotinib.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ensartinib hydrochloride\"]}}, {\"id\": \"Lorlatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A third-generation, brain-penetrant ALK inhibitor used for advanced ALK-positive NSCLC. Seven-year CROWN follow-up showed durable systemic and intracranial control relative to crizotinib. Preclinical data support activity across wild-type ALK and multiple single kinase-domain resistance mutations; this does not imply control of bypass signaling or every compound mutation.\", \"meta\": {\"evidence_count\": 1, \"pdb_structures\": [{\"pdb_id\": \"4CLI\", \"description\": \"Wild-type ALK kinase domain in complex with PF-06463922 (lorlatinib); the entry is not a G1202R mutant co-crystal.\", \"resolution_angstrom\": 2.05, \"method\": \"X-ray\", \"ligand\": \"lorlatinib\", \"target_protein\": \"ALK (anaplastic lymphoma kinase)\"}], \"therapeutic_agents\": [\"lorlatinib\"]}}, {\"id\": \"Lung Adenocarcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Adenocarcinoma is the predominant clinical tumor phenotype of ALK-rearranged NSCLC, although rare ALK-rearranged squamous tumors occur.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030078\", \"histopathology_terms\": [{\"name\": \"Adenocarcinoma-predominant morphology\", \"preferred_term\": \"lung adenocarcinoma\", \"term_id\": \"NCIT:C3512\", \"term_label\": \"Lung Adenocarcinoma\"}]}}, {\"id\": \"Microenvironment-mediated ALK bypass resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cancer-associated fibroblasts and tumor-associated macrophages can supply paracrine or matrix-associated signals that maintain resistant-cell survival through MET-integrin or GAS6-AXL pathways.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell surface receptor protein tyrosine kinase signaling pathway\"], \"role\": \"effector\"}}], \"edges\": [{\"source\": \"ALK fusion oncoprotein formation\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-mediated ALK activation produces ligand-independent kinase output and constitutive downstream signaling.\", \"hypothesis_groups\": [\"canonical_alk_fusion_mitogenic_signaling_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive ALK mitogenic and survival signaling\", \"target\": \"ALK-dependent tumor-cell proliferation and survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent ALK output maintains growth and survival through the PI3K-AKT and MEK-ERK pathways.\", \"hypothesis_groups\": [\"canonical_alk_fusion_mitogenic_signaling_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PI3K-AKT survival signaling\", \"MEK-ERK proliferative signaling\"]}, {\"source\": \"ALK-dependent tumor-cell proliferation and survival\", \"target\": \"Lung Adenocarcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ALK-dependent proliferation and survival support malignant transformation into the predominantly adenocarcinoma NSCLC phenotype.\", \"hypothesis_groups\": [\"canonical_alk_fusion_mitogenic_signaling_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"clonal expansion\", \"malignant transformation\"]}, {\"source\": \"ALK-dependent tumor-cell proliferation and survival\", \"target\": \"Brain Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALK-positive lung tumors can progress through the general metastatic cascade to clinically frequent brain metastases; an ALK-specific direct route to the brain is not asserted.\", \"hypothesis_groups\": [\"canonical_alk_fusion_mitogenic_signaling_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"local tumor progression and invasion\", \"hematogenous dissemination\", \"central nervous system colonization\"]}, {\"source\": \"ALK TKI therapeutic selection pressure\", \"target\": \"ALK kinase-domain mutation-mediated resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALK-TKI pressure can select kinase-domain substitutions that reduce inhibitor binding or alter drug-specific sensitivity.\", \"hypothesis_groups\": [\"acquired_alk_tki_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"survival of mutation-bearing tumor subclones\", \"expansion during ALK inhibition\"]}, {\"source\": \"ALK TKI therapeutic selection pressure\", \"target\": \"Adaptive kinase-bypass resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Resistant cells can restore growth signaling through alternate kinase pathways despite continued ALK inhibition.\", \"hypothesis_groups\": [\"acquired_alk_tki_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"compensatory receptor tyrosine kinase activation\", \"restoration of downstream survival signaling\"]}, {\"source\": \"ALK TKI therapeutic selection pressure\", \"target\": \"Microenvironment-mediated ALK bypass resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibroblast- and macrophage-derived signals can preserve resistant tumor cell survival through MET, integrin, or GAS6-AXL pathways.\", \"hypothesis_groups\": [\"acquired_alk_tki_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"stromal growth-factor or matrix signaling\", \"MET-integrin or GAS6-AXL survival output\"]}, {\"source\": \"ALK TKI therapeutic selection pressure\", \"target\": \"EMT-associated ALK TKI resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a G1202R cell model, STAT3-Slug signaling accompanies an invasive EMT state and reduced ceritinib sensitivity.\", \"hypothesis_groups\": [\"acquired_alk_tki_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"STAT3-Slug activation\", \"epithelial-to-mesenchymal state transition\"]}, {\"source\": \"Alectinib\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lorlatinib\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lorlatinib\", \"target\": \"ALK kinase-domain mutation-mediated resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ceritinib\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ensartinib\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Brigatinib\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Crizotinib\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ALK\", \"target\": \"ALK fusion oncoprotein formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALK\", \"target\": \"ALK kinase-domain mutation-mediated resistance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EML4\", \"target\": \"ALK fusion oncoprotein formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALK\"], \"gene_terms\": [{\"label\": \"ALK\", \"id\": \"hgnc:427\"}], \"association\": \"Somatic Rearrangement\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"ALK TKI therapeutic selection pressure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALK-directed therapy suppresses sensitive tumor cells while creating a treatment-conditioned selection environment in which resistant on-target clones, adaptive signaling programs, microenvironmental rescue, or altered cell states can persist and expand. Treatment exposure\\u2014not oncogene dependence by itself\\u2014is the proximal context for acquired resistance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to xenobiotic stimulus\"], \"role\": \"trigger\"}}, {\"id\": \"ALK fusion oncoprotein formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A somatic inversion or translocation preserves the ALK kinase domain and joins it to an N-terminal partner. EML4::ALK is the dominant exemplar in NSCLC; other partners can create the same disease-defining class without necessarily reproducing every EML4-specific assembly property.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"protein tyrosine kinase activity\"], \"genes\": [\"ALK\", \"EML4\"], \"gene_terms\": [{\"label\": \"ALK\", \"id\": \"hgnc:427\"}, {\"label\": \"EML4\", \"id\": \"hgnc:1316\"}], \"role\": \"trigger\"}}, {\"id\": \"ALK kinase-domain mutation-mediated resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Secondary ALK kinase-domain substitutions can change inhibitor binding or ATP competition. G1202R is a solvent-front resistance mutation, while T1151K illustrates drug-specific resistance that may retain sensitivity to another ALK inhibitor. This node does not assert that a single agent covers all compound mutations.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to xenobiotic stimulus\"], \"genes\": [\"ALK\"], \"gene_terms\": [{\"label\": \"ALK\", \"id\": \"hgnc:427\"}], \"role\": \"effector\"}}, {\"id\": \"ALK-dependent tumor-cell proliferation and survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALK-rearranged tumor cells depend on continued fusion-kinase signaling for proliferation and survival. This is a targetable oncogene dependence, not a claim that ALK expression alone transforms every human lung-cell context.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\", \"apoptotic process\"], \"role\": \"consequence\"}}, {\"id\": \"Adaptive kinase-bypass resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resistant tumor cells can restore survival output through alternate receptor or intracellular kinases, including EGFR and SRC. The attached perturbation evidence is preclinical, so proposed combination strategies are not represented as established care.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell surface receptor protein tyrosine kinase signaling pathway\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Alectinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A second-generation ALK inhibitor used in advanced ALK-positive NSCLC and, in a distinct disease setting, as adjuvant therapy after complete resection. In ALEX it prolonged progression-free survival relative to crizotinib; in ALINA it improved disease-free survival relative to platinum chemotherapy for resected stage IB (tumors at least 4 cm), II, or IIIA disease. Overall survival data from ALINA were immature in the cited analysis.\", \"meta\": {\"evidence_count\": 3, \"pdb_structures\": [{\"pdb_id\": \"3AOX\", \"description\": \"Wild-type ALK kinase domain in complex with CH5424802 (alectinib); this structure should not be interpreted as a mutant co-crystal.\", \"resolution_angstrom\": 1.75, \"method\": \"X-ray\", \"ligand\": \"alectinib\", \"target_protein\": \"ALK (anaplastic lymphoma kinase)\"}], \"therapeutic_agents\": [\"alectinib\"]}}, {\"id\": \"Brain Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain metastases are a frequent manifestation of advanced ALK-translocated NSCLC. Treatment-specific intracranial efficacy is represented under the relevant ALK inhibitors rather than as phenotype evidence.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030692\"}}, {\"id\": \"Brigatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A second-generation ALK inhibitor with randomized first-line evidence in advanced ALK-positive NSCLC. Final ALTA-1L results showed longer progression-free survival than crizotinib; overall survival was not reached in either group in that analysis.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"brigatinib\"]}}, {\"id\": \"Ceritinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A second-generation ALK inhibitor with randomized first-line evidence in advanced ALK-rearranged nonsquamous NSCLC. ASCEND-4 showed longer progression-free survival than platinum/pemetrexed chemotherapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ceritinib\"]}}, {\"id\": \"Constitutive ALK mitogenic and survival signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active EML4::ALK assembles cytoplasmic signaling foci containing MAPK and PI3K pathway components. Sustained kinase output engages MEK-ERK and PI3K-AKT survival programs; JAK-STAT is not asserted here as a universal disease-level branch because the attached evidence is variant- and context-dependent.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Ras protein signal transduction\", \"ERK1 and ERK2 cascade\", \"phosphatidylinositol 3-kinase signaling\"], \"role\": \"central_effector\"}}, {\"id\": \"Crizotinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The first ALK inhibitor to establish randomized clinical benefit in advanced ALK-positive NSCLC. PROFILE 1014 showed longer progression-free survival than platinum/pemetrexed chemotherapy. It remains historically foundational while later-generation inhibitors provide other options.\", \"meta\": {\"evidence_count\": 2, \"pdb_structures\": [{\"pdb_id\": \"2XP2\", \"description\": \"Wild-type human ALK kinase domain in complex with crizotinib; this entry is distinct from the c-MET structure used earlier in structure-guided development.\", \"resolution_angstrom\": 1.9, \"method\": \"X-ray\", \"ligand\": \"crizotinib\", \"target_protein\": \"ALK (anaplastic lymphoma kinase)\"}], \"therapeutic_agents\": [\"crizotinib\"]}}, {\"id\": \"EML4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EML4\"], \"gene_terms\": [{\"label\": \"EML4\", \"id\": \"hgnc:1316\"}], \"association\": \"Fusion Partner\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"EMT-associated ALK TKI resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In an EML4::ALK G1202R cell model, STAT3-Slug activation induces an epithelial-to-mesenchymal state with increased migration and invasion and reduced ceritinib sensitivity. Its prevalence and treatment implications in patients remain unresolved.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epithelial to mesenchymal transition\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Ensartinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An oral ALK inhibitor evaluated as first-line therapy for advanced ALK-positive NSCLC. In the phase III eXALT3 trial, ensartinib prolonged progression-free survival and improved intracranial response relative to crizotinib.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ensartinib hydrochloride\"]}}, {\"id\": \"Lorlatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A third-generation, brain-penetrant ALK inhibitor used for advanced ALK-positive NSCLC. Seven-year CROWN follow-up showed durable systemic and intracranial control relative to crizotinib. Preclinical data support activity across wild-type ALK and multiple single kinase-domain resistance mutations; this does not imply control of bypass signaling or every compound mutation.\", \"meta\": {\"evidence_count\": 1, \"pdb_structures\": [{\"pdb_id\": \"4CLI\", \"description\": \"Wild-type ALK kinase domain in complex with PF-06463922 (lorlatinib); the entry is not a G1202R mutant co-crystal.\", \"resolution_angstrom\": 2.05, \"method\": \"X-ray\", \"ligand\": \"lorlatinib\", \"target_protein\": \"ALK (anaplastic lymphoma kinase)\"}], \"therapeutic_agents\": [\"lorlatinib\"]}}, {\"id\": \"Lung Adenocarcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Adenocarcinoma is the predominant clinical tumor phenotype of ALK-rearranged NSCLC, although rare ALK-rearranged squamous tumors occur.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030078\", \"histopathology_terms\": [{\"name\": \"Adenocarcinoma-predominant morphology\", \"preferred_term\": \"lung adenocarcinoma\", \"term_id\": \"NCIT:C3512\", \"term_label\": \"Lung Adenocarcinoma\"}]}}, {\"id\": \"Microenvironment-mediated ALK bypass resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cancer-associated fibroblasts and tumor-associated macrophages can supply paracrine or matrix-associated signals that maintain resistant-cell survival through MET-integrin or GAS6-AXL pathways.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell surface receptor protein tyrosine kinase signaling pathway\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"ALK fusion oncoprotein formation\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-mediated ALK activation produces ligand-independent kinase output and constitutive downstream signaling.\", \"hypothesis_groups\": [\"canonical_alk_fusion_mitogenic_signaling_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive ALK mitogenic and survival signaling\", \"target\": \"ALK-dependent tumor-cell proliferation and survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent ALK output maintains growth and survival through the PI3K-AKT and MEK-ERK pathways.\", \"hypothesis_groups\": [\"canonical_alk_fusion_mitogenic_signaling_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PI3K-AKT survival signaling\", \"MEK-ERK proliferative signaling\"]}, {\"source\": \"ALK-dependent tumor-cell proliferation and survival\", \"target\": \"Lung Adenocarcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ALK-dependent proliferation and survival support malignant transformation into the predominantly adenocarcinoma NSCLC phenotype.\", \"hypothesis_groups\": [\"canonical_alk_fusion_mitogenic_signaling_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"clonal expansion\", \"malignant transformation\"]}, {\"source\": \"ALK-dependent tumor-cell proliferation and survival\", \"target\": \"Brain Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALK-positive lung tumors can progress through the general metastatic cascade to clinically frequent brain metastases; an ALK-specific direct route to the brain is not asserted.\", \"hypothesis_groups\": [\"canonical_alk_fusion_mitogenic_signaling_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"local tumor progression and invasion\", \"hematogenous dissemination\", \"central nervous system colonization\"]}, {\"source\": \"ALK TKI therapeutic selection pressure\", \"target\": \"ALK kinase-domain mutation-mediated resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALK-TKI pressure can select kinase-domain substitutions that reduce inhibitor binding or alter drug-specific sensitivity.\", \"hypothesis_groups\": [\"acquired_alk_tki_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"survival of mutation-bearing tumor subclones\", \"expansion during ALK inhibition\"]}, {\"source\": \"ALK TKI therapeutic selection pressure\", \"target\": \"Adaptive kinase-bypass resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Resistant cells can restore growth signaling through alternate kinase pathways despite continued ALK inhibition.\", \"hypothesis_groups\": [\"acquired_alk_tki_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"compensatory receptor tyrosine kinase activation\", \"restoration of downstream survival signaling\"]}, {\"source\": \"ALK TKI therapeutic selection pressure\", \"target\": \"Microenvironment-mediated ALK bypass resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibroblast- and macrophage-derived signals can preserve resistant tumor cell survival through MET, integrin, or GAS6-AXL pathways.\", \"hypothesis_groups\": [\"acquired_alk_tki_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"stromal growth-factor or matrix signaling\", \"MET-integrin or GAS6-AXL survival output\"]}, {\"source\": \"ALK TKI therapeutic selection pressure\", \"target\": \"EMT-associated ALK TKI resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a G1202R cell model, STAT3-Slug signaling accompanies an invasive EMT state and reduced ceritinib sensitivity.\", \"hypothesis_groups\": [\"acquired_alk_tki_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"STAT3-Slug activation\", \"epithelial-to-mesenchymal state transition\"]}, {\"source\": \"Alectinib\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lorlatinib\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lorlatinib\", \"target\": \"ALK kinase-domain mutation-mediated resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ceritinib\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ensartinib\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Brigatinib\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Crizotinib\", \"target\": \"Constitutive ALK mitogenic and survival signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ALK\", \"target\": \"ALK fusion oncoprotein formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALK\", \"target\": \"ALK kinase-domain mutation-mediated resistance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EML4\", \"target\": \"ALK fusion oncoprotein formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6295,6 +6363,9 @@ This clinical feature is Lung adenocarcinoma (HP:0030078). HP:0030078 is a pheno
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6366,6 +6437,9 @@ This clinical feature is Brain metastasis, annotated with Brain neoplasm (HP:003
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6458,6 +6532,9 @@ This disease-associated gene is ALK (hgnc:427). hgnc:427 is a gene from the HUGO
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -6559,6 +6636,9 @@ This disease-associated gene is EML4 (hgnc:1316). hgnc:1316 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 

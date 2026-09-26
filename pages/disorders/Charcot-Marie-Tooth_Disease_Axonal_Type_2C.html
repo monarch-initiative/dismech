@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4761,6 +4803,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trpv4-ankyrin-repeat-domain-gain-of-function-variant" data-dismech-node="TRPV4 Ankyrin-Repeat Domain Gain-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">TRPV4 Ankyrin-Repeat Domain Gain-of-Function Variant</div>
 
+
                 <div class="item-desc">Heterozygous missense variants clustering in the intracellular N-terminal ankyrin repeat domain of TRPV4 - R232C, R269H, R315W, R316C, R316H, S542Y among them - produce a channel that reaches the membrane normally but is inappropriately active. The direction of the defect is the substantive claim: mutant protein subcellular localisation is normal in transfected cells, so this is not a trafficking or expression failure, and the functional data point to gain rather than loss of channel function.</div>
 
 
@@ -4838,6 +4881,8 @@ This pathophysiological event involves TRPV4 (hgnc:18083). hgnc:18083 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -4851,6 +4896,9 @@ This pathophysiological event involves TRPV4 (hgnc:18083). hgnc:18083 is a gene 
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -5036,6 +5084,7 @@ This pathophysiological event involves calcium channel activity (GO:0005262), qu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytotoxic-intracellular-calcium-elevation" data-dismech-node="Cytotoxic Intracellular Calcium Elevation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytotoxic Intracellular Calcium Elevation</div>
 
+
                 <div class="item-desc">Cells expressing the mutant channel carry increased intracellular calcium and die. The calcium elevation is the proximate toxic species: blocking the channel prevents the death, which is what distinguishes a causal calcium overload from an incidental one.</div>
 
 
@@ -5206,6 +5255,7 @@ This pathophysiological event involves dysregulated calcium ion homeostasis (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-blood-cns-barrier-breakdown" data-dismech-node="Endothelial Blood-CNS Barrier Breakdown" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Blood-CNS Barrier Breakdown</div>
+
 
                 <div class="item-desc">Gain of mutant channel function in neural vascular endothelial cells alters tight junction structure and produces focal disruption of the blood-spinal cord barrier. In knock-in mice this is the step that actually drives motor neuron loss: deleting the mutant allele from endothelium rescues the phenotype, while deleting it from neurons, glia or muscle does not. The node is curated because without it the entry asserts a neuron-autonomous chain that the strongest in vivo evidence contradicts. Its evidence is entirely murine, and the human relevance is the open question recorded in the mismatch discussion below.</div>
 
@@ -5381,6 +5431,7 @@ This pathophysiological event involves neural vascular endothelial cell, annotat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-predominant-axonal-degeneration" data-dismech-node="Motor-Predominant Axonal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor-Predominant Axonal Degeneration</div>
+
 
                 <div class="item-desc">Neuronal loss produces a motor-predominant, non-length-dependent axonal neuropathy. Two features distinguish it from a generic dying-back neuropathy and both matter clinically: it is not length-dependent, so proximal and cranial-nerve-innervated territories are vulnerable rather than merely distal ones, and it is motor-greater-than-sensory rather than purely motor - the sensory component is what separates CMT2C from the allelic distal hereditary motor neuronopathies.</div>
 
@@ -5579,6 +5630,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-laryngeal-and-diaphragmatic-denervation" data-dismech-node="Laryngeal and Diaphragmatic Denervation" data-dismech-type="pathophysiology">
                 <div class="item-name">Laryngeal and Diaphragmatic Denervation</div>
 
+
                 <div class="item-desc">Denervation of the larynx and diaphragm produces vocal cord paresis, voice change, inspiratory stridor and orthopnoea, and is the feature that defined CMT2C as a clinical entity before its gene was known. It ranges from absent to severe enough to require permanent tracheostomy, and - the point with real clinical consequence - its severity is independent of limb involvement.</div>
 
 
@@ -5664,6 +5716,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-limb-weakness-and-sensory-loss" data-dismech-node="Distal Limb Weakness and Sensory Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Limb Weakness and Sensory Loss</div>
+
 
                 <div class="item-desc">The CMT limb phenotype: distal weakness and wasting with sensory loss, variable in severity between and within families, and in the first European family apparently more severe in the youngest generation.</div>
 
@@ -5816,6 +5869,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5914,6 +5970,9 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5983,6 +6042,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6047,6 +6109,9 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6132,6 +6197,9 @@ This clinical feature is Vocal cord paresis (HP:0001604). HP:0001604 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6205,6 +6273,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6285,6 +6356,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6399,6 +6473,9 @@ This disease-associated gene is TRPV4 (hgnc:18083). hgnc:18083 is a gene from th
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

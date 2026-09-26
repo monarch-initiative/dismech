@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5966,6 +6008,7 @@ This is recorded as a mismatch rather than a knowledge gap because the evidence 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tunneling-nanotube-mediated-intercellular-viral-spread" data-dismech-node="Tunneling Nanotube-Mediated Intercellular Viral Spread" data-dismech-type="pathophysiology">
                 <div class="item-name">Tunneling Nanotube-Mediated Intercellular Viral Spread</div>
 
+
                 <div class="item-desc">ZIKV induces tunneling nanotubes (TNTs) — actin-rich, membrane-bounded intercellular conduits that carry viral components directly from cell to cell, bypassing the extracellular space. TNT-forming capacity maps to residues 40-52 of the viral nonstructural protein NS1: an engineered TNT-deficient mutant (ZIKVΔTNT) disseminates markedly less to maternal and fetal tissues than TNT-competent virus across multiple pregnancy models. Because transfer through a TNT is shielded from the extracellular compartment, this route also appears to let the virus persist in the face of a maternal type III interferon (IFN-lambda) response, implicating TNTs in immune evasion as well as in spread.</div>
 
 
@@ -6204,6 +6247,7 @@ This pathophysiological event involves maternal type III interferon (IFN-lambda)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-placental-infection" data-dismech-node="Placental Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Placental Infection</div>
 
+
                 <div class="item-desc">ZIKV productively infects the placenta, producing histological placental pathology. The causal role of viral spread is established by the contrast with the TNT-deficient mutant, which produces less placental pathology. The placenta is therefore not merely a barrier ZIKV crosses but a target organ in its own right.</div>
 
 
@@ -6368,6 +6412,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-placental-architectural-and-functional-disruption" data-dismech-node="Placental Architectural and Functional Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Placental Architectural and Functional Disruption</div>
 
+
                 <div class="item-desc">Infected placentas differ from TNT-deficient-infected controls in the relative architecture of the placental compartments, and in placental efficiency (fetal mass supported per unit placental mass), which improves when viral spread is crippled.</div>
 
 
@@ -6503,6 +6548,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-growth-restriction" data-dismech-node="Fetal Growth Restriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Growth Restriction</div>
 
+
                 <div class="item-desc">The most distal outcome of the placental arm in the pregnancy models tested: TNT-competent ZIKV infection leads to fetal growth restriction, while TNT-deficient infection protects against it.</div>
 
 
@@ -6588,6 +6634,13 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-transplacental-viral-transfer-to-the-fetal-compartment" data-dismech-node="Transplacental Viral Transfer to the Fetal Compartment" data-dismech-type="pathophysiology">
                 <div class="item-name">Transplacental Viral Transfer to the Fetal Compartment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Crossing the maternal-fetal interface is a transport step, distinct from what the virus does once it arrives. Human placental work identifies more than one route rather than a single breach: ZIKV productively infects placental macrophages (Hofbauer cells) and, less efficiently, cytotrophoblasts in term villous tissue, and separately infects cytotrophoblasts, endothelial cells, fibroblasts and Hofbauer cells in chorionic villi together with amniotic epithelial cells and trophoblast progenitors in amniochorionic membranes. Those cells express the Axl, Tyro3 and TIM1 entry cofactors, so the same TAM-family biology operates here as in the fetal brain — but on different cells, in a different organ, supporting a different claim. Curating them as one node conflated the two.
 Transfer is not uniformly permissive, and the restriction side explains the timing dependence the rest of this entry rests on. Primary human trophoblasts from full-term placentas are refractory to ZIKV and constitutively release type III interferon (IFN-lambda1) that protects both trophoblast and non-trophoblast cells, so virus reaching the fetal compartment must evade or bypass that barrier. Consistent with a barrier that strengthens as gestation proceeds, mid-gestation amniotic epithelial cells support higher viral titres than late-gestation cells.</div>
@@ -6836,6 +6889,13 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurotropic-entry-into-fetal-neural-progenitors" data-dismech-node="Neurotropic Entry into Fetal Neural Progenitors" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurotropic Entry into Fetal Neural Progenitors</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Once in the fetal brain, ZIKV is neurotropic for radial glia and neural progenitor cells. Candidate entry receptors enriched on these cells — notably the TAM-family receptor tyrosine kinase AXL, which is highly expressed by human radial glia in the developing cortex — are thought to mediate or facilitate viral attachment and entry, establishing infection of the founder progenitor population during corticogenesis. Neuropathology confirms the target: infection of progenitor cells at the germinal matrix has been demonstrated in human material.
 AXL appears on both sides of this entry&#39;s transfer/entry split, and the duplication is real biology rather than a curation artefact: the same TAM-family cofactors are used at the placenta and on radial glia. They are nonetheless different claims about different cells in different organs, and are curated on the node each belongs to.</div>
@@ -7087,6 +7147,13 @@ This pathophysiological event involves increased Viral genome replication (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spinal-anterior-horn-motor-neuron-loss" data-dismech-node="Spinal Anterior Horn Motor Neuron Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Spinal Anterior Horn Motor Neuron Loss</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Severe motor nerve cell loss in the anterior horn of the spinal cord is a consistent postmortem finding in congenital ZIKV infection, alongside hypoplasia of the descending tracts (small basis pontis, pyramids and spinal corticospinal tracts) that follows the loss of cortical output. The anterior horn lesion is the one that matters here, because it is what connects this entry&#39;s cortical mechanism to a phenotype the cortex cannot explain.</div>
 
 
@@ -7243,6 +7310,13 @@ This pathophysiological event occurs in ventral horn of spinal cord (UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-akinesia" data-dismech-node="Fetal Akinesia" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Akinesia</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Absent or greatly reduced fetal movement, the consequence of losing spinal motor neurons. This node exists because the resulting arthrogryposis is neurogenic rather than articular, and the distinction is testable: in the reported series, high-definition ultrasonography of the joints showed no abnormality, while needle electromyography showed motor unit remodeling and reduced recruitment, and spinal MRI showed apparent cord thinning with reduced ventral roots. The joints are normal; the nerves supplying them are not.</div>
 
 
@@ -7353,6 +7427,7 @@ This pathophysiological event occurs in ventral horn of spinal cord (UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-antiviral-innate-immune-activation" data-dismech-node="Antiviral Innate Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Antiviral Innate Immune Activation</div>
+
 
                 <div class="item-desc">ZIKV infection activates innate antiviral signalling within developing neural progenitor systems. Human cerebral organoid and neurosphere data implicate Toll-like receptor 3 (TLR3) activation and type I interferon-linked responses in perturbed neurogenesis, altered cell fate, and downstream progenitor loss; TLR3 inhibition mitigates the phenotype in experimental models.</div>
 
@@ -7656,6 +7731,7 @@ This pathophysiological event involves dysregulated Defense response to virus (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-viral-mitotic-and-centrosome-cytopathy" data-dismech-node="Viral Mitotic and Centrosome Cytopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Viral Mitotic and Centrosome Cytopathy</div>
+
 
                 <div class="item-desc">ZIKV productively infects human neural progenitor cells and radial glia, releasing infectious virus and perturbing cell-cycle progression, mitotic machinery, centrosome integrity, and phospho-TBK1 localization. These mitotic and centrosome defects impair proliferative progenitor divisions and converge on the same neural progenitor centrosome/spindle dysfunction module used by genetic cortical malformation entries.</div>
 
@@ -7985,6 +8061,7 @@ This pathophysiological event involves abnormal Centrosome cycle (GO:0007098). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-progenitor-apoptosis-and-pool-depletion" data-dismech-node="Neural Progenitor Apoptosis and Pool Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Progenitor Apoptosis and Pool Depletion</div>
 
+
                 <div class="item-desc">Innate antiviral activation, viral replication, cell-cycle disruption, and mitotic/centrosome stress converge on caspase-mediated apoptosis, autophagy, premature differentiation, and reduced viability of neural progenitors and radial glia. The founder progenitor pool is depleted, leaving too few neuron-generating cells for normal cortical expansion.</div>
 
 
@@ -8279,6 +8356,7 @@ This pathophysiological event involves decreased Cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neurogenesis-and-congenital-cortical-malformation" data-dismech-node="Impaired Neurogenesis and Congenital Cortical Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neurogenesis and Congenital Cortical Malformation</div>
 
+
                 <div class="item-desc">Depletion of the cortical progenitor pool and impaired neurogenesis reduce the complement of cortical neurons, producing severe microcephaly with a disproportionately small brain. Unlike many genetic microcephalies, the CZS cortex shows a more destructive pathology, with near-complete agyria (lissencephaly-like smoothing), multifocal cortical and subcortical calcifications, hydrocephalus/ventriculomegaly, and cortical displacement, reflecting prominent cell death during development.</div>
 
 
@@ -8570,7 +8648,7 @@ This pathophysiological event involves abnormal Cerebral cortex development (GO:
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiviral Innate Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZIKV infection activates innate antiviral signalling within developing neural progenitor systems. Human cerebral organoid and neurosphere data implicate Toll-like receptor 3 (TLR3) activation and type I interferon-linked responses in perturbed neurogenesis, altered cell fate, and downstream progenitor loss; TLR3 inhibition mitigates the phenotype in experimental models.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neural progenitor cell\", \"Radial glial cell\"], \"biological_processes\": [\"Innate immune response\", \"Toll-like receptor signaling pathway\", \"Type I interferon-mediated signaling pathway\", \"Defense response to virus\"]}}, {\"id\": \"Dengue-immune cynomolgus macaque ZIKV pregnancy model\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A nonhuman primate model of vertical transmission on a developmental timeline close to the human one, used to ask why some ZIKV-exposed fetuses are severely affected and others are not. Its answer is a maternal immunological one that this entry otherwise has no account of: prior dengue immunity worsens fetal outcome.\"}, {\"id\": \"Fetal Akinesia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absent or greatly reduced fetal movement, the consequence of losing spinal motor neurons. This node exists because the resulting arthrogryposis is neurogenic rather than articular, and the distinction is testable: in the reported series, high-definition ultrasonography of the joints showed no abnormality, while needle electromyography showed motor unit remodeling and reduced recruitment, and spinal MRI showed apparent cord thinning with reduced ventral roots. The joints are normal; the nerves supplying them are not.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Fetal Growth Restriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The most distal outcome of the placental arm in the pregnancy models tested: TNT-competent ZIKV infection leads to fetal growth restriction, while TNT-deficient infection protects against it.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Neurogenesis and Congenital Cortical Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of the cortical progenitor pool and impaired neurogenesis reduce the complement of cortical neurons, producing severe microcephaly with a disproportionately small brain. Unlike many genetic microcephalies, the CZS cortex shows a more destructive pathology, with near-complete agyria (lissencephaly-like smoothing), multifocal cortical and subcortical calcifications, hydrocephalus/ventriculomegaly, and cortical displacement, reflecting prominent cell death during development.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neural progenitor cell\"], \"biological_processes\": [\"Neurogenesis\", \"Cerebral cortex development\"], \"animal_models\": [{\"name\": \"Dengue-immune cynomolgus macaque ZIKV pregnancy model\", \"species\": \"Cynomolgus macaque\", \"genotype\": \"Wild type, DENV-immune prior to ZIKV challenge\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Fetuses of DENV-immune macaques infected with ZIKV in early pregnancy developed significantly more severe CZS than naive controls, with reduced cortical thickness and increased neuronal death, haemorrhage, cellular infiltration, calcification and lissencephaly \\u2014 the same lesion set reported in human postmortem material.\"}]}}, {\"id\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Innate antiviral activation, viral replication, cell-cycle disruption, and mitotic/centrosome stress converge on caspase-mediated apoptosis, autophagy, premature differentiation, and reduced viability of neural progenitors and radial glia. The founder progenitor pool is depleted, leaving too few neuron-generating cells for normal cortical expansion.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neural progenitor cell\", \"Radial glial cell\"], \"biological_processes\": [\"Apoptotic process\", \"Neurogenesis\", \"Cell population proliferation\"]}}, {\"id\": \"Neurotropic Entry into Fetal Neural Progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Once in the fetal brain, ZIKV is neurotropic for radial glia and neural progenitor cells. Candidate entry receptors enriched on these cells \\u2014 notably the TAM-family receptor tyrosine kinase AXL, which is highly expressed by human radial glia in the developing cortex \\u2014 are thought to mediate or facilitate viral attachment and entry, establishing infection of the founder progenitor population during corticogenesis. Neuropathology confirms the target: infection of progenitor cells at the germinal matrix has been demonstrated in human material.\\nAXL appears on both sides of this entry\u0027s transfer/entry split, and the duplication is real biology rather than a curation artefact: the same TAM-family cofactors are used at the placenta and on radial glia. They are nonetheless different claims about different cells in different organs, and are curated on the node each belongs to.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Radial glial cell\", \"Neural progenitor cell\"], \"biological_processes\": [\"Viral entry into host cell\", \"Viral genome replication\"]}}, {\"id\": \"Placental Architectural and Functional Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infected placentas differ from TNT-deficient-infected controls in the relative architecture of the placental compartments, and in placental efficiency (fetal mass supported per unit placental mass), which improves when viral spread is crippled.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"placental architecture and efficiency\"], \"locations\": [\"placenta\"]}}, {\"id\": \"Placental Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZIKV productively infects the placenta, producing histological placental pathology. The causal role of viral spread is established by the contrast with the TNT-deficient mutant, which produces less placental pathology. The placenta is therefore not merely a barrier ZIKV crosses but a target organ in its own right.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"trophoblast cell\"], \"locations\": [\"placenta\"]}}, {\"id\": \"Spinal Anterior Horn Motor Neuron Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe motor nerve cell loss in the anterior horn of the spinal cord is a consistent postmortem finding in congenital ZIKV infection, alongside hypoplasia of the descending tracts (small basis pontis, pyramids and spinal corticospinal tracts) that follows the loss of cortical output. The anterior horn lesion is the one that matters here, because it is what connects this entry\u0027s cortical mechanism to a phenotype the cortex cannot explain.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Anterior horn motor neuron\"], \"locations\": [\"ventral horn of spinal cord\"]}}, {\"id\": \"Transplacental Viral Transfer to the Fetal Compartment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Crossing the maternal-fetal interface is a transport step, distinct from what the virus does once it arrives. Human placental work identifies more than one route rather than a single breach: ZIKV productively infects placental macrophages (Hofbauer cells) and, less efficiently, cytotrophoblasts in term villous tissue, and separately infects cytotrophoblasts, endothelial cells, fibroblasts and Hofbauer cells in chorionic villi together with amniotic epithelial cells and trophoblast progenitors in amniochorionic membranes. Those cells express the Axl, Tyro3 and TIM1 entry cofactors, so the same TAM-family biology operates here as in the fetal brain \\u2014 but on different cells, in a different organ, supporting a different claim. Curating them as one node conflated the two.\\nTransfer is not uniformly permissive, and the restriction side explains the timing dependence the rest of this entry rests on. Primary human trophoblasts from full-term placentas are refractory to ZIKV and constitutively release type III interferon (IFN-lambda1) that protects both trophoblast and non-trophoblast cells, so virus reaching the fetal compartment must evade or bypass that barrier. Consistent with a barrier that strengthens as gestation proceeds, mid-gestation amniotic epithelial cells support higher viral titres than late-gestation cells.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"Hofbauer cell (placental macrophage)\", \"Cytotrophoblast\"], \"biological_processes\": [\"type III interferon production by trophoblast\"], \"locations\": [\"placenta\"]}}, {\"id\": \"Tunneling Nanotube-Mediated Intercellular Viral Spread\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZIKV induces tunneling nanotubes (TNTs) \\u2014 actin-rich, membrane-bounded intercellular conduits that carry viral components directly from cell to cell, bypassing the extracellular space. TNT-forming capacity maps to residues 40-52 of the viral nonstructural protein NS1: an engineered TNT-deficient mutant (ZIKV\\u0394TNT) disseminates markedly less to maternal and fetal tissues than TNT-competent virus across multiple pregnancy models. Because transfer through a TNT is shielded from the extracellular compartment, this route also appears to let the virus persist in the face of a maternal type III interferon (IFN-lambda) response, implicating TNTs in immune evasion as well as in spread.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"tunneling nanotube formation\", \"TNT-shielded escape from maternal type III interferon control\", \"maternal type III interferon (IFN-lambda) signaling at the maternal-fetal interface\"]}}, {\"id\": \"Viral Mitotic and Centrosome Cytopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZIKV productively infects human neural progenitor cells and radial glia, releasing infectious virus and perturbing cell-cycle progression, mitotic machinery, centrosome integrity, and phospho-TBK1 localization. These mitotic and centrosome defects impair proliferative progenitor divisions and converge on the same neural progenitor centrosome/spindle dysfunction module used by genetic cortical malformation entries.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neural progenitor cell\", \"Radial glial cell\"], \"biological_processes\": [\"Mitotic cell cycle\", \"Cell cycle\", \"Mitotic spindle organization\", \"Centrosome cycle\"]}}], \"edges\": [{\"source\": \"Tunneling Nanotube-Mediated Intercellular Viral Spread\", \"target\": \"Placental Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TNT-mediated spread within the placenta drives productive placental infection.\"}, {\"source\": \"Tunneling Nanotube-Mediated Intercellular Viral Spread\", \"target\": \"Transplacental Viral Transfer to the Fetal Compartment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TNT-competent virus reaches maternal and fetal tissues far more efficiently than TNT-deficient virus. The edge is retained because that dissemination difference is directly measured, but marked indirect: the route to the fetal compartment runs through placental infection, which is curated as its own node between the two.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Placental Infection\", \"target\": \"Placental Architectural and Functional Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Placental infection is followed by change in the relative architecture of the placental compartments and a fall in placental efficiency.\"}, {\"source\": \"Placental Infection\", \"target\": \"Transplacental Viral Transfer to the Fetal Compartment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Placental infection and barrier injury permit virus to reach the fetal compartment and the developing central nervous system.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Placental Architectural and Functional Disruption\", \"target\": \"Fetal Growth Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced placental efficiency limits fetal growth; crippling viral spread protects against the growth deficit.\"}, {\"source\": \"Transplacental Viral Transfer to the Fetal Compartment\", \"target\": \"Neurotropic Entry into Fetal Neural Progenitors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Virus that has reached the fetal compartment encounters the developing cortex, where a separate set of receptors and cell types governs entry.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurotropic Entry into Fetal Neural Progenitors\", \"target\": \"Antiviral Innate Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurotropic Entry into Fetal Neural Progenitors\", \"target\": \"Viral Mitotic and Centrosome Cytopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurotropic Entry into Fetal Neural Progenitors\", \"target\": \"Spinal Anterior Horn Motor Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Virus in the developing fetal CNS also reaches the spinal cord, where anterior horn motor neurons are lost. Whether this reflects the same progenitor-directed cytopathy operating at a second site, or direct infection of postmitotic motor neurons, is not established by the neuropathological material.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Spinal Anterior Horn Motor Neuron Loss\", \"target\": \"Fetal Akinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the final common motor pathway removes the fetal movement that normal joint development depends on.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiviral Innate Immune Activation\", \"target\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Viral Mitotic and Centrosome Cytopathy\", \"target\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"target\": \"Impaired Neurogenesis and Congenital Cortical Malformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dengue-immune cynomolgus macaque ZIKV pregnancy model\", \"target\": \"Impaired Neurogenesis and Congenital Cortical Malformation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Fetuses of DENV-immune macaques infected with ZIKV in early pregnancy developed significantly more severe CZS than naive controls, with reduced cortical thickness and increased neuronal death, haemorrhage, cellular infiltration, calcification and lissencephaly \\u2014 the same lesion set reported in human postmortem material.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The enhancement is demonstrated in macaques and has not been shown to operate in human pregnancy, so it is a candidate explanation for the variable human severity rather than an established one. The model also cannot separate antibody-dependent enhancement from other consequences of prior flavivirus exposure.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiviral Innate Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZIKV infection activates innate antiviral signalling within developing neural progenitor systems. Human cerebral organoid and neurosphere data implicate Toll-like receptor 3 (TLR3) activation and type I interferon-linked responses in perturbed neurogenesis, altered cell fate, and downstream progenitor loss; TLR3 inhibition mitigates the phenotype in experimental models.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neural progenitor cell\", \"Radial glial cell\"], \"biological_processes\": [\"Innate immune response\", \"Toll-like receptor signaling pathway\", \"Type I interferon-mediated signaling pathway\", \"Defense response to virus\"]}}, {\"id\": \"Dengue-immune cynomolgus macaque ZIKV pregnancy model\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A nonhuman primate model of vertical transmission on a developmental timeline close to the human one, used to ask why some ZIKV-exposed fetuses are severely affected and others are not. Its answer is a maternal immunological one that this entry otherwise has no account of: prior dengue immunity worsens fetal outcome.\"}, {\"id\": \"Fetal Akinesia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absent or greatly reduced fetal movement, the consequence of losing spinal motor neurons. This node exists because the resulting arthrogryposis is neurogenic rather than articular, and the distinction is testable: in the reported series, high-definition ultrasonography of the joints showed no abnormality, while needle electromyography showed motor unit remodeling and reduced recruitment, and spinal MRI showed apparent cord thinning with reduced ventral roots. The joints are normal; the nerves supplying them are not.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Fetal Growth Restriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The most distal outcome of the placental arm in the pregnancy models tested: TNT-competent ZIKV infection leads to fetal growth restriction, while TNT-deficient infection protects against it.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Neurogenesis and Congenital Cortical Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of the cortical progenitor pool and impaired neurogenesis reduce the complement of cortical neurons, producing severe microcephaly with a disproportionately small brain. Unlike many genetic microcephalies, the CZS cortex shows a more destructive pathology, with near-complete agyria (lissencephaly-like smoothing), multifocal cortical and subcortical calcifications, hydrocephalus/ventriculomegaly, and cortical displacement, reflecting prominent cell death during development.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neural progenitor cell\"], \"biological_processes\": [\"Neurogenesis\", \"Cerebral cortex development\"], \"animal_models\": [{\"name\": \"Dengue-immune cynomolgus macaque ZIKV pregnancy model\", \"species\": \"Cynomolgus macaque\", \"genotype\": \"Wild type, DENV-immune prior to ZIKV challenge\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Fetuses of DENV-immune macaques infected with ZIKV in early pregnancy developed significantly more severe CZS than naive controls, with reduced cortical thickness and increased neuronal death, haemorrhage, cellular infiltration, calcification and lissencephaly \\u2014 the same lesion set reported in human postmortem material.\"}]}}, {\"id\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Innate antiviral activation, viral replication, cell-cycle disruption, and mitotic/centrosome stress converge on caspase-mediated apoptosis, autophagy, premature differentiation, and reduced viability of neural progenitors and radial glia. The founder progenitor pool is depleted, leaving too few neuron-generating cells for normal cortical expansion.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neural progenitor cell\", \"Radial glial cell\"], \"biological_processes\": [\"Apoptotic process\", \"Neurogenesis\", \"Cell population proliferation\"]}}, {\"id\": \"Neurotropic Entry into Fetal Neural Progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Once in the fetal brain, ZIKV is neurotropic for radial glia and neural progenitor cells. Candidate entry receptors enriched on these cells \\u2014 notably the TAM-family receptor tyrosine kinase AXL, which is highly expressed by human radial glia in the developing cortex \\u2014 are thought to mediate or facilitate viral attachment and entry, establishing infection of the founder progenitor population during corticogenesis. Neuropathology confirms the target: infection of progenitor cells at the germinal matrix has been demonstrated in human material.\\nAXL appears on both sides of this entry\u0027s transfer/entry split, and the duplication is real biology rather than a curation artefact: the same TAM-family cofactors are used at the placenta and on radial glia. They are nonetheless different claims about different cells in different organs, and are curated on the node each belongs to.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Radial glial cell\", \"Neural progenitor cell\"], \"biological_processes\": [\"Viral entry into host cell\", \"Viral genome replication\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Placental Architectural and Functional Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infected placentas differ from TNT-deficient-infected controls in the relative architecture of the placental compartments, and in placental efficiency (fetal mass supported per unit placental mass), which improves when viral spread is crippled.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"placental architecture and efficiency\"], \"locations\": [\"placenta\"]}}, {\"id\": \"Placental Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZIKV productively infects the placenta, producing histological placental pathology. The causal role of viral spread is established by the contrast with the TNT-deficient mutant, which produces less placental pathology. The placenta is therefore not merely a barrier ZIKV crosses but a target organ in its own right.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"trophoblast cell\"], \"locations\": [\"placenta\"]}}, {\"id\": \"Spinal Anterior Horn Motor Neuron Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe motor nerve cell loss in the anterior horn of the spinal cord is a consistent postmortem finding in congenital ZIKV infection, alongside hypoplasia of the descending tracts (small basis pontis, pyramids and spinal corticospinal tracts) that follows the loss of cortical output. The anterior horn lesion is the one that matters here, because it is what connects this entry\u0027s cortical mechanism to a phenotype the cortex cannot explain.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Anterior horn motor neuron\"], \"locations\": [\"ventral horn of spinal cord\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Transplacental Viral Transfer to the Fetal Compartment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Crossing the maternal-fetal interface is a transport step, distinct from what the virus does once it arrives. Human placental work identifies more than one route rather than a single breach: ZIKV productively infects placental macrophages (Hofbauer cells) and, less efficiently, cytotrophoblasts in term villous tissue, and separately infects cytotrophoblasts, endothelial cells, fibroblasts and Hofbauer cells in chorionic villi together with amniotic epithelial cells and trophoblast progenitors in amniochorionic membranes. Those cells express the Axl, Tyro3 and TIM1 entry cofactors, so the same TAM-family biology operates here as in the fetal brain \\u2014 but on different cells, in a different organ, supporting a different claim. Curating them as one node conflated the two.\\nTransfer is not uniformly permissive, and the restriction side explains the timing dependence the rest of this entry rests on. Primary human trophoblasts from full-term placentas are refractory to ZIKV and constitutively release type III interferon (IFN-lambda1) that protects both trophoblast and non-trophoblast cells, so virus reaching the fetal compartment must evade or bypass that barrier. Consistent with a barrier that strengthens as gestation proceeds, mid-gestation amniotic epithelial cells support higher viral titres than late-gestation cells.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"Hofbauer cell (placental macrophage)\", \"Cytotrophoblast\"], \"biological_processes\": [\"type III interferon production by trophoblast\"], \"locations\": [\"placenta\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Tunneling Nanotube-Mediated Intercellular Viral Spread\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZIKV induces tunneling nanotubes (TNTs) \\u2014 actin-rich, membrane-bounded intercellular conduits that carry viral components directly from cell to cell, bypassing the extracellular space. TNT-forming capacity maps to residues 40-52 of the viral nonstructural protein NS1: an engineered TNT-deficient mutant (ZIKV\\u0394TNT) disseminates markedly less to maternal and fetal tissues than TNT-competent virus across multiple pregnancy models. Because transfer through a TNT is shielded from the extracellular compartment, this route also appears to let the virus persist in the face of a maternal type III interferon (IFN-lambda) response, implicating TNTs in immune evasion as well as in spread.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"tunneling nanotube formation\", \"TNT-shielded escape from maternal type III interferon control\", \"maternal type III interferon (IFN-lambda) signaling at the maternal-fetal interface\"]}}, {\"id\": \"Viral Mitotic and Centrosome Cytopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZIKV productively infects human neural progenitor cells and radial glia, releasing infectious virus and perturbing cell-cycle progression, mitotic machinery, centrosome integrity, and phospho-TBK1 localization. These mitotic and centrosome defects impair proliferative progenitor divisions and converge on the same neural progenitor centrosome/spindle dysfunction module used by genetic cortical malformation entries.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neural progenitor cell\", \"Radial glial cell\"], \"biological_processes\": [\"Mitotic cell cycle\", \"Cell cycle\", \"Mitotic spindle organization\", \"Centrosome cycle\"]}}], \"edges\": [{\"source\": \"Tunneling Nanotube-Mediated Intercellular Viral Spread\", \"target\": \"Placental Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TNT-mediated spread within the placenta drives productive placental infection.\"}, {\"source\": \"Tunneling Nanotube-Mediated Intercellular Viral Spread\", \"target\": \"Transplacental Viral Transfer to the Fetal Compartment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TNT-competent virus reaches maternal and fetal tissues far more efficiently than TNT-deficient virus. The edge is retained because that dissemination difference is directly measured, but marked indirect: the route to the fetal compartment runs through placental infection, which is curated as its own node between the two.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Placental Infection\", \"target\": \"Placental Architectural and Functional Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Placental infection is followed by change in the relative architecture of the placental compartments and a fall in placental efficiency.\"}, {\"source\": \"Placental Infection\", \"target\": \"Transplacental Viral Transfer to the Fetal Compartment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Placental infection and barrier injury permit virus to reach the fetal compartment and the developing central nervous system.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Placental Architectural and Functional Disruption\", \"target\": \"Fetal Growth Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced placental efficiency limits fetal growth; crippling viral spread protects against the growth deficit.\"}, {\"source\": \"Transplacental Viral Transfer to the Fetal Compartment\", \"target\": \"Neurotropic Entry into Fetal Neural Progenitors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Virus that has reached the fetal compartment encounters the developing cortex, where a separate set of receptors and cell types governs entry.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurotropic Entry into Fetal Neural Progenitors\", \"target\": \"Antiviral Innate Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurotropic Entry into Fetal Neural Progenitors\", \"target\": \"Viral Mitotic and Centrosome Cytopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurotropic Entry into Fetal Neural Progenitors\", \"target\": \"Spinal Anterior Horn Motor Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Virus in the developing fetal CNS also reaches the spinal cord, where anterior horn motor neurons are lost. Whether this reflects the same progenitor-directed cytopathy operating at a second site, or direct infection of postmitotic motor neurons, is not established by the neuropathological material.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Spinal Anterior Horn Motor Neuron Loss\", \"target\": \"Fetal Akinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the final common motor pathway removes the fetal movement that normal joint development depends on.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiviral Innate Immune Activation\", \"target\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Viral Mitotic and Centrosome Cytopathy\", \"target\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"target\": \"Impaired Neurogenesis and Congenital Cortical Malformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dengue-immune cynomolgus macaque ZIKV pregnancy model\", \"target\": \"Impaired Neurogenesis and Congenital Cortical Malformation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Fetuses of DENV-immune macaques infected with ZIKV in early pregnancy developed significantly more severe CZS than naive controls, with reduced cortical thickness and increased neuronal death, haemorrhage, cellular infiltration, calcification and lissencephaly \\u2014 the same lesion set reported in human postmortem material.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The enhancement is demonstrated in macaques and has not been shown to operate in human pregnancy, so it is a candidate explanation for the variable human severity rather than an established one. The model also cannot separate antibody-dependent enhancement from other consequences of prior flavivirus exposure.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8639,6 +8717,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8776,6 +8857,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8876,6 +8960,9 @@ This clinical feature is Chorioretinal atrophy (HP:0000533). HP:0000533 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9002,6 +9089,9 @@ This clinical feature is Focal pigmentary retinal mottling, annotated with Retin
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9105,6 +9195,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9182,6 +9275,9 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9278,6 +9374,9 @@ This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9392,6 +9491,9 @@ This clinical feature is Hypertonia (HP:0001276), qualified as course progressiv
 
 
                     </div>
+
+
+
 
 
 
@@ -9525,6 +9627,9 @@ This clinical feature is Lissencephaly (HP:0001339). HP:0001339 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9589,6 +9694,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9663,6 +9771,9 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9729,6 +9840,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9859,6 +9973,9 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -9980,6 +10097,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10078,6 +10198,9 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
                     </span>
 
                     </div>
+
+
+
 
 
 

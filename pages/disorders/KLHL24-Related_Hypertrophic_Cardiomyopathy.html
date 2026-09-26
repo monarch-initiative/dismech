@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5117,6 +5159,13 @@ Provenance for this assertion. The HPO annotation file for OMIM:620236 records H
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-loss-of-function-klhl24-variants" data-dismech-node="Biallelic Loss-of-Function KLHL24 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Loss-of-Function KLHL24 Variants</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The primary lesion is biallelic damage to KLHL24 at 3q27.1, reported against transcript NM_017644.3. The founding alleles are a homozygous nonsense variant c.1048G&gt;T (p.Glu350*) in the Kelch-repeat region and a homozygous missense variant c.917G&gt;A (p.Arg306His) at a residue conserved both across vertebrates and across the KLHL protein family. Later families add a frameshift in the BACK domain and a missense in the Kelch domain in trans, and compound heterozygous truncating alleles. All reported CMH29 genotypes therefore damage the BACK or Kelch portions of the protein - the substrate adaptor machinery - and none of them affects the translation initiation codon, which is the region mutated in the dominant skin disease. That positional separation is the structural basis of the allelic contrast that runs through this entry.
 The alleles behave as true loss of function rather than as dominant-negatives: heterozygous parents are unaffected, and both founding alleles failed to rescue zebrafish klhl24a knockdown when the equivalent substitutions were engineered into the fish transcript, whereas wild-type klhl24a mRNA did rescue.</div>
 
@@ -5286,6 +5335,13 @@ This pathophysiological event involves KLHL24 (hgnc:25947). hgnc:25947 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cul3-klhl24-substrate-adaptor-function" data-dismech-node="Loss of CUL3-KLHL24 Substrate Adaptor Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of CUL3-KLHL24 Substrate Adaptor Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">KLHL24 is a BTB-BACK-Kelch protein. Its BTB and BACK domains dock onto CUL3, and its C-terminal six-bladed Kelch beta-propeller selects substrates; the assembled CUL3-RBX1-KLHL24 complex then transfers ubiquitin onto those substrates and commits them to the 26S proteasome. KLHL24 is not a housekeeping component of that machinery but a specificity module: which proteins are degraded depends on which Kelch adaptor is loaded. Losing KLHL24 therefore does not impair ubiquitination in general - it removes one branch of substrate selection, which is why the disease is tissue-restricted despite the ubiquity of the proteasome. KLHL24 is most highly expressed in skeletal muscle, then lung, then left ventricle, so the branch that is lost is the one that operates in striated muscle.</div>
 
@@ -5634,6 +5690,13 @@ This pathophysiological event involves decreased ubiquitin-protein transferase a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-desmin-intermediate-filament-turnover" data-dismech-node="Failure of Desmin Intermediate Filament Turnover" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Desmin Intermediate Filament Turnover</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Desmin is the muscle-specific type III intermediate filament that links adjacent Z-discs to each other, to the sarcolemma at costameres, and to mitochondria and nuclei, transmitting force laterally and maintaining myofibrillar register. It is a dynamic polymer whose subunits are continuously exchanged, and that exchange requires a route for disposal of displaced subunits. KLHL24 supplies that route in muscle: it is the cardiac and skeletal-muscle counterpart of the KLHL24-keratin-14 relationship characterised in basal keratinocytes, desmin standing to the myocyte as keratin-14 stands to the keratinocyte.
 In KLHL24-null myocytes the polymer is not disposed of. Immunohistochemistry on heart and skeletal muscle from the founding families showed desmin accumulating in the intermyofibrillar and subsarcolemmal spaces, electron microscopy resolved irregularly arranged 8-12 nm filaments in the same compartment, and Western blotting showed desmin markedly upregulated in both tissues relative to controls. This is the inverse of the lesion in KLHL24 gain-of-function disease, in which desmin is depleted roughly tenfold in patient-derived engineered heart tissue and in explanted myocardium. The same protein pair therefore produces two cardiomyopathies of opposite morphology depending on the direction in which turnover fails.</div>
 
@@ -5932,6 +5995,13 @@ This pathophysiological event involves Z disc (GO:0030018). GO:0030018 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intermyofibrillar-glycogen-and-polyglucosan-storage" data-dismech-node="Intermyofibrillar Glycogen and Polyglucosan Storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Intermyofibrillar Glycogen and Polyglucosan Storage</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Alongside the accumulated filaments, the intermyofibrillar space of CMH29 cardiomyocytes fills with glycogen and with discrete polyglucosan bodies - periodic-acid-Schiff-positive material that resists alpha-amylase digestion, identifying it as the amylopectin-like, poorly branched, poorly soluble polysaccharide called polyglucosan rather than as ordinary glycogen. Skeletal muscle shows the same focal subsarcolemmal and intermyofibrillar glycogen accumulation.
 This node is deliberately marked HYPOTHETICAL, because its mechanism is genuinely unknown and the founding authors say so. Cardiomyopathies with polyglucosan accumulation are otherwise essentially confined to disorders of glycogen metabolism, and eight genes are canonically associated with muscle polyglucosan storage - GYG1, GBE1, RBCK1, PFKM, EPM2A, EPM2B, PRDM8 and PRKAG2. None of those was mutated in the founding families; a dedicated nine-gene polyglucosan-storage panel was screened and excluded before KLHL24 was reached. KLHL24 has no known role in glycogen metabolism, and no experiment has connected loss of its ligase-adaptor function to polysaccharide handling. Three explanations remain open and are set out in the knowledge-gap discussion below. Until one is demonstrated, the polyglucosan is curated as a reproducible diagnostic marker of the disease and as an unexplained co-occurrence, not as a step in the causal chain.</div>
 
@@ -6131,6 +6201,13 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcoplasmic-reticulum-derived-tubular-aggregation" data-dismech-node="Sarcoplasmic Reticulum-Derived Tubular Aggregation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sarcoplasmic Reticulum-Derived Tubular Aggregation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A third species accumulates in the same intermyofibrillar compartment: arrays of tubular membranous structures. Their origin was inferred histochemically in the founding study - the accumulated material stained for NADH-tetrazolium reductase but was negative for succinate dehydrogenase, a combination that indicates sarcoplasmic reticulum rather than mitochondria. This matters clinically as well as mechanistically, because it excludes a mitochondrial myopathy from the differential on the biopsy itself, and it is consistent with a disease of proteostasis spreading to membrane-compartment organisation rather than a primary bioenergetic lesion. It is marked PROVISIONAL because the inference rests on a histochemical staining pattern in one study and has not been confirmed by marker immunolocalisation or by any subsequent report.</div>
 
 
@@ -6256,6 +6333,13 @@ This pathophysiological event involves abnormal sarcoplasmic reticulum (GO:00165
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-hypertrophy-and-concentric-left-ventricular-remodelling" data-dismech-node="Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The myocyte enlarges. The founding heart explant and endomyocardial biopsies showed myocyte hypertrophy, and the HPO annotation set records cardiomyocyte hypertrophy in both individuals examined histologically. At organ level this produces the picture that brings patients to attention: severe septal thickening, a small left ventricular cavity, a reduced left ventricular end-systolic diameter, systolic anterior motion of the mitral valve and dynamic left ventricular outflow tract obstruction, with ejection fraction preserved or supranormal early on.
 Two things distinguish this hypertrophy from sarcomeric HCM. First, part of the wall thickness is storage rather than contractile mass - accumulated filaments, polysaccharide and membrane occupy the intermyofibrillar space. Second, myofibre disarray, the histological hallmark of sarcomeric HCM, is not what the biopsies show; what they show is intermyofibrillar accumulation. The clinical phenotype is nevertheless indistinguishable at the echocardiogram, which is precisely why the disease is missed.</div>
@@ -6477,6 +6561,13 @@ This pathophysiological event occurs in left ventricle, annotated with heart lef
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-fibrosis-and-focal-macrophage-infiltration" data-dismech-node="Myocardial Fibrosis and Focal Macrophage Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial Fibrosis and Focal Macrophage Infiltration</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The CMH29 heart develops patchy interstitial fibrosis, and the founding explant showed small CD68-positive macrophage infiltrates that were preferentially associated with polyglucosan-containing myocytes. That spatial association suggests the inclusions themselves recruit the infiltrate - an inclusion-triggered innate response rather than a diffuse inflammatory cardiomyopathy - but the observation is from one explanted heart and has not been replicated. The extent of fibrosis is variable: the founding explant showed patchy scar, one independently reported adolescent had minimal fibrosis despite severe hypertrophy, while another young adult had extensive late-gadolinium-enhancement-positive septal scar. Fibrosis burden therefore does not track hypertrophy severity in this disease, which is one reason conventional imaging-based risk scores behave poorly in it.</div>
 
 
@@ -6626,6 +6717,13 @@ This pathophysiological event involves CD68-positive macrophage, annotated with 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-electrical-instability-and-malignant-arrhythmia" data-dismech-node="Ventricular Electrical Instability and Malignant Arrhythmia" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Electrical Instability and Malignant Arrhythmia</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">This is the node that determines prognosis, and it is the feature that most distinguishes CMH29 from ordinary hypertrophic cardiomyopathy. Three of the 11 young adults in the founding cohort died suddenly, at ages 20, 26 and 26; several others received implantable cardioverter-defibrillators in their twenties or thirties. Electrocardiography in the founding families showed generalised ST-T change, QRS durations at or above the upper limit of normal (120, 125 and 154 ms in the three individuals with a recorded value), one prolonged PR interval of 210 ms, and frequent episodes of non-sustained ventricular tachycardia in one individual - a pattern of both conduction-system involvement and ventricular ectopy. The other three recorded PR intervals were 186, 188 and 194 ms, so PR prolongation is not a consistent feature and should not be used as a diagnostic pointer. The arrhythmic risk is disproportionate to structural severity and can precede it, which is a genuine departure from the standard HCM risk model.
 Mechanistically this is attributed to failure of cytoskeletal protein turnover: the desmin network normally couples the sarcolemma, Z-disc and intercalated disc, and its disorganisation disturbs both mechanical coupling and, plausibly, the sarcoplasmic reticulum-dependent calcium handling that underlies the cardiac action potential. That mechanistic account is stated in the literature but has not been tested experimentally in a biallelic loss-of-function system.</div>
@@ -6845,6 +6943,13 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progression-to-systolic-failure-and-transplantation" data-dismech-node="Progression to Systolic Failure and Transplantation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progression to Systolic Failure and Transplantation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Not every individual stays in the hypertrophic, preserved-ejection-fraction phase. One of the two Iraqi siblings developed a moderately dilated left ventricle with regional akinesia and an ejection fraction of 25 percent, and underwent cardiac transplantation at 26; her brother, whose echocardiogram was recorded at 28, retained an ejection fraction of 50 percent. In the independently reported non-consanguineous sibship of PMID:42158087, the proband&#39;s ejection fraction fell progressively from 77 to 55 percent over two years of follow-up with the emergence of definite diastolic dysfunction. A separate exome series describing a consanguineous Middle Eastern family reported the KLHL24 phenotype as a mixture of dilated and hypertrophic features with non-compaction, which suggests that the hypertrophic-to-dilated transition may be part of the natural history of the gene rather than an idiosyncrasy of one family.
 This is marked PROVISIONAL because the number of individuals followed longitudinally is very small and the reported phenotypes span hypertrophic, dilated and non-compaction morphology without a clear ordering in time.</div>
 
@@ -6994,6 +7099,13 @@ This pathophysiological event involves decreased heart contraction (GO:0060047).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-cogwheel-fibre-pathology" data-dismech-node="Skeletal Muscle Cogwheel Fibre Pathology" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal Muscle Cogwheel Fibre Pathology</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">KLHL24 is expressed more highly in skeletal muscle than in heart, and skeletal muscle in CMH29 is unambiguously abnormal - yet it is clinically silent. Muscle biopsies from three individuals across both founding families showed focal subsarcolemmal and intermyofibrillar accumulation of glycogen and desmin, distributed so as to give the fibre periphery a jagged outline that the authors named the &#34;cogwheel&#34; fibre and proposed as a diagnostic marker. Both type 1 and type 2 fibres were affected. Against this, no individual had muscle weakness or wasting and nerve conduction studies were normal.
 This dissociation is one of the two central unexplained features of the disease, alongside the polyglucosan, and it is why this node sits outside the causal chain to the cardiac phenotype rather than upstream of it. Its practical value is diagnostic: a skeletal muscle biopsy in a young adult with unexplained hypertrophic cardiomyopathy is low-morbidity relative to endomyocardial biopsy and, if the cogwheel pattern is present, points directly at this gene.</div>
@@ -7257,7 +7369,7 @@ This pathophysiological event involves skeletal muscle fibre, annotated with cel
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic Loss-of-Function KLHL24 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is biallelic damage to KLHL24 at 3q27.1, reported against transcript NM_017644.3. The founding alleles are a homozygous nonsense variant c.1048G\u003eT (p.Glu350*) in the Kelch-repeat region and a homozygous missense variant c.917G\u003eA (p.Arg306His) at a residue conserved both across vertebrates and across the KLHL protein family. Later families add a frameshift in the BACK domain and a missense in the Kelch domain in trans, and compound heterozygous truncating alleles. All reported CMH29 genotypes therefore damage the BACK or Kelch portions of the protein - the substrate adaptor machinery - and none of them affects the translation initiation codon, which is the region mutated in the dominant skin disease. That positional separation is the structural basis of the allelic contrast that runs through this entry.\\nThe alleles behave as true loss of function rather than as dominant-negatives: heterozygous parents are unaffected, and both founding alleles failed to rescue zebrafish klhl24a knockdown when the equivalent substitutions were engineered into the fish transcript, whereas wild-type klhl24a mRNA did rescue.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"KLHL24\"], \"gene_terms\": [{\"label\": \"KLHL24\", \"id\": \"hgnc:25947\"}]}}, {\"id\": \"Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The myocyte enlarges. The founding heart explant and endomyocardial biopsies showed myocyte hypertrophy, and the HPO annotation set records cardiomyocyte hypertrophy in both individuals examined histologically. At organ level this produces the picture that brings patients to attention: severe septal thickening, a small left ventricular cavity, a reduced left ventricular end-systolic diameter, systolic anterior motion of the mitral valve and dynamic left ventricular outflow tract obstruction, with ejection fraction preserved or supranormal early on.\\nTwo things distinguish this hypertrophy from sarcomeric HCM. First, part of the wall thickness is storage rather than contractile mass - accumulated filaments, polysaccharide and membrane occupy the intermyofibrillar space. Second, myofibre disarray, the histological hallmark of sarcomeric HCM, is not what the biopsies show; what they show is intermyofibrillar accumulation. The clinical phenotype is nevertheless indistinguishable at the echocardiogram, which is precisely why the disease is missed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle hypertrophy\"], \"locations\": [\"interventricular septum\", \"left ventricle\"]}}, {\"id\": \"Failure of Desmin Intermediate Filament Turnover\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Desmin is the muscle-specific type III intermediate filament that links adjacent Z-discs to each other, to the sarcolemma at costameres, and to mitochondria and nuclei, transmitting force laterally and maintaining myofibrillar register. It is a dynamic polymer whose subunits are continuously exchanged, and that exchange requires a route for disposal of displaced subunits. KLHL24 supplies that route in muscle: it is the cardiac and skeletal-muscle counterpart of the KLHL24-keratin-14 relationship characterised in basal keratinocytes, desmin standing to the myocyte as keratin-14 stands to the keratinocyte.\\nIn KLHL24-null myocytes the polymer is not disposed of. Immunohistochemistry on heart and skeletal muscle from the founding families showed desmin accumulating in the intermyofibrillar and subsarcolemmal spaces, electron microscopy resolved irregularly arranged 8-12 nm filaments in the same compartment, and Western blotting showed desmin markedly upregulated in both tissues relative to controls. This is the inverse of the lesion in KLHL24 gain-of-function disease, in which desmin is depleted roughly tenfold in patient-derived engineered heart tissue and in explanted myocardium. The same protein pair therefore produces two cardiomyopathies of opposite morphology depending on the direction in which turnover fails.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"intermediate filament cytoskeleton organization\"], \"genes\": [\"DES\"], \"gene_terms\": [{\"label\": \"DES\", \"id\": \"hgnc:2770\"}]}}, {\"id\": \"Intermyofibrillar Glycogen and Polyglucosan Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alongside the accumulated filaments, the intermyofibrillar space of CMH29 cardiomyocytes fills with glycogen and with discrete polyglucosan bodies - periodic-acid-Schiff-positive material that resists alpha-amylase digestion, identifying it as the amylopectin-like, poorly branched, poorly soluble polysaccharide called polyglucosan rather than as ordinary glycogen. Skeletal muscle shows the same focal subsarcolemmal and intermyofibrillar glycogen accumulation.\\nThis node is deliberately marked HYPOTHETICAL, because its mechanism is genuinely unknown and the founding authors say so. Cardiomyopathies with polyglucosan accumulation are otherwise essentially confined to disorders of glycogen metabolism, and eight genes are canonically associated with muscle polyglucosan storage - GYG1, GBE1, RBCK1, PFKM, EPM2A, EPM2B, PRDM8 and PRKAG2. None of those was mutated in the founding families; a dedicated nine-gene polyglucosan-storage panel was screened and excluded before KLHL24 was reached. KLHL24 has no known role in glycogen metabolism, and no experiment has connected loss of its ligase-adaptor function to polysaccharide handling. Three explanations remain open and are set out in the knowledge-gap discussion below. Until one is demonstrated, the polyglucosan is curated as a reproducible diagnostic marker of the disease and as an unexplained co-occurrence, not as a step in the causal chain.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"glycogen metabolic process\"]}}, {\"id\": \"KLHL24\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"KLHL24\"], \"gene_terms\": [{\"label\": \"KLHL24\", \"id\": \"hgnc:25947\"}], \"association\": \"Biallelic loss-of-function variants (homozygous or compound heterozygous) in the BACK and Kelch domains\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Loss of CUL3-KLHL24 Substrate Adaptor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KLHL24 is a BTB-BACK-Kelch protein. Its BTB and BACK domains dock onto CUL3, and its C-terminal six-bladed Kelch beta-propeller selects substrates; the assembled CUL3-RBX1-KLHL24 complex then transfers ubiquitin onto those substrates and commits them to the 26S proteasome. KLHL24 is not a housekeeping component of that machinery but a specificity module: which proteins are degraded depends on which Kelch adaptor is loaded. Losing KLHL24 therefore does not impair ubiquitination in general - it removes one branch of substrate selection, which is why the disease is tissue-restricted despite the ubiquity of the proteasome. KLHL24 is most highly expressed in skeletal muscle, then lung, then left ventricle, so the branch that is lost is the one that operates in striated muscle.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"substrate polyubiquitination by the CUL3-KLHL24 ligase\", \"proteasomal degradation of KLHL24 substrates\"], \"molecular_functions\": [\"ubiquitin-protein transferase activity\"], \"genes\": [\"KLHL24\", \"CUL3\"], \"gene_terms\": [{\"label\": \"KLHL24\", \"id\": \"hgnc:25947\"}, {\"label\": \"CUL3\", \"id\": \"hgnc:2553\"}]}}, {\"id\": \"Myocardial Fibrosis and Focal Macrophage Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CMH29 heart develops patchy interstitial fibrosis, and the founding explant showed small CD68-positive macrophage infiltrates that were preferentially associated with polyglucosan-containing myocytes. That spatial association suggests the inclusions themselves recruit the infiltrate - an inclusion-triggered innate response rather than a diffuse inflammatory cardiomyopathy - but the observation is from one explanted heart and has not been replicated. The extent of fibrosis is variable: the founding explant showed patchy scar, one independently reported adolescent had minimal fibrosis despite severe hypertrophy, while another young adult had extensive late-gadolinium-enhancement-positive septal scar. Fibrosis burden therefore does not track hypertrophy severity in this disease, which is one reason conventional imaging-based risk scores behave poorly in it.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac fibroblast\", \"CD68-positive macrophage\"]}}, {\"id\": \"Progression to Systolic Failure and Transplantation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Not every individual stays in the hypertrophic, preserved-ejection-fraction phase. One of the two Iraqi siblings developed a moderately dilated left ventricle with regional akinesia and an ejection fraction of 25 percent, and underwent cardiac transplantation at 26; her brother, whose echocardiogram was recorded at 28, retained an ejection fraction of 50 percent. In the independently reported non-consanguineous sibship of PMID:42158087, the proband\u0027s ejection fraction fell progressively from 77 to 55 percent over two years of follow-up with the emergence of definite diastolic dysfunction. A separate exome series describing a consanguineous Middle Eastern family reported the KLHL24 phenotype as a mixture of dilated and hypertrophic features with non-compaction, which suggests that the hypertrophic-to-dilated transition may be part of the natural history of the gene rather than an idiosyncrasy of one family.\\nThis is marked PROVISIONAL because the number of individuals followed longitudinally is very small and the reported phenotypes span hypertrophic, dilated and non-compaction morphology without a clear ordering in time.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"heart contraction\"]}}, {\"id\": \"Sarcoplasmic Reticulum-Derived Tubular Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A third species accumulates in the same intermyofibrillar compartment: arrays of tubular membranous structures. Their origin was inferred histochemically in the founding study - the accumulated material stained for NADH-tetrazolium reductase but was negative for succinate dehydrogenase, a combination that indicates sarcoplasmic reticulum rather than mitochondria. This matters clinically as well as mechanistically, because it excludes a mitochondrial myopathy from the differential on the biopsy itself, and it is consistent with a disease of proteostasis spreading to membrane-compartment organisation rather than a primary bioenergetic lesion. It is marked PROVISIONAL because the inference rests on a histochemical staining pattern in one study and has not been confirmed by marker immunolocalisation or by any subsequent report.\", \"meta\": {\"cell_types\": [\"Cardiomyocyte\", \"skeletal muscle fibre\"]}}, {\"id\": \"Skeletal Muscle Cogwheel Fibre Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KLHL24 is expressed more highly in skeletal muscle than in heart, and skeletal muscle in CMH29 is unambiguously abnormal - yet it is clinically silent. Muscle biopsies from three individuals across both founding families showed focal subsarcolemmal and intermyofibrillar accumulation of glycogen and desmin, distributed so as to give the fibre periphery a jagged outline that the authors named the \\\"cogwheel\\\" fibre and proposed as a diagnostic marker. Both type 1 and type 2 fibres were affected. Against this, no individual had muscle weakness or wasting and nerve conduction studies were normal.\\nThis dissociation is one of the two central unexplained features of the disease, alongside the polyglucosan, and it is why this node sits outside the causal chain to the cardiac phenotype rather than upstream of it. Its practical value is diagnostic: a skeletal muscle biopsy in a young adult with unexplained hypertrophic cardiomyopathy is low-morbidity relative to endomyocardial biopsy and, if the cogwheel pattern is present, points directly at this gene.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fibre\"]}}, {\"id\": \"Ventricular Electrical Instability and Malignant Arrhythmia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the node that determines prognosis, and it is the feature that most distinguishes CMH29 from ordinary hypertrophic cardiomyopathy. Three of the 11 young adults in the founding cohort died suddenly, at ages 20, 26 and 26; several others received implantable cardioverter-defibrillators in their twenties or thirties. Electrocardiography in the founding families showed generalised ST-T change, QRS durations at or above the upper limit of normal (120, 125 and 154 ms in the three individuals with a recorded value), one prolonged PR interval of 210 ms, and frequent episodes of non-sustained ventricular tachycardia in one individual - a pattern of both conduction-system involvement and ventricular ectopy. The other three recorded PR intervals were 186, 188 and 194 ms, so PR prolongation is not a consistent feature and should not be used as a diagnostic pointer. The arrhythmic risk is disproportionate to structural severity and can precede it, which is a genuine departure from the standard HCM risk model.\\nMechanistically this is attributed to failure of cytoskeletal protein turnover: the desmin network normally couples the sarcolemma, Z-disc and intercalated disc, and its disorganisation disturbs both mechanical coupling and, plausibly, the sarcoplasmic reticulum-dependent calcium handling that underlies the cardiac action potential. That mechanistic account is stated in the literature but has not been tested experimentally in a biallelic loss-of-function system.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"cardiac conduction\", \"cardiac muscle cell action potential\"]}}], \"edges\": [{\"source\": \"Biallelic Loss-of-Function KLHL24 Variants\", \"target\": \"Loss of CUL3-KLHL24 Substrate Adaptor Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nonsense and frameshift alleles remove the substrate-binding apparatus outright; the p.Arg306His and p.Tyr505Cys missense alleles sit in conserved Kelch-repeat positions and are predicted to disrupt the substrate-binding pocket of the beta-propeller. Either way the CUL3 complex loses its ability to select this adaptor\u0027s substrates.\"}, {\"source\": \"Loss of CUL3-KLHL24 Substrate Adaptor Function\", \"target\": \"Failure of Desmin Intermediate Filament Turnover\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The only KLHL24 substrate identified in striated muscle is desmin. With the adaptor gone, desmin escapes ubiquitin-dependent clearance and accumulates.\"}, {\"source\": \"Loss of CUL3-KLHL24 Substrate Adaptor Function\", \"target\": \"Intermyofibrillar Glycogen and Polyglucosan Storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An unexplained parallel consequence. The stored polysaccharide appears in the same intermyofibrillar compartment as the accumulated filaments, but no mechanistic link between adaptor loss and polysaccharide handling has been demonstrated, and this edge is asserted only as temporal and spatial co-occurrence.\"}, {\"source\": \"Failure of Desmin Intermediate Filament Turnover\", \"target\": \"Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated intermediate filament protein contributes to the increase in myocyte size and to the mechanical stiffening that produces a small-cavity, thick-walled ventricle.\"}, {\"source\": \"Failure of Desmin Intermediate Filament Turnover\", \"target\": \"Myocardial Fibrosis and Focal Macrophage Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myocytes burdened with filamentous and polysaccharide inclusions attract focal macrophage infiltration and are replaced by patchy scar.\"}, {\"source\": \"Failure of Desmin Intermediate Filament Turnover\", \"target\": \"Skeletal Muscle Cogwheel Fibre Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same substrate failure occurs in skeletal muscle, where KLHL24 expression is highest, producing striking histological change without clinical weakness.\"}, {\"source\": \"Intermyofibrillar Glycogen and Polyglucosan Storage\", \"target\": \"Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stored polysaccharide adds mass and volume to the myocyte independently of contractile-protein content, contributing to wall thickening that is partly storage rather than partly true hypertrophy.\"}, {\"source\": \"Sarcoplasmic Reticulum-Derived Tubular Aggregation\", \"target\": \"Ventricular Electrical Instability and Malignant Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disorganisation of the sarcoplasmic reticulum is a plausible contributor to the arrhythmic phenotype through disturbed calcium handling, but this edge is an inference rather than a demonstrated link and no calcium measurements have been made in this disease.\"}, {\"source\": \"Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling\", \"target\": \"Ventricular Electrical Instability and Malignant Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertrophied, inclusion-laden myocardium with patchy scar is the substrate on which re-entrant ventricular arrhythmia arises.\"}, {\"source\": \"Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling\", \"target\": \"Progression to Systolic Failure and Transplantation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subset progress from the hypertrophic, preserved-ejection-fraction phase to ventricular dilatation, akinetic regions and systolic failure.\"}, {\"source\": \"KLHL24\", \"target\": \"Biallelic Loss-of-Function KLHL24 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KLHL24\", \"target\": \"Loss of CUL3-KLHL24 Substrate Adaptor Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic Loss-of-Function KLHL24 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is biallelic damage to KLHL24 at 3q27.1, reported against transcript NM_017644.3. The founding alleles are a homozygous nonsense variant c.1048G\u003eT (p.Glu350*) in the Kelch-repeat region and a homozygous missense variant c.917G\u003eA (p.Arg306His) at a residue conserved both across vertebrates and across the KLHL protein family. Later families add a frameshift in the BACK domain and a missense in the Kelch domain in trans, and compound heterozygous truncating alleles. All reported CMH29 genotypes therefore damage the BACK or Kelch portions of the protein - the substrate adaptor machinery - and none of them affects the translation initiation codon, which is the region mutated in the dominant skin disease. That positional separation is the structural basis of the allelic contrast that runs through this entry.\\nThe alleles behave as true loss of function rather than as dominant-negatives: heterozygous parents are unaffected, and both founding alleles failed to rescue zebrafish klhl24a knockdown when the equivalent substitutions were engineered into the fish transcript, whereas wild-type klhl24a mRNA did rescue.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"KLHL24\"], \"gene_terms\": [{\"label\": \"KLHL24\", \"id\": \"hgnc:25947\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The myocyte enlarges. The founding heart explant and endomyocardial biopsies showed myocyte hypertrophy, and the HPO annotation set records cardiomyocyte hypertrophy in both individuals examined histologically. At organ level this produces the picture that brings patients to attention: severe septal thickening, a small left ventricular cavity, a reduced left ventricular end-systolic diameter, systolic anterior motion of the mitral valve and dynamic left ventricular outflow tract obstruction, with ejection fraction preserved or supranormal early on.\\nTwo things distinguish this hypertrophy from sarcomeric HCM. First, part of the wall thickness is storage rather than contractile mass - accumulated filaments, polysaccharide and membrane occupy the intermyofibrillar space. Second, myofibre disarray, the histological hallmark of sarcomeric HCM, is not what the biopsies show; what they show is intermyofibrillar accumulation. The clinical phenotype is nevertheless indistinguishable at the echocardiogram, which is precisely why the disease is missed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle hypertrophy\"], \"locations\": [\"interventricular septum\", \"left ventricle\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Failure of Desmin Intermediate Filament Turnover\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Desmin is the muscle-specific type III intermediate filament that links adjacent Z-discs to each other, to the sarcolemma at costameres, and to mitochondria and nuclei, transmitting force laterally and maintaining myofibrillar register. It is a dynamic polymer whose subunits are continuously exchanged, and that exchange requires a route for disposal of displaced subunits. KLHL24 supplies that route in muscle: it is the cardiac and skeletal-muscle counterpart of the KLHL24-keratin-14 relationship characterised in basal keratinocytes, desmin standing to the myocyte as keratin-14 stands to the keratinocyte.\\nIn KLHL24-null myocytes the polymer is not disposed of. Immunohistochemistry on heart and skeletal muscle from the founding families showed desmin accumulating in the intermyofibrillar and subsarcolemmal spaces, electron microscopy resolved irregularly arranged 8-12 nm filaments in the same compartment, and Western blotting showed desmin markedly upregulated in both tissues relative to controls. This is the inverse of the lesion in KLHL24 gain-of-function disease, in which desmin is depleted roughly tenfold in patient-derived engineered heart tissue and in explanted myocardium. The same protein pair therefore produces two cardiomyopathies of opposite morphology depending on the direction in which turnover fails.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"intermediate filament cytoskeleton organization\"], \"genes\": [\"DES\"], \"gene_terms\": [{\"label\": \"DES\", \"id\": \"hgnc:2770\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Intermyofibrillar Glycogen and Polyglucosan Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alongside the accumulated filaments, the intermyofibrillar space of CMH29 cardiomyocytes fills with glycogen and with discrete polyglucosan bodies - periodic-acid-Schiff-positive material that resists alpha-amylase digestion, identifying it as the amylopectin-like, poorly branched, poorly soluble polysaccharide called polyglucosan rather than as ordinary glycogen. Skeletal muscle shows the same focal subsarcolemmal and intermyofibrillar glycogen accumulation.\\nThis node is deliberately marked HYPOTHETICAL, because its mechanism is genuinely unknown and the founding authors say so. Cardiomyopathies with polyglucosan accumulation are otherwise essentially confined to disorders of glycogen metabolism, and eight genes are canonically associated with muscle polyglucosan storage - GYG1, GBE1, RBCK1, PFKM, EPM2A, EPM2B, PRDM8 and PRKAG2. None of those was mutated in the founding families; a dedicated nine-gene polyglucosan-storage panel was screened and excluded before KLHL24 was reached. KLHL24 has no known role in glycogen metabolism, and no experiment has connected loss of its ligase-adaptor function to polysaccharide handling. Three explanations remain open and are set out in the knowledge-gap discussion below. Until one is demonstrated, the polyglucosan is curated as a reproducible diagnostic marker of the disease and as an unexplained co-occurrence, not as a step in the causal chain.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"glycogen metabolic process\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"KLHL24\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"KLHL24\"], \"gene_terms\": [{\"label\": \"KLHL24\", \"id\": \"hgnc:25947\"}], \"association\": \"Biallelic loss-of-function variants (homozygous or compound heterozygous) in the BACK and Kelch domains\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Loss of CUL3-KLHL24 Substrate Adaptor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KLHL24 is a BTB-BACK-Kelch protein. Its BTB and BACK domains dock onto CUL3, and its C-terminal six-bladed Kelch beta-propeller selects substrates; the assembled CUL3-RBX1-KLHL24 complex then transfers ubiquitin onto those substrates and commits them to the 26S proteasome. KLHL24 is not a housekeeping component of that machinery but a specificity module: which proteins are degraded depends on which Kelch adaptor is loaded. Losing KLHL24 therefore does not impair ubiquitination in general - it removes one branch of substrate selection, which is why the disease is tissue-restricted despite the ubiquity of the proteasome. KLHL24 is most highly expressed in skeletal muscle, then lung, then left ventricle, so the branch that is lost is the one that operates in striated muscle.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"substrate polyubiquitination by the CUL3-KLHL24 ligase\", \"proteasomal degradation of KLHL24 substrates\"], \"molecular_functions\": [\"ubiquitin-protein transferase activity\"], \"genes\": [\"KLHL24\", \"CUL3\"], \"gene_terms\": [{\"label\": \"KLHL24\", \"id\": \"hgnc:25947\"}, {\"label\": \"CUL3\", \"id\": \"hgnc:2553\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Myocardial Fibrosis and Focal Macrophage Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CMH29 heart develops patchy interstitial fibrosis, and the founding explant showed small CD68-positive macrophage infiltrates that were preferentially associated with polyglucosan-containing myocytes. That spatial association suggests the inclusions themselves recruit the infiltrate - an inclusion-triggered innate response rather than a diffuse inflammatory cardiomyopathy - but the observation is from one explanted heart and has not been replicated. The extent of fibrosis is variable: the founding explant showed patchy scar, one independently reported adolescent had minimal fibrosis despite severe hypertrophy, while another young adult had extensive late-gadolinium-enhancement-positive septal scar. Fibrosis burden therefore does not track hypertrophy severity in this disease, which is one reason conventional imaging-based risk scores behave poorly in it.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac fibroblast\", \"CD68-positive macrophage\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Progression to Systolic Failure and Transplantation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Not every individual stays in the hypertrophic, preserved-ejection-fraction phase. One of the two Iraqi siblings developed a moderately dilated left ventricle with regional akinesia and an ejection fraction of 25 percent, and underwent cardiac transplantation at 26; her brother, whose echocardiogram was recorded at 28, retained an ejection fraction of 50 percent. In the independently reported non-consanguineous sibship of PMID:42158087, the proband\u0027s ejection fraction fell progressively from 77 to 55 percent over two years of follow-up with the emergence of definite diastolic dysfunction. A separate exome series describing a consanguineous Middle Eastern family reported the KLHL24 phenotype as a mixture of dilated and hypertrophic features with non-compaction, which suggests that the hypertrophic-to-dilated transition may be part of the natural history of the gene rather than an idiosyncrasy of one family.\\nThis is marked PROVISIONAL because the number of individuals followed longitudinally is very small and the reported phenotypes span hypertrophic, dilated and non-compaction morphology without a clear ordering in time.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"heart contraction\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Sarcoplasmic Reticulum-Derived Tubular Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A third species accumulates in the same intermyofibrillar compartment: arrays of tubular membranous structures. Their origin was inferred histochemically in the founding study - the accumulated material stained for NADH-tetrazolium reductase but was negative for succinate dehydrogenase, a combination that indicates sarcoplasmic reticulum rather than mitochondria. This matters clinically as well as mechanistically, because it excludes a mitochondrial myopathy from the differential on the biopsy itself, and it is consistent with a disease of proteostasis spreading to membrane-compartment organisation rather than a primary bioenergetic lesion. It is marked PROVISIONAL because the inference rests on a histochemical staining pattern in one study and has not been confirmed by marker immunolocalisation or by any subsequent report.\", \"meta\": {\"cell_types\": [\"Cardiomyocyte\", \"skeletal muscle fibre\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Skeletal Muscle Cogwheel Fibre Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KLHL24 is expressed more highly in skeletal muscle than in heart, and skeletal muscle in CMH29 is unambiguously abnormal - yet it is clinically silent. Muscle biopsies from three individuals across both founding families showed focal subsarcolemmal and intermyofibrillar accumulation of glycogen and desmin, distributed so as to give the fibre periphery a jagged outline that the authors named the \\\"cogwheel\\\" fibre and proposed as a diagnostic marker. Both type 1 and type 2 fibres were affected. Against this, no individual had muscle weakness or wasting and nerve conduction studies were normal.\\nThis dissociation is one of the two central unexplained features of the disease, alongside the polyglucosan, and it is why this node sits outside the causal chain to the cardiac phenotype rather than upstream of it. Its practical value is diagnostic: a skeletal muscle biopsy in a young adult with unexplained hypertrophic cardiomyopathy is low-morbidity relative to endomyocardial biopsy and, if the cogwheel pattern is present, points directly at this gene.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fibre\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Ventricular Electrical Instability and Malignant Arrhythmia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the node that determines prognosis, and it is the feature that most distinguishes CMH29 from ordinary hypertrophic cardiomyopathy. Three of the 11 young adults in the founding cohort died suddenly, at ages 20, 26 and 26; several others received implantable cardioverter-defibrillators in their twenties or thirties. Electrocardiography in the founding families showed generalised ST-T change, QRS durations at or above the upper limit of normal (120, 125 and 154 ms in the three individuals with a recorded value), one prolonged PR interval of 210 ms, and frequent episodes of non-sustained ventricular tachycardia in one individual - a pattern of both conduction-system involvement and ventricular ectopy. The other three recorded PR intervals were 186, 188 and 194 ms, so PR prolongation is not a consistent feature and should not be used as a diagnostic pointer. The arrhythmic risk is disproportionate to structural severity and can precede it, which is a genuine departure from the standard HCM risk model.\\nMechanistically this is attributed to failure of cytoskeletal protein turnover: the desmin network normally couples the sarcolemma, Z-disc and intercalated disc, and its disorganisation disturbs both mechanical coupling and, plausibly, the sarcoplasmic reticulum-dependent calcium handling that underlies the cardiac action potential. That mechanistic account is stated in the literature but has not been tested experimentally in a biallelic loss-of-function system.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"cardiac conduction\", \"cardiac muscle cell action potential\"], \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"Biallelic Loss-of-Function KLHL24 Variants\", \"target\": \"Loss of CUL3-KLHL24 Substrate Adaptor Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nonsense and frameshift alleles remove the substrate-binding apparatus outright; the p.Arg306His and p.Tyr505Cys missense alleles sit in conserved Kelch-repeat positions and are predicted to disrupt the substrate-binding pocket of the beta-propeller. Either way the CUL3 complex loses its ability to select this adaptor\u0027s substrates.\"}, {\"source\": \"Loss of CUL3-KLHL24 Substrate Adaptor Function\", \"target\": \"Failure of Desmin Intermediate Filament Turnover\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The only KLHL24 substrate identified in striated muscle is desmin. With the adaptor gone, desmin escapes ubiquitin-dependent clearance and accumulates.\"}, {\"source\": \"Loss of CUL3-KLHL24 Substrate Adaptor Function\", \"target\": \"Intermyofibrillar Glycogen and Polyglucosan Storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An unexplained parallel consequence. The stored polysaccharide appears in the same intermyofibrillar compartment as the accumulated filaments, but no mechanistic link between adaptor loss and polysaccharide handling has been demonstrated, and this edge is asserted only as temporal and spatial co-occurrence.\"}, {\"source\": \"Failure of Desmin Intermediate Filament Turnover\", \"target\": \"Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated intermediate filament protein contributes to the increase in myocyte size and to the mechanical stiffening that produces a small-cavity, thick-walled ventricle.\"}, {\"source\": \"Failure of Desmin Intermediate Filament Turnover\", \"target\": \"Myocardial Fibrosis and Focal Macrophage Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myocytes burdened with filamentous and polysaccharide inclusions attract focal macrophage infiltration and are replaced by patchy scar.\"}, {\"source\": \"Failure of Desmin Intermediate Filament Turnover\", \"target\": \"Skeletal Muscle Cogwheel Fibre Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same substrate failure occurs in skeletal muscle, where KLHL24 expression is highest, producing striking histological change without clinical weakness.\"}, {\"source\": \"Intermyofibrillar Glycogen and Polyglucosan Storage\", \"target\": \"Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stored polysaccharide adds mass and volume to the myocyte independently of contractile-protein content, contributing to wall thickening that is partly storage rather than partly true hypertrophy.\"}, {\"source\": \"Sarcoplasmic Reticulum-Derived Tubular Aggregation\", \"target\": \"Ventricular Electrical Instability and Malignant Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disorganisation of the sarcoplasmic reticulum is a plausible contributor to the arrhythmic phenotype through disturbed calcium handling, but this edge is an inference rather than a demonstrated link and no calcium measurements have been made in this disease.\"}, {\"source\": \"Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling\", \"target\": \"Ventricular Electrical Instability and Malignant Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertrophied, inclusion-laden myocardium with patchy scar is the substrate on which re-entrant ventricular arrhythmia arises.\"}, {\"source\": \"Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling\", \"target\": \"Progression to Systolic Failure and Transplantation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subset progress from the hypertrophic, preserved-ejection-fraction phase to ventricular dilatation, akinetic regions and systolic failure.\"}, {\"source\": \"KLHL24\", \"target\": \"Biallelic Loss-of-Function KLHL24 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KLHL24\", \"target\": \"Loss of CUL3-KLHL24 Substrate Adaptor Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7347,6 +7459,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639), qualified as 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No FrequencyEnum band is asserted; see the entry-level notes. The wall thickness figures are from the clinical tables in the full text of PMID:30715372 (PMC6812045, read 2026-08-01) and from the cached full text of PMID:42158087 respectively.</div>
 
 
@@ -7416,6 +7531,9 @@ This clinical feature is Asymmetric septal hypertrophy (HP:0001670). HP:0001670 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The HPO annotation file for OMIM:620236 records HP:0001670 at 3/8, sourced to PMID:30715372 (retrieved 2026-08-01). No FrequencyEnum band is asserted; the denominator of 8 is the number of individuals with tabulated clinical data, not the number with echocardiography, and three of those eight have &#34;not determined&#34; in one or more echocardiographic fields.</div>
@@ -7489,6 +7607,9 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
                     </div>
 
 
+
+
+
                     <div class="item-desc">The HPO annotation file for OMIM:620236 records HP:0032092 at 3/8, sourced to PMID:30715372 (retrieved 2026-08-01). The gradient values are from the clinical table in the full text (PMC6812045, read 2026-08-01) and are not quotable from the cached abstract. No FrequencyEnum band is asserted, and no evidence item is attached because neither the cached abstract of the founding paper nor any other cached source states this finding.</div>
 
 
@@ -7523,6 +7644,9 @@ This clinical feature is Systolic anterior motion of the mitral valve (HP:003165
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The HPO annotation file for OMIM:620236 records HP:0031656 at 4/8, sourced to PMID:30715372 (retrieved 2026-08-01). Not mentioned in the cached abstract, so no evidence item is attached. No FrequencyEnum band is asserted.</div>
@@ -7561,6 +7685,9 @@ This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">The HPO annotation file for OMIM:620236 records HP:0001653 at 3/8, sourced to PMID:30715372 (retrieved 2026-08-01). Not mentioned in the cached abstract, so no evidence item is attached. No FrequencyEnum band is asserted.</div>
 
 
@@ -7595,6 +7722,9 @@ This clinical feature is Reduced left ventricular endsystolic diameter (HP:00343
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The HPO annotation file for OMIM:620236 records HP:0034386 at 5/7, sourced to PMID:30715372 (retrieved 2026-08-01), which is the highest-frequency structural feature in the annotation set. The volume figures are from the full-text clinical table (PMC6812045, read 2026-08-01). Not mentioned in the cached abstract, so no evidence item is attached.</div>
@@ -7649,6 +7779,9 @@ This clinical feature is Syncope (HP:0001279), qualified as temporality recurren
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Recurrent syncope is named in the OMIM/MedGen clinical description of CMH29 (MedGen C5774308, retrieved 2026-08-01) and in the founding paper&#39;s text, but it is not separately annotated in the HPO annotation file for OMIM:620236, so no fraction is available.</div>
@@ -7722,6 +7855,9 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">The HPO annotation file for OMIM:620236 records HP:0001962 at 5/7, sourced to PMID:30715372 (retrieved 2026-08-01). Not mentioned in the cached abstract, so no evidence item is attached. No FrequencyEnum band is asserted.</div>
 
 
@@ -7756,6 +7892,9 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Bound to HP:0004308 (Ventricular arrhythmia) rather than to the parent HP:0011675 (Arrhythmia) or to the more specific HP:0004756 (Ventricular tachycardia): the reported events span non-sustained ventricular tachycardia, defibrillator-treated events and unwitnessed sudden death, so the ventricular-arrhythmia level is the most specific term the evidence supports for the disease as a whole. Both alternatives were checked with OAK. No FrequencyEnum band is asserted; the HPO annotation file for OMIM:620236 carries no ventricular-arrhythmia term.</div>
@@ -7829,6 +7968,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">The HPO annotation file for OMIM:620236 records HP:0001645 at 3/11, sourced to PMID:30715372 (retrieved 2026-08-01). No FrequencyEnum band is asserted, but note that this denominator of 11 is the largest in the annotation set and refers to all ascertained affected adults rather than to the 8 with tabulated clinical data. The specific ages at death are in the full text (PMC6812045, read 2026-08-01).</div>
 
 
@@ -7898,6 +8040,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No FrequencyEnum band is asserted; heart failure is not separately annotated in the HPO annotation file for OMIM:620236.</div>
@@ -7996,6 +8141,9 @@ This clinical feature is Cardiomyocyte hypertrophy (HP:0031319). HP:0031319 is a
                     </div>
 
 
+
+
+
                     <div class="item-desc">The HPO annotation file for OMIM:620236 records HP:0031319 at 2/2, sourced to PMID:30715372 (retrieved 2026-08-01 from https://ontology.jax.org/api/network/annotation/OMIM:620236). The denominator of 2 is the number of individuals with myocardial tissue available, not the number affected. Not mentioned in the cached abstract of PMID:30715372, so no evidence item is attached; the histological description is from the full text (PMC6812045, read 2026-08-01). No FrequencyEnum band is asserted.</div>
 
 
@@ -8032,6 +8180,9 @@ This clinical feature is Increased myocardial glycogen content (HP:0034532). HP:
                     </div>
 
 
+
+
+
                     <div class="item-desc">The HPO annotation file for OMIM:620236 records HP:0034532 at 2/2, sourced to PMID:30715372 (retrieved 2026-08-01 from https://ontology.jax.org/api/network/annotation/OMIM:620236), with the same denominator of 2 as HP:0031319 - the individuals with myocardial tissue available. Not mentioned in the cached abstract, so no evidence item is attached; the PAS and PAS-diastase findings are in the full text (PMC6812045, read 2026-08-01) and are also modelled under `histopathology` and in the storage mechanism node. No FrequencyEnum band is asserted.</div>
 
 
@@ -8066,6 +8217,9 @@ This clinical feature is Cardiac polyglucosan accumulation (HP:0034835). HP:0034
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HP:0034835 exists in HPO (`runoak -i sqlite:obo:hp info HP:0034835`, checked 2026-08-01) but is NOT among the 13 annotations the HPO annotation file carries for OMIM:620236 (retrieved 2026-08-01 from https://ontology.jax.org/api/network/annotation/OMIM:620236), so it is a curator addition from the primary description rather than an imported annotation, and no frequency is available. The sibling term HP:0034766 Muscle fiber polyglucosan inclusion bodies was considered and deliberately not used: the founding paper reports polyglucosan in cardiomyocytes only, and describes the skeletal muscle accumulation as glycogen, desmin and tubular structures. Not mentioned in the cached abstract, so no evidence item is attached; see the `histopathology` entry for provenance.</div>
@@ -8111,6 +8265,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The HPO annotation file for OMIM:620236 records HP:0002094 at 5/7, sourced to PMID:30715372 (retrieved 2026-08-01). Not mentioned in the cached abstract, so no evidence item is attached. No FrequencyEnum band is asserted.</div>
@@ -8194,6 +8351,9 @@ This disease-associated gene is KLHL24 (hgnc:25947). hgnc:25947 is a gene from t
 
 
                 </div>
+
+
+
 
 
 

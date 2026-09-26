@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4235,6 +4277,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pregnancy-induced-lactotroph-hyperplasia-and-anterior-pituitary-enlargement" data-dismech-node="Pregnancy-Induced Lactotroph Hyperplasia and Anterior Pituitary Enlargement" data-dismech-type="pathophysiology">
                 <div class="item-name">Pregnancy-Induced Lactotroph Hyperplasia and Anterior Pituitary Enlargement</div>
 
+
                 <div class="item-desc">Rising oestrogen through gestation drives hyperplasia of the prolactin-secreting lactotrophs of the anterior lobe, so the gland enlarges substantially by term. This is normal physiology preparing for lactation, but it is the reason the anterior pituitary enters the peripartum period with an increased metabolic demand.</div>
 
 
@@ -4454,6 +4497,7 @@ This pathophysiological event occurs in anterior pituitary lobe, annotated with 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-portal-perfusion-and-fixed-sellar-volume-constrain-anterior-pituitary-blood-supply" data-dismech-node="Portal Perfusion and Fixed Sellar Volume Constrain Anterior Pituitary Blood Supply" data-dismech-type="pathophysiology">
                 <div class="item-name">Portal Perfusion and Fixed Sellar Volume Constrain Anterior Pituitary Blood Supply</div>
 
+
                 <div class="item-desc">The bulk of the anterior lobe is not supplied by direct arterial branches but by the long hypophyseal portal veins descending from the median eminence, whose tributaries arise far from the internal carotid artery; the posterior lobe and the marginal zone of the anterior lobe retain a more direct arterial supply. Because the whole gland is enclosed by the bony sella turcica, an enlarged gland in a small sella has little room to swell without further compromising this low-pressure inflow. Small sella volume is a documented predisposing factor.</div>
 
 
@@ -4611,6 +4655,7 @@ This pathophysiological event occurs in sella turcica (UBERON:0003689). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postpartum-haemorrhage-with-hypovolaemia-and-portal-vasospasm" data-dismech-node="Postpartum Haemorrhage with Hypovolaemia and Portal Vasospasm" data-dismech-type="pathophysiology">
                 <div class="item-name">Postpartum Haemorrhage with Hypovolaemia and Portal Vasospasm</div>
 
+
                 <div class="item-desc">Massive obstetric haemorrhage produces systemic hypovolaemia and hypotension; vasospasm of the hypothalamic portal vessels, and in some patients pregnancy-associated or inherited thrombotic tendency, further reduce inflow to the anterior lobe.</div>
 
 
@@ -4686,6 +4731,7 @@ This pathophysiological event occurs in sella turcica (UBERON:0003689). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ischaemic-infarction-and-necrosis-of-the-anterior-pituitary" data-dismech-node="Ischaemic Infarction and Necrosis of the Anterior Pituitary" data-dismech-type="pathophysiology">
                 <div class="item-name">Ischaemic Infarction and Necrosis of the Anterior Pituitary</div>
+
 
                 <div class="item-desc">Sustained hypoperfusion of the portal-dependent anterior lobe produces ischaemic necrosis of the hormone-secreting cell populations. This is the defining lesion of the disease.</div>
 
@@ -4864,6 +4910,7 @@ This pathophysiological event occurs in anterior pituitary lobe, annotated with 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-relative-preservation-of-posterior-pituitary-perfusion" data-dismech-node="Relative Preservation of Posterior Pituitary Perfusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Relative Preservation of Posterior Pituitary Perfusion</div>
 
+
                 <div class="item-desc">Because the neurohypophysis is supplied more directly than the portal-dependent anterior lobe, it is comparatively spared, and clinically overt central diabetes insipidus is not part of the usual presentation. The sparing is relative rather than absolute: formal water-deprivation testing detects partial neurohypophyseal impairment in a substantial minority of patients who have no symptoms of diabetes insipidus, and rare cases present with overt central diabetes insipidus.</div>
 
 
@@ -4995,6 +5042,7 @@ This pathophysiological event occurs in posterior pituitary lobe, annotated with
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-anterior-pituitary-trophic-hormone-secretion" data-dismech-node="Loss of Anterior Pituitary Trophic Hormone Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Anterior Pituitary Trophic Hormone Secretion</div>
+
 
                 <div class="item-desc">Necrosis removes trophic hormone output in a characteristic order that tracks the position of each cell type relative to the vasculature: prolactin and growth hormone secretion are lost first and most often, then the gonadotropins, and only with more extensive necrosis thyroid-stimulating hormone and adrenocorticotropic hormone. Deficiency may be partial at presentation and accumulate over subsequent years.</div>
 
@@ -5139,6 +5187,7 @@ This pathophysiological event occurs in anterior pituitary lobe, annotated with 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prolactin-deficiency" data-dismech-node="Prolactin Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Prolactin Deficiency</div>
+
 
                 <div class="item-desc">Loss of lactotrophs abolishes the prolactin surge required to initiate lactation. Because it presents immediately after the index delivery, it is the earliest available clinical clue.</div>
 
@@ -5285,6 +5334,7 @@ This pathophysiological event involves decreased prolactin secretion (GO:0070459
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-hormone-deficiency" data-dismech-node="Growth Hormone Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth Hormone Deficiency</div>
+
 
                 <div class="item-desc">Somatotroph loss occurs in nearly all patients and is unusually severe in Sheehan syndrome compared with hypopituitarism of other causes. It is the principal driver of the adverse body-composition, lipid and hepatic phenotype that persists even on adequate glucocorticoid and thyroid replacement.</div>
 
@@ -5466,6 +5516,7 @@ This pathophysiological event involves decreased growth hormone secretion (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gonadotropin-deficiency" data-dismech-node="Gonadotropin Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Gonadotropin Deficiency</div>
 
+
                 <div class="item-desc">Loss of luteinizing hormone and follicle-stimulating hormone secretion prevents resumption of menstrual cycles after the puerperium and produces hypogonadotropic hypogonadism with loss of secondary sexual hair.</div>
 
 
@@ -5625,6 +5676,7 @@ This pathophysiological event involves decreased gonadotropin secretion (GO:0032
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-hypothyroidism-from-thyroid-stimulating-hormone-deficiency" data-dismech-node="Central Hypothyroidism from Thyroid-Stimulating Hormone Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Hypothyroidism from Thyroid-Stimulating Hormone Deficiency</div>
+
 
                 <div class="item-desc">Thyrotroph loss removes the pituitary drive to the thyroid, so thyroid hormone synthesis falls without the compensatory rise in thyroid-stimulating hormone that characterises primary hypothyroidism. This node substitutes the disorder-specific lesion, central thyroid-stimulating hormone deficiency, for the module&#39;s generic impairment of thyroid hormone synthesis.</div>
 
@@ -5836,6 +5888,7 @@ This pathophysiological event involves decreased thyroid hormone generation (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-thyroid-hormone-action-and-hypometabolism" data-dismech-node="Reduced Thyroid Hormone Action and Hypometabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Thyroid Hormone Action and Hypometabolism</div>
 
+
                 <div class="item-desc">Diminished circulating thyroid hormone lowers thyroid hormone action at peripheral target tissues, producing the hypometabolic symptom set shared with hypothyroidism of any cause.</div>
 
 
@@ -5987,6 +6040,7 @@ This pathophysiological event involves decreased regulation of metabolic process
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-adrenal-insufficiency-from-corticotropin-deficiency" data-dismech-node="Secondary Adrenal Insufficiency from Corticotropin Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Adrenal Insufficiency from Corticotropin Deficiency</div>
+
 
                 <div class="item-desc">Corticotroph loss removes adrenocorticotropic hormone drive to the adrenal cortex. Because it usually requires more extensive necrosis, it appears later than prolactin and gonadotropin loss, but it is the deficiency that makes the disease lethal: an intercurrent illness in an unreplaced patient can precipitate adrenal crisis.</div>
 
@@ -6145,6 +6199,7 @@ This pathophysiological event involves decreased corticotropin secretion (GO:005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-pituitary-atrophy-and-empty-sella-formation" data-dismech-node="Progressive Pituitary Atrophy and Empty Sella Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Pituitary Atrophy and Empty Sella Formation</div>
+
 
                 <div class="item-desc">Over months to years the infarcted gland involutes, and cerebrospinal fluid fills the sella, producing the partial or complete empty sella seen on MRI in long-standing disease. This is a radiological consequence of the index infarct, not an independent lesion.</div>
 
@@ -6359,6 +6414,9 @@ This clinical feature is anaemia, annotated with Anemia (HP:0001903). HP:0001903
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6436,6 +6494,9 @@ This clinical feature is failure of postpartum lactation, annotated with Agalact
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6544,6 +6605,9 @@ This clinical feature is hypotension (HP:0002615). HP:0002615 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6619,6 +6683,9 @@ This clinical feature is hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6702,6 +6769,9 @@ This clinical feature is hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6775,6 +6845,9 @@ This clinical feature is pituitary hypothyroidism (HP:0008245). HP:0008245 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6843,6 +6916,9 @@ This clinical feature is adrenocorticotropin deficient adrenal insufficiency (HP
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6932,6 +7008,9 @@ This clinical feature is adrenal crisis, annotated with Adrenal insufficiency (H
 
 
                     </div>
+
+
+
 
 
 
@@ -7042,6 +7121,9 @@ This clinical feature is secondary growth hormone deficiency (HP:0008240). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7108,6 +7190,9 @@ This clinical feature is diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7195,6 +7280,9 @@ This clinical feature is secondary amenorrhoea, annotated with Secondary amenorr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7270,6 +7358,9 @@ This clinical feature is loss of axillary hair, annotated with Absent axillary h
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7355,6 +7446,9 @@ This clinical feature is hyponatraemia, annotated with Hyponatremia (HP:0002902)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7426,6 +7520,9 @@ This clinical feature is hypoglycaemia, annotated with Hypoglycemia (HP:0001943)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7490,6 +7587,9 @@ This clinical feature is cold intolerance (HP:6000855). HP:6000855 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7566,6 +7666,9 @@ This clinical feature is atherogenic dyslipidemia, annotated with Abnormal circu
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7630,6 +7733,9 @@ This clinical feature is insulin resistance (HP:0000855). HP:0000855 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7717,6 +7823,9 @@ This clinical feature is osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7845,6 +7954,9 @@ This clinical feature is chronic fatigue (HP:0012432), qualified as temporality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7950,6 +8062,9 @@ This clinical feature is abdominal obesity (HP:0012743). HP:0012743 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8027,6 +8142,9 @@ This clinical feature is metabolic syndrome, annotated with abdominal obesity-me
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9688,10 +9806,10 @@ This treatment targets abdominal obesity (HP:0012743). HP:0012743 is a phenotype
 
                 </div>
 
-                <div class="evidence-snippet">"Additionally, the diagnosis of SS has often been overlooked and thus delayed for long years due to its nonspecific signs and symptoms."</div>
+                <div class="evidence-snippet">"Sheehan&#39;s syndrome (SS) is a parturition-related pituitary disease resulting from severe postpartum hemorrhage and can present with varying degrees of pituitary insufficiency. ... Additionally, the diagnosis of SS has often been overlooked and thus delayed for long years due to its nonspecific..."</div>
 
 
-                <div class="evidence-explanation">Attributes the delay to the non-specific presentation, which is the reason this phase exists as a distinct step.</div>
+                <div class="evidence-explanation">Identifies Sheehan syndrome and its frequently delayed diagnosis. This excerpt does not quantify presentation with acute adrenal decompensation.</div>
 
 
 
@@ -10464,10 +10582,14 @@ progression:
     reference_title: &#34;Sheehan&#39;s syndrome: new insights into an old disease.&#34;
     supports: SUPPORT
     evidence_source: OTHER
-    snippet: &#34;Additionally, the diagnosis of SS has often been overlooked and thus delayed for long years due to its nonspecific signs and symptoms.&#34;
+    snippet: &gt;-
+      Sheehan&#39;s syndrome (SS) is a parturition-related pituitary disease resulting from severe
+      postpartum hemorrhage and can present with varying degrees of pituitary insufficiency. ...
+      Additionally, the diagnosis of SS has often been overlooked and thus delayed for long years
+      due to its nonspecific signs and symptoms.
     explanation: &gt;-
-      Attributes the delay to the non-specific presentation, which is the reason
-      this phase exists as a distinct step.
+      Identifies Sheehan syndrome and its frequently delayed diagnosis. This excerpt does not
+      quantify presentation with acute adrenal decompensation.
   - reference: PMID:39863703
     reference_title: &#34;Sheehan syndrome: a current approach to a dormant disease.&#34;
     supports: SUPPORT
@@ -13319,7 +13441,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Sheehan Syndrome", "mondoId": "MONDO:0019618", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sheehan_Syndrome", "yamlRevision": "890f4fe62084"};
+        const OS_CONFIG = {"diseaseName": "Sheehan Syndrome", "mondoId": "MONDO:0019618", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sheehan_Syndrome", "yamlRevision": "797cfe42608a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4383,6 +4425,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-cd4-loss-of-function-variants" data-dismech-node="Biallelic CD4 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CD4 Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Homozygous rare deleterious CD4 variants that abolish expression of the canonical CD4 isoform. The first reported family carried a variant disrupting the translation-initiation codon. A shorter expressed isoform that interacts with LCK but not with HLA class II is affected by only one of the reported variants, so the cohort is not uniform at the isoform level even though it is uniform in losing canonical CD4.
 </div>
 
@@ -4448,6 +4491,8 @@ This pathophysiological event involves CD4 (hgnc:1678), qualified as loss of fun
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4460,6 +4505,9 @@ This pathophysiological event involves CD4 (hgnc:1678), qualified as loss of fun
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline homozygous CD4 alleles, including a translation-initiation codon variant. All impact expression of the canonical CD4 isoform.</div>
 
@@ -4559,6 +4607,7 @@ This pathophysiological event involves CD4 (hgnc:1678), qualified as loss of fun
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-cd4-co-receptor-expression" data-dismech-node="Absent CD4 Co-Receptor Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent CD4 Co-Receptor Expression</div>
+
 
                 <div class="item-desc">CD4 is absent from T cells, monocytes and dendritic cells, and soluble CD4 is absent from plasma. In the founding proband this was demonstrated not only in peripheral blood but in lymph node, bone marrow, skin and ileum — that is, the loss is systemic and tissue-wide rather than a peripheral blood finding. This distinguishes the disease from every acquired or ligand-side model of CD4+ T cell loss: it is the co-receptor itself that is gone, including its soluble form.
 </div>
@@ -4777,6 +4826,7 @@ This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-double-negative-helper-t-cell-development" data-dismech-node="Compensatory Double-Negative Helper T Cell Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Double-Negative Helper T Cell Development</div>
+
 
                 <div class="item-desc">The finding that reframes the disease. Patients accumulate TCR-alpha-beta+ CD4-negative CD8-negative T cells that resemble conventional helper T cells both phenotypically and transcriptionally. Functionally these cells are not a poor substitute: they respond intact to HLA class II-restricted antigens and promote B cell differentiation in vitro. Helper immunity is therefore reconstituted without the co-receptor, which is why patients acquire effective cellular and humoral immunity against an unexpectedly large range of pathogens.
 </div>
@@ -5014,6 +5064,7 @@ This pathophysiological event involves provision of help for B cell differentiat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-broadly-preserved-cellular-and-humoral-immunity" data-dismech-node="Broadly Preserved Cellular and Humoral Immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Broadly Preserved Cellular and Humoral Immunity</div>
 
+
                 <div class="item-desc">Patients acquire effective cellular and humoral immunity against an unexpectedly large range of pathogens. This node is the reason the clinical phenotype is mild and can go undiagnosed for decades, and it is the negative result that gives the disease its scientific value: it shows that most of what is attributed to CD4+ T cells is attributable to the helper lineage rather than to the CD4 molecule.
 </div>
 
@@ -5128,6 +5179,7 @@ This pathophysiological event involves provision of help for B cell differentiat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-susceptibility-to-human-papillomavirus-and-tropheryma-whipplei" data-dismech-node="Susceptibility to Human Papillomavirus and Tropheryma whipplei" data-dismech-type="pathophysiology">
                 <div class="item-name">Susceptibility to Human Papillomavirus and Tropheryma whipplei</div>
+
 
                 <div class="item-desc">The two best-attested defences the compensation does not cover. Recalcitrant warts due to uncontrolled human papillomavirus infection are the commonest presentation, and Whipple disease due to Tropheryma whipplei was also seen. These are the claims the disease licenses most strongly about the CD4 molecule as opposed to the helper lineage — the paper&#39;s own conclusion is hedged as &#34;at least&#34; these two, and this node carries further downstream susceptibilities that were reported but not established as CD4-specific. Why these two organisms in particular is not known.
 </div>
@@ -5290,11 +5342,13 @@ This pathophysiological event involves provision of help for B cell differentiat
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5348,6 +5402,9 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality
 
 
                     </div>
+
+
+
 
 
 
@@ -5428,8 +5485,90 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-oral-candidiasis" data-dismech-node="Chronic Oral Candidiasis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic Oral Candidiasis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0009098</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic oral candidiasis (HP:0009098). HP:0009098 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38557723" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38557723" target="_blank">PMID:38557723</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"she presented with chronic diarrhea and was also diagnosed with cryptosporidiosis infection and oral candidiasis"</div>
+
+
+                <div class="evidence-explanation">Names oral candidiasis and cryptosporidiosis together in P4.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-mycobacterial-infections" data-dismech-node="Recurrent Mycobacterial Infections" data-dismech-type="phenotype">
@@ -5446,15 +5585,18 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0011274</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0011274</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:0011274 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5528,76 +5670,6 @@ This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:001
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-oral-candidiasis" data-dismech-node="Chronic Oral Candidiasis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chronic Oral Candidiasis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0009098</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chronic oral candidiasis (HP:0009098). HP:0009098 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38557723" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38557723" target="_blank">PMID:38557723</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"she presented with chronic diarrhea and was also diagnosed with cryptosporidiosis infection and oral candidiasis"</div>
-
-
-                <div class="evidence-explanation">Names oral candidiasis and cryptosporidiosis together in P4.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-severe-viral-pneumonia" data-dismech-node="Severe Viral Pneumonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Severe Viral Pneumonia
@@ -5621,6 +5693,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5696,6 +5771,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5766,7 +5844,7 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
@@ -5821,6 +5899,9 @@ This clinical feature is Verrucae (HP:0200043), qualified as temporality recurre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5865,7 +5946,7 @@ This clinical feature is Verrucae (HP:0200043), qualified as temporality recurre
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -5895,6 +5976,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6010,6 +6094,9 @@ This disease-associated gene is CD4 (hgnc:1678). hgnc:1678 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 

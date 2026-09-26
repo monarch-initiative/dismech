@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4600,6 +4642,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-xk-loss-of-function" data-dismech-node="XK Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">XK Loss of Function</div>
 
+
                 <div class="item-desc">The initiating lesion. XK encodes a 50.9 kDa protein that crosses the membrane ten times and was originally identified by positional cloning from a 50 kb deletion in McLeod patients. Point variants at conserved splice donor and acceptor sites in unrelated patients gave the first direct evidence that XK is the responsible gene.</div>
 
 
@@ -4789,6 +4832,7 @@ This pathophysiological event involves plasma membrane (GO:0005886). GO:0005886 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-kell-xk-membrane-complex" data-dismech-node="Loss of the Kell-XK Membrane Complex" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the Kell-XK Membrane Complex</div>
 
+
                 <div class="item-desc">XK and the Kell glycoprotein are joined by a single disulphide bond, Kell Cys72-XK Cys347. The two proteins are encoded on different chromosomes - KEL at 7q33, XK at Xp21 - yet depend on each other in the membrane, which is why an X-linked defect produces an abnormality in a chromosome 7 blood group system. Losing XK abolishes the Kx antigen and markedly weakens Kell antigen expression: the McLeod blood group phenotype.</div>
 
 
@@ -4931,6 +4975,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-xk-vps13a-phospholipid-scrambling-at-membrane-contact-sites" data-dismech-node="Loss of XK-VPS13A Phospholipid Scrambling at Membrane Contact Sites" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of XK-VPS13A Phospholipid Scrambling at Membrane Contact Sites</div>
+
 
                 <div class="item-desc">The mechanistically informative finding, and the one that reframes the disease. XK forms a complex with VPS13A - the lipid transfer protein mutated in chorea-acanthocytosis - and when overexpressed relocalizes VPS13A from lipid droplets to subdomains of the endoplasmic reticulum. Introducing chorea-acanthocytosis disease variants into VPS13A prevents that relocalization. Two clinically near-identical neuroacanthocytosis syndromes, one X-linked and one autosomal recessive, therefore converge on dysregulation of a single complex.</div>
 
@@ -5130,6 +5175,7 @@ This pathophysiological event involves endoplasmic reticulum-plasma membrane con
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-red-cell-membrane-instability-and-acanthocytosis" data-dismech-node="Red Cell Membrane Instability and Acanthocytosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Red Cell Membrane Instability and Acanthocytosis</div>
 
+
                 <div class="item-desc">Spiculated red cells with irregular thorn-like projections. Acanthocytosis is the finding the disease is named for and is present in essentially all affected males, but it is neither specific to McLeod syndrome nor proportional to neurological severity.</div>
 
 
@@ -5240,6 +5286,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensated-hemolysis" data-dismech-node="Compensated Hemolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensated Hemolysis</div>
 
+
                 <div class="item-desc">Shortened red cell survival matched by increased production, so haemoglobin is usually normal and the hemolysis is detectable biochemically rather than clinically. This node is separated from the acanthocytosis above because the compensation is the point: the haematological arm of the disease is largely silent in the patient while being diagnostically loud on the blood film.</div>
 
 
@@ -5300,6 +5347,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kx-and-km-alloimmunization-risk" data-dismech-node="Kx and Km Alloimmunization Risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Kx and Km Alloimmunization Risk</div>
+
 
                 <div class="item-desc">Because affected males never express Kx or Km, transfused red cells carrying those antigens are immunologically foreign. The resulting alloantibodies cause severe transfusion reactions, and this is the mechanism behind the disease&#39;s one absolute contraindication. The antibody repertoire also differs by genotype: patients whose deletion extends into CYBB, producing chronic granulomatous disease alongside McLeod syndrome, are generally held to be able to make both anti-Km and anti-Kx, whereas non-CGD McLeod patients were believed to make only anti-Km - a belief the cited case report was written to challenge.</div>
 
@@ -5386,6 +5434,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-striatal-neuronal-loss-and-gliosis" data-dismech-node="Striatal Neuronal Loss and Gliosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Striatal Neuronal Loss and Gliosis</div>
+
 
                 <div class="item-desc">The neurodegenerative core, and it has a consistent spatial gradient. In the largest autopsy series assembled, histology showed neuronal loss and gliosis in the basal ganglia of every patient, with severity decreasing from the caudate nucleus through the putamen to the pallidum. The same gradient appears macroscopically as basal ganglia atrophy. Functional imaging detects the process before the movement disorder appears: striatal FDG uptake was reduced in a 28-year-old with no movement disorder at all.</div>
 
@@ -5615,6 +5664,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-axonal-motor-neuropathy" data-dismech-node="Chronic Axonal Motor Neuropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Axonal Motor Neuropathy</div>
 
+
                 <div class="item-desc">The arm of the disease that was misnamed for decades. McLeod syndrome was originally described as a benign myopathy, but systematic study of ten patients including the original index patient found that the muscle weakness and atrophy are predominantly neurogenic rather than myopathic. Myopathic changes were present in a minority; every patient had neurogenic changes. This is why the entry curates a neuropathy node rather than a myopathy node, with the elevated creatine kinase as its biochemical readout.</div>
 
 
@@ -5735,6 +5785,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chorea-and-huntington-like-neurodegenerative-syndrome" data-dismech-node="Chorea and Huntington-Like Neurodegenerative Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Chorea and Huntington-Like Neurodegenerative Syndrome</div>
 
+
                 <div class="item-desc">Adult-onset chorea with cognitive decline and psychiatric disturbance, clinically close enough to Huntington disease that McLeod syndrome belongs in its differential. Onset of multisystem manifestations is around the fourth decade. The presenting feature is frequently psychiatric or epileptic rather than choreiform, so the movement disorder is not reliably the first thing seen.</div>
 
 
@@ -5820,6 +5871,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyopathy-and-arrhythmia" data-dismech-node="Cardiomyopathy and Arrhythmia" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyopathy and Arrhythmia</div>
+
 
                 <div class="item-desc">Dilated cardiomyopathy with atrial fibrillation and tachyarrhythmia, and a leading cause of death. It is curated as a parallel consequence of XK loss rather than downstream of the neurodegeneration, because no source available to this entry derives the cardiac disease from the neurological one - and the surveillance recommendation treats it as independent, applying to patients with no known cardiac involvement.</div>
 
@@ -5997,6 +6049,9 @@ This clinical feature is Acanthocytosis (HP:0001927). HP:0001927 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6075,6 +6130,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6139,6 +6197,9 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6213,6 +6274,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6276,7 +6340,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -6286,10 +6350,13 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6375,6 +6442,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6441,6 +6511,9 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6526,6 +6599,9 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6594,6 +6670,9 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6672,6 +6751,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6745,6 +6827,9 @@ This clinical feature is Generalized-onset seizure (HP:0002197). HP:0002197 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6809,6 +6894,9 @@ This clinical feature is Caudate atrophy (HP:0002340). HP:0002340 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6908,6 +6996,9 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6972,6 +7063,9 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7088,6 +7182,9 @@ This disease-associated gene is XK (hgnc:12811). hgnc:12811 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -9061,10 +9158,10 @@ phenotypes:
     first objective abnormality and precedes clinical weakness.
   frequency: VERY_FREQUENT
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:18055495
     reference_title: &#34;McLeod myopathy revisited: more neurogenic and less benign.&#34;
@@ -10314,7 +10411,7 @@ GeneReviews baseline: PMID:20301528 exists and was used as the mandatory phenoty
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "McLeod Neuroacanthocytosis Syndrome", "mondoId": "MONDO:0018945", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "McLeod_Neuroacanthocytosis_Syndrome", "yamlRevision": "27aff1cab16d"};
+        const OS_CONFIG = {"diseaseName": "McLeod Neuroacanthocytosis Syndrome", "mondoId": "MONDO:0018945", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "McLeod_Neuroacanthocytosis_Syndrome", "yamlRevision": "be79526c5e31"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

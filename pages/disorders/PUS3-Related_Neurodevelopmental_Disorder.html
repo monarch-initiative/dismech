@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4964,6 +5006,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pus3-loss-of-function-variants" data-dismech-node="Biallelic PUS3 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PUS3 Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">The disorder is initiated by inheritance of two damaging PUS3 alleles. The reported allelic spectrum is broad and includes nonsense alleles that truncate the protein (the founding p.Arg435* allele), frameshift alleles, a splice-region allele, an initiation-codon substitution, and missense alleles. Critically, the missense alleles are not a milder mechanistic class: p.Tyr71Cys retains essentially normal tRNA binding and catalytic activity when the purified protein is assayed, yet behaves as a functional null in cells, so the allelic spectrum converges on one outcome rather than producing a hypomorph gradient.</div>
 
 
@@ -5107,6 +5150,7 @@ This pathophysiological event involves PUS3 (hgnc:25461). hgnc:25461 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-pus3-pseudouridine-synthase-activity" data-dismech-node="Loss of PUS3 Pseudouridine Synthase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of PUS3 Pseudouridine Synthase Activity</div>
+
 
                 <div class="item-desc">PUS3 is a stand-alone, guide-RNA-independent pseudouridine synthase of the TruA/Pus3 family that isomerises uridine to pseudouridine in the anticodon stem loop of cytosolic tRNAs. Cryo-EM shows it acts as a symmetric homodimer that clamps the tRNA and presents the target uridine to its active site. Two distinct routes destroy that activity in patients: outright absence of the protein from truncating alleles, and post-translational depletion from missense alleles that impair thermostability (p.Tyr71Cys) or promote aggregation (p.Ile299Thr).</div>
 
@@ -5308,6 +5352,7 @@ This pathophysiological event involves decreased pseudouridine synthase activity
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-trna-pseudouridine-at-anticodon-positions-38-and-39" data-dismech-node="Depletion of tRNA Pseudouridine at Anticodon Positions 38 and 39" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of tRNA Pseudouridine at Anticodon Positions 38 and 39</div>
 
+
                 <div class="item-desc">Pseudouridine at positions 38 and 39 sits in the anticodon stem loop, the part of the tRNA that pairs with the codon. Its extra imino group provides additional hydrogen bonding and rigidifies the loop, so its absence is expected to destabilise anticodon stem loop architecture. In the founding family the deficit was quantified as almost exactly one missing mole of pseudouridine per mole of tRNA-Phe, while every other measured modification of the same tRNA was unchanged, establishing that the lesion is specific to the PUS3 site rather than a general collapse of tRNA modification.</div>
 
 
@@ -5506,7 +5551,8 @@ This pathophysiological event involves decreased tRNA modification (GO:0006400).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-translational-fidelity-and-efficiency" data-dismech-node="Impaired Translational Fidelity and Efficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Translational Fidelity and Efficiency</div>
 
-                <div class="item-desc">Reduced anticodon-loop pseudouridylation is expected to degrade the accuracy and efficiency of protein synthesis. In lower organisms loss of the orthologous enzyme is clearly consequential: bacterial truA mutants grow poorly and yeast pus3-delta mutants are slow-growing and temperature-sensitive with reduced frameshifting fidelity. The corresponding measurement has not been made in human patient neurons, so this node is the weakest link in the chain.</div>
+
+                <div class="item-desc">Reduced anticodon-loop pseudouridylation is expected to degrade the accuracy and efficiency of protein synthesis. In lower organisms loss of the orthologous enzyme is clearly consequential: bacterial truA mutants grow poorly and yeast pus3-delta mutants are slow-growing and temperature-sensitive with reduced frameshifting fidelity. The corresponding measurement has not been made in human patient neurons.</div>
 
 
 
@@ -5663,7 +5709,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
                 <div class="evidence-snippet">"Our work provides the molecular basis for PUS3-mediated tRNA modification in humans and explains how its tRNA modification activity is linked to intellectual disabilities."</div>
 
 
-                <div class="evidence-explanation">The structural study frames the disease link as running specifically through the tRNA modification activity.</div>
+                <div class="evidence-explanation">The structural study frames the disease link as running specifically through the tRNA modification activity. Its negative mRNA-substrate result does not test impaired translation through tRNA hypomodification.</div>
 
 
 
@@ -5678,6 +5724,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-impairment" data-dismech-node="Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Impairment</div>
+
 
                 <div class="item-desc">The clinical endpoint. Despite wide tissue expression of PUS3, the phenotype is largely brain-predominant: global developmental delay, severe to profound intellectual disability, poor or absent speech, hypotonia, epilepsy, microcephaly and variable structural or white-matter brain abnormalities. Growth failure, pigmentary and ocular features accompany the neurological core in a subset. This places PUS3 alongside ADAT3, WDR4, NSUN2 and FTSJ1 in the family of tRNA-modification intellectual disability disorders.</div>
 
@@ -5945,7 +5992,7 @@ This pathophysiological event involves abnormal central nervous system developme
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Epilepsy is managed with standard antiseizure medication chosen by seizure type. There is no PUS3-specific drug recommendation and no evidence favouring one agent; response is variable, with some individuals achieving seizure freedom on multiple agents and others retaining breakthrough seizures.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Behavioral Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioural disturbance is common and heterogeneous, reported as anxiety, attention disorder or aggression; autistic features have been noted in a subset of those formally assessed. There is no single characteristic behavioural signature, which distinguishes this disorder from the very-early-onset aggression that characterises PUS7 deficiency.\", \"meta\": {\"term_id\": \"HP:0000708\"}}, {\"id\": \"Biallelic PUS3 Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disorder is initiated by inheritance of two damaging PUS3 alleles. The reported allelic spectrum is broad and includes nonsense alleles that truncate the protein (the founding p.Arg435* allele), frameshift alleles, a splice-region allele, an initiation-codon substitution, and missense alleles. Critically, the missense alleles are not a milder mechanistic class: p.Tyr71Cys retains essentially normal tRNA binding and catalytic activity when the purified protein is assayed, yet behaves as a functional null in cells, so the allelic spectrum converges on one outcome rather than producing a hypomorph gradient.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PUS3\"], \"gene_terms\": [{\"label\": \"PUS3\", \"id\": \"hgnc:25461\"}]}}, {\"id\": \"Cerebellar Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar hypoplasia was reported in the Italian child whose case defined the severe end of the syndromic spectrum, together with retinal dystrophy, a congenital heart defect and renal hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001321\"}}, {\"id\": \"Corpus Callosum Dysgenesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corpus callosum dysgenesis with diffuse brain atrophy and a prominent cisterna magna was documented in one of the founding sisters. It is not a constant feature - the corpus callosum was explicitly normal in the 2026 Turkish proband - so it belongs to the variable structural spectrum rather than the core phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006989\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech is poor or absent in every individual for whom it has been assessed, and is disproportionately affected even against the background of global developmental delay. One child spoke first single words only at age eight.\", \"meta\": {\"term_id\": \"HP:0000750\"}}, {\"id\": \"Depletion of tRNA Pseudouridine at Anticodon Positions 38 and 39\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pseudouridine at positions 38 and 39 sits in the anticodon stem loop, the part of the tRNA that pairs with the codon. Its extra imino group provides additional hydrogen bonding and rigidifies the loop, so its absence is expected to destabilise anticodon stem loop architecture. In the founding family the deficit was quantified as almost exactly one missing mole of pseudouridine per mole of tRNA-Phe, while every other measured modification of the same tRNA was unchanged, establishing that the lesion is specific to the PUS3 site rather than a general collapse of tRNA modification.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"tRNA pseudouridine synthesis\", \"tRNA modification\"]}}, {\"id\": \"Developmental and Rehabilitative Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is entirely supportive. Early and sustained physical, occupational and speech or augmentative-communication therapy addresses the hypotonia, motor delay and severely limited expressive language that dominate function, and physiotherapy plus orthopaedic surveillance addresses the scoliosis and contracture risk that follow from hypotonia and limited mobility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Generalized Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Axial and appendicular hypotonia is present from infancy and is often severe enough to preclude independent ambulation. It is not invariably progressive; some individuals improve with age.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay from infancy is the presenting feature in essentially every reported individual, affecting motor, language and cognitive domains together. Independent ambulation is often not achieved, or is achieved only with assistance.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Translational Fidelity and Efficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced anticodon-loop pseudouridylation is expected to degrade the accuracy and efficiency of protein synthesis. In lower organisms loss of the orthologous enzyme is clearly consequential: bacterial truA mutants grow poorly and yeast pus3-delta mutants are slow-growing and temperature-sensitive with reduced frameshifting fidelity. The corresponding measurement has not been made in human patient neurons, so this node is the weakest link in the chain.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"translation\"]}}, {\"id\": \"Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Subcortical white matter signal abnormality on T2/FLAIR is a recurrent neuroimaging finding, seen in the founding sisters and forming the whole neuroimaging phenotype of the 2026 Turkish proband. Importantly the pattern appears stable and non-progressive on long-term follow-up rather than representing a leukodystrophy, and brain MRI can also be entirely normal.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002352\"}}, {\"id\": \"Loss of PUS3 Pseudouridine Synthase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PUS3 is a stand-alone, guide-RNA-independent pseudouridine synthase of the TruA/Pus3 family that isomerises uridine to pseudouridine in the anticodon stem loop of cytosolic tRNAs. Cryo-EM shows it acts as a symmetric homodimer that clamps the tRNA and presents the target uridine to its active site. Two distinct routes destroy that activity in patients: outright absence of the protein from truncating alleles, and post-translational depletion from missense alleles that impair thermostability (p.Tyr71Cys) or promote aggregation (p.Ile299Thr).\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"tRNA pseudouridine synthase activity\", \"pseudouridine synthase activity\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head circumference is reduced, usually mildly, and is not always present at birth - the founding sisters had normal birth growth parameters and developed microcephaly postnatally, with occipitofrontal circumference between -2.1 and -3.3 standard deviations at later evaluation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gross and fine motor milestones are delayed, and many individuals never achieve independent ambulation or achieve it only with assistance. Motor delay is closely tied to the generalised hypotonia and is part of the global developmental delay rather than a separable regression.\", \"meta\": {\"term_id\": \"HP:0001270\"}}, {\"id\": \"Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Despite wide tissue expression of PUS3, the phenotype is largely brain-predominant: global developmental delay, severe to profound intellectual disability, poor or absent speech, hypotonia, epilepsy, microcephaly and variable structural or white-matter brain abnormalities. Growth failure, pigmentary and ocular features accompany the neurological core in a subset. This places PUS3 alongside ADAT3, WDR4, NSUN2 and FTSJ1 in the family of tRNA-modification intellectual disability disorders.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"central nervous system development\"]}}, {\"id\": \"Ophthalmological Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Baseline and periodic ophthalmological review is warranted because strabismus is common, grey sclerae are part of the diagnostic picture, and retinal dystrophy, nystagmus, optic disc pallor and abnormal visual fixation have each been reported. Untreated strabismus in a child with severe developmental delay risks amblyopia that further limits an already constrained visual and communicative repertoire. Scoped and named as surveillance to match its NCIT action term: the entry asserts case detection through formal eye examination, not any specific corrective intervention, because no strabismus or retinal treatment outcome has been reported in this disorder.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"PUS3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PUS3\"], \"gene_terms\": [{\"label\": \"PUS3\", \"id\": \"hgnc:25461\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"Retinal Dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinal dystrophy has been reported once, in the same severely affected Italian child, and represents an expansion of the ocular phenotype beyond the strabismus and grey sclerae of the founding description.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000556\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis, ranging from mild to severe, is a frequent finding and is the main reason orthopaedic surveillance belongs in the management plan. Whether it is a primary skeletal feature or secondary to hypotonia, neurological impairment and limited mobility is unresolved.\", \"meta\": {\"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy affects most but not all individuals. Onset ranges from early infancy to adolescence and the seizure semiology is heterogeneous, including tonic, generalised tonic-clonic, focal, atypical absence, infantile spasms, myoclonic and atonic seizures. Seizure control is variable; some individuals become seizure-free on antiseizure medication and others do not.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is severe to profound in most reported individuals, with poor or absent expressive language. Formal testing in the founding family gave an IQ of 30 in the eldest sister and a profound range score below 20 in the youngest.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010864\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus, bilateral in the index case, is the third element of the descriptive Orphanet label and was present in all three sisters of the founding family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000486\"}}, {\"id\": \"c.1303C\u003eT (p.Arg435*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The founding allele, homozygous in three affected Saudi sisters. It truncates the final 46 residues plus the end of a conserved region and behaves as a near-complete null in patient lymphoblastoid cells.\", \"meta\": {\"evidence_count\": 2, \"variant_type\": \"NONSENSE\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.212A\u003eG (p.Tyr71Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent missense allele, found homozygous or in trans with p.Ile299Thr, and carried by five of the fewer than thirty reported individuals. Mechanistically instructive: the purified protein retains normal tRNA binding and pseudouridylation activity, but its thermostability is strongly impaired and it is nearly absent from patient fibroblasts, so it is a functional null despite normal in vitro catalysis.\", \"meta\": {\"evidence_count\": 2, \"variant_type\": \"MISSENSE\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.896T\u003eC (p.Ile299Thr)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Found in trans with p.Tyr71Cys in a compound heterozygous patient. Unlike p.Tyr71Cys it acts by promoting aggregation of the recombinant protein, a second distinct route to loss of available enzyme.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"MISSENSE\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}], \"edges\": [{\"source\": \"Biallelic PUS3 Loss-of-Function Variants\", \"target\": \"Loss of PUS3 Pseudouridine Synthase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncating alleles remove the enzyme outright, while the studied missense alleles deplete it post-translationally, so both arms of the allelic spectrum converge on loss of available PUS3 activity in the cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of PUS3 Pseudouridine Synthase Activity\", \"target\": \"Depletion of tRNA Pseudouridine at Anticodon Positions 38 and 39\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the only enzyme that installs pseudouridine at these two positions leaves the corresponding uridines unmodified in patient tRNA.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of tRNA Pseudouridine at Anticodon Positions 38 and 39\", \"target\": \"Impaired Translational Fidelity and Efficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An unmodified, less rigid anticodon stem loop is the proposed proximate cause of degraded decoding at the ribosome. This step is an inference from tRNA biology and from orthologue work rather than a direct measurement in patient neurons, and it is flagged as such in the discussions section.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Translational Fidelity and Efficiency\", \"target\": \"Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developing brain is disproportionately affected, which is the pattern shared across the tRNA-modification intellectual disability disorders and is attributed to a higher sensitivity of neural tissue to reduced translational efficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Global developmental delay from infancy is the presenting clinical expression of the disturbed brain development this endpoint node describes, named first among the dominant features of the pooled cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Severe Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Severe to profound intellectual disability is the cognitive expression of the endpoint and the feature on which the founding family was ascertained.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Expressive language is disproportionately affected within the global delay, poor or absent in every individual assessed for it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Delayed gross and fine motor milestones are the motor expression of the endpoint, tightly interwoven with the generalised hypotonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Generalized Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Axial and appendicular hypotonia from infancy is among the dominant features of the pooled cohort. A central contribution is plausible, but the neural circuitry or other tissue contribution to reduced tone has not been established in PUS3 deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Epilepsy of heterogeneous semiology affects most individuals and is among the dominant features of the pooled cohort; the specific route from disturbed brain development to cortical hyperexcitability has not been dissected in this disorder.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Postnatal microcephaly - normal birth head circumference with later deceleration in the founding sisters - is the head growth signature of the impaired brain development this node describes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. The stable, nonprogressive subcortical white matter signal change is a neuroimaging correlate of the developmental brain disorder. Stability in the reported adolescent is compatible with a developmental lesion, but does not establish the cellular mechanism of the white matter abnormalities or a direct causal link.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Corpus Callosum Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Callosal dysgenesis, documented in one founding sister and explicitly absent in other affected individuals, belongs to the variable structural spectrum of the abnormal brain development.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Cerebellar Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Cerebellar hypoplasia, reported once at the severe end of the spectrum, is a developmental brain malformation within the same variable structural spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Behavioral Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Heterogeneous behavioural disturbance, including autistic features in a subset of those formally assessed, is a recognised expression of severe neurodevelopmental impairment; no single behavioural signature exists, and the intervening circuit mechanisms remain unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antiseizure Medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and Rehabilitative Therapy\", \"target\": \"Generalized Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and Rehabilitative Therapy\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and Rehabilitative Therapy\", \"target\": \"Motor Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and Rehabilitative Therapy\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and Rehabilitative Therapy\", \"target\": \"Scoliosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological Surveillance\", \"target\": \"Strabismus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological Surveillance\", \"target\": \"Retinal Dystrophy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PUS3\", \"target\": \"Biallelic PUS3 Loss-of-Function Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1303C\u003eT (p.Arg435*)\", \"target\": \"PUS3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.212A\u003eG (p.Tyr71Cys)\", \"target\": \"PUS3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.896T\u003eC (p.Ile299Thr)\", \"target\": \"PUS3\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Epilepsy is managed with standard antiseizure medication chosen by seizure type. There is no PUS3-specific drug recommendation and no evidence favouring one agent; response is variable, with some individuals achieving seizure freedom on multiple agents and others retaining breakthrough seizures.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Behavioral Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioural disturbance is common and heterogeneous, reported as anxiety, attention disorder or aggression; autistic features have been noted in a subset of those formally assessed. There is no single characteristic behavioural signature, which distinguishes this disorder from the very-early-onset aggression that characterises PUS7 deficiency.\", \"meta\": {\"term_id\": \"HP:0000708\"}}, {\"id\": \"Biallelic PUS3 Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disorder is initiated by inheritance of two damaging PUS3 alleles. The reported allelic spectrum is broad and includes nonsense alleles that truncate the protein (the founding p.Arg435* allele), frameshift alleles, a splice-region allele, an initiation-codon substitution, and missense alleles. Critically, the missense alleles are not a milder mechanistic class: p.Tyr71Cys retains essentially normal tRNA binding and catalytic activity when the purified protein is assayed, yet behaves as a functional null in cells, so the allelic spectrum converges on one outcome rather than producing a hypomorph gradient.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PUS3\"], \"gene_terms\": [{\"label\": \"PUS3\", \"id\": \"hgnc:25461\"}]}}, {\"id\": \"Cerebellar Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar hypoplasia was reported in the Italian child whose case defined the severe end of the syndromic spectrum, together with retinal dystrophy, a congenital heart defect and renal hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001321\"}}, {\"id\": \"Corpus Callosum Dysgenesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corpus callosum dysgenesis with diffuse brain atrophy and a prominent cisterna magna was documented in one of the founding sisters. It is not a constant feature - the corpus callosum was explicitly normal in the 2026 Turkish proband - so it belongs to the variable structural spectrum rather than the core phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006989\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech is poor or absent in every individual for whom it has been assessed, and is disproportionately affected even against the background of global developmental delay. One child spoke first single words only at age eight.\", \"meta\": {\"term_id\": \"HP:0000750\"}}, {\"id\": \"Depletion of tRNA Pseudouridine at Anticodon Positions 38 and 39\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pseudouridine at positions 38 and 39 sits in the anticodon stem loop, the part of the tRNA that pairs with the codon. Its extra imino group provides additional hydrogen bonding and rigidifies the loop, so its absence is expected to destabilise anticodon stem loop architecture. In the founding family the deficit was quantified as almost exactly one missing mole of pseudouridine per mole of tRNA-Phe, while every other measured modification of the same tRNA was unchanged, establishing that the lesion is specific to the PUS3 site rather than a general collapse of tRNA modification.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"tRNA pseudouridine synthesis\", \"tRNA modification\"]}}, {\"id\": \"Developmental and Rehabilitative Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is entirely supportive. Early and sustained physical, occupational and speech or augmentative-communication therapy addresses the hypotonia, motor delay and severely limited expressive language that dominate function, and physiotherapy plus orthopaedic surveillance addresses the scoliosis and contracture risk that follow from hypotonia and limited mobility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Generalized Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Axial and appendicular hypotonia is present from infancy and is often severe enough to preclude independent ambulation. It is not invariably progressive; some individuals improve with age.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay from infancy is the presenting feature in essentially every reported individual, affecting motor, language and cognitive domains together. Independent ambulation is often not achieved, or is achieved only with assistance.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Translational Fidelity and Efficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced anticodon-loop pseudouridylation is expected to degrade the accuracy and efficiency of protein synthesis. In lower organisms loss of the orthologous enzyme is clearly consequential: bacterial truA mutants grow poorly and yeast pus3-delta mutants are slow-growing and temperature-sensitive with reduced frameshifting fidelity. The corresponding measurement has not been made in human patient neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"translation\"]}}, {\"id\": \"Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Subcortical white matter signal abnormality on T2/FLAIR is a recurrent neuroimaging finding, seen in the founding sisters and forming the whole neuroimaging phenotype of the 2026 Turkish proband. Importantly the pattern appears stable and non-progressive on long-term follow-up rather than representing a leukodystrophy, and brain MRI can also be entirely normal.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002352\"}}, {\"id\": \"Loss of PUS3 Pseudouridine Synthase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PUS3 is a stand-alone, guide-RNA-independent pseudouridine synthase of the TruA/Pus3 family that isomerises uridine to pseudouridine in the anticodon stem loop of cytosolic tRNAs. Cryo-EM shows it acts as a symmetric homodimer that clamps the tRNA and presents the target uridine to its active site. Two distinct routes destroy that activity in patients: outright absence of the protein from truncating alleles, and post-translational depletion from missense alleles that impair thermostability (p.Tyr71Cys) or promote aggregation (p.Ile299Thr).\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"tRNA pseudouridine synthase activity\", \"pseudouridine synthase activity\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head circumference is reduced, usually mildly, and is not always present at birth - the founding sisters had normal birth growth parameters and developed microcephaly postnatally, with occipitofrontal circumference between -2.1 and -3.3 standard deviations at later evaluation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gross and fine motor milestones are delayed, and many individuals never achieve independent ambulation or achieve it only with assistance. Motor delay is closely tied to the generalised hypotonia and is part of the global developmental delay rather than a separable regression.\", \"meta\": {\"term_id\": \"HP:0001270\"}}, {\"id\": \"Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Despite wide tissue expression of PUS3, the phenotype is largely brain-predominant: global developmental delay, severe to profound intellectual disability, poor or absent speech, hypotonia, epilepsy, microcephaly and variable structural or white-matter brain abnormalities. Growth failure, pigmentary and ocular features accompany the neurological core in a subset. This places PUS3 alongside ADAT3, WDR4, NSUN2 and FTSJ1 in the family of tRNA-modification intellectual disability disorders.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"central nervous system development\"]}}, {\"id\": \"Ophthalmological Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Baseline and periodic ophthalmological review is warranted because strabismus is common, grey sclerae are part of the diagnostic picture, and retinal dystrophy, nystagmus, optic disc pallor and abnormal visual fixation have each been reported. Untreated strabismus in a child with severe developmental delay risks amblyopia that further limits an already constrained visual and communicative repertoire. Scoped and named as surveillance to match its NCIT action term: the entry asserts case detection through formal eye examination, not any specific corrective intervention, because no strabismus or retinal treatment outcome has been reported in this disorder.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"PUS3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PUS3\"], \"gene_terms\": [{\"label\": \"PUS3\", \"id\": \"hgnc:25461\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"Retinal Dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinal dystrophy has been reported once, in the same severely affected Italian child, and represents an expansion of the ocular phenotype beyond the strabismus and grey sclerae of the founding description.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000556\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis, ranging from mild to severe, is a frequent finding and is the main reason orthopaedic surveillance belongs in the management plan. Whether it is a primary skeletal feature or secondary to hypotonia, neurological impairment and limited mobility is unresolved.\", \"meta\": {\"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy affects most but not all individuals. Onset ranges from early infancy to adolescence and the seizure semiology is heterogeneous, including tonic, generalised tonic-clonic, focal, atypical absence, infantile spasms, myoclonic and atonic seizures. Seizure control is variable; some individuals become seizure-free on antiseizure medication and others do not.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is severe to profound in most reported individuals, with poor or absent expressive language. Formal testing in the founding family gave an IQ of 30 in the eldest sister and a profound range score below 20 in the youngest.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010864\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus, bilateral in the index case, is the third element of the descriptive Orphanet label and was present in all three sisters of the founding family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000486\"}}, {\"id\": \"c.1303C\u003eT (p.Arg435*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The founding allele, homozygous in three affected Saudi sisters. It truncates the final 46 residues plus the end of a conserved region and behaves as a near-complete null in patient lymphoblastoid cells.\", \"meta\": {\"evidence_count\": 2, \"variant_type\": \"NONSENSE\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.212A\u003eG (p.Tyr71Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent missense allele, found homozygous or in trans with p.Ile299Thr, and carried by five of the fewer than thirty reported individuals. Mechanistically instructive: the purified protein retains normal tRNA binding and pseudouridylation activity, but its thermostability is strongly impaired and it is nearly absent from patient fibroblasts, so it is a functional null despite normal in vitro catalysis.\", \"meta\": {\"evidence_count\": 2, \"variant_type\": \"MISSENSE\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.896T\u003eC (p.Ile299Thr)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Found in trans with p.Tyr71Cys in a compound heterozygous patient. Unlike p.Tyr71Cys it acts by promoting aggregation of the recombinant protein, a second distinct route to loss of available enzyme.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"MISSENSE\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}], \"edges\": [{\"source\": \"Biallelic PUS3 Loss-of-Function Variants\", \"target\": \"Loss of PUS3 Pseudouridine Synthase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncating alleles remove the enzyme outright, while the studied missense alleles deplete it post-translationally, so both arms of the allelic spectrum converge on loss of available PUS3 activity in the cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of PUS3 Pseudouridine Synthase Activity\", \"target\": \"Depletion of tRNA Pseudouridine at Anticodon Positions 38 and 39\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the only enzyme that installs pseudouridine at these two positions leaves the corresponding uridines unmodified in patient tRNA.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of tRNA Pseudouridine at Anticodon Positions 38 and 39\", \"target\": \"Impaired Translational Fidelity and Efficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An unmodified, less rigid anticodon stem loop is the proposed proximate cause of degraded decoding at the ribosome. This step is an inference from tRNA biology and from orthologue work rather than a direct measurement in patient neurons, and it is flagged as such in the discussions section.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Translational Fidelity and Efficiency\", \"target\": \"Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developing brain is disproportionately affected, which is the pattern shared across the tRNA-modification intellectual disability disorders and is attributed to a higher sensitivity of neural tissue to reduced translational efficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Global developmental delay from infancy is the presenting clinical expression of the disturbed brain development this endpoint node describes, named first among the dominant features of the pooled cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Severe Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Severe to profound intellectual disability is the cognitive expression of the endpoint and the feature on which the founding family was ascertained.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Expressive language is disproportionately affected within the global delay, poor or absent in every individual assessed for it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Delayed gross and fine motor milestones are the motor expression of the endpoint, tightly interwoven with the generalised hypotonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Generalized Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Axial and appendicular hypotonia from infancy is among the dominant features of the pooled cohort. A central contribution is plausible, but the neural circuitry or other tissue contribution to reduced tone has not been established in PUS3 deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Epilepsy of heterogeneous semiology affects most individuals and is among the dominant features of the pooled cohort; the specific route from disturbed brain development to cortical hyperexcitability has not been dissected in this disorder.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Postnatal microcephaly - normal birth head circumference with later deceleration in the founding sisters - is the head growth signature of the impaired brain development this node describes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. The stable, nonprogressive subcortical white matter signal change is a neuroimaging correlate of the developmental brain disorder. Stability in the reported adolescent is compatible with a developmental lesion, but does not establish the cellular mechanism of the white matter abnormalities or a direct causal link.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Corpus Callosum Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Callosal dysgenesis, documented in one founding sister and explicitly absent in other affected individuals, belongs to the variable structural spectrum of the abnormal brain development.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Cerebellar Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Cerebellar hypoplasia, reported once at the severe end of the spectrum, is a developmental brain malformation within the same variable structural spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental Impairment\", \"target\": \"Behavioral Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Summary manifestation edge. Heterogeneous behavioural disturbance, including autistic features in a subset of those formally assessed, is a recognised expression of severe neurodevelopmental impairment; no single behavioural signature exists, and the intervening circuit mechanisms remain unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antiseizure Medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and Rehabilitative Therapy\", \"target\": \"Generalized Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and Rehabilitative Therapy\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and Rehabilitative Therapy\", \"target\": \"Motor Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and Rehabilitative Therapy\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental and Rehabilitative Therapy\", \"target\": \"Scoliosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological Surveillance\", \"target\": \"Strabismus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological Surveillance\", \"target\": \"Retinal Dystrophy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PUS3\", \"target\": \"Biallelic PUS3 Loss-of-Function Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1303C\u003eT (p.Arg435*)\", \"target\": \"PUS3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.212A\u003eG (p.Tyr71Cys)\", \"target\": \"PUS3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.896T\u003eC (p.Ile299Thr)\", \"target\": \"PUS3\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6016,6 +6063,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency omitted; a single snippet-backed individual, at the severe end of the spectrum.
@@ -6101,6 +6151,9 @@ This clinical feature is Grey sclerae, annotated with Pigmentation of the sclera
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: 7/21 individuals in the Nostvik pooled cohort (33 percent), which sits just inside the FREQUENT band 30-79 percent. This is the one phenotype here with a directly quotable numerator and denominator. The Nostvik abstract explicitly warns that the feature is less characteristic than previously suggested, so its absence must not be used to exclude the diagnosis. The HPO term used is Pigmentation of the sclera, NOT Blue sclerae (HP:0000592) as the deep-research report suggested; blue sclerae denote the thin collagen-deficient sclerae of osteogenesis imperfecta and related connective tissue disorders, which is a mechanistically different sign from the melanocytic grey discoloration seen here.</div>
@@ -6199,6 +6252,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency omitted. Strabismus is 3/3 in the founding family but is not enumerated in the pooled-cohort abstract, so no defensible disease-wide band can be assigned. Other ocular findings reported in isolated individuals include nystagmus, optic disc pallor, astigmatism, abnormal visual fixation and retinal dystrophy.</div>
 
 
@@ -6295,6 +6351,9 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency omitted; a single reported individual. Included because it materially changes ophthalmological surveillance if confirmed in further cases.</div>
 
 
@@ -6375,6 +6434,9 @@ This clinical feature is Unilateral renal hypoplasia (HP:0012583). HP:0012583 is
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency omitted; a single snippet-backed individual. PMID:30697592 (de Paiva et al. 2019, &#34;PUS3 mutations are associated with intellectual disability, leukoencephalopathy, and nephropathy&#34;) independently reports nephropathy but is a Neurology Genetics clinical note with no PubMed abstract, so it appears under references only.
@@ -6458,6 +6520,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: the Nostvik full text records microcephaly in 13/18 assessed (72 percent, FREQUENT band 30-79 percent), and the pooled-cohort abstract names microcephaly among the dominant features. Microcephaly is named in the OMIM disease title (NEDMIGS) but is explicitly mild, and one of the three founding sisters had only borderline microcephaly.</div>
@@ -6554,6 +6619,9 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency omitted for the coarse-facies qualifier specifically. Non-specific facial dysmorphism is 17/18 in the Nostvik full text, but the pooled-cohort abstract states only that patients had &#34;some dysmorphic facial features&#34; without a recognisable gestalt, and coarse facies as such is documented only in the founding family. Coarse facies is clinically important here mainly because it is the feature that, combined with dermal melanocytosis, drives confusion with the lysosomal storage disorders.</div>
@@ -6665,6 +6733,9 @@ This clinical feature is Extensive Mongolian spots (dermal melanocytosis), annot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency deliberately omitted. Extensive dermal melanocytosis is documented in 3/3 individuals of the founding family but is not reported at all in the abstract of the 21-individual pooled cohort, which lists only gray sclera among pigmentary findings, nor in the 2022 Italian, 2022 Polish or 2026 Turkish reports. The honest position is that its disease-wide frequency is unknown and may be low or may reflect ascertainment in a single ancestry, so no band is asserted. This is also the feature that makes the MONDO label a named-entity-confusion hazard: extensive dermal melanocytosis with coarse facies and developmental delay is the classic presentation of GM1 gangliosidosis and the mucopolysaccharidoses, which are recorded in differential_diagnoses and which were excluded biochemically in the founding family.</div>
 
 
@@ -6772,6 +6843,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Derivation: hypotonia in 10/13 assessed (77 percent) in the Nostvik full text, within the FREQUENT band; the abstract names hypotonia among the dominant features. Three of those individuals reportedly improved, so the clinical course is not uniformly progressive and no clinical_course qualifier is asserted.</div>
 
 
@@ -6868,6 +6942,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency omitted. Scoliosis is reported in 8/10 assessed individuals (80 percent) in the Nostvik 2021 full text, the highest rate of any non-core feature, but the denominator is not quotable from the cached abstract and scoliosis is not mentioned in the abstract at all, so no snippet-backed evidence item is possible and no band is asserted. Recorded as a phenotype rather than left buried in treatment prose because at that rate it is a real, surveillance-relevant feature of the disorder. No evidence block by design.</div>
 
 
@@ -6913,6 +6990,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: the Nostvik pooled cohort abstract states the clinical picture was &#34;dominated by&#34; global developmental delay, and its full text reports intellectual disability or global developmental delay in 19/19 assessed individuals; all three sisters of the founding family and the Turkish proband are additionally documented individually. The conservative FREQUENT band (30-79 percent) is assigned because the only quotable statement is the qualitative &#34;dominated by&#34;, and the 19/19 denominator sits in full text that is not cached here.</div>
@@ -7013,6 +7093,9 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
                     </div>
 
 
+
+
+
                     <div class="item-desc">Derivation: severe in 9, moderate-to-severe in 2, moderate in 4 and unspecified in 4 of the pooled cohort per the Nostvik full text, with measured IQ from below 20 to 58. The severe-to-profound end therefore covers roughly half of graded cases, supporting FREQUENT rather than VERY_FREQUENT. Milder moderate presentations exist, so the severity qualifier is not universal even though intellectual disability itself is.</div>
 
 
@@ -7109,6 +7192,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: epilepsy in 13/18 assessed (72 percent) in the Nostvik full text, within the FREQUENT band, and named among the dominant features in the abstract. Explicitly not universal - the eldest founding sister had seizures at 10 months but the two younger sisters had none, and the Turkish proband reached age 17 without seizures.</div>
@@ -7252,6 +7338,9 @@ This clinical feature is Leukoencephalopathy (HP:0002352), qualified as course s
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency omitted. White matter abnormalities were present in 5 individuals of the Nostvik cohort with any MRI abnormality in 11/15, but the specific white-matter subset denominator is not quotable from the cached abstract. The 2019 Brazilian report (PMID:30697592) put leukoencephalopathy in its title but is a Neurology Genetics clinical note with no PubMed abstract, so it supports this phenotype only as a listed reference, not as a snippet-backed evidence item.</div>
 
 
@@ -7350,6 +7439,9 @@ This clinical feature is Dysgenesis of the corpus callosum, annotated with Dyspl
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency omitted; this is a single documented individual in the founding family, with an explicit normal-corpus-callosum counter-example in PMID:41971559.
 Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a developmental abnormality. HP:0001274 Agenesis of corpus callosum is not justified here: agenesis asserts complete absence, which is a strictly stronger and different claim than what the paper reports. The parent HP:0001273 Abnormal corpus callosum morphology is correct but broader than necessary: the HPO definition of HP:0006989 Dysplastic corpus callosum states explicitly that &#34;dysplasia and dysgenesis of the corpus callosum are nonspecific descriptions that imply defective development of the corpus callosum&#34; (verified with OAK), so the child term carries the dysgenesis concept itself without asserting agenesis or hypoplasia, and is the most specific accurate binding.</div>
 
@@ -7420,6 +7512,9 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency omitted; a single reported individual at the severe end of the spectrum.</div>
@@ -7493,6 +7588,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency deliberately omitted despite a very high reported rate. Speech impairment is documented in 11/11 assessed individuals (100 percent) in the Nostvik 2021 full text, which on its face maps to VERY_FREQUENT. That denominator sits in full text that is not cached here, and the pooled-cohort abstract does not mention speech at all, so there is no quotable snippet for either the association or the band. Per the frequency-evidence guidelines the band is omitted rather than asserted from an unquotable source, and the derivation is recorded here instead. This phenotype therefore carries no evidence block by design - the entry would otherwise silently drop a near-universal feature that clears any reporting threshold.</div>
 
 
@@ -7527,6 +7625,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency omitted for the same reason as the speech phenotype: motor delay is reported in 16/18 assessed individuals (88 percent) in the Nostvik 2021 full text, but that denominator is not quotable from the cached abstract and the abstract does not name motor delay separately from global developmental delay. No evidence block by design.</div>
@@ -7565,6 +7666,9 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency omitted. Behavioural features are reported in 11 of 19 individuals and autism-spectrum features in 4/6 of those specifically assessed, per the Nostvik 2021 full text; neither denominator is quotable from the cached abstract. The broad HPO parent Atypical behavior is used deliberately because the reported behaviours are heterogeneous and no single sub-phenotype dominates. No evidence block by design.</div>
@@ -7612,6 +7716,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: short stature in 10/17 assessed (59 percent) in the Nostvik full text, within the FREQUENT band. The severity is variable - &#34;severe growth deficiency&#34; in the founding family, but plain short stature or growth failure elsewhere - so the generic Short stature term is used rather than Severe short stature (HP:0003510). Note that growth was normal at birth in all three founding sisters, so this is postnatal growth failure, not intrauterine growth restriction.</div>
@@ -7708,6 +7815,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency omitted. Failure to thrive is 3/3 in the founding family but is not separately enumerated from short stature in the pooled cohort, so no disease-wide band is asserted. Recorded separately from short stature because the two are distinct HPO concepts and the postnatal-onset pattern is clinically informative.</div>
@@ -7830,6 +7940,9 @@ This disease-associated gene is PUS3 (hgnc:25461). hgnc:25461 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7930,7 +8043,9 @@ This disease-associated gene is PUS3 (hgnc:25461). hgnc:25461 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE</span>
@@ -7938,6 +8053,11 @@ This disease-associated gene is PUS3 (hgnc:25461). hgnc:25461 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The founding allele, homozygous in three affected Saudi sisters. It truncates the final 46 residues plus the end of a conserved region and behaves as a near-complete null in patient lymphoblastoid cells.</div>
@@ -8025,7 +8145,9 @@ This disease-associated gene is PUS3 (hgnc:25461). hgnc:25461 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
@@ -8033,6 +8155,11 @@ This disease-associated gene is PUS3 (hgnc:25461). hgnc:25461 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent missense allele, found homozygous or in trans with p.Ile299Thr, and carried by five of the fewer than thirty reported individuals. Mechanistically instructive: the purified protein retains normal tRNA binding and pseudouridylation activity, but its thermostability is strongly impaired and it is nearly absent from patient fibroblasts, so it is a functional null despite normal in vitro catalysis.</div>
@@ -8120,7 +8247,9 @@ This disease-associated gene is PUS3 (hgnc:25461). hgnc:25461 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
@@ -8128,6 +8257,11 @@ This disease-associated gene is PUS3 (hgnc:25461). hgnc:25461 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Found in trans with p.Tyr71Cys in a compound heterozygous patient. Unlike p.Tyr71Cys it acts by promoting aggregation of the recombinant protein, a second distinct route to loss of available enzyme.</div>
@@ -10354,7 +10488,7 @@ pathophysiology:
     enzyme is clearly consequential: bacterial truA mutants grow poorly and yeast
     pus3-delta mutants are slow-growing and temperature-sensitive with reduced
     frameshifting fidelity. The corresponding measurement has not been made in human
-    patient neurons, so this node is the weakest link in the chain.
+    patient neurons.
   biological_processes:
   - preferred_term: translation
     term:
@@ -10389,15 +10523,12 @@ pathophysiology:
       intellectual disabilities.
     explanation: &gt;-
       The structural study frames the disease link as running specifically through
-      the tRNA modification activity.
+      the tRNA modification activity. Its negative mRNA-substrate result does not
+      test impaired translation through tRNA hypomodification.
   notes: &gt;-
-    Substrate-scope constraint. PMID:38996458 mapped transcriptome-wide pseudouridine
-    sites in PUS3-deleted HEK293 cells and found no evidence that human PUS3 modifies
-    mRNAs, so this node&#39;s translational claim runs exclusively through the tRNA route
-    and no mRNA-substrate node is asserted. That finding is quoted with a SUPPORT
-    direction in the PUS1 differential-diagnosis entry. The negative mRNA result
-    does not test impaired translation through tRNA hypomodification and therefore
-    is not evidence against this node.
+    PMID:38996458 mapped transcriptome-wide pseudouridine sites in PUS3-deleted
+    HEK293 cells and found no evidence that human PUS3 modifies mRNAs. The proposed
+    translational mechanism concerns tRNA hypomodification.
   downstream:
   - target: Neurodevelopmental Impairment
     description: &gt;-
@@ -12755,7 +12886,7 @@ Citation-string quirk. PubMed records the title of PMID:41971559 with a missing 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "PUS3-Related Neurodevelopmental Disorder", "mondoId": "MONDO:0014886", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PUS3-Related_Neurodevelopmental_Disorder", "yamlRevision": "350f904c655c"};
+        const OS_CONFIG = {"diseaseName": "PUS3-Related Neurodevelopmental Disorder", "mondoId": "MONDO:0014886", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PUS3-Related_Neurodevelopmental_Disorder", "yamlRevision": "60c28e80bb9f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

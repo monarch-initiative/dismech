@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=CD16%20Deficiency"
@@ -4011,7 +4053,7 @@ The gene-disease relationship is therefore recorded as DISPUTED and the allele a
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4063,6 +4105,126 @@ The gene-disease relationship is therefore recorded as DISPUTED and the allele a
         </div>
 
         <!-- Classifications -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Placed with the immune disorders: a Mendelian inborn error of natural killer cell function whose clinical burden is herpesvirus and papillomavirus susceptibility.">IMMUNE RHEUMATOLOGIC</span>
+
+
+                    <span class="tag tag-classification" title="Dual-tagged alongside IMMUNE_RHEUMATOLOGIC, which the Part vocabulary explicitly sanctions for an organ-system-classified hereditary disease, and matching STAT2 Deficiency and Immunodeficiency 65 (IRF9 Deficiency) — the ISGF3-axis entries #11879 compared this one against. CD16 deficiency is not itself an ISGF3 defect; the comparison is about how three equally new, equally Mendelian immune entries are tagged.
+As with this entry&#39;s iuis_category placement, the Part records the disorder&#39;s nosological kind — a single-gene recessive entity described as such by OMIM (IMD20), MONDO and IUIS 2022 Table 6 — and is not a ruling on whether FCGR3A L66H is the cause. That question is genuinely open and is argued in the l66h_pathogenicity_disputed discussion and the Causality paragraph of this entry&#39;s top-level notes: two of four published L66H homozygotes lack the cytotoxicity defect, the allele is far too common in gnomAD for a fully penetrant recessive immunodeficiency, and the most recent report concludes L66H is unlikely to be a direct genetic cause, which is why genetic.relationship_type is DISPUTED rather than CAUSATIVE. The Part vocabulary does not grade on causal certainty, and withholding the tag on that basis would sit oddly beside this entry&#39;s category: Mendelian, its MONDO term, and its HP:0000007 autosomal recessive inheritance block, all of which assert more. Hypertrophic_Cardiomyopathy_25 is the close precedent: a sole causal gene carrying relationship_type DISPUTED, tagged both CARDIOVASCULAR and GENETICS_ENVIRONMENT_DISEASE.">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification Table 6 (defects in intrinsic and innate immunity), section 3 (Predisposition to Severe Viral Infection): the &#34;CD16 deficiency&#34; row (FCGR3A, AR, OMIM column 146740 - the FCGR3A gene record), with altered NK cell function and severe herpes viral infection (VZV, EBV) and HPV as the associated features. The IUIS row asserts the entity without the causality caveats this entry documents; the placement records the nosology&#39;s assignment, not a resolution of that question.">innate immunity defect</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
 
 
         <!-- Mappings -->
@@ -4346,6 +4508,7 @@ The two homozygotes added in review widen this gap rather than narrowing it, and
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fcgr3a-l66h-substitution" data-dismech-node="FCGR3A L66H Substitution" data-dismech-type="pathophysiology">
                 <div class="item-name">FCGR3A L66H Substitution</div>
 
+
                 <div class="item-desc">A homozygous T-to-A transversion at position 230 of the FCGR3A coding sequence replaces leucine 66 with histidine in the first (membrane-distal) immunoglobulin-like domain of CD16. The receptor is still made and still reaches the NK cell surface; the lesion is confined to the local conformation of one surface loop.</div>
 
 
@@ -4438,6 +4601,8 @@ This genetic context concerns FCGR3A (hgnc:3619). hgnc:3619 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4450,6 +4615,9 @@ This genetic context concerns FCGR3A (hgnc:3619). hgnc:3619 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">c.230T&gt;A, p.Leu66His. Structural modelling of the mutant against the solved wild-type CD16 ectodomain predicts a shift in the B73.1 epitope loop with the overall fold otherwise preserved, consistent with selective loss of one function (spontaneous cytotoxicity) while Fc binding and ADCC are retained. It is therefore recorded as a partial, function-specific loss rather than a null allele.</div>
 
@@ -4522,6 +4690,7 @@ This genetic context concerns FCGR3A (hgnc:3619). hgnc:3619 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-cd16-b73-1-conformational-epitope" data-dismech-node="Loss of the CD16 B73.1 Conformational Epitope" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the CD16 B73.1 Conformational Epitope</div>
+
 
                 <div class="item-desc">Patient NK cells are stained normally by the anti-CD16 antibody 3G8, which binds elsewhere on the receptor, but are not recognised by B73.1. CD16 is therefore present on the surface with a locally altered membrane-distal face. This is the structural pivot of the disease: it is what separates the arm of CD16 function that fails from the arm that does not.</div>
 
@@ -4632,6 +4801,7 @@ This pathophysiological event involves CD16-positive, CD56-dim natural killer ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-cd16-cd2-association" data-dismech-node="Failure of CD16-CD2 Association" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of CD16-CD2 Association</div>
+
 
                 <div class="item-desc">In healthy NK cells CD16 associates biochemically with CD2, a coactivation receptor, and the two co-cluster at the lytic immunological synapse, so that engaging CD2 elicits CD16 signalling. The L66H receptor does not enter this association, and CD2 ligation no longer triggers CD16 signalling. Note that the synapse still forms; what fails is the CD16-CD2 partnership within it.</div>
 
@@ -4829,6 +4999,7 @@ This pathophysiological event involves decreased cell adhesion molecule binding 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cd2-surface-expression-on-cd56-dim-nk-cells" data-dismech-node="Reduced CD2 Surface Expression on CD56-dim NK Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced CD2 Surface Expression on CD56-dim NK Cells</div>
 
+
                 <div class="item-desc">Patient NK cells carry less surface CD2 than controls, and the reduction is restricted to the CD56-dim, CD16-positive subset - CD2 levels on the CD16-negative CD56-bright subset are unaffected. The compartment-restricted pattern is the argument that the CD2 loss is downstream of mutant CD16 rather than an independent trait, since it appears only where the mutant receptor is expressed.</div>
 
 
@@ -5004,6 +5175,13 @@ This pathophysiological event involves CD16-negative, CD56-bright natural killer
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-igg-fc-binding-and-adcc" data-dismech-node="Preserved IgG Fc Binding and ADCC" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved IgG Fc Binding and ADCC</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Antibody-dependent cellular cytotoxicity is intact in patient cells, measured against antibody-coated targets. The Fc-binding surface is not part of the loop altered by L66H, which is why this arm of CD16 function survives while the CD2 partnership does not.
 A deliberate negative node. It records a function that is retained, which is unusual for a pathophysiology graph but necessary here: the selectivity of the defect is the mechanistic claim, and a graph showing only the failing arm would misrepresent the disease as a general NK deficiency. Nothing points downstream into it, because preservation is the absence of an effect rather than something the epitope loss causes, and the available causal link types would export such an edge as a causal arrow.</div>
 
@@ -5168,6 +5346,13 @@ This pathophysiological event involves IgG binding (GO:0019864). GO:0019864 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-spontaneous-nk-cell-cytotoxicity" data-dismech-node="Deficient Spontaneous NK Cell Cytotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Spontaneous NK Cell Cytotoxicity</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Antibody-independent killing of susceptible target cells is markedly reduced in patient peripheral blood mononuclear cells. Because ADCC is preserved in the same cells, the defect is specific to the natural-cytotoxicity programme rather than to the lytic machinery as a whole - granule content and degranulation capacity are not the failing step.</div>
 
 
@@ -5278,6 +5463,14 @@ This pathophysiological event involves decreased natural killer cell mediated cy
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Reduced total natural killer cell count</span>
+
+	                            <span class="crosslink-desc">A reduced NK count was reported in the index patient. It is drawn here with the caveat the entry itself records: of the four published homozygotes only one had a genuinely reduced count, two were normal and one read as NK-absent for an assay reason, so this is a variable finding rather than a defining one — consistent with the functional defect being the lesion rather than the cell number.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired Control of Herpesvirus and Papillomavirus Infection</span>
@@ -5393,6 +5586,13 @@ This pathophysiological event involves decreased natural killer cell mediated cy
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-control-of-herpesvirus-and-papillomavirus-infection" data-dismech-node="Impaired Control of Herpesvirus and Papillomavirus Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Control of Herpesvirus and Papillomavirus Infection</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">In affected individuals the clinical consequence is unusually severe, persistent or recurrent disease with herpesviruses - herpes simplex virus in the index patient, Epstein-Barr virus and varicella zoster virus in others - and with human papillomavirus, against an otherwise normal immunological assessment. One homozygote also had a difficult course after BCG vaccination. The narrowness of the infection spectrum - viral rather than pyogenic or opportunistic-fungal - is consistent with a lesion confined to NK natural cytotoxicity rather than a combined immunodeficiency.</div>
 
 
@@ -5414,6 +5614,14 @@ This pathophysiological event involves decreased natural killer cell mediated cy
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Recurrent herpes</span>
+
+	                            <span class="crosslink-desc">Recurrent herpes simplex infection dominated the index patient presentation, and is the clinical expression of the impaired control this node describes.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Recurrent viral infections</span>
@@ -5516,7 +5724,7 @@ This pathophysiological event involves decreased natural killer cell mediated cy
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Decreased NK cell-induced killing of target cells\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced antibody-independent lysis of susceptible target cells by patient peripheral blood mononuclear cells, with antibody-dependent killing preserved in the same assay series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025808\"}}, {\"id\": \"Deficient Spontaneous NK Cell Cytotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Antibody-independent killing of susceptible target cells is markedly reduced in patient peripheral blood mononuclear cells. Because ADCC is preserved in the same cells, the defect is specific to the natural-cytotoxicity programme rather than to the lytic machinery as a whole - granule content and degranulation capacity are not the failing step.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"CD16-positive, CD56-dim natural killer cell\"], \"biological_processes\": [\"natural killer cell mediated cytotoxicity\"], \"experimental_models\": [{\"name\": \"NK-92 cells stably expressing CD16 L66H\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Wild-type CD16 expression raised CD2 surface levels and conferred killing of a melanoma target that CD16-deficient NK-92 cells do not lyse, establishing a CD16 contribution to antibody-independent killing. The complementary loss with the L66H allele is shown for the association and signalling steps rather than as a matched cytotoxicity measurement against the same target, so the link to the cytotoxicity node is one step less direct than for the association node.\"}]}}, {\"id\": \"FCGR3A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FCGR3A\"], \"gene_terms\": [{\"label\": \"FCGR3A\", \"id\": \"hgnc:3619\"}], \"association\": \"FCGR3A encodes CD16a (Fc-gamma receptor IIIA), the low-affinity IgG Fc receptor expressed on CD56-dim natural killer cells, where it is the triggering receptor for antibody-dependent cellular cytotoxicity. The candidate allele is a single germline missense substitution in the membrane-distal immunoglobulin domain, carried homozygously. Because the receptor is still expressed and still binds Fc, it is a function-specific partial loss rather than a null.\\nThe relationship is recorded as DISPUTED rather than CAUSATIVE. Two homozygotes have a measured spontaneous-cytotoxicity defect, but a third had normal cytotoxicity and normal ADCC, a fourth is asymptomatic with normal NK lytic function, and the allele reaches roughly 5% frequency with about a hundred homozygotes in gnomAD. The most recent report concludes the variant is unlikely to be a direct genetic cause and proposes it as a low-penetrance risk factor instead. Curators should not treat an L66H homozygous genotype as diagnostic on its own.\", \"relationship_type\": \"DISPUTED\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"FCGR3A L66H (reported as c.230T\u003eA, c.197T\u003eA, or p.L48H)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The single allele reported in every described case. It disrupts the B73.1 monoclonal antibody epitope while leaving the 3G8 epitope and Fc binding intact. Recorded as of uncertain significance rather than pathogenic: about a hundred homozygotes appear in gnomAD, which is incompatible with a fully penetrant recessive immunodeficiency allele.\", \"meta\": {\"evidence_count\": 3, \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"FCGR3A L66H Substitution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A homozygous T-to-A transversion at position 230 of the FCGR3A coding sequence replaces leucine 66 with histidine in the first (membrane-distal) immunoglobulin-like domain of CD16. The receptor is still made and still reaches the NK cell surface; the lesion is confined to the local conformation of one surface loop.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD16-positive, CD56-dim natural killer cell\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"c.230T\u003eA, p.Leu66His. Structural modelling of the mutant against the solved wild-type CD16 ectodomain predicts a shift in the B73.1 epitope loop with the overall fold otherwise preserved, consistent with selective loss of one function (spontaneous cytotoxicity) while Fc binding and ADCC are retained. It is therefore recorded as a partial, function-specific loss rather than a null allele.\", \"gene_terms\": [{\"label\": \"FCGR3A\", \"id\": \"hgnc:3619\"}]}}}, {\"id\": \"Failure of CD16-CD2 Association\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In healthy NK cells CD16 associates biochemically with CD2, a coactivation receptor, and the two co-cluster at the lytic immunological synapse, so that engaging CD2 elicits CD16 signalling. The L66H receptor does not enter this association, and CD2 ligation no longer triggers CD16 signalling. Note that the synapse still forms; what fails is the CD16-CD2 partnership within it.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD16-positive, CD56-dim natural killer cell\"], \"molecular_functions\": [\"cell adhesion molecule binding\"], \"experimental_models\": [{\"name\": \"NK-92 cells stably expressing CD16 L66H\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Expressing the patient allele in a CD16-null human NK line reproduced the loss of CD16-CD2 association and the loss of CD16 signalling after CD2 ligation.\"}]}}, {\"id\": \"Impaired Control of Herpesvirus and Papillomavirus Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In affected individuals the clinical consequence is unusually severe, persistent or recurrent disease with herpesviruses - herpes simplex virus in the index patient, Epstein-Barr virus and varicella zoster virus in others - and with human papillomavirus, against an otherwise normal immunological assessment. One homozygote also had a difficult course after BCG vaccination. The narrowness of the infection spectrum - viral rather than pyogenic or opportunistic-fungal - is consistent with a lesion confined to NK natural cytotoxicity rather than a combined immunodeficiency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss of the CD16 B73.1 Conformational Epitope\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient NK cells are stained normally by the anti-CD16 antibody 3G8, which binds elsewhere on the receptor, but are not recognised by B73.1. CD16 is therefore present on the surface with a locally altered membrane-distal face. This is the structural pivot of the disease: it is what separates the arm of CD16 function that fails from the arm that does not.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD16-positive, CD56-dim natural killer cell\"]}}, {\"id\": \"NK-92 cells stably expressing CD16 L66H\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The immortalised human NK cell line NK-92, which lacks endogenous CD16, was reconstituted with either wild-type CD16 or the patient L66H allele. This is the experiment that converts the patient observation into a mechanism: it isolates the single substitution from the rest of the patients\u0027 genetic background.\", \"meta\": {\"cell_types\": [\"natural killer cell\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:23006327\"}}, {\"id\": \"Recurrent viral infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe or persistent herpesvirus and human papillomavirus disease is the presenting clinical problem in reported patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004429\"}}, {\"id\": \"Reduced CD2 Surface Expression on CD56-dim NK Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient NK cells carry less surface CD2 than controls, and the reduction is restricted to the CD56-dim, CD16-positive subset - CD2 levels on the CD16-negative CD56-bright subset are unaffected. The compartment-restricted pattern is the argument that the CD2 loss is downstream of mutant CD16 rather than an independent trait, since it appears only where the mutant receptor is expressed.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD16-positive, CD56-dim natural killer cell\", \"CD16-negative, CD56-bright natural killer cell\"]}}], \"edges\": [{\"source\": \"FCGR3A L66H Substitution\", \"target\": \"Loss of the CD16 B73.1 Conformational Epitope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substitution sits within the B73.1 recognition site, so the epitope is lost as a direct structural consequence of the amino-acid change.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the CD16 B73.1 Conformational Epitope\", \"target\": \"Failure of CD16-CD2 Association\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The altered face is the surface through which CD16 partners with CD2, so losing it abolishes the association.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CD16-CD2 Association\", \"target\": \"Reduced CD2 Surface Expression on CD56-dim NK Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CD16-CD2 Association\", \"target\": \"Deficient Spontaneous NK Cell Cytotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CD16-dependent costimulation through CD2 is the proximate cause of the natural-cytotoxicity defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Spontaneous NK Cell Cytotoxicity\", \"target\": \"Impaired Control of Herpesvirus and Papillomavirus Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Natural cytotoxicity is a principal early defence against virus-infected cells, so its selective loss maps onto the observed infection spectrum. This step is inferred from the known role of NK cells rather than measured, and two homozygotes with normal cytotoxicity show it is not deterministic in either direction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Spontaneous NK Cell Cytotoxicity\", \"target\": \"Decreased NK cell-induced killing of target cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The node\u0027s clinical measurement, tying the mechanism to the phenotype it is observed as.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Control of Herpesvirus and Papillomavirus Infection\", \"target\": \"Recurrent viral infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical manifestation by which this node is recognised.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NK-92 cells stably expressing CD16 L66H\", \"target\": \"Failure of CD16-CD2 Association\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Expressing the patient allele in a CD16-null human NK line reproduced the loss of CD16-CD2 association and the loss of CD16 signalling after CD2 ligation.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"NK-92 is a transformed, IL-2-dependent NK lymphoma line rather than a primary NK cell, and the reconstituted receptor is expressed from a transgene rather than at endogenous locus and copy number. It also cannot report on NK development, so it speaks to receptor function and not to the NK cytopenia seen in the index patient.\"}, {\"source\": \"NK-92 cells stably expressing CD16 L66H\", \"target\": \"Deficient Spontaneous NK Cell Cytotoxicity\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Wild-type CD16 expression raised CD2 surface levels and conferred killing of a melanoma target that CD16-deficient NK-92 cells do not lyse, establishing a CD16 contribution to antibody-independent killing. The complementary loss with the L66H allele is shown for the association and signalling steps rather than as a matched cytotoxicity measurement against the same target, so the link to the cytotoxicity node is one step less direct than for the association node.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The gain-of-function direction (adding CD16 to a CD16-null line) is the arm demonstrated against the melanoma target; NK-92 also differs from primary NK cells in receptor repertoire, so the size of the CD16 contribution to natural cytotoxicity in vivo is not established by this model.\"}, {\"source\": \"FCGR3A L66H (reported as c.230T\u003eA, c.197T\u003eA, or p.L48H)\", \"target\": \"FCGR3A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Decreased NK cell-induced killing of target cells\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced antibody-independent lysis of susceptible target cells by patient peripheral blood mononuclear cells, with antibody-dependent killing preserved in the same assay series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025808\"}}, {\"id\": \"Deficient Spontaneous NK Cell Cytotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Antibody-independent killing of susceptible target cells is markedly reduced in patient peripheral blood mononuclear cells. Because ADCC is preserved in the same cells, the defect is specific to the natural-cytotoxicity programme rather than to the lytic machinery as a whole - granule content and degranulation capacity are not the failing step.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"CD16-positive, CD56-dim natural killer cell\"], \"biological_processes\": [\"natural killer cell mediated cytotoxicity\"], \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"NK-92 cells stably expressing CD16 L66H\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Wild-type CD16 expression raised CD2 surface levels and conferred killing of a melanoma target that CD16-deficient NK-92 cells do not lyse, establishing a CD16 contribution to antibody-independent killing. The complementary loss with the L66H allele is shown for the association and signalling steps rather than as a matched cytotoxicity measurement against the same target, so the link to the cytotoxicity node is one step less direct than for the association node.\"}]}}, {\"id\": \"FCGR3A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FCGR3A\"], \"gene_terms\": [{\"label\": \"FCGR3A\", \"id\": \"hgnc:3619\"}], \"association\": \"FCGR3A encodes CD16a (Fc-gamma receptor IIIA), the low-affinity IgG Fc receptor expressed on CD56-dim natural killer cells, where it is the triggering receptor for antibody-dependent cellular cytotoxicity. The candidate allele is a single germline missense substitution in the membrane-distal immunoglobulin domain, carried homozygously. Because the receptor is still expressed and still binds Fc, it is a function-specific partial loss rather than a null.\\nThe relationship is recorded as DISPUTED rather than CAUSATIVE. Two homozygotes have a measured spontaneous-cytotoxicity defect, but a third had normal cytotoxicity and normal ADCC, a fourth is asymptomatic with normal NK lytic function, and the allele reaches roughly 5% frequency with about a hundred homozygotes in gnomAD. The most recent report concludes the variant is unlikely to be a direct genetic cause and proposes it as a low-penetrance risk factor instead. Curators should not treat an L66H homozygous genotype as diagnostic on its own.\", \"relationship_type\": \"DISPUTED\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"FCGR3A L66H (reported as c.230T\u003eA, c.197T\u003eA, or p.L48H)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The single allele reported in every described case. It disrupts the B73.1 monoclonal antibody epitope while leaving the 3G8 epitope and Fc binding intact. Recorded as of uncertain significance rather than pathogenic: about a hundred homozygotes appear in gnomAD, which is incompatible with a fully penetrant recessive immunodeficiency allele.\", \"meta\": {\"evidence_count\": 3, \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"FCGR3A L66H Substitution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A homozygous T-to-A transversion at position 230 of the FCGR3A coding sequence replaces leucine 66 with histidine in the first (membrane-distal) immunoglobulin-like domain of CD16. The receptor is still made and still reaches the NK cell surface; the lesion is confined to the local conformation of one surface loop.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD16-positive, CD56-dim natural killer cell\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"c.230T\u003eA, p.Leu66His. Structural modelling of the mutant against the solved wild-type CD16 ectodomain predicts a shift in the B73.1 epitope loop with the overall fold otherwise preserved, consistent with selective loss of one function (spontaneous cytotoxicity) while Fc binding and ADCC are retained. It is therefore recorded as a partial, function-specific loss rather than a null allele.\", \"gene_terms\": [{\"label\": \"FCGR3A\", \"id\": \"hgnc:3619\"}]}}}, {\"id\": \"Failure of CD16-CD2 Association\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In healthy NK cells CD16 associates biochemically with CD2, a coactivation receptor, and the two co-cluster at the lytic immunological synapse, so that engaging CD2 elicits CD16 signalling. The L66H receptor does not enter this association, and CD2 ligation no longer triggers CD16 signalling. Note that the synapse still forms; what fails is the CD16-CD2 partnership within it.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD16-positive, CD56-dim natural killer cell\"], \"molecular_functions\": [\"cell adhesion molecule binding\"], \"experimental_models\": [{\"name\": \"NK-92 cells stably expressing CD16 L66H\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Expressing the patient allele in a CD16-null human NK line reproduced the loss of CD16-CD2 association and the loss of CD16 signalling after CD2 ligation.\"}]}}, {\"id\": \"Impaired Control of Herpesvirus and Papillomavirus Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In affected individuals the clinical consequence is unusually severe, persistent or recurrent disease with herpesviruses - herpes simplex virus in the index patient, Epstein-Barr virus and varicella zoster virus in others - and with human papillomavirus, against an otherwise normal immunological assessment. One homozygote also had a difficult course after BCG vaccination. The narrowness of the infection spectrum - viral rather than pyogenic or opportunistic-fungal - is consistent with a lesion confined to NK natural cytotoxicity rather than a combined immunodeficiency.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Loss of the CD16 B73.1 Conformational Epitope\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient NK cells are stained normally by the anti-CD16 antibody 3G8, which binds elsewhere on the receptor, but are not recognised by B73.1. CD16 is therefore present on the surface with a locally altered membrane-distal face. This is the structural pivot of the disease: it is what separates the arm of CD16 function that fails from the arm that does not.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD16-positive, CD56-dim natural killer cell\"]}}, {\"id\": \"NK-92 cells stably expressing CD16 L66H\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The immortalised human NK cell line NK-92, which lacks endogenous CD16, was reconstituted with either wild-type CD16 or the patient L66H allele. This is the experiment that converts the patient observation into a mechanism: it isolates the single substitution from the rest of the patients\u0027 genetic background.\", \"meta\": {\"cell_types\": [\"natural killer cell\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:23006327\"}}, {\"id\": \"Recurrent herpes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent herpes simplex virus infection dominated the presentation of the index patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005353\"}}, {\"id\": \"Recurrent viral infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe or persistent herpesvirus and human papillomavirus disease is the presenting clinical problem in reported patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004429\"}}, {\"id\": \"Reduced CD2 Surface Expression on CD56-dim NK Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient NK cells carry less surface CD2 than controls, and the reduction is restricted to the CD56-dim, CD16-positive subset - CD2 levels on the CD16-negative CD56-bright subset are unaffected. The compartment-restricted pattern is the argument that the CD2 loss is downstream of mutant CD16 rather than an independent trait, since it appears only where the mutant receptor is expressed.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD16-positive, CD56-dim natural killer cell\", \"CD16-negative, CD56-bright natural killer cell\"]}}, {\"id\": \"Reduced total natural killer cell count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in the index patient only. Of the four published homozygotes, one had a genuinely reduced count, two had normal counts, and one read as NK-absent under a CD16-inclusive flow gate while being normal under a CD56-only gate. Recorded as an inconsistent finding rather than a defining feature; the nk_cytopenia_inconsistent discussion separates the three mechanisms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0040218\"}}], \"edges\": [{\"source\": \"FCGR3A L66H Substitution\", \"target\": \"Loss of the CD16 B73.1 Conformational Epitope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substitution sits within the B73.1 recognition site, so the epitope is lost as a direct structural consequence of the amino-acid change.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the CD16 B73.1 Conformational Epitope\", \"target\": \"Failure of CD16-CD2 Association\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The altered face is the surface through which CD16 partners with CD2, so losing it abolishes the association.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CD16-CD2 Association\", \"target\": \"Reduced CD2 Surface Expression on CD56-dim NK Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CD16-CD2 Association\", \"target\": \"Deficient Spontaneous NK Cell Cytotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CD16-dependent costimulation through CD2 is the proximate cause of the natural-cytotoxicity defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Spontaneous NK Cell Cytotoxicity\", \"target\": \"Reduced total natural killer cell count\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A reduced NK count was reported in the index patient. It is drawn here with the caveat the entry itself records: of the four published homozygotes only one had a genuinely reduced count, two were normal and one read as NK-absent for an assay reason, so this is a variable finding rather than a defining one \\u2014 consistent with the functional defect being the lesion rather than the cell number.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deficient Spontaneous NK Cell Cytotoxicity\", \"target\": \"Impaired Control of Herpesvirus and Papillomavirus Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Natural cytotoxicity is a principal early defence against virus-infected cells, so its selective loss maps onto the observed infection spectrum. This step is inferred from the known role of NK cells rather than measured, and two homozygotes with normal cytotoxicity show it is not deterministic in either direction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Spontaneous NK Cell Cytotoxicity\", \"target\": \"Decreased NK cell-induced killing of target cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The node\u0027s clinical measurement, tying the mechanism to the phenotype it is observed as.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Control of Herpesvirus and Papillomavirus Infection\", \"target\": \"Recurrent herpes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent herpes simplex infection dominated the index patient presentation, and is the clinical expression of the impaired control this node describes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Control of Herpesvirus and Papillomavirus Infection\", \"target\": \"Recurrent viral infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical manifestation by which this node is recognised.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NK-92 cells stably expressing CD16 L66H\", \"target\": \"Failure of CD16-CD2 Association\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Expressing the patient allele in a CD16-null human NK line reproduced the loss of CD16-CD2 association and the loss of CD16 signalling after CD2 ligation.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"NK-92 is a transformed, IL-2-dependent NK lymphoma line rather than a primary NK cell, and the reconstituted receptor is expressed from a transgene rather than at endogenous locus and copy number. It also cannot report on NK development, so it speaks to receptor function and not to the NK cytopenia seen in the index patient.\"}, {\"source\": \"NK-92 cells stably expressing CD16 L66H\", \"target\": \"Deficient Spontaneous NK Cell Cytotoxicity\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Wild-type CD16 expression raised CD2 surface levels and conferred killing of a melanoma target that CD16-deficient NK-92 cells do not lyse, establishing a CD16 contribution to antibody-independent killing. The complementary loss with the L66H allele is shown for the association and signalling steps rather than as a matched cytotoxicity measurement against the same target, so the link to the cytotoxicity node is one step less direct than for the association node.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The gain-of-function direction (adding CD16 to a CD16-null line) is the arm demonstrated against the melanoma target; NK-92 also differs from primary NK cells in receptor repertoire, so the size of the CD16 contribution to natural cytotoxicity in vivo is not established by this model.\"}, {\"source\": \"FCGR3A L66H (reported as c.230T\u003eA, c.197T\u003eA, or p.L48H)\", \"target\": \"FCGR3A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5575,6 +5783,9 @@ This clinical feature is Decreased natural killer cell-induced killing of target
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5646,6 +5857,9 @@ This clinical feature is Reduced total natural killer cell count (HP:0040218). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5729,6 +5943,9 @@ This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5793,6 +6010,9 @@ This clinical feature is Recurrent herpes (HP:0005353). HP:0005353 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5916,6 +6136,9 @@ This disease-associated gene is FCGR3A (hgnc:3619). hgnc:3619 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6015,6 +6238,12 @@ This disease-associated gene is FCGR3A (hgnc:3619). hgnc:3619 is a gene from the
         <span class="variant-significance variant-significance-uncertain-significance">Uncertain Significance</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The single allele reported in every described case. It disrupts the B73.1 monoclonal antibody epitope while leaving the 3G8 epitope and Fc binding intact. Recorded as of uncertain significance rather than pathogenic: about a hundred homozygotes appear in gnomAD, which is incompatible with a fully penetrant recessive immunodeficiency allele.</div>
@@ -6841,6 +7070,61 @@ synonyms:
 - FCGR3A deficiency
 - autosomal recessive primary immunodeficiency with defective spontaneous NK cell
   cytotoxicity
+classifications:
+  harrisons_chapter:
+  - classification_value: IMMUNE_RHEUMATOLOGIC
+    notes: &gt;-
+      Placed with the immune disorders: a Mendelian inborn error of natural
+      killer cell function whose clinical burden is herpesvirus and
+      papillomavirus susceptibility.
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    notes: &gt;-
+      Dual-tagged alongside IMMUNE_RHEUMATOLOGIC, which the Part vocabulary
+      explicitly sanctions for an organ-system-classified hereditary disease,
+      and matching STAT2 Deficiency and Immunodeficiency 65 (IRF9 Deficiency)
+      — the ISGF3-axis entries #11879 compared this one against. CD16
+      deficiency is not itself an ISGF3 defect; the comparison is about how
+      three equally new, equally Mendelian immune entries are tagged.
+
+      As with this entry&#39;s iuis_category placement, the Part records the
+      disorder&#39;s nosological kind — a single-gene recessive entity described
+      as such by OMIM (IMD20), MONDO and IUIS 2022 Table 6 — and is not a
+      ruling on whether FCGR3A L66H is the cause. That question is genuinely
+      open and is argued in the l66h_pathogenicity_disputed discussion and the
+      Causality paragraph of this entry&#39;s top-level notes: two of four
+      published L66H homozygotes lack the cytotoxicity defect, the allele is
+      far too common in gnomAD for a fully penetrant recessive
+      immunodeficiency, and the most recent report concludes L66H is unlikely
+      to be a direct genetic cause, which is why genetic.relationship_type is
+      DISPUTED rather than CAUSATIVE. The Part vocabulary does not grade on
+      causal certainty, and withholding the tag on that basis would sit
+      oddly beside this entry&#39;s category: Mendelian, its MONDO term, and its
+      HP:0000007 autosomal recessive inheritance block, all of which assert
+      more. Hypertrophic_Cardiomyopathy_25 is the close precedent: a sole
+      causal gene carrying relationship_type DISPUTED, tagged both
+      CARDIOVASCULAR and GENETICS_ENVIRONMENT_DISEASE.
+  iuis_category:
+    classification_value: innate immunity defect
+    notes: &gt;-
+      IUIS 2022 phenotypic classification Table 6 (defects in intrinsic and
+      innate immunity), section 3 (Predisposition to Severe Viral Infection):
+      the &#34;CD16 deficiency&#34; row (FCGR3A, AR, OMIM column 146740 - the FCGR3A
+      gene record), with altered NK cell function and severe herpes viral
+      infection (VZV, EBV) and HPV as the associated features. The IUIS row
+      asserts the entity without the causality caveats this entry documents;
+      the placement records the nosology&#39;s assignment, not a resolution of
+      that question.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;CD16 deficiency FCGR3A AR 146740 NK cells Altered NK cells function Severe herpes viral infections, particularly VZV, Epstein Barr virus (EBV), and (HPV)&#34;
+      explanation: &gt;-
+        The complete CD16 deficiency row of IUIS 2022 Table 6, section 3
+        (Predisposition to Severe Viral Infection): genetic defect,
+        inheritance, affected cells, affected function, and associated
+        features.
 description: &gt;-
   CD16 deficiency (immunodeficiency 20, IMD20) is an autosomal recessive inborn
   error of immunity caused by a homozygous FCGR3A missense variant, c.230T&gt;A,
@@ -7294,6 +7578,10 @@ pathophysiology:
     explanation: A second homozygote with normal NK lytic function, ascertained incidentally
       rather than through infection.
   downstream:
+  - target: Reduced total natural killer cell count
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      A reduced NK count was reported in the index patient. It is drawn here with the caveat the entry itself records: of the four published homozygotes only one had a genuinely reduced count, two were normal and one read as NK-absent for an assay reason, so this is a variable finding rather than a defining one — consistent with the functional defect being the lesion rather than the cell number.
   - target: Impaired Control of Herpesvirus and Papillomavirus Infection
     causal_link_type: DIRECT
     description: &gt;-
@@ -7342,6 +7630,10 @@ pathophysiology:
     explanation: Reports the herpes simplex-predominant infection history of the index
       patient.
   downstream:
+  - target: Recurrent herpes
+    causal_link_type: DIRECT
+    description: &gt;-
+      Recurrent herpes simplex infection dominated the index patient presentation, and is the clinical expression of the impaired control this node describes.
   - target: Recurrent viral infections
     causal_link_type: DIRECT
     description: &gt;-
@@ -7919,7 +8211,7 @@ them changed the entry substantively rather than cosmetically:</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "CD16 Deficiency", "mondoId": "MONDO:0014313", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CD16_Deficiency", "yamlRevision": "a7a5189cb849"};
+        const OS_CONFIG = {"diseaseName": "CD16 Deficiency", "mondoId": "MONDO:0014313", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CD16_Deficiency", "yamlRevision": "7a89b8538925"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

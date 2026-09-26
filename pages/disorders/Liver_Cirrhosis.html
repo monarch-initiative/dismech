@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4407,6 +4449,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reactive-metabolite-formation-and-covalent-protein-adduction" data-dismech-node="Reactive Metabolite Formation and Covalent Protein Adduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Reactive Metabolite Formation and Covalent Protein Adduction</div>
 
+
                 <div class="item-desc">Cytochrome P450-dependent bioactivation of a haloalkane hepatotoxicant generates a carbon-centred radical that binds covalently to hepatic macromolecules. For carbon tetrachloride the proximate species is the trichloromethyl radical, which trichloromethylates microsomal protein and lipid, preferentially in the centrilobular zone where oxygen tension is lowest and the glutathione-dependent protective route is least effective. The adduction is a measured quantity rather than an asserted step: covalent binding of 14C from labelled CCl4 is quantified against oxygen tension, added glutathione, cytochrome P-450 induction and CCl4 dose, and the protein-bound label localises to the cytochrome P-450 apoprotein mass range.</div>
 
 
@@ -4632,6 +4675,7 @@ This pathophysiological event occurs in Liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-injury-and-death" data-dismech-node="Hepatocyte Injury and Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocyte Injury and Death</div>
 
+
                 <div class="item-desc">Chronic liver injury from any cause leads to ongoing hepatocyte death, triggering inflammation and regenerative responses that promote fibrosis.
 </div>
 
@@ -4778,6 +4822,7 @@ This pathophysiological event occurs in Liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-11-signalling-in-hepatic-stellate-cells" data-dismech-node="IL-11 Signalling in Hepatic Stellate Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-11 Signalling in Hepatic Stellate Cells</div>
+
 
                 <div class="item-desc">Fibrogenic cytokine stimulation of hepatic stellate cells induces autocrine IL-11, which signals through IL11RA1 to activate ERK and drive the fibrotic stellate-cell programme. This IL-11 receptor-signalling arm is an organ-specific instance of the conserved IL-11 signalling module and feeds hepatic stellate cell activation; neutralizing anti-IL-11 (X203) or anti-IL11RA (X209) antibodies block it and reduce liver fibrosis.</div>
 
@@ -5029,6 +5074,7 @@ This pathophysiological event occurs in Liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-stellate-cell-activation" data-dismech-node="Hepatic Stellate Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Stellate Cell Activation</div>
+
 
                 <div class="item-desc">Quiescent stellate cells transform into myofibroblasts, producing excessive collagen and extracellular matrix. This is the central event in liver fibrosis.
 </div>
@@ -5327,6 +5373,7 @@ This pathophysiological event occurs in Liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excessive-hepatic-ecm-deposition" data-dismech-node="Excessive Hepatic ECM Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Excessive Hepatic ECM Deposition</div>
 
+
                 <div class="item-desc">Activated hepatic stellate cells/myofibroblasts deposit excessive fibrillar collagen and other extracellular-matrix proteins in the hepatic parenchyma, disrupting sinusoidal exchange and forming the scar tissue that constitutes fibrosis -- the step between stellate-cell activation and the architectural distortion of cirrhosis proper. This is distinct from cirrhosis itself: fibrosis is matrix accumulation, cirrhosis is the architectural end stage downstream of it (see &#39;Cirrhotic Architectural Distortion&#39;).</div>
 
 
@@ -5562,6 +5609,7 @@ This pathophysiological event occurs in Liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cirrhotic-architectural-distortion" data-dismech-node="Cirrhotic Architectural Distortion" data-dismech-type="pathophysiology">
                 <div class="item-name">Cirrhotic Architectural Distortion</div>
 
+
                 <div class="item-desc">Bridging fibrous septa, regenerative nodules, and vascular remodeling distort the normal hepatic lobular architecture and impair hepatocyte function. This is the architectural end stage proper -- cirrhosis -- and is kept distinct from the upstream matrix-accumulation event (&#39;Excessive Hepatic ECM Deposition&#39;): fibrosis is the lesion, cirrhosis is the structural consequence of enough of it accumulating over enough time.</div>
 
 
@@ -5674,6 +5722,7 @@ This pathophysiological event occurs in Liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-intrahepatic-vascular-resistance" data-dismech-node="Increased Intrahepatic Vascular Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Intrahepatic Vascular Resistance</div>
+
 
                 <div class="item-desc">Fibrosis and architectural distortion, together with a dynamic vasoconstrictive phenotype acquired by sinusoidal cells, raise the resistance the hepatic vasculature offers to portal blood flow. This is the sinusoidal-resistance route the portal hypertension module documents for cirrhosis of any etiology, feeding the disorder-agnostic Portal Hypertension node below.</div>
 
@@ -5873,6 +5922,7 @@ This pathophysiological event occurs in Liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgf-beta-signaling-in-fibrogenesis" data-dismech-node="TGF-beta Signaling in Fibrogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">TGF-beta Signaling in Fibrogenesis</div>
+
 
                 <div class="item-desc">Transforming growth factor beta is the master profibrogenic cytokine driving hepatic stellate cell activation and extracellular matrix production. TGF-beta signals through SMAD2/3 phosphorylation to upregulate collagen synthesis and inhibit matrix degradation.
 </div>
@@ -6113,6 +6163,7 @@ This pathophysiological event occurs in Liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kupffer-cell-activation" data-dismech-node="Kupffer Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Kupffer Cell Activation</div>
 
+
                 <div class="item-desc">Hepatocyte death triggers activation of Kupffer cells and recruitment of inflammatory cells including macrophages.
 </div>
 
@@ -6319,6 +6370,7 @@ This pathophysiological event occurs in Liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-pro-inflammatory-mediator-release" data-dismech-node="Hepatic Pro-Inflammatory Mediator Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Pro-Inflammatory Mediator Release</div>
 
+
                 <div class="item-desc">Activated Kupffer cells and recruited macrophages release profibrogenic cytokines and chemokines such as TGF-beta, IL-6, and TNF-alpha that activate hepatic stellate cells and perpetuate the fibrotic response.
 </div>
 
@@ -6474,6 +6526,7 @@ This pathophysiological event occurs in Liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-splanchnic-vasodilation-and-hyperdynamic-circulation" data-dismech-node="Splanchnic Vasodilation and Hyperdynamic Circulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Splanchnic Vasodilation and Hyperdynamic Circulation</div>
 
+
                 <div class="item-desc">Arterial vasodilation in the splanchnic bed increases the volume of blood delivered into the portal system, while systemic vasodilation triggers compensatory cardiac output rise and sodium-retaining neurohormonal activation. This hyperdynamic circulatory syndrome aggravates, rather than compensates, the portal pressure raised by intrahepatic resistance, and is the arm nonselective beta-blockade acts on.</div>
 
 
@@ -6619,6 +6672,7 @@ This pathophysiological event involves dysregulated Blood Vessel Diameter Mainte
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-portal-hypertension" data-dismech-node="Portal Hypertension" data-dismech-type="pathophysiology">
                 <div class="item-name">Portal Hypertension</div>
+
 
                 <div class="item-desc">Increased resistance to portal blood flow due to architectural distortion and nodule formation. Leads to varices, ascites, and splenomegaly.
 </div>
@@ -6843,6 +6897,7 @@ This pathophysiological event occurs in Hepatic Sinusoid (UBERON:0001281). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synthetic-dysfunction" data-dismech-node="Synthetic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Synthetic Dysfunction</div>
 
+
                 <div class="item-desc">Reduced hepatocyte mass impairs production of clotting factors, albumin, and other proteins, leading to coagulopathy and hypoalbuminemia.
 </div>
 
@@ -7066,6 +7121,9 @@ This clinical feature is Coagulopathy, annotated with Abnormality of the coagula
                     </div>
 
 
+
+
+
                     <div class="item-desc">Routine coagulation tests are often abnormal, but net hemostatic balance and bleeding risk are more nuanced in cirrhosis.</div>
 
 
@@ -7137,6 +7195,9 @@ This clinical feature is Gastrointestinal Hemorrhage (HP:0002239). HP:0002239 is
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Variceal bleeding is the most dangerous form; may also occur from portal hypertensive gastropathy.</div>
@@ -7219,6 +7280,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Due to portal hypertension</div>
@@ -7326,6 +7390,9 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Fluid accumulation in peritoneal cavity</div>
 
 
@@ -7400,6 +7467,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7468,6 +7538,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">May become shrunken in advanced disease. Left unconnected to a single pathophysiology node: it is an early/variable feature of chronic liver injury and inflammation that this entry&#39;s cached references do not pin to one mechanism, and its own biphasic course (enlargement early, shrinkage late) argues against wiring it to the late-stage architectural-distortion node alongside the phenotypes that do progress monotonically with it.</div>
 
 
@@ -7506,6 +7579,9 @@ This clinical feature is Esophageal Varices, annotated with Esophageal varix (HP
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Dilated submucosal veins in the esophagus due to portal hypertension; rupture causes life-threatening hemorrhage.</div>
@@ -7595,6 +7671,9 @@ This clinical feature is Hepatic Encephalopathy (HP:0002480). HP:0002480 is a ph
                     </div>
 
 
+
+
+
                     <div class="item-desc">Confusion due to ammonia accumulation</div>
 
 
@@ -7673,6 +7752,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Left unconnected to a single pathophysiology node: fatigue in cirrhosis is attributed in the literature to a multifactorial combination (systemic inflammation, sarcopenia, disturbed sleep, autonomic dysfunction) rather than to one mechanism this entry&#39;s cached references can support with an exact-quote edge.</div>
@@ -7760,6 +7842,9 @@ This disease-associated gene is HFE (hgnc:4886). hgnc:4886 is a gene from the HU
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-atp7b" data-dismech-node="ATP7B" data-dismech-type="genetic">
@@ -7797,6 +7882,9 @@ This disease-associated gene is ATP7B (hgnc:870). hgnc:870 is a gene from the HU
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-serpina1" data-dismech-node="SERPINA1" data-dismech-type="genetic">
@@ -7828,6 +7916,9 @@ This disease-associated gene is SERPINA1 (hgnc:8941). hgnc:8941 is a gene from t
 
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5302,6 +5344,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-rspry1-loss-of-function" data-dismech-node="Biallelic RSPRY1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic RSPRY1 Loss of Function</div>
 
+
                 <div class="item-desc">Homozygous frameshift, splice-site, or missense RSPRY1 variants abolish or impair the RING- and SPRY-domain protein. The founding frameshift allele triggers nonsense-mediated decay of the transcript, so the shared initiating lesion is absence of functional RSPRY1 protein.</div>
 
 
@@ -5421,6 +5464,7 @@ This pathophysiological event involves RSPRY1 (hgnc:29420). hgnc:29420 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-rspry1-regulatory-activity-in-skeletal-tissue" data-dismech-node="Loss of RSPRY1 Regulatory Activity in Skeletal Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of RSPRY1 Regulatory Activity in Skeletal Tissue</div>
 
+
                 <div class="item-desc">RSPRY1 carries a RING finger domain associated with ubiquitin-ligase chemistry and a SPRY protein-interaction domain, and interacts with ubiquitin ligases. Its physiological substrate and biochemical activity are not established, so this node records loss of an incompletely defined regulatory function rather than a specific enzymatic step. No GO molecular function is bound here deliberately: an E3 ligase annotation would assert an activity that has never been demonstrated for this protein.</div>
 
 
@@ -5521,6 +5565,7 @@ This pathophysiological event involves RSPRY1 (hgnc:29420). hgnc:29420 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-tgf-beta-smad3-signaling-activation" data-dismech-node="Constitutive TGF-beta/SMAD3 Signaling Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive TGF-beta/SMAD3 Signaling Activation</div>
+
 
                 <div class="item-desc">In RSPRY1-deficient cells, TGF-beta regulation of the extracellular matrix is the most strongly enriched pathway, SMAD2 and SMAD3 are the dominant enriched transcription factors, and cells respond only weakly to exogenous TGF-beta1 — the signature of a pathway that is already constitutively active. Knocking out SMAD3 in the RSPRY1-null background abolishes the cellular phenotype, showing the effect is SMAD3-dependent.</div>
 
@@ -5746,6 +5791,7 @@ This pathophysiological event involves increased SMAD protein signal transductio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disordered-extracellular-matrix-dynamics-and-cell-motility" data-dismech-node="Disordered Extracellular Matrix Dynamics and Cell Motility" data-dismech-type="pathophysiology">
                 <div class="item-name">Disordered Extracellular Matrix Dynamics and Cell Motility</div>
 
+
                 <div class="item-desc">Differentially expressed genes in RSPRY1-deficient fibroblasts are enriched for collagen-containing extracellular matrix, cartilage development, extracellular matrix organization, and chondrocyte differentiation, and the cells are hypermotile in wound-closure assays. Proliferation and senescence are unchanged, so the defect is one of matrix regulation and cell behavior rather than of cell number.</div>
 
 
@@ -5970,6 +6016,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endochondral-ossification-and-growth-plate-function" data-dismech-node="Impaired Endochondral Ossification and Growth-Plate Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endochondral Ossification and Growth-Plate Function</div>
 
+
                 <div class="item-desc">Defective endochondral bone formation at the vertebral bodies, epiphyses, and metaphyses produces the spondylar, epiphyseal, and metaphyseal dysplasia that defines the disorder, and limits longitudinal growth.</div>
 
 
@@ -6181,6 +6228,7 @@ This pathophysiological event involves abnormal endochondral ossification (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-skeletal-deformity-and-short-stature" data-dismech-node="Progressive Skeletal Deformity and Short Stature" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Skeletal Deformity and Short Stature</div>
 
+
                 <div class="item-desc">Growth deceleration is postnatal and deformity accrues over childhood: lower-limb malformation is typically noticed between two and four years of age and worsens, with painful walking, wind-swept deformity, and progressive vertebral change.</div>
 
 
@@ -6266,6 +6314,7 @@ This pathophysiological event involves abnormal endochondral ossification (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-cranial-suture-fusion" data-dismech-node="Premature Cranial Suture Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Cranial Suture Fusion</div>
+
 
                 <div class="item-desc">Craniosynostosis occurs in a subset of affected individuals and was present in all five patients of the two-family delineation series, where most patients were nonetheless normocephalic.</div>
 
@@ -6426,6 +6475,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6501,6 +6553,9 @@ This clinical feature is Cemento-ossifying fibrous lesion of the maxilla, annota
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6584,6 +6639,9 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6657,6 +6715,9 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6749,6 +6810,9 @@ This clinical feature is Ptosis (HP:0000508), qualified as severity mild. HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6813,6 +6877,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6893,6 +6960,9 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency is deliberately omitted. Craniosynostosis was present in all five patients of the 2018 series but is not documented in every reported family, and the total published caseload is too small to support a frequency band.</div>
 
 
@@ -6966,6 +7036,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7065,6 +7138,9 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7129,6 +7205,9 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7203,6 +7282,9 @@ This clinical feature is High arched palate, annotated with High palate (HP:0000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7267,6 +7349,9 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7341,6 +7426,9 @@ This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7410,6 +7498,9 @@ This clinical feature is Copper beaten skull (HP:0034271). HP:0034271 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7474,6 +7565,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7582,6 +7676,9 @@ This clinical feature is Metaphyseal cupping (HP:0003021). HP:0003021 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7648,6 +7745,9 @@ This clinical feature is Short fourth metatarsal (HP:0004689). HP:0004689 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7749,6 +7849,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7815,6 +7918,9 @@ This clinical feature is Coxa vara (HP:0002812). HP:0002812 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7891,6 +7997,9 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7955,6 +8064,9 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8029,6 +8141,9 @@ This clinical feature is Prominent calcaneus (HP:0012428). HP:0012428 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8093,6 +8208,9 @@ This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8167,6 +8285,9 @@ This clinical feature is Small carpal bones, annotated with Carpal bone hypoplas
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8231,6 +8352,9 @@ This clinical feature is Short femoral neck (HP:0100864). HP:0100864 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8331,6 +8455,9 @@ This clinical feature is Platyspondyly (HP:0000926), qualified as course progres
 
 
                     </div>
+
+
+
 
 
 
@@ -8455,6 +8582,9 @@ This clinical feature is Small epiphyses (HP:0010585). HP:0010585 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8519,6 +8649,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8593,6 +8726,9 @@ This clinical feature is Lumbar hyperlordosis (HP:0002938). HP:0002938 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8657,6 +8793,9 @@ This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8733,6 +8872,9 @@ This clinical feature is Pectus deformity, annotated with Abnormal sternum morph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8797,6 +8939,9 @@ This clinical feature is Distal joint laxity, annotated with Joint hypermobility
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8886,6 +9031,9 @@ This clinical feature is Spondyloepimetaphyseal dysplasia (HP:0002651), qualifie
 
 
                     </div>
+
+
+
 
 
 
@@ -8987,6 +9135,9 @@ This clinical feature is Cone-shaped epiphysis (HP:0010579). HP:0010579 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9051,6 +9202,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9131,6 +9285,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9230,6 +9387,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9294,6 +9454,9 @@ This clinical feature is Delayed ability to walk (HP:0031936). HP:0031936 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9368,6 +9531,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9432,6 +9598,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9512,6 +9681,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9659,6 +9831,9 @@ This disease-associated gene is RSPRY1 (hgnc:29420). hgnc:29420 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -9772,6 +9947,7 @@ This disease-associated gene is RSPRY1 (hgnc:29420). hgnc:29420 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9791,11 +9967,17 @@ This variant is in RSPRY1 (hgnc:29420). hgnc:29420 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous single-nucleotide deletion in exon 2 causing a frameshift, reported in one of two Turkish families.</div>
@@ -9858,6 +10040,7 @@ This variant is in RSPRY1 (hgnc:29420). hgnc:29420 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9877,11 +10060,17 @@ This variant is in RSPRY1 (hgnc:29420). hgnc:29420 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice site</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous canonical splice-donor variant at the exon 4 / intron 4 border, reported in the second Turkish family.</div>
@@ -9944,6 +10133,7 @@ This variant is in RSPRY1 (hgnc:29420). hgnc:29420 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9963,11 +10153,17 @@ This variant is in RSPRY1 (hgnc:29420). hgnc:29420 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense variant in exon 15, the last exon, substituting a cysteine conserved across five vertebrate species within the C3HC4-type RING finger domain. Absent from gnomAD v3.1.2 and from an in-house cohort of 3,076 exomes; CADD phred 29.7, M-CAP 0.812, REVEL 0.967, AlphaMissense 0.999. Submitted to ClinVar as SCV002061883.2.</div>
@@ -11064,10 +11260,10 @@ This treatment targets Myopia (HP:0000545). HP:0000545 is a phenotype from the H
 
                 </div>
 
-                <div class="evidence-snippet">"Mild scoliosis, vertebral defects, small epiphysis, cupping, and fraying of metaphyses of tibia and fibula, coxa vara, genu valgum, short metacarpals, short metatarsals, and craniosynostosis have been described in affected individuals"</div>
+                <div class="evidence-snippet">"Spondyloepimetaphyseal dysplasia (SEMD), RSPRY1 related (OMIM #616723), also referred to as SEMD, Faden-Alkuraya type, is a rare autosomal recessive disorder. The condition is characterized by short stature, facial dysmorphism, brachydactyly, and intellectual disability. Mild scoliosis,..."</div>
 
 
-                <div class="evidence-explanation">Localizes the metaphyseal changes to the tibia and fibula.</div>
+                <div class="evidence-explanation">Restores the RSPRY1/Faden-Alkuraya disease identification before the skeletal findings. These are previously reported features, not a statement that every listed feature occurred in both sisters.</div>
 
 
 
@@ -13686,11 +13882,16 @@ imaging_findings:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Mild scoliosis, vertebral defects, small epiphysis, cupping, and fraying of
-      metaphyses of tibia and fibula, coxa vara, genu valgum, short metacarpals,
-      short metatarsals, and craniosynostosis have been described in affected
-      individuals
-    explanation: Localizes the metaphyseal changes to the tibia and fibula.
+      Spondyloepimetaphyseal dysplasia (SEMD), RSPRY1 related (OMIM #616723), also referred to as
+      SEMD, Faden-Alkuraya type, is a rare autosomal recessive disorder. The condition is
+      characterized by short stature, facial dysmorphism, brachydactyly, and intellectual
+      disability. Mild scoliosis, vertebral defects, small epiphysis, cupping, and fraying of
+      metaphyses of tibia and fibula, coxa vara, genu valgum, short metacarpals, short metatarsals,
+      and craniosynostosis have been described in affected individuals
+    explanation: &gt;-
+      Restores the RSPRY1/Faden-Alkuraya disease identification before the skeletal findings. These
+      are previously reported features, not a statement that every listed feature occurred in both
+      sisters.
 - name: Cone-Shaped Phalangeal Epiphyses on Hand Radiographs
   modality: XRAY
   description: &gt;-
@@ -15663,7 +15864,7 @@ Resolving is not the same as being relevant, though - see the references listed 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Spondyloepimetaphyseal Dysplasia Faden-Alkuraya Type", "mondoId": "MONDO:0014748", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spondyloepimetaphyseal_Dysplasia_Faden-Alkuraya_Type", "yamlRevision": "97cd39cb1ab5"};
+        const OS_CONFIG = {"diseaseName": "Spondyloepimetaphyseal Dysplasia Faden-Alkuraya Type", "mondoId": "MONDO:0014748", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spondyloepimetaphyseal_Dysplasia_Faden-Alkuraya_Type", "yamlRevision": "6a798ac67fc8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

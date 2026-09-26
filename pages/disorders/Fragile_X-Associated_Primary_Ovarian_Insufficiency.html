@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4733,6 +4775,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fmr1-premutation-cgg-expansion-and-elevated-fmr1-mrna" data-dismech-node="FMR1 premutation CGG expansion and elevated FMR1 mRNA" data-dismech-type="pathophysiology">
                 <div class="item-name">FMR1 premutation CGG expansion and elevated FMR1 mRNA</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is a premutation-range (55-200 CGG) trinucleotide repeat expansion in the FMR1 5&#39; UTR at Xq27.3. Unlike the full mutation (&gt;200 repeats), which is hypermethylated and transcriptionally silenced, the premutation allele remains largely unmethylated and is actively transcribed, producing elevated levels of an FMR1 mRNA carrying the expanded CGG tract. This transcript, not the loss of FMRP, is the proximate pathogenic species.</div>
 
 
@@ -4946,6 +4995,13 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rna-gain-of-function-and-sequestration-of-cgg-repeat-binding-proteins" data-dismech-node="RNA gain-of-function and sequestration of CGG-repeat-binding proteins" data-dismech-type="pathophysiology">
                 <div class="item-name">RNA gain-of-function and sequestration of CGG-repeat-binding proteins</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The expanded CGG-repeat FMR1 mRNA forms nuclear RNA aggregates that bind and sequester CGG-repeat-binding proteins - identified in FXTAS models as Pur alpha and hnRNP A2/B1 - depleting them from their normal functions. This is the leading arm of premutation toxicity. The direct ovarian evidence is thinner than the neuronal evidence from FXTAS models; its application to granulosa cells is an extension of the shared premutation mechanism rather than a directly demonstrated ovarian finding.</div>
 
 
@@ -5072,6 +5128,13 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ran-translation-and-fmrpolyg-production" data-dismech-node="RAN translation and FMRpolyG production" data-dismech-type="pathophysiology">
                 <div class="item-name">RAN translation and FMRpolyG production</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Repeat-associated non-AUG (RAN) translation initiates within the expanded CGG tract and produces an aggregation-prone polyglycine protein, FMRpolyG. This is the parallel protein-toxicity arm of the premutation mechanism, and the evidence that it is initiated at all comes from FXTAS models rather than ovarian tissue. Its standing in the ovary is now constrained rather than simply open: in the granulosa cell model, expanded CGG-repeat RNA causes cell death independently of FMRpolyG, so the RNA arm is sufficient for the granulosa lesion and FMRpolyG is not required for it. What remains unresolved is whether FMRpolyG makes any additional contribution to FXPOI on top of the RNA arm - not whether the RNA arm needs it.</div>
 
 
@@ -5185,6 +5248,13 @@ This pathophysiological event involves abnormal regulation of translation (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granulosa-cell-dysfunction-and-death" data-dismech-node="Granulosa cell dysfunction and death" data-dismech-type="pathophysiology">
                 <div class="item-name">Granulosa cell dysfunction and death</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The cellular lesion is in the granulosa cells that support the developing follicle: dysregulated folliculogenesis signaling (including altered AMH output) and granulosa cell death. Granulosa cells, not oocytes, are the cell type in which premutation toxicity has been most directly implicated. The node is held at PROVISIONAL rather than ESTABLISHED because its support, while genuinely ovarian, comes entirely from an ectopic-expression granulosa cell model plus premutation mice - there is no observation in granulosa cells from premutation carriers themselves. The attached KNOWLEDGE_GAP discussion records what would close that.</div>
 
@@ -5405,6 +5475,13 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-ovarian-follicle-depletion" data-dismech-node="Accelerated ovarian follicle depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated ovarian follicle depletion</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The tissue-level consequence is faster-than-normal attrition of the ovarian follicle pool. The reserve is established normally and puberty proceeds normally; it is the subsequent rate of loss that is abnormal, which is why FXPOI presents as premature reproductive aging rather than as a congenital gonadal dysgenesis. An additional mechanism proposed from Fmr1 mouse work - premature mTOR-driven recruitment of primordial follicles, i.e. accelerated burn-through of the reserve rather than increased death alone - is noted here but not asserted as an evidence-backed node (see notes).</div>
 
 
@@ -5574,6 +5651,13 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypergonadotropic-hypogonadism" data-dismech-node="Hypergonadotropic hypogonadism" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypergonadotropic hypogonadism</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Depletion of the follicle pool removes ovarian estradiol and inhibin output, releasing the pituitary from negative feedback and producing menopausal-range FSH with low estradiol before age 40 - the defining endocrine state of FXPOI. Ovarian function is not always absolutely lost: intermittent ovulatory activity may persist, so spontaneous conception after diagnosis is unlikely but not impossible.</div>
 
 
@@ -5677,6 +5761,13 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-estrogen-deficiency" data-dismech-node="Chronic estrogen deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic estrogen deficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Premature and prolonged estrogen deficiency is the source of the non-reproductive morbidity of FXPOI: vasomotor symptoms, accelerated bone loss with reduced bone mineral density, adverse cardiovascular risk, and effects on quality of life. This is the rationale for hormone therapy continued to the age of typical natural menopause, and it is shared with primary ovarian insufficiency of any cause rather than being specific to the FMR1 premutation.</div>
 
 
@@ -5752,6 +5843,13 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-estrogen-deficiency-bone-remodeling-imbalance" data-dismech-node="Estrogen-deficiency bone remodeling imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Estrogen-deficiency bone remodeling imbalance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Premature loss of ovarian estrogen uncouples osteoclastic resorption from osteoblastic formation, which is the initiating lesion of the conserved osteoporosis mechanism. The downstream chain (RANKL-driven osteoclastogenesis, increased resorption, net bone loss) is not duplicated here; this node declares conformance to the shared module instead. The driver is hormonal, which is precisely the case the module&#39;s trigger node is written to accommodate.</div>
 
@@ -5836,7 +5934,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated ovarian follicle depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level consequence is faster-than-normal attrition of the ovarian follicle pool. The reserve is established normally and puberty proceeds normally; it is the subsequent rate of loss that is abnormal, which is why FXPOI presents as premature reproductive aging rather than as a congenital gonadal dysgenesis. An additional mechanism proposed from Fmr1 mouse work - premature mTOR-driven recruitment of primordial follicles, i.e. accelerated burn-through of the reserve rather than increased death alone - is noted here but not asserted as an evidence-backed node (see notes).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"oocyte\"], \"biological_processes\": [\"ovarian follicle development\"], \"locations\": [\"ovary\"]}}, {\"id\": \"Chronic estrogen deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Premature and prolonged estrogen deficiency is the source of the non-reproductive morbidity of FXPOI: vasomotor symptoms, accelerated bone loss with reduced bone mineral density, adverse cardiovascular risk, and effects on quality of life. This is the rationale for hormone therapy continued to the age of typical natural menopause, and it is shared with primary ovarian insufficiency of any cause rather than being specific to the FMR1 premutation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Estrogen replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic estrogen, with a progestogen in women with an intact uterus, is the mainstay of FXPOI management. It relieves vasomotor symptoms and mitigates the bone and cardiovascular consequences of premature estrogen deficiency, and is generally continued to the age of typical natural menopause. It does not restore ovarian function or fertility. Where FXPOI presents before puberty is complete, the same agent is used for pubertal induction before being continued as replacement.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"17beta-estradiol\", \"progesterone\"]}}, {\"id\": \"Estrogen-deficiency bone remodeling imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Premature loss of ovarian estrogen uncouples osteoclastic resorption from osteoblastic formation, which is the initiating lesion of the conserved osteoporosis mechanism. The downstream chain (RANKL-driven osteoclastogenesis, increased resorption, net bone loss) is not duplicated here; this node declares conformance to the shared module instead. The driver is hormonal, which is precisely the case the module\u0027s trigger node is written to accommodate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"FMR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FMR1\"], \"gene_terms\": [{\"label\": \"FMR1\", \"id\": \"hgnc:3775\"}], \"association\": \"A premutation-range CGG repeat expansion (55-200 repeats) in the FMR1 5\u0027 UTR at Xq27.3 is the cause of FXPOI. The premutation, not the full mutation, confers the ovarian risk: full-mutation (\u003e200 repeat) alleles are hypermethylated and silenced and cause fragile X syndrome rather than FXPOI. Risk within the premutation range is not monotonic in repeat length. It rises through the low-to-mid range, peaks at roughly 70-100 repeats (highest at 85-89), and then falls away again at the largest premutation sizes, so that carriers below about 65 repeats and above about 120 repeats have no significantly increased risk relative to non-carriers. This inverted-U - the \\\"FXPOI paradox\\\" - is the most distinctive feature of FXPOI genetics and constrains any purely dose-dependent RNA-toxicity model (see discussions).\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"FMR1 premutation CGG expansion and elevated FMR1 mRNA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a premutation-range (55-200 CGG) trinucleotide repeat expansion in the FMR1 5\u0027 UTR at Xq27.3. Unlike the full mutation (\u003e200 repeats), which is hypermethylated and transcriptionally silenced, the premutation allele remains largely unmethylated and is actively transcribed, producing elevated levels of an FMR1 mRNA carrying the expanded CGG tract. This transcript, not the loss of FMRP, is the proximate pathogenic species.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"gene expression\"], \"genes\": [\"FMR1\"], \"gene_terms\": [{\"label\": \"FMR1\", \"id\": \"hgnc:3775\", \"modifier\": \"INCREASED\"}], \"locations\": [\"ovary\"]}}, {\"id\": \"FMR1 premutation CGG repeat expansion (55-200 repeats)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"An unstable CGG trinucleotide repeat expansion of 55-200 units in the FMR1 5\u0027 untranslated region. This range is normally spared the CpG-island hypermethylation that silences full-mutation (\u003e200 repeat) alleles, so the premutation allele is transcribed - the basis for its gain-of-function pathogenicity in FXPOI and FXTAS. The allele is unstable on maternal transmission and can expand to a full mutation in offspring, which is the separate fragile X syndrome risk that dominates reproductive counseling for carriers. Two features reported to modify the allele\u0027s effect are not curated as evidence-backed claims here because their primary sources could not be fetched in this session: AGG interruptions within the CGG tract, which stabilize the repeat against intergenerational expansion but have not been shown to modify FXPOI risk in the carrier herself; and X-chromosome inactivation skewing, where preferential inactivation of the premutation-bearing allele is reported to be protective.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FMR1\"], \"gene_terms\": [{\"label\": \"FMR1\", \"id\": \"hgnc:3775\"}], \"variant_type\": \"trinucleotide_repeat_expansion\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Granulosa cell dysfunction and death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular lesion is in the granulosa cells that support the developing follicle: dysregulated folliculogenesis signaling (including altered AMH output) and granulosa cell death. Granulosa cells, not oocytes, are the cell type in which premutation toxicity has been most directly implicated. The node is held at PROVISIONAL rather than ESTABLISHED because its support, while genuinely ovarian, comes entirely from an ectopic-expression granulosa cell model plus premutation mice - there is no observation in granulosa cells from premutation carriers themselves. The attached KNOWLEDGE_GAP discussion records what would close that.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"granulosa cell\"], \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"ovary\"]}}, {\"id\": \"Hot flashes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vasomotor symptoms arising from premature hypoestrogenism, and one of the symptom domains hormone therapy is given to relieve.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031217\"}}, {\"id\": \"Hypergonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated gonadotropins with low estradiol resulting from loss of ovarian follicular feedback; the endocrine signature that distinguishes FXPOI from central (hypothalamic-pituitary) causes of amenorrhea.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000815\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Established osteoporosis is the end point of untreated premature estrogen deficiency and is a target of bone-protective management.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000939\"}}, {\"id\": \"RAN translation and FMRpolyG production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeat-associated non-AUG (RAN) translation initiates within the expanded CGG tract and produces an aggregation-prone polyglycine protein, FMRpolyG. This is the parallel protein-toxicity arm of the premutation mechanism, and the evidence that it is initiated at all comes from FXTAS models rather than ovarian tissue. Its standing in the ovary is now constrained rather than simply open: in the granulosa cell model, expanded CGG-repeat RNA causes cell death independently of FMRpolyG, so the RNA arm is sufficient for the granulosa lesion and FMRpolyG is not required for it. What remains unresolved is whether FMRpolyG makes any additional contribution to FXPOI on top of the RNA arm - not whether the RNA arm needs it.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of translation\"]}}, {\"id\": \"RNA gain-of-function and sequestration of CGG-repeat-binding proteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The expanded CGG-repeat FMR1 mRNA forms nuclear RNA aggregates that bind and sequester CGG-repeat-binding proteins - identified in FXTAS models as Pur alpha and hnRNP A2/B1 - depleting them from their normal functions. This is the leading arm of premutation toxicity. The direct ovarian evidence is thinner than the neuronal evidence from FXTAS models; its application to granulosa cells is an extension of the shared premutation mechanism rather than a directly demonstrated ovarian finding.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Reduced bone mineral density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Accelerated bone loss follows premature estrogen deficiency and is one of the principal long-term morbidities requiring proactive management; untreated, it progresses toward osteoporosis. This is a downstream consequence of hypoestrogenism rather than a direct effect of the FMR1 premutation on bone.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004349\"}}], \"edges\": [{\"source\": \"FMR1 premutation CGG expansion and elevated FMR1 mRNA\", \"target\": \"RNA gain-of-function and sequestration of CGG-repeat-binding proteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The elevated expanded-repeat transcript forms the nuclear RNA species that binds and sequesters CGG-repeat-binding proteins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FMR1 premutation CGG expansion and elevated FMR1 mRNA\", \"target\": \"RAN translation and FMRpolyG production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same expanded CGG tract in the transcript is the substrate for repeat-associated non-AUG translation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RNA gain-of-function and sequestration of CGG-repeat-binding proteins\", \"target\": \"Granulosa cell dysfunction and death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sequestration of RNA-binding proteins is proposed to impair the somatic support cells of the follicle, but the intermediate steps are not established in the human ovary.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"RAN translation and FMRpolyG production\", \"target\": \"Granulosa cell dysfunction and death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FMRpolyG may contribute to granulosa cell injury, but it is demonstrably not required for it: granulosa cell death occurs independently of FMRpolyG expression. This edge is therefore retained as a possible additive contribution, not a necessary step.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Granulosa cell dysfunction and death\", \"target\": \"Accelerated ovarian follicle depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of granulosa cell support accelerates the attrition of follicles from the ovarian reserve.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated ovarian follicle depletion\", \"target\": \"Hypergonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the follicle pool removes the ovarian source of estradiol and of the inhibin/AMH feedback signals to the pituitary.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypergonadotropic hypogonadism\", \"target\": \"Chronic estrogen deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hypoestrogenism from an age decades before typical menopause drives the long-term morbidity of FXPOI.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic estrogen deficiency\", \"target\": \"Estrogen-deficiency bone remodeling imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of estrogen uncouples bone resorption from formation, the entry point of the conserved osteoporosis mechanism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced bone mineral density\", \"target\": \"Osteoporosis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Sustained bone loss from untreated premature estrogen deficiency progresses to established osteoporosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Estrogen replacement therapy\", \"target\": \"Chronic estrogen deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Estrogen replacement therapy\", \"target\": \"Hot flashes\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Estrogen replacement therapy\", \"target\": \"Reduced bone mineral density\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FMR1\", \"target\": \"FMR1 premutation CGG expansion and elevated FMR1 mRNA\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FMR1 premutation CGG repeat expansion (55-200 repeats)\", \"target\": \"FMR1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated ovarian follicle depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level consequence is faster-than-normal attrition of the ovarian follicle pool. The reserve is established normally and puberty proceeds normally; it is the subsequent rate of loss that is abnormal, which is why FXPOI presents as premature reproductive aging rather than as a congenital gonadal dysgenesis. An additional mechanism proposed from Fmr1 mouse work - premature mTOR-driven recruitment of primordial follicles, i.e. accelerated burn-through of the reserve rather than increased death alone - is noted here but not asserted as an evidence-backed node (see notes).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"oocyte\"], \"biological_processes\": [\"ovarian follicle development\"], \"locations\": [\"ovary\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Chronic estrogen deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Premature and prolonged estrogen deficiency is the source of the non-reproductive morbidity of FXPOI: vasomotor symptoms, accelerated bone loss with reduced bone mineral density, adverse cardiovascular risk, and effects on quality of life. This is the rationale for hormone therapy continued to the age of typical natural menopause, and it is shared with primary ovarian insufficiency of any cause rather than being specific to the FMR1 premutation.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Estrogen replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic estrogen, with a progestogen in women with an intact uterus, is the mainstay of FXPOI management. It relieves vasomotor symptoms and mitigates the bone and cardiovascular consequences of premature estrogen deficiency, and is generally continued to the age of typical natural menopause. It does not restore ovarian function or fertility. Where FXPOI presents before puberty is complete, the same agent is used for pubertal induction before being continued as replacement.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"17beta-estradiol\", \"progesterone\"]}}, {\"id\": \"Estrogen-deficiency bone remodeling imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Premature loss of ovarian estrogen uncouples osteoclastic resorption from osteoblastic formation, which is the initiating lesion of the conserved osteoporosis mechanism. The downstream chain (RANKL-driven osteoclastogenesis, increased resorption, net bone loss) is not duplicated here; this node declares conformance to the shared module instead. The driver is hormonal, which is precisely the case the module\u0027s trigger node is written to accommodate.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"FMR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FMR1\"], \"gene_terms\": [{\"label\": \"FMR1\", \"id\": \"hgnc:3775\"}], \"association\": \"A premutation-range CGG repeat expansion (55-200 repeats) in the FMR1 5\u0027 UTR at Xq27.3 is the cause of FXPOI. The premutation, not the full mutation, confers the ovarian risk: full-mutation (\u003e200 repeat) alleles are hypermethylated and silenced and cause fragile X syndrome rather than FXPOI. Risk within the premutation range is not monotonic in repeat length. It rises through the low-to-mid range, peaks at roughly 70-100 repeats (highest at 85-89), and then falls away again at the largest premutation sizes, so that carriers below about 65 repeats and above about 120 repeats have no significantly increased risk relative to non-carriers. This inverted-U - the \\\"FXPOI paradox\\\" - is the most distinctive feature of FXPOI genetics and constrains any purely dose-dependent RNA-toxicity model (see discussions).\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"FMR1 premutation CGG expansion and elevated FMR1 mRNA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a premutation-range (55-200 CGG) trinucleotide repeat expansion in the FMR1 5\u0027 UTR at Xq27.3. Unlike the full mutation (\u003e200 repeats), which is hypermethylated and transcriptionally silenced, the premutation allele remains largely unmethylated and is actively transcribed, producing elevated levels of an FMR1 mRNA carrying the expanded CGG tract. This transcript, not the loss of FMRP, is the proximate pathogenic species.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"gene expression\"], \"genes\": [\"FMR1\"], \"gene_terms\": [{\"label\": \"FMR1\", \"id\": \"hgnc:3775\", \"modifier\": \"INCREASED\"}], \"locations\": [\"ovary\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"FMR1 premutation CGG repeat expansion (55-200 repeats)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"An unstable CGG trinucleotide repeat expansion of 55-200 units in the FMR1 5\u0027 untranslated region. This range is normally spared the CpG-island hypermethylation that silences full-mutation (\u003e200 repeat) alleles, so the premutation allele is transcribed - the basis for its gain-of-function pathogenicity in FXPOI and FXTAS. The allele is unstable on maternal transmission and can expand to a full mutation in offspring, which is the separate fragile X syndrome risk that dominates reproductive counseling for carriers. Two features reported to modify the allele\u0027s effect are not curated as evidence-backed claims here because their primary sources could not be fetched in this session: AGG interruptions within the CGG tract, which stabilize the repeat against intergenerational expansion but have not been shown to modify FXPOI risk in the carrier herself; and X-chromosome inactivation skewing, where preferential inactivation of the premutation-bearing allele is reported to be protective.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FMR1\"], \"gene_terms\": [{\"label\": \"FMR1\", \"id\": \"hgnc:3775\"}], \"variant_type\": \"trinucleotide_repeat_expansion\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Granulosa cell dysfunction and death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular lesion is in the granulosa cells that support the developing follicle: dysregulated folliculogenesis signaling (including altered AMH output) and granulosa cell death. Granulosa cells, not oocytes, are the cell type in which premutation toxicity has been most directly implicated. The node is held at PROVISIONAL rather than ESTABLISHED because its support, while genuinely ovarian, comes entirely from an ectopic-expression granulosa cell model plus premutation mice - there is no observation in granulosa cells from premutation carriers themselves. The attached KNOWLEDGE_GAP discussion records what would close that.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"granulosa cell\"], \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"ovary\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Hot flashes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vasomotor symptoms arising from premature hypoestrogenism, and one of the symptom domains hormone therapy is given to relieve.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031217\"}}, {\"id\": \"Hypergonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated gonadotropins with low estradiol resulting from loss of ovarian follicular feedback; the endocrine signature that distinguishes FXPOI from central (hypothalamic-pituitary) causes of amenorrhea.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000815\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Established osteoporosis is the end point of untreated premature estrogen deficiency and is a target of bone-protective management.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000939\"}}, {\"id\": \"RAN translation and FMRpolyG production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeat-associated non-AUG (RAN) translation initiates within the expanded CGG tract and produces an aggregation-prone polyglycine protein, FMRpolyG. This is the parallel protein-toxicity arm of the premutation mechanism, and the evidence that it is initiated at all comes from FXTAS models rather than ovarian tissue. Its standing in the ovary is now constrained rather than simply open: in the granulosa cell model, expanded CGG-repeat RNA causes cell death independently of FMRpolyG, so the RNA arm is sufficient for the granulosa lesion and FMRpolyG is not required for it. What remains unresolved is whether FMRpolyG makes any additional contribution to FXPOI on top of the RNA arm - not whether the RNA arm needs it.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of translation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"RNA gain-of-function and sequestration of CGG-repeat-binding proteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The expanded CGG-repeat FMR1 mRNA forms nuclear RNA aggregates that bind and sequester CGG-repeat-binding proteins - identified in FXTAS models as Pur alpha and hnRNP A2/B1 - depleting them from their normal functions. This is the leading arm of premutation toxicity. The direct ovarian evidence is thinner than the neuronal evidence from FXTAS models; its application to granulosa cells is an extension of the shared premutation mechanism rather than a directly demonstrated ovarian finding.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Reduced bone mineral density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Accelerated bone loss follows premature estrogen deficiency and is one of the principal long-term morbidities requiring proactive management; untreated, it progresses toward osteoporosis. This is a downstream consequence of hypoestrogenism rather than a direct effect of the FMR1 premutation on bone.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004349\"}}], \"edges\": [{\"source\": \"FMR1 premutation CGG expansion and elevated FMR1 mRNA\", \"target\": \"RNA gain-of-function and sequestration of CGG-repeat-binding proteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The elevated expanded-repeat transcript forms the nuclear RNA species that binds and sequesters CGG-repeat-binding proteins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FMR1 premutation CGG expansion and elevated FMR1 mRNA\", \"target\": \"RAN translation and FMRpolyG production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same expanded CGG tract in the transcript is the substrate for repeat-associated non-AUG translation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RNA gain-of-function and sequestration of CGG-repeat-binding proteins\", \"target\": \"Granulosa cell dysfunction and death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sequestration of RNA-binding proteins is proposed to impair the somatic support cells of the follicle, but the intermediate steps are not established in the human ovary.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"RAN translation and FMRpolyG production\", \"target\": \"Granulosa cell dysfunction and death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FMRpolyG may contribute to granulosa cell injury, but it is demonstrably not required for it: granulosa cell death occurs independently of FMRpolyG expression. This edge is therefore retained as a possible additive contribution, not a necessary step.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Granulosa cell dysfunction and death\", \"target\": \"Accelerated ovarian follicle depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of granulosa cell support accelerates the attrition of follicles from the ovarian reserve.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated ovarian follicle depletion\", \"target\": \"Hypergonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the follicle pool removes the ovarian source of estradiol and of the inhibin/AMH feedback signals to the pituitary.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypergonadotropic hypogonadism\", \"target\": \"Chronic estrogen deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hypoestrogenism from an age decades before typical menopause drives the long-term morbidity of FXPOI.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic estrogen deficiency\", \"target\": \"Estrogen-deficiency bone remodeling imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of estrogen uncouples bone resorption from formation, the entry point of the conserved osteoporosis mechanism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced bone mineral density\", \"target\": \"Osteoporosis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Sustained bone loss from untreated premature estrogen deficiency progresses to established osteoporosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Estrogen replacement therapy\", \"target\": \"Chronic estrogen deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Estrogen replacement therapy\", \"target\": \"Hot flashes\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Estrogen replacement therapy\", \"target\": \"Reduced bone mineral density\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FMR1\", \"target\": \"FMR1 premutation CGG expansion and elevated FMR1 mRNA\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FMR1 premutation CGG repeat expansion (55-200 repeats)\", \"target\": \"FMR1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5897,6 +5995,9 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5973,6 +6074,9 @@ This clinical feature is Elevated circulating follicle stimulating hormone level
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6044,6 +6148,9 @@ This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6110,6 +6217,9 @@ This clinical feature is Abnormal circulating antimullerian hormone concentratio
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6197,6 +6307,9 @@ This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:000820
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6261,6 +6374,9 @@ This clinical feature is Secondary amenorrhea (HP:0000869). HP:0000869 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6339,6 +6455,9 @@ This clinical feature is Oligomenorrhea (HP:0000876). HP:0000876 is a phenotype 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-female-infertility" data-dismech-node="Female infertility" data-dismech-type="phenotype">
@@ -6364,6 +6483,9 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6445,6 +6567,9 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6523,6 +6648,9 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6596,6 +6724,9 @@ This clinical feature is Hot flashes (HP:0031217). HP:0031217 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6718,6 +6849,9 @@ This disease-associated gene is FMR1 (hgnc:3775). hgnc:3775 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6829,6 +6963,7 @@ This disease-associated gene is FMR1 (hgnc:3775). hgnc:3775 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6848,11 +6983,17 @@ This variant is in FMR1 (hgnc:3775). hgnc:3775 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">trinucleotide repeat expansion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">An unstable CGG trinucleotide repeat expansion of 55-200 units in the FMR1 5&#39; untranslated region. This range is normally spared the CpG-island hypermethylation that silences full-mutation (&gt;200 repeat) alleles, so the premutation allele is transcribed - the basis for its gain-of-function pathogenicity in FXPOI and FXTAS. The allele is unstable on maternal transmission and can expand to a full mutation in offspring, which is the separate fragile X syndrome risk that dominates reproductive counseling for carriers. Two features reported to modify the allele&#39;s effect are not curated as evidence-backed claims here because their primary sources could not be fetched in this session: AGG interruptions within the CGG tract, which stabilize the repeat against intergenerational expansion but have not been shown to modify FXPOI risk in the carrier herself; and X-chromosome inactivation skewing, where preferential inactivation of the premutation-bearing allele is reported to be protective.</div>

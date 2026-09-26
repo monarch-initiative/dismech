@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4950,6 +4992,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-direct-pulmonary-or-indirect-systemic-insult" data-dismech-node="Direct Pulmonary or Indirect Systemic Insult" data-dismech-type="pathophysiology">
                 <div class="item-name">Direct Pulmonary or Indirect Systemic Insult</div>
 
+
                 <div class="item-desc">Pneumonia, aspiration, inhalational injury, or lung contusion can directly injure the lung, whereas sepsis, pancreatitis, major trauma, shock, burns, and transfusion can initiate systemic inflammation and endothelial injury. These heterogeneous triggers converge on acute diffuse lung injury.</div>
 
 
@@ -5085,6 +5128,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-macrophage-and-cytokine-activation" data-dismech-node="Alveolar Macrophage and Cytokine Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Macrophage and Cytokine Activation</div>
+
 
                 <div class="item-desc">Alveolar macrophages recognize pathogen- or damage-associated molecular patterns and adopt a proinflammatory program. Cytokines and chemokines, including TNF, IL-1 beta, and CXCL8/IL-8, amplify local inflammation and recruit circulating neutrophils.</div>
 
@@ -5338,6 +5382,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-oxidative-and-proteolytic-injury" data-dismech-node="Neutrophil Oxidative and Proteolytic Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil Oxidative and Proteolytic Injury</div>
 
+
                 <div class="item-desc">Recruited neutrophils traverse the pulmonary microvascular and epithelial barriers and release reactive oxygen species, proteases, lipid mediators, and extracellular traps. These antimicrobial responses become injurious when diffuse or persistent and contribute to epithelial and endothelial damage.</div>
 
 
@@ -5566,6 +5611,7 @@ This pathophysiological event involves increased Reactive oxygen species metabol
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immunometabolic-reprogramming-and-mitochondrial-dysfunction" data-dismech-node="Immunometabolic Reprogramming and Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Immunometabolic Reprogramming and Mitochondrial Dysfunction</div>
+
 
                 <div class="item-desc">Immune and structural lung cells can shift toward glycolysis while mitochondrial oxidative phosphorylation and redox control deteriorate. Lactate, succinate, extracellular ATP, and mitochondrial danger signals may then act as signaling mediators that sustain inflammatory activation and impair energetically demanding barrier repair. This is modeled as an emerging modifier rather than a required step in every patient.</div>
 
@@ -5933,6 +5979,7 @@ This pathophysiological event involves increased Reactive oxygen species metabol
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventilator-induced-lung-injury" data-dismech-node="Ventilator-Induced Lung Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventilator-Induced Lung Injury</div>
 
+
                 <div class="item-desc">Positive-pressure ventilation can amplify established ARDS through overdistension, cyclic opening and closing, and patient-ventilator dyssynchrony. Lung-protective tidal volumes and, in selected early severe disease, neuromuscular blockade limit this iatrogenic stretch-injury loop.</div>
 
 
@@ -6068,6 +6115,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-capillary-barrier-disruption" data-dismech-node="Alveolar-Capillary Barrier Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar-Capillary Barrier Disruption</div>
+
 
                 <div class="item-desc">Injury to pulmonary capillary endothelial cells and pulmonary alveolar type 1 and type 2 cells disrupts intercellular junctions, ion transport, and barrier selectivity. The resulting rise in vascular and epithelial permeability allows protein-rich fluid and inflammatory cells to enter the interstitium and alveolar space.</div>
 
@@ -6366,6 +6414,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intra-alveolar-coagulation-and-fibrin-deposition" data-dismech-node="Intra-Alveolar Coagulation and Fibrin Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Intra-Alveolar Coagulation and Fibrin Deposition</div>
 
+
                 <div class="item-desc">Loss of epithelial anticoagulant activity and local tissue-factor release promote procoagulant signaling and fibrin deposition within alveoli and near injured endothelium. Persistent fibrin-rich injury can contribute to disordered organization and fibroproliferative remodeling.</div>
 
 
@@ -6522,6 +6571,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-rich-alveolar-edema-and-loss-of-aerated-lung" data-dismech-node="Protein-Rich Alveolar Edema and Loss of Aerated Lung" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein-Rich Alveolar Edema and Loss of Aerated Lung</div>
+
 
                 <div class="item-desc">Increased permeability produces noncardiogenic interstitial and alveolar edema. Fluid-filled and gravity-dependent collapsed alveoli reduce the ventilated gas-exchange surface and contribute to low compliance without requiring elevated left-sided filling pressure.</div>
 
@@ -6718,6 +6768,7 @@ This pathophysiological event occurs in Alveolus of lung (UBERON:0002299). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shunt-physiology-and-hypoxemic-respiratory-failure" data-dismech-node="Shunt Physiology and Hypoxemic Respiratory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Shunt Physiology and Hypoxemic Respiratory Failure</div>
 
+
                 <div class="item-desc">Ventilation-perfusion mismatch and intrapulmonary shunt cause refractory arterial hypoxemia. Increased dead space and reduced respiratory-system compliance increase ventilatory demand and can culminate in acute respiratory failure requiring assisted ventilation.</div>
 
 
@@ -6873,6 +6924,7 @@ This pathophysiological event involves decreased Respiratory gaseous exchange by
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-resolution-and-alveolar-repair" data-dismech-node="Resolution and Alveolar Repair" data-dismech-type="pathophysiology">
                 <div class="item-name">Resolution and Alveolar Repair</div>
 
+
                 <div class="item-desc">After control of the acute injury, pulmonary alveolar type 2 cell proliferation, macrophage-mediated inflammation resolution, restoration of ion transport, and epithelial-endothelial repair can clear edema and restore gas exchange.</div>
 
 
@@ -6997,6 +7049,7 @@ This pathophysiological event involves Alveolar macrophage (CL:0000583). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibroproliferative-remodeling-and-fibrosis" data-dismech-node="Fibroproliferative Remodeling and Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibroproliferative Remodeling and Fibrosis</div>
+
 
                 <div class="item-desc">When injury and repair remain dysregulated, fibroproliferative remodeling, traction bronchiectasis, volume loss, and fibrotic structural change can produce persistent respiratory impairment. This is a nonresolving fate in a subset, not an inevitable stage of ARDS.</div>
 
@@ -7221,6 +7274,9 @@ This clinical feature is Pulmonary edema (HP:0100598). HP:0100598 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7299,6 +7355,9 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7363,6 +7422,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7434,6 +7496,9 @@ This clinical feature is Pulmonary opacity (HP:0031457). HP:0031457 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 

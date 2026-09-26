@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4557,6 +4599,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ctnnb1-loss-of-function-and-beta-catenin-haploinsufficiency" data-dismech-node="CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency</div>
 
+
                 <div class="item-desc">Heterozygous nonsense, frameshift, splice-site and whole-gene deletion variants in CTNNB1, plus a minority of missense variants, truncate or destabilise beta-catenin and reduce the pool of functional protein. In the largest functionally characterised cohort, 87 of 88 distinct variants were predicted loss of function, and a subset of missense alleles act as dominant negatives that suppress signalling beyond simple haploinsufficiency. Complete deletion of the single gene CTNNB1 is sufficient to produce the syndrome, establishing dosage sensitivity as the core lesion.</div>
 
 
@@ -4652,6 +4695,8 @@ This genetic context concerns CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -4664,6 +4709,9 @@ This genetic context concerns CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">De novo heterozygous truncating CTNNB1 alleles predicted to undergo nonsense-mediated decay. Recorded as LOSS_OF_FUNCTION (beta-catenin haploinsufficiency).</div>
 
@@ -4804,6 +4852,7 @@ This genetic context concerns CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-canonical-wnt-beta-catenin-transcriptional-deficit" data-dismech-node="Canonical Wnt/Beta-Catenin Transcriptional Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Canonical Wnt/Beta-Catenin Transcriptional Deficit</div>
+
 
                 <div class="item-desc">Beta-catenin is the obligate transcriptional co-activator of the canonical Wnt pathway: on Wnt/Norrin receptor engagement it escapes destruction-complex phosphorylation, accumulates, and enters the nucleus to partner TCF/LEF transcription factors. Reduced beta-catenin dosage lowers Wnt-responsive reporter output (TOPFlash/SuperTopFlash) and target-gene transcription in patient-derived and transfected systems. A subset of missense variants further suppresses signalling in a dominant-negative fashion, and one gain-of-function missense allele has been described as an outlier.</div>
 
@@ -5006,6 +5055,7 @@ This pathophysiological event involves regulation of canonical Wnt signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cadherin-catenin-adherens-junction-adhesion" data-dismech-node="Impaired Cadherin-Catenin Adherens Junction Adhesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cadherin-Catenin Adherens Junction Adhesion</div>
+
 
                 <div class="item-desc">Independently of transcription, beta-catenin bridges the cytoplasmic tail of classical cadherins to alpha-catenin and the actin cytoskeleton at adherens junctions. In the batface mouse a substitution in the C-terminal armadillo repeat reduces affinity for membrane-associated cadherins (this specific structure-function result comes from the mouse allele, not a human patient variant), and CTNNB1 knockdown in primary human endothelial cells compromises junctional integrity. This adhesion arm explains why the disorder is not simply a Wnt-signalling phenocopy and contributes to both neuronal connectivity and vascular barrier phenotypes.</div>
 
@@ -5229,6 +5279,7 @@ This pathophysiological event involves adherens junction (GO:0005912). GO:000591
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cortical-neurodevelopment-and-connectivity" data-dismech-node="Disrupted Cortical Neurodevelopment and Connectivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Cortical Neurodevelopment and Connectivity</div>
+
 
                 <div class="item-desc">Combined loss of Wnt transcriptional output and cadherin-mediated adhesion in neural progenitors and post-mitotic neurons impairs neuronal differentiation, dendritic arborisation and long-range intrahemispheric connectivity, with measurable deficits in long-term potentiation. Postnatal (rather than congenital) microcephaly and a progressive rather than static neurological course in some individuals indicate that the lesion affects continuing neuronal maturation and maintenance, not only early patterning.</div>
 
@@ -5483,6 +5534,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-corticospinal-and-extrapyramidal-motor-dysfunction" data-dismech-node="Progressive Corticospinal and Extrapyramidal Motor Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Corticospinal and Extrapyramidal Motor Dysfunction</div>
 
+
                 <div class="item-desc">The motor phenotype has a characteristic biphasic structure: early truncal hypotonia and muscle weakness give way to progressive distal, predominantly lower-limb hypertonia/spasticity, frequently without overt pyramidal signs, with an exaggerated startle response resembling atypical hyperekplexia. In the second decade a subset develop upper-body (prominently cervical) dystonia with or without bradykinesia, indicating additional extrapyramidal/basal-ganglia involvement. The early static appearance leads many individuals to be given a cerebral palsy diagnosis.</div>
 
 
@@ -5624,6 +5676,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-vascular-norrin-beta-catenin-signalling-failure" data-dismech-node="Retinal Vascular Norrin/Beta-Catenin Signalling Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Vascular Norrin/Beta-Catenin Signalling Failure</div>
+
 
                 <div class="item-desc">Retinal vascular development and blood-retina barrier maturation depend on Norrin (NDP) signalling through FZD4/LRP5/TSPAN12 to beta-catenin in retinal microvascular endothelium. Truncating CTNNB1 variants reduce Norrin/beta-catenin signalling activity, and CTNNB1 knockdown in primary human retinal microvascular endothelial cells lowers Norrin target-gene transcription, reduces endothelial proliferation and compromises junctional integrity; endothelial-specific heterozygous Ctnnb1 deletion in mouse reproduces FEVR-like retinopathy. This places CTNNB1 in the same signalling module as the classical FEVR genes and explains an ocular phenotype clinically indistinguishable from FEVR.</div>
 
@@ -5857,6 +5910,13 @@ This pathophysiological event involves decreased establishment of blood-retinal 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-developmental-wnt-signalling-disruption" data-dismech-node="Cardiac Developmental Wnt Signalling Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Developmental Wnt Signalling Disruption</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">CTNNB1 is expressed in the developing heart in addition to brain, and beta-catenin-dependent Wnt signalling contributes to second-heart-field and outflow-tract/valve development. A dedicated cardiac phenotyping series found congenital heart anomalies (absent pulmonary valve with intact ventricular septum, atrioventricular canal with hypoplastic aortic arch, tetralogy of Fallot, mitral valve prolapse) at a higher rate than previously appreciated. This node is supported by clinical association plus tissue expression rather than by a CTNNB1-specific cardiac developmental experiment, and is curated at correspondingly lower mechanistic confidence.</div>
 
 
@@ -5980,7 +6040,7 @@ This pathophysiological event involves decreased establishment of blood-retinal 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV9-Mediated CTNNB1 Gene Replacement (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Urbagen is a single-stranded AAV9 vector carrying human CTNNB1, delivered once by bilateral intracerebroventricular infusion with prophylactic methylprednisolone and sirolimus, now in a first-in-human phase I/II trial (NCT07270549). It is the first candidate disease-modifying therapy and directly addresses the beta-catenin dosage deficit. No human safety or efficacy results are available. Because beta-catenin is dosage-sensitive and its stabilisation is oncogenic in the somatic setting, expression level, tissue targeting, and long-term surveillance are central safety questions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Botulinum Toxin for Spasticity and Dystonia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Botulinum toxin injection was at least partially effective for the movement disorder in most treated patients in a systematically assessed cohort; levodopa was much less consistently helpful.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"botulinum toxin type A\"]}}, {\"id\": \"CTNNB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}], \"presence\": \"Positive\", \"association\": \"Causal - heterozygous germline loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous nonsense, frameshift, splice-site and whole-gene deletion variants in CTNNB1, plus a minority of missense variants, truncate or destabilise beta-catenin and reduce the pool of functional protein. In the largest functionally characterised cohort, 87 of 88 distinct variants were predicted loss of function, and a subset of missense alleles act as dominant negatives that suppress signalling beyond simple haploinsufficiency. Complete deletion of the single gene CTNNB1 is sufficient to produce the syndrome, establishing dosage sensitivity as the core lesion.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"De novo heterozygous truncating CTNNB1 alleles predicted to undergo nonsense-mediated decay. Recorded as LOSS_OF_FUNCTION (beta-catenin haploinsufficiency).\", \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}]}}}, {\"id\": \"Canonical Wnt/Beta-Catenin Transcriptional Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beta-catenin is the obligate transcriptional co-activator of the canonical Wnt pathway: on Wnt/Norrin receptor engagement it escapes destruction-complex phosphorylation, accumulates, and enters the nucleus to partner TCF/LEF transcription factors. Reduced beta-catenin dosage lowers Wnt-responsive reporter output (TOPFlash/SuperTopFlash) and target-gene transcription in patient-derived and transfected systems. A subset of missense variants further suppresses signalling in a dominant-negative fashion, and one gain-of-function missense allele has been described as an outlier.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"canonical Wnt signaling pathway\", \"regulation of canonical Wnt signaling pathway\"]}}, {\"id\": \"Cardiac Developmental Wnt Signalling Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CTNNB1 is expressed in the developing heart in addition to brain, and beta-catenin-dependent Wnt signalling contributes to second-heart-field and outflow-tract/valve development. A dedicated cardiac phenotyping series found congenital heart anomalies (absent pulmonary valve with intact ventricular septum, atrioventricular canal with hypoplastic aortic arch, tetralogy of Fallot, mitral valve prolapse) at a higher rate than previously appreciated. This node is supported by clinical association plus tissue expression rather than by a CTNNB1-specific cardiac developmental experiment, and is curated at correspondingly lower mechanistic confidence.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Congenital Heart Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart anomalies including absent pulmonary valve with intact ventricular septum, atrioventricular canal with hypoplastic aortic arch, tetralogy of Fallot and mitral valve prolapse occur at a higher rate than historically appreciated, supporting dedicated cardiac assessment at diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Disrupted Cortical Neurodevelopment and Connectivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined loss of Wnt transcriptional output and cadherin-mediated adhesion in neural progenitors and post-mitotic neurons impairs neuronal differentiation, dendritic arborisation and long-range intrahemispheric connectivity, with measurable deficits in long-term potentiation. Postnatal (rather than congenital) microcephaly and a progressive rather than static neurological course in some individuals indicate that the lesion affects continuing neuronal maturation and maintenance, not only early patterning.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\", \"cerebral cortex neuron\"], \"biological_processes\": [\"cerebral cortex neuron differentiation\", \"dendrite morphogenesis\"]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper-body, prominently cervical, dystonia develops in a subset of individuals, characteristically in the second decade of life, sometimes with bradykinesia.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Exaggerated Startle Response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An exaggerated startle response to unexpected stimuli, corresponding to atypical hyperekplexia, is under-recognised but clinically important because it causes falls and injuries and is treatable.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002267\"}}, {\"id\": \"Exudative Vitreoretinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A retinal vascular phenotype indistinguishable from familial exudative vitreoretinopathy (FEVR), with incomplete peripheral retinal vascularisation, exudation, and in severe cases traction and retinal detachment. It is frequently occult on office ophthalmoscopy and may only be revealed by ultra-widefield fluorescein angiography, sometimes under anaesthesia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030490\"}}, {\"id\": \"Impaired Cadherin-Catenin Adherens Junction Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Independently of transcription, beta-catenin bridges the cytoplasmic tail of classical cadherins to alpha-catenin and the actin cytoskeleton at adherens junctions. In the batface mouse a substitution in the C-terminal armadillo repeat reduces affinity for membrane-associated cadherins (this specific structure-function result comes from the mouse allele, not a human patient variant), and CTNNB1 knockdown in primary human endothelial cells compromises junctional integrity. This adhesion arm explains why the disorder is not simply a Wnt-signalling phenocopy and contributes to both neuronal connectivity and vascular barrier phenotypes.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"adherens junction organization\"], \"molecular_functions\": [\"cadherin binding\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is present in every reported individual and ranges from mild to profound. Performance is relatively better on verbal than on visuospatial and logical-reasoning tasks.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced muscle strength contributes to delayed ambulation and reduced gross motor function independent of tone abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Ophthalmological Surveillance and FEVR Treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular paediatric ophthalmology review with refractive correction and strabismus management, plus ultra-widefield fluorescein angiography to detect occult vitreoretinopathy; treatment-requiring peripheral retinal non-perfusion is managed with laser photocoagulation and, when detachment occurs, vitreoretinal surgery.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Physical Therapy and Motor Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physiotherapy targets truncal hypotonia, muscle weakness, progressive lower-limb spasticity and gait, and is the mainstay of motor management.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Corticospinal and Extrapyramidal Motor Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The motor phenotype has a characteristic biphasic structure: early truncal hypotonia and muscle weakness give way to progressive distal, predominantly lower-limb hypertonia/spasticity, frequently without overt pyramidal signs, with an exaggerated startle response resembling atypical hyperekplexia. In the second decade a subset develop upper-body (prominently cervical) dystonia with or without bradykinesia, indicating additional extrapyramidal/basal-ganglia involvement. The early static appearance leads many individuals to be given a cerebral palsy diagnosis.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Retinal Vascular Norrin/Beta-Catenin Signalling Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinal vascular development and blood-retina barrier maturation depend on Norrin (NDP) signalling through FZD4/LRP5/TSPAN12 to beta-catenin in retinal microvascular endothelium. Truncating CTNNB1 variants reduce Norrin/beta-catenin signalling activity, and CTNNB1 knockdown in primary human retinal microvascular endothelial cells lowers Norrin target-gene transcription, reduces endothelial proliferation and compromises junctional integrity; endothelial-specific heterozygous Ctnnb1 deletion in mouse reproduces FEVR-like retinopathy. This places CTNNB1 in the same signalling module as the classical FEVR genes and explains an ocular phenotype clinically indistinguishable from FEVR.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal blood vessel endothelial cell\"], \"biological_processes\": [\"retinal blood vessel morphogenesis\", \"establishment of blood-retinal barrier\"]}}, {\"id\": \"Secondary Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head circumference is typically normal at birth with acquired postnatal microcephaly, commonly in the -2 to -4 SD range, developing over early childhood.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005484\"}}, {\"id\": \"Severe Speech Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive speech is severely limited or absent in most individuals; receptive language is typically better preserved than expressive, and augmentative and alternative communication is often required.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Spastic Diplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hypertonia and spasticity predominantly of the lower limbs develops after an initial hypotonic phase, often without overt pyramidal signs, and is the feature that most commonly leads to a cerebral palsy diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001264\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech-language therapy including augmentative and alternative communication addresses the severe expressive speech impairment that is near-universal in the disorder.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency\", \"target\": \"Canonical Wnt/Beta-Catenin Transcriptional Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced functional beta-catenin lowers the nuclear pool available to co-activate TCF/LEF target genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency\", \"target\": \"Impaired Cadherin-Catenin Adherens Junction Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced or structurally altered beta-catenin weakens the cadherin-to-actin linkage at adherens junctions, a signalling-independent structural role.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency\", \"target\": \"Cardiac Developmental Wnt Signalling Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced beta-catenin dosage in the developing heart, where CTNNB1 is also expressed, is the proposed route to the congenital cardiac anomalies; the intermediates are not established for CTNNB1 specifically.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Canonical Wnt/Beta-Catenin Transcriptional Deficit\", \"target\": \"Disrupted Cortical Neurodevelopment and Connectivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced Wnt target-gene output in neural progenitors and neurons perturbs proliferation, differentiation and circuit assembly in the developing brain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Canonical Wnt/Beta-Catenin Transcriptional Deficit\", \"target\": \"Retinal Vascular Norrin/Beta-Catenin Signalling Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Norrin-FZD4-LRP5-TSPAN12 signalling in retinal endothelium converges on beta-catenin; reduced beta-catenin lowers Norrin target-gene transcription.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cadherin-Catenin Adherens Junction Adhesion\", \"target\": \"Disrupted Cortical Neurodevelopment and Connectivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weakened cadherin-catenin adhesion reduces dendritic branching and intrahemispheric connectivity in the batface mouse model.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Cortical Neurodevelopment and Connectivity\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced cortical connectivity and impaired synaptic plasticity underlie the cognitive impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Cortical Neurodevelopment and Connectivity\", \"target\": \"Progressive Corticospinal and Extrapyramidal Motor Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same developmental lesion affects descending motor and basal-ganglia circuits, producing the characteristic motor phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Cortical Neurodevelopment and Connectivity\", \"target\": \"Secondary Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired postnatal neuronal growth and maturation produces acquired microcephaly rather than a congenitally small head.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Corticospinal and Extrapyramidal Motor Dysfunction\", \"target\": \"Spastic Diplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive lower-limb hypertonia manifests as spastic diplegia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Corticospinal and Extrapyramidal Motor Dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extrapyramidal involvement produces cervical/upper-body dystonia, typically emerging in the second decade.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Corticospinal and Extrapyramidal Motor Dysfunction\", \"target\": \"Exaggerated Startle Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brainstem/reticular startle-circuit dysregulation produces an atypical hyperekplexia phenotype with injurious falls.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Retinal Vascular Norrin/Beta-Catenin Signalling Failure\", \"target\": \"Exudative Vitreoretinopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete peripheral retinal vascularisation and leaky vessels produce exudative vitreoretinopathy that can progress to retinal detachment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Developmental Wnt Signalling Disruption\", \"target\": \"Congenital Heart Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted beta-catenin-dependent cardiac development produces outflow-tract, valve and septal anomalies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Physical Therapy and Motor Rehabilitation\", \"target\": \"Spastic Diplegia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy and Motor Rehabilitation\", \"target\": \"Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Severe Speech Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Botulinum Toxin for Spasticity and Dystonia\", \"target\": \"Spastic Diplegia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Botulinum Toxin for Spasticity and Dystonia\", \"target\": \"Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological Surveillance and FEVR Treatment\", \"target\": \"Exudative Vitreoretinopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AAV9-Mediated CTNNB1 Gene Replacement (Investigational)\", \"target\": \"CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CTNNB1\", \"target\": \"CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV9-Mediated CTNNB1 Gene Replacement (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Urbagen is a single-stranded AAV9 vector carrying human CTNNB1, delivered once by bilateral intracerebroventricular infusion with prophylactic methylprednisolone and sirolimus, now in a first-in-human phase I/II trial (NCT07270549). It is the first candidate disease-modifying therapy and directly addresses the beta-catenin dosage deficit. No human safety or efficacy results are available. Because beta-catenin is dosage-sensitive and its stabilisation is oncogenic in the somatic setting, expression level, tissue targeting, and long-term surveillance are central safety questions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Botulinum Toxin for Spasticity and Dystonia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Botulinum toxin injection was at least partially effective for the movement disorder in most treated patients in a systematically assessed cohort; levodopa was much less consistently helpful.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"botulinum toxin type A\"]}}, {\"id\": \"CTNNB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}], \"presence\": \"Positive\", \"association\": \"Causal - heterozygous germline loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous nonsense, frameshift, splice-site and whole-gene deletion variants in CTNNB1, plus a minority of missense variants, truncate or destabilise beta-catenin and reduce the pool of functional protein. In the largest functionally characterised cohort, 87 of 88 distinct variants were predicted loss of function, and a subset of missense alleles act as dominant negatives that suppress signalling beyond simple haploinsufficiency. Complete deletion of the single gene CTNNB1 is sufficient to produce the syndrome, establishing dosage sensitivity as the core lesion.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"De novo heterozygous truncating CTNNB1 alleles predicted to undergo nonsense-mediated decay. Recorded as LOSS_OF_FUNCTION (beta-catenin haploinsufficiency).\", \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}]}}}, {\"id\": \"Canonical Wnt/Beta-Catenin Transcriptional Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beta-catenin is the obligate transcriptional co-activator of the canonical Wnt pathway: on Wnt/Norrin receptor engagement it escapes destruction-complex phosphorylation, accumulates, and enters the nucleus to partner TCF/LEF transcription factors. Reduced beta-catenin dosage lowers Wnt-responsive reporter output (TOPFlash/SuperTopFlash) and target-gene transcription in patient-derived and transfected systems. A subset of missense variants further suppresses signalling in a dominant-negative fashion, and one gain-of-function missense allele has been described as an outlier.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"canonical Wnt signaling pathway\", \"regulation of canonical Wnt signaling pathway\"]}}, {\"id\": \"Cardiac Developmental Wnt Signalling Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CTNNB1 is expressed in the developing heart in addition to brain, and beta-catenin-dependent Wnt signalling contributes to second-heart-field and outflow-tract/valve development. A dedicated cardiac phenotyping series found congenital heart anomalies (absent pulmonary valve with intact ventricular septum, atrioventricular canal with hypoplastic aortic arch, tetralogy of Fallot, mitral valve prolapse) at a higher rate than previously appreciated. This node is supported by clinical association plus tissue expression rather than by a CTNNB1-specific cardiac developmental experiment, and is curated at correspondingly lower mechanistic confidence.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Congenital Heart Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart anomalies including absent pulmonary valve with intact ventricular septum, atrioventricular canal with hypoplastic aortic arch, tetralogy of Fallot and mitral valve prolapse occur at a higher rate than historically appreciated, supporting dedicated cardiac assessment at diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Disrupted Cortical Neurodevelopment and Connectivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined loss of Wnt transcriptional output and cadherin-mediated adhesion in neural progenitors and post-mitotic neurons impairs neuronal differentiation, dendritic arborisation and long-range intrahemispheric connectivity, with measurable deficits in long-term potentiation. Postnatal (rather than congenital) microcephaly and a progressive rather than static neurological course in some individuals indicate that the lesion affects continuing neuronal maturation and maintenance, not only early patterning.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\", \"cerebral cortex neuron\"], \"biological_processes\": [\"cerebral cortex neuron differentiation\", \"dendrite morphogenesis\"]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper-body, prominently cervical, dystonia develops in a subset of individuals, characteristically in the second decade of life, sometimes with bradykinesia.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Exaggerated Startle Response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An exaggerated startle response to unexpected stimuli, corresponding to atypical hyperekplexia, is under-recognised but clinically important because it causes falls and injuries and is treatable.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002267\"}}, {\"id\": \"Exudative Vitreoretinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A retinal vascular phenotype indistinguishable from familial exudative vitreoretinopathy (FEVR), with incomplete peripheral retinal vascularisation, exudation, and in severe cases traction and retinal detachment. It is frequently occult on office ophthalmoscopy and may only be revealed by ultra-widefield fluorescein angiography, sometimes under anaesthesia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030490\"}}, {\"id\": \"Impaired Cadherin-Catenin Adherens Junction Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Independently of transcription, beta-catenin bridges the cytoplasmic tail of classical cadherins to alpha-catenin and the actin cytoskeleton at adherens junctions. In the batface mouse a substitution in the C-terminal armadillo repeat reduces affinity for membrane-associated cadherins (this specific structure-function result comes from the mouse allele, not a human patient variant), and CTNNB1 knockdown in primary human endothelial cells compromises junctional integrity. This adhesion arm explains why the disorder is not simply a Wnt-signalling phenocopy and contributes to both neuronal connectivity and vascular barrier phenotypes.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"adherens junction organization\"], \"molecular_functions\": [\"cadherin binding\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is present in every reported individual and ranges from mild to profound. Performance is relatively better on verbal than on visuospatial and logical-reasoning tasks.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced muscle strength contributes to delayed ambulation and reduced gross motor function independent of tone abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Ophthalmological Surveillance and FEVR Treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular paediatric ophthalmology review with refractive correction and strabismus management, plus ultra-widefield fluorescein angiography to detect occult vitreoretinopathy; treatment-requiring peripheral retinal non-perfusion is managed with laser photocoagulation and, when detachment occurs, vitreoretinal surgery.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Physical Therapy and Motor Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physiotherapy targets truncal hypotonia, muscle weakness, progressive lower-limb spasticity and gait, and is the mainstay of motor management.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Corticospinal and Extrapyramidal Motor Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The motor phenotype has a characteristic biphasic structure: early truncal hypotonia and muscle weakness give way to progressive distal, predominantly lower-limb hypertonia/spasticity, frequently without overt pyramidal signs, with an exaggerated startle response resembling atypical hyperekplexia. In the second decade a subset develop upper-body (prominently cervical) dystonia with or without bradykinesia, indicating additional extrapyramidal/basal-ganglia involvement. The early static appearance leads many individuals to be given a cerebral palsy diagnosis.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Retinal Vascular Norrin/Beta-Catenin Signalling Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinal vascular development and blood-retina barrier maturation depend on Norrin (NDP) signalling through FZD4/LRP5/TSPAN12 to beta-catenin in retinal microvascular endothelium. Truncating CTNNB1 variants reduce Norrin/beta-catenin signalling activity, and CTNNB1 knockdown in primary human retinal microvascular endothelial cells lowers Norrin target-gene transcription, reduces endothelial proliferation and compromises junctional integrity; endothelial-specific heterozygous Ctnnb1 deletion in mouse reproduces FEVR-like retinopathy. This places CTNNB1 in the same signalling module as the classical FEVR genes and explains an ocular phenotype clinically indistinguishable from FEVR.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal blood vessel endothelial cell\"], \"biological_processes\": [\"retinal blood vessel morphogenesis\", \"establishment of blood-retinal barrier\"]}}, {\"id\": \"Secondary Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head circumference is typically normal at birth with acquired postnatal microcephaly, commonly in the -2 to -4 SD range, developing over early childhood.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005484\"}}, {\"id\": \"Severe Speech Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Expressive speech is severely limited or absent in most individuals; receptive language is typically better preserved than expressive, and augmentative and alternative communication is often required.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Spastic Diplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hypertonia and spasticity predominantly of the lower limbs develops after an initial hypotonic phase, often without overt pyramidal signs, and is the feature that most commonly leads to a cerebral palsy diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001264\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech-language therapy including augmentative and alternative communication addresses the severe expressive speech impairment that is near-universal in the disorder.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency\", \"target\": \"Canonical Wnt/Beta-Catenin Transcriptional Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced functional beta-catenin lowers the nuclear pool available to co-activate TCF/LEF target genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency\", \"target\": \"Impaired Cadherin-Catenin Adherens Junction Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced or structurally altered beta-catenin weakens the cadherin-to-actin linkage at adherens junctions, a signalling-independent structural role.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency\", \"target\": \"Cardiac Developmental Wnt Signalling Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced beta-catenin dosage in the developing heart, where CTNNB1 is also expressed, is the proposed route to the congenital cardiac anomalies; the intermediates are not established for CTNNB1 specifically.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Canonical Wnt/Beta-Catenin Transcriptional Deficit\", \"target\": \"Disrupted Cortical Neurodevelopment and Connectivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced Wnt target-gene output in neural progenitors and neurons perturbs proliferation, differentiation and circuit assembly in the developing brain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Canonical Wnt/Beta-Catenin Transcriptional Deficit\", \"target\": \"Retinal Vascular Norrin/Beta-Catenin Signalling Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Norrin-FZD4-LRP5-TSPAN12 signalling in retinal endothelium converges on beta-catenin; reduced beta-catenin lowers Norrin target-gene transcription.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cadherin-Catenin Adherens Junction Adhesion\", \"target\": \"Disrupted Cortical Neurodevelopment and Connectivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weakened cadherin-catenin adhesion reduces dendritic branching and intrahemispheric connectivity in the batface mouse model.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Cortical Neurodevelopment and Connectivity\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced cortical connectivity and impaired synaptic plasticity underlie the cognitive impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Cortical Neurodevelopment and Connectivity\", \"target\": \"Progressive Corticospinal and Extrapyramidal Motor Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same developmental lesion affects descending motor and basal-ganglia circuits, producing the characteristic motor phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Cortical Neurodevelopment and Connectivity\", \"target\": \"Secondary Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired postnatal neuronal growth and maturation produces acquired microcephaly rather than a congenitally small head.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Corticospinal and Extrapyramidal Motor Dysfunction\", \"target\": \"Spastic Diplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive lower-limb hypertonia manifests as spastic diplegia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Corticospinal and Extrapyramidal Motor Dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extrapyramidal involvement produces cervical/upper-body dystonia, typically emerging in the second decade.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Corticospinal and Extrapyramidal Motor Dysfunction\", \"target\": \"Exaggerated Startle Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brainstem/reticular startle-circuit dysregulation produces an atypical hyperekplexia phenotype with injurious falls.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Retinal Vascular Norrin/Beta-Catenin Signalling Failure\", \"target\": \"Exudative Vitreoretinopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete peripheral retinal vascularisation and leaky vessels produce exudative vitreoretinopathy that can progress to retinal detachment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Developmental Wnt Signalling Disruption\", \"target\": \"Congenital Heart Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted beta-catenin-dependent cardiac development produces outflow-tract, valve and septal anomalies.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Physical Therapy and Motor Rehabilitation\", \"target\": \"Spastic Diplegia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy and Motor Rehabilitation\", \"target\": \"Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Severe Speech Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Botulinum Toxin for Spasticity and Dystonia\", \"target\": \"Spastic Diplegia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Botulinum Toxin for Spasticity and Dystonia\", \"target\": \"Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological Surveillance and FEVR Treatment\", \"target\": \"Exudative Vitreoretinopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AAV9-Mediated CTNNB1 Gene Replacement (Investigational)\", \"target\": \"CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CTNNB1\", \"target\": \"CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6053,6 +6113,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6163,6 +6226,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6238,6 +6304,9 @@ This clinical feature is Exudative vitreoretinopathy (HP:0030490). HP:0030490 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6339,6 +6408,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6432,6 +6504,9 @@ This clinical feature is Abnormality of refraction (HP:0000539). HP:0000539 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6560,6 +6635,9 @@ This clinical feature is Secondary microcephaly (HP:0005484), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6681,6 +6759,9 @@ This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6772,6 +6853,9 @@ This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6884,6 +6968,9 @@ This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6986,6 +7073,9 @@ This clinical feature is Truncal hypotonia, annotated with Axial hypotonia (HP:0
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7105,6 +7195,9 @@ This clinical feature is Spastic diplegia (HP:0001264), qualified as course prog
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7201,6 +7294,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7267,6 +7363,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7347,6 +7446,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7443,6 +7545,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7571,6 +7676,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7687,6 +7795,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7813,6 +7924,9 @@ This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7879,6 +7993,9 @@ This clinical feature is Exaggerated startle response (HP:0002267). HP:0002267 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7977,6 +8094,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8103,6 +8223,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8169,6 +8292,9 @@ This clinical feature is Tethered cord (HP:0002144). HP:0002144 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8251,6 +8377,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8369,6 +8498,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5181,6 +5223,13 @@ This experiment is of type cross-species model validation study.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-respiratory-chain-subunit-defect" data-dismech-node="Mitochondrial Respiratory Chain Subunit Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Respiratory Chain Subunit Defect</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The proximal lesion is a defect in a structural subunit of the mitochondrial respiratory chain. Two arms are established. In the mitochondrial-DNA arm a heteroplasmic MT-CYB missense variant (m.15498G&gt;A, p.Gly251Asp) impairs ubiquinol-cytochrome c oxidoreductase (complex III). In the nuclear X-linked arm, de novo truncating variants in NDUFB11, an accessory subunit of complex I, abolish or reduce NDUFB11 protein and impair complex I assembly and activity. A minority of probands carry rare variants in other complex I components (NDUFAF2, NDUFB9), so the disease is genetically heterogeneous and remains unsolved in many historical cases.</div>
 
 
@@ -5502,6 +5551,13 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-phosphorylation-failure-in-cardiomyocytes" data-dismech-node="Oxidative Phosphorylation Failure in Cardiomyocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Phosphorylation Failure in Cardiomyocytes</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Respiratory-chain enzymology in histiocytoid cardiomyopathy hearts shows markedly decreased succinate-cytochrome c reductase and rotenone-sensitive NADH-cytochrome c reductase activity, i.e. a segmental block of electron transport at complex III (and, in the NDUFB11 arm, at complex I) with preserved cytochrome c oxidase. The resulting failure of oxidative ATP synthesis in a high-demand tissue is the energetic lesion that the downstream cellular phenotype is built on.</div>
 
 
@@ -5799,6 +5855,13 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oncocytic-transformation-of-purkinje-like-cardiomyocytes" data-dismech-node="Oncocytic Transformation of Purkinje-like Cardiomyocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Oncocytic Transformation of Purkinje-like Cardiomyocytes</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The cellular hallmark of the disease. Affected cells are enlarged, polygonal, and pale, with abundant faintly eosinophilic foamy granular cytoplasm, coarse granules and microvacuoles, few or no myofibrils, and poorly developed or absent intercellular junctions. Ultrastructurally they are filled with excessive and aberrantly shaped mitochondria plus scattered lipid droplets. They are not histiocytes: immunophenotype and distribution identify them as modified cardiomyocytes with Purkinje/conduction-cell features, which is why the WHO 5th edition renamed the lesion &#34;conduction system hamartoma&#34;.</div>
 
 
@@ -6027,6 +6090,13 @@ This pathophysiological event occurs in cardiac Purkinje fiber (UBERON:0002354).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hamartomatous-nodule-formation-in-the-conduction-system" data-dismech-node="Hamartomatous Nodule Formation in the Conduction System" data-dismech-type="pathophysiology">
                 <div class="item-name">Hamartomatous Nodule Formation in the Conduction System</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Transformed cells form multifocal, sharply demarcated clusters, sheets, or grossly visible yellow-tan nodules that are biased to the subendocardium, epicardium, and valves and cluster in the vicinity of the Purkinje fibres and nodal conduction tissue. This focal, conduction-system-weighted distribution - rather than uniform involvement of all cardiomyocytes - is the structural reason the disease is arrhythmogenic out of proportion to its contractile burden.</div>
 
 
@@ -6198,6 +6268,13 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arrhythmogenic-substrate-and-triggered-activity" data-dismech-node="Arrhythmogenic Substrate and Triggered Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrhythmogenic Substrate and Triggered Activity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The lesional cells behave as autonomous arrhythmogenic foci. Clinically this produces incessant ventricular tachycardia and short-coupled premature ventricular complexes that initiate torsade de pointes, typically refractory to standard antiarrhythmic drugs. Catheter mapping localises discrete triggering foci with recordable pre-potentials, and successful ablation or surgical excision of the foci can abolish the arrhythmia, directly implicating the lesions as the substrate. The response of otherwise-refractory arrhythmia to high-dose carvedilol has been proposed to implicate ryanodine-receptor store-overload-induced calcium release, but this rests on a single case.</div>
 
@@ -6466,6 +6543,13 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-circulatory-failure-and-sudden-cardiac-death" data-dismech-node="Circulatory Failure and Sudden Cardiac Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Circulatory Failure and Sudden Cardiac Death</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical endpoint. Untreated disease is fatal in the great majority, usually within the first two years of life, either as unheralded sudden death - frequently first diagnosed at autopsy and easily miscertified as sudden infant death syndrome - or as progressive heart failure from cardiomegaly, dilated/hypertrophic/noncompaction remodelling, and tachycardia-mediated dysfunction.</div>
 
@@ -6880,7 +6964,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arrhythmogenic Substrate and Triggered Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lesional cells behave as autonomous arrhythmogenic foci. Clinically this produces incessant ventricular tachycardia and short-coupled premature ventricular complexes that initiate torsade de pointes, typically refractory to standard antiarrhythmic drugs. Catheter mapping localises discrete triggering foci with recordable pre-potentials, and successful ablation or surgical excision of the foci can abolish the arrhythmia, directly implicating the lesions as the substrate. The response of otherwise-refractory arrhythmia to high-dose carvedilol has been proposed to implicate ryanodine-receptor store-overload-induced calcium release, but this rests on a single case.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje myocyte\"], \"biological_processes\": [\"Purkinje myocyte action potential\", \"cardiac muscle cell action potential\"], \"animal_models\": [{\"name\": \"ndufb11 morpholino knockdown Danio rerio\", \"species\": \"Danio rerio\", \"genotype\": \"ndufb11 morpholino knockdown\", \"category\": \"Morpholino knockdown\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Knockdown embryos develop cardiomegaly, looping defects and arrhythmia, so the model reaches the arrhythmic output of the chain from the same genetic lesion.\"}]}}, {\"id\": \"Cardiac Arrest\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aborted or fatal cardiac arrest secondary to ventricular tachyarrhythmia, reported both at home and in hospital, sometimes with survival and recurrent arrhythmia afterwards.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001695\"}}, {\"id\": \"Cardiomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlargement of the heart is part of the classical triad with incessant ventricular tachycardia and sudden death.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001640\"}}, {\"id\": \"Catheter Ablation of Arrhythmogenic Foci\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Radiofrequency catheter ablation of mapped premature-ventricular-complex or ventricular-tachycardia foci can abolish otherwise refractory arrhythmia, and has been performed successfully in an infant weighing 3.4 kg. Durability is limited by the multifocal nature of the disease: in the reported case the arrhythmia was abolished but the child died of heart failure at 6 months.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Circulatory Failure and Sudden Cardiac Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Untreated disease is fatal in the great majority, usually within the first two years of life, either as unheralded sudden death - frequently first diagnosed at autopsy and easily miscertified as sudden infant death syndrome - or as progressive heart failure from cardiomegaly, dilated/hypertrophic/noncompaction remodelling, and tachycardia-mediated dysfunction.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"heart\"]}}, {\"id\": \"Congestive Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive heart failure occurs both as tachycardia-mediated dysfunction and as a consequence of the underlying cardiomyopathy, and is a common proximate cause of death in children who survive the initial arrhythmic presentation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of children present with dilated cardiomyopathy morphology and systolic dysfunction rather than with isolated arrhythmia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Extracardiac Anomalies of the Nervous System and Eye\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A review of 53 patients noted a high prevalence of nervous-system and ocular anomalies and of oncocytic cells in various glands, indicating that histiocytoid cardiomyopathy is not always a heart-limited disease. The anomaly spectrum is heterogeneous and has never been systematically catalogued, so no specific HPO annotations beyond the broad organ-system term are asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000707\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain in early infancy, reported in the index biochemically characterised case.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Generalized Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscular hypotonia with biochemically documented skeletal-muscle respiratory-chain deficiency has been reported, providing extracardiac evidence that the mitochondrial defect is not confined to the heart. It is not a universal feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Hamartomatous Nodule Formation in the Conduction System\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transformed cells form multifocal, sharply demarcated clusters, sheets, or grossly visible yellow-tan nodules that are biased to the subendocardium, epicardium, and valves and cluster in the vicinity of the Purkinje fibres and nodal conduction tissue. This focal, conduction-system-weighted distribution - rather than uniform involvement of all cardiomyocytes - is the structural reason the disease is arrhythmogenic out of proportion to its contractile burden.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"endocardium\", \"myocardium\"]}}, {\"id\": \"Heart Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Orthotopic cardiac transplantation is the definitive option for extensive disease not amenable to lesion-directed treatment, and has been performed in registry cases with widespread myocardial involvement.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"High-Dose Carvedilol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In a 4-month-old girl with histiocytoid cardiomyopathy whose ventricular arrhythmias were refractory to bisoprolol, landiolol, verapamil, and cardiac sympathetic denervation, high-dose carvedilol achieved control. Carvedilol is distinctive among beta blockers in acting directly on the ryanodine receptor to inhibit store-overload-induced calcium release, which is the proposed basis of the response. This rests on a single case and should not be generalised.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"carvedilol\"]}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic, sometimes obstructive, cardiomyopathy is part of the NDUFB11 complex I disease spectrum that is allelic and mechanistically continuous with histiocytoid cardiomyopathy, and is included here for that reason rather than as a classical histiocytoid presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001639\"}}, {\"id\": \"Lactic Acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated blood lactate reflecting respiratory-chain failure. Documented in NDUFB11 complex I neonates; it is a mitochondrial-disease marker rather than a specific histiocytoid cardiomyopathy finding, and normal lactate does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003128\"}}, {\"id\": \"MT-CYB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"MT-CYB\"], \"gene_terms\": [{\"label\": \"MT-CYB\", \"id\": \"hgnc:7427\"}], \"presence\": \"reported in a single molecularly characterised patient\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Mechanical Circulatory Support (ECMO and Ventricular Assist Device)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Extracorporeal membrane oxygenation and biventricular assist device support have been used as rescue and bridge-to-transplant strategies for cardiogenic shock from incessant ventricular arrhythmia. In the reported BiVAD case an atrial rather than apical left inflow cannula was needed because preserved systolic function, noncompaction, and frequent rhythm changes caused mechanical inflow obstruction.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximal lesion is a defect in a structural subunit of the mitochondrial respiratory chain. Two arms are established. In the mitochondrial-DNA arm a heteroplasmic MT-CYB missense variant (m.15498G\u003eA, p.Gly251Asp) impairs ubiquinol-cytochrome c oxidoreductase (complex III). In the nuclear X-linked arm, de novo truncating variants in NDUFB11, an accessory subunit of complex I, abolish or reduce NDUFB11 protein and impair complex I assembly and activity. A minority of probands carry rare variants in other complex I components (NDUFAF2, NDUFB9), so the disease is genetically heterogeneous and remains unsolved in many historical cases.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"MT-CYB\", \"NDUFB11\"], \"gene_terms\": [{\"label\": \"MT-CYB\", \"id\": \"hgnc:7427\"}, {\"label\": \"NDUFB11\", \"id\": \"hgnc:20372\"}], \"animal_models\": [{\"name\": \"ndufb11 morpholino knockdown Danio rerio\", \"species\": \"Danio rerio\", \"genotype\": \"ndufb11 morpholino knockdown\", \"category\": \"Morpholino knockdown\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"The model creates the disease\u0027s initiating lesion directly, by knocking down the zebrafish orthologue of the complex I subunit implicated in patients.\"}]}}, {\"id\": \"NDUFB11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"NDUFB11\"], \"gene_terms\": [{\"label\": \"NDUFB11\", \"id\": \"hgnc:20372\"}], \"presence\": \"recurrent; the best-supported histiocytoid cardiomyopathy gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"Oncocytic Transformation of Purkinje-like Cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular hallmark of the disease. Affected cells are enlarged, polygonal, and pale, with abundant faintly eosinophilic foamy granular cytoplasm, coarse granules and microvacuoles, few or no myofibrils, and poorly developed or absent intercellular junctions. Ultrastructurally they are filled with excessive and aberrantly shaped mitochondria plus scattered lipid droplets. They are not histiocytes: immunophenotype and distribution identify them as modified cardiomyocytes with Purkinje/conduction-cell features, which is why the WHO 5th edition renamed the lesion \\\"conduction system hamartoma\\\".\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Purkinje myocyte\"], \"locations\": [\"cardiac Purkinje fiber\"], \"animal_models\": [{\"name\": \"naturally occurring, genotype unknown Felis catus\", \"species\": \"Felis catus\", \"genotype\": \"naturally occurring, genotype unknown\", \"category\": \"Naturally occurring veterinary case\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The feline lesion reproduces the cellular phenotype of this node - large, angular, tightly packed Purkinje fibres with few disorganised myofibrils in a rarefied cytoplasm - in a naturally occurring, non-engineered setting.\"}]}}, {\"id\": \"Oxidative Phosphorylation Failure in Cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Respiratory-chain enzymology in histiocytoid cardiomyopathy hearts shows markedly decreased succinate-cytochrome c reductase and rotenone-sensitive NADH-cytochrome c reductase activity, i.e. a segmental block of electron transport at complex III (and, in the NDUFB11 arm, at complex I) with preserved cytochrome c oxidase. The resulting failure of oxidative ATP synthesis in a high-demand tissue is the energetic lesion that the downstream cellular phenotype is built on.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"mitochondrial electron transport, ubiquinol to cytochrome c\", \"mitochondrial electron transport, NADH to ubiquinone\", \"mitochondrial ATP synthesis coupled electron transport\"], \"locations\": [\"myocardium\"]}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unheralded sudden death, often without prodrome and often as the first manifestation of the disease, typically before the age of two years. It is a recognised mimic of sudden infant death syndrome and of sudden unexplained death in childhood.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Supraventricular Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent supraventricular tachycardia mediated by an accessory pathway, reported alongside the pre-excitation phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004755\"}}, {\"id\": \"Surgical Excision of Histiocytoid Nodules\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where a discrete arrhythmogenic nodule can be localised, surgical excision can produce clinical remission. Together with ablation this is the main lesion-directed strategy documented in the histiocytoid cardiomyopathy registry cohort of early-diagnosed, treated survivors.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Torsade de Pointes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polymorphic ventricular tachycardia of the short-coupled torsade de pointes type, initiated by premature ventricular complexes arising from the abnormal Purkinje tissue and typically resistant to antiarrhythmic drugs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001664\"}}, {\"id\": \"Ventricular Pre-excitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wolff-Parkinson-White syndrome with supraventricular tachycardia has been reported as the presenting rhythm disturbance in histiocytoid cardiomyopathy, consistent with the conduction-system localisation of the lesions.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001716\"}}, {\"id\": \"Ventricular Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Incessant, drug-refractory ventricular tachycardia is the cardinal clinical manifestation and often the presenting event. Short-coupled premature ventricular complexes triggering torsade de pointes are a documented variant.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004756\"}}, {\"id\": \"naturally occurring, genotype unknown Felis catus\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A 2-month-old female Savannah kitten died suddenly with cardiac lesions described as identical to human histiocytoid cardiomyopathy - large, angular, tightly packed Purkinje fibres with few disorganised myofibrils in a rarified cytoplasm - together with biventricular noncompaction. This is a spontaneous comparative-pathology observation, not an engineered model, and no causal genotype was established.\"}, {\"id\": \"ndufb11 morpholino knockdown Danio rerio\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Morpholino-mediated knockdown of ndufb11 in zebrafish embryos produced defective cardiac tissue with cardiomegaly, looping defects, and arrhythmia. This is the only reported experimental model addressing the NDUFB11 arm of the disease. It reproduces cardiomegaly and arrhythmia but has not been shown to reproduce the defining histiocytoid/oncocytic cell morphology.\"}], \"edges\": [{\"source\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"target\": \"Oxidative Phosphorylation Failure in Cardiomyocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of a complex I or complex III subunit directly reduces electron transfer through the respiratory chain in cardiac mitochondria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"target\": \"Lactic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A respiratory-chain block shifts pyruvate to lactate systemically, giving the raised blood lactate documented in NDUFB11 complex I neonates. It is a mitochondrial-disease marker, and a normal lactate does not exclude the diagnosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"target\": \"Generalized Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The subunit defect is not confined to the heart: a case with hypotonia had an independently abnormal skeletal-muscle cytochrome c oxidase assay, so skeletal muscle carries the same respiratory-chain lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"target\": \"Extracardiac Anomalies of the Nervous System and Eye\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The nervous-system and ocular anomalies and the oncocytic cells reported in other glands follow from the same systemic respiratory-chain defect rather than from the cardiac lesion. The intervening steps have never been catalogued, so the edge is kept indirect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertrophic, sometimes obstructive, cardiomyopathy arises in the NDUFB11 complex I spectrum that is allelic with histiocytoid cardiomyopathy. The edge is drawn from the shared subunit defect, not from the histiocytoid lesion, because the reported hypertrophic probands were not pathology-proven histiocytoid cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oxidative Phosphorylation Failure in Cardiomyocytes\", \"target\": \"Oncocytic Transformation of Purkinje-like Cardiomyocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic energy failure is followed by compensatory mitochondrial proliferation, lipid microvacuolation, and loss of contractile apparatus in affected cells. The steps linking the bioenergetic defect to the focal, conduction-system-biased distribution of the transformed cells are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oxidative Phosphorylation Failure in Cardiomyocytes\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subset of children present with dilated cardiomyopathy morphology and systolic dysfunction rather than with isolated arrhythmia; this entry attributes that presentation to the bioenergetic failure rather than to the focal nodules.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic ATP deficit in working myocardium with loss of contractile apparatus, giving progressive systolic dysfunction and chamber dilation.\"]}, {\"source\": \"Oncocytic Transformation of Purkinje-like Cardiomyocytes\", \"target\": \"Hamartomatous Nodule Formation in the Conduction System\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transformed cells accumulate as multifocal, sharply demarcated clusters and nodules rather than diffusely, which is what distinguishes histiocytoid cardiomyopathy from a generalised mitochondrial cardiomyopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hamartomatous Nodule Formation in the Conduction System\", \"target\": \"Arrhythmogenic Substrate and Triggered Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nests of electrically abnormal, poorly coupled Purkinje-like cells within and adjacent to the conduction system generate ectopic impulses and triggered activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hamartomatous Nodule Formation in the Conduction System\", \"target\": \"Ventricular Pre-excitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lesional tissue sited in and around the nodal and Purkinje conduction system can provide an accessory conduction route, which is the entry\u0027s stated reason for curating Wolff-Parkinson-White pre-excitation as a presenting rhythm in this disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrhythmogenic Substrate and Triggered Activity\", \"target\": \"Circulatory Failure and Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incessant ventricular tachyarrhythmia degenerates into torsade de pointes, ventricular fibrillation, cardiac arrest, or tachycardia-related cardiogenic shock.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrhythmogenic Substrate and Triggered Activity\", \"target\": \"Ventricular Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomous ectopic foci in the lesional Purkinje-like tissue drive the incessant, drug-refractory ventricular tachycardia that is the cardinal manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrhythmogenic Substrate and Triggered Activity\", \"target\": \"Torsade de Pointes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Short-coupled premature ventricular complexes arising from the same abnormal Purkinje tissue initiate polymorphic ventricular tachycardia of torsade type.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circulatory Failure and Sudden Cardiac Death\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unheralded arrhythmic death, frequently the first manifestation and usually certified at autopsy, is one of the two fatal outcomes this node covers.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circulatory Failure and Sudden Cardiac Death\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The competing fatal endpoint: progressive pump failure from tachycardia-mediated dysfunction and the underlying cardiomyopathy in children who survive the initial arrhythmic presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circulatory Failure and Sudden Cardiac Death\", \"target\": \"Cardiomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chamber enlargement accompanies the failing circulation and completes the classical triad with incessant ventricular tachycardia and sudden death, though the entry records a contemporary series in which heart weight was normal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ventricular Tachycardia\", \"target\": \"Cardiac Arrest\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Degeneration of the incessant tachyarrhythmia into ventricular fibrillation or asystole produces the aborted or fatal arrests reported both at home and in hospital.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Congestive Heart Failure\", \"target\": \"Failure to Thrive\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Poor weight gain in early infancy follows the raised metabolic demand and feeding difficulty of an infant in heart failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ventricular Pre-excitation\", \"target\": \"Supraventricular Tachycardia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The accessory pathway responsible for pre-excitation completes a reentrant circuit, giving the recurrent supraventricular tachycardia reported alongside it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"High-Dose Carvedilol\", \"target\": \"Arrhythmogenic Substrate and Triggered Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Catheter Ablation of Arrhythmogenic Foci\", \"target\": \"Arrhythmogenic Substrate and Triggered Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Excision of Histiocytoid Nodules\", \"target\": \"Hamartomatous Nodule Formation in the Conduction System\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mechanical Circulatory Support (ECMO and Ventricular Assist Device)\", \"target\": \"Circulatory Failure and Sudden Cardiac Death\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Heart Transplantation\", \"target\": \"Hamartomatous Nodule Formation in the Conduction System\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Heart Transplantation\", \"target\": \"Circulatory Failure and Sudden Cardiac Death\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ndufb11 morpholino knockdown Danio rerio\", \"target\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"The model creates the disease\u0027s initiating lesion directly, by knocking down the zebrafish orthologue of the complex I subunit implicated in patients.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"Transient morpholino knockdown of the orthologue is not the human de novo point mutation, and the knockdown is not restricted to cardiac tissue.\"}, {\"source\": \"ndufb11 morpholino knockdown Danio rerio\", \"target\": \"Arrhythmogenic Substrate and Triggered Activity\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Knockdown embryos develop cardiomegaly, looping defects and arrhythmia, so the model reaches the arrhythmic output of the chain from the same genetic lesion.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"It has not been shown to reproduce the defining histiocytoid/oncocytic cell morphology or the focal conduction-system distribution of the lesions, and embryonic zebrafish arrhythmia is not equivalent to incessant infantile ventricular tachycardia.\"}, {\"source\": \"naturally occurring, genotype unknown Felis catus\", \"target\": \"Oncocytic Transformation of Purkinje-like Cardiomyocytes\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The feline lesion reproduces the cellular phenotype of this node - large, angular, tightly packed Purkinje fibres with few disorganised myofibrils in a rarefied cytoplasm - in a naturally occurring, non-engineered setting.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A single spontaneous veterinary case with no causal genotype established, so it supports the cellular lesion without connecting it to the human respiratory-chain genetics; it also carried biventricular noncompaction, which is not obligate in the human disease.\"}, {\"source\": \"MT-CYB\", \"target\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NDUFB11\", \"target\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arrhythmogenic Substrate and Triggered Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lesional cells behave as autonomous arrhythmogenic foci. Clinically this produces incessant ventricular tachycardia and short-coupled premature ventricular complexes that initiate torsade de pointes, typically refractory to standard antiarrhythmic drugs. Catheter mapping localises discrete triggering foci with recordable pre-potentials, and successful ablation or surgical excision of the foci can abolish the arrhythmia, directly implicating the lesions as the substrate. The response of otherwise-refractory arrhythmia to high-dose carvedilol has been proposed to implicate ryanodine-receptor store-overload-induced calcium release, but this rests on a single case.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje myocyte\"], \"biological_processes\": [\"Purkinje myocyte action potential\", \"cardiac muscle cell action potential\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"ndufb11 morpholino knockdown Danio rerio\", \"species\": \"Danio rerio\", \"genotype\": \"ndufb11 morpholino knockdown\", \"category\": \"Morpholino knockdown\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Knockdown embryos develop cardiomegaly, looping defects and arrhythmia, so the model reaches the arrhythmic output of the chain from the same genetic lesion.\"}]}}, {\"id\": \"Cardiac Arrest\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aborted or fatal cardiac arrest secondary to ventricular tachyarrhythmia, reported both at home and in hospital, sometimes with survival and recurrent arrhythmia afterwards.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001695\"}}, {\"id\": \"Cardiomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlargement of the heart is part of the classical triad with incessant ventricular tachycardia and sudden death.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001640\"}}, {\"id\": \"Catheter Ablation of Arrhythmogenic Foci\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Radiofrequency catheter ablation of mapped premature-ventricular-complex or ventricular-tachycardia foci can abolish otherwise refractory arrhythmia, and has been performed successfully in an infant weighing 3.4 kg. Durability is limited by the multifocal nature of the disease: in the reported case the arrhythmia was abolished but the child died of heart failure at 6 months.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Circulatory Failure and Sudden Cardiac Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Untreated disease is fatal in the great majority, usually within the first two years of life, either as unheralded sudden death - frequently first diagnosed at autopsy and easily miscertified as sudden infant death syndrome - or as progressive heart failure from cardiomegaly, dilated/hypertrophic/noncompaction remodelling, and tachycardia-mediated dysfunction.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"heart\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Congestive Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive heart failure occurs both as tachycardia-mediated dysfunction and as a consequence of the underlying cardiomyopathy, and is a common proximate cause of death in children who survive the initial arrhythmic presentation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of children present with dilated cardiomyopathy morphology and systolic dysfunction rather than with isolated arrhythmia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Extracardiac Anomalies of the Nervous System and Eye\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A review of 53 patients noted a high prevalence of nervous-system and ocular anomalies and of oncocytic cells in various glands, indicating that histiocytoid cardiomyopathy is not always a heart-limited disease. The anomaly spectrum is heterogeneous and has never been systematically catalogued, so no specific HPO annotations beyond the broad organ-system term are asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000707\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain in early infancy, reported in the index biochemically characterised case.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Generalized Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscular hypotonia with biochemically documented skeletal-muscle respiratory-chain deficiency has been reported, providing extracardiac evidence that the mitochondrial defect is not confined to the heart. It is not a universal feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Hamartomatous Nodule Formation in the Conduction System\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transformed cells form multifocal, sharply demarcated clusters, sheets, or grossly visible yellow-tan nodules that are biased to the subendocardium, epicardium, and valves and cluster in the vicinity of the Purkinje fibres and nodal conduction tissue. This focal, conduction-system-weighted distribution - rather than uniform involvement of all cardiomyocytes - is the structural reason the disease is arrhythmogenic out of proportion to its contractile burden.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"endocardium\", \"myocardium\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Heart Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Orthotopic cardiac transplantation is the definitive option for extensive disease not amenable to lesion-directed treatment, and has been performed in registry cases with widespread myocardial involvement.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"High-Dose Carvedilol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In a 4-month-old girl with histiocytoid cardiomyopathy whose ventricular arrhythmias were refractory to bisoprolol, landiolol, verapamil, and cardiac sympathetic denervation, high-dose carvedilol achieved control. Carvedilol is distinctive among beta blockers in acting directly on the ryanodine receptor to inhibit store-overload-induced calcium release, which is the proposed basis of the response. This rests on a single case and should not be generalised.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"carvedilol\"]}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic, sometimes obstructive, cardiomyopathy is part of the NDUFB11 complex I disease spectrum that is allelic and mechanistically continuous with histiocytoid cardiomyopathy, and is included here for that reason rather than as a classical histiocytoid presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001639\"}}, {\"id\": \"Lactic Acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated blood lactate reflecting respiratory-chain failure. Documented in NDUFB11 complex I neonates; it is a mitochondrial-disease marker rather than a specific histiocytoid cardiomyopathy finding, and normal lactate does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003128\"}}, {\"id\": \"MT-CYB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"MT-CYB\"], \"gene_terms\": [{\"label\": \"MT-CYB\", \"id\": \"hgnc:7427\"}], \"presence\": \"reported in a single molecularly characterised patient\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Mechanical Circulatory Support (ECMO and Ventricular Assist Device)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Extracorporeal membrane oxygenation and biventricular assist device support have been used as rescue and bridge-to-transplant strategies for cardiogenic shock from incessant ventricular arrhythmia. In the reported BiVAD case an atrial rather than apical left inflow cannula was needed because preserved systolic function, noncompaction, and frequent rhythm changes caused mechanical inflow obstruction.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximal lesion is a defect in a structural subunit of the mitochondrial respiratory chain. Two arms are established. In the mitochondrial-DNA arm a heteroplasmic MT-CYB missense variant (m.15498G\u003eA, p.Gly251Asp) impairs ubiquinol-cytochrome c oxidoreductase (complex III). In the nuclear X-linked arm, de novo truncating variants in NDUFB11, an accessory subunit of complex I, abolish or reduce NDUFB11 protein and impair complex I assembly and activity. A minority of probands carry rare variants in other complex I components (NDUFAF2, NDUFB9), so the disease is genetically heterogeneous and remains unsolved in many historical cases.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"MT-CYB\", \"NDUFB11\"], \"gene_terms\": [{\"label\": \"MT-CYB\", \"id\": \"hgnc:7427\"}, {\"label\": \"NDUFB11\", \"id\": \"hgnc:20372\"}], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"ndufb11 morpholino knockdown Danio rerio\", \"species\": \"Danio rerio\", \"genotype\": \"ndufb11 morpholino knockdown\", \"category\": \"Morpholino knockdown\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"The model creates the disease\u0027s initiating lesion directly, by knocking down the zebrafish orthologue of the complex I subunit implicated in patients.\"}]}}, {\"id\": \"NDUFB11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"NDUFB11\"], \"gene_terms\": [{\"label\": \"NDUFB11\", \"id\": \"hgnc:20372\"}], \"presence\": \"recurrent; the best-supported histiocytoid cardiomyopathy gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"Oncocytic Transformation of Purkinje-like Cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular hallmark of the disease. Affected cells are enlarged, polygonal, and pale, with abundant faintly eosinophilic foamy granular cytoplasm, coarse granules and microvacuoles, few or no myofibrils, and poorly developed or absent intercellular junctions. Ultrastructurally they are filled with excessive and aberrantly shaped mitochondria plus scattered lipid droplets. They are not histiocytes: immunophenotype and distribution identify them as modified cardiomyocytes with Purkinje/conduction-cell features, which is why the WHO 5th edition renamed the lesion \\\"conduction system hamartoma\\\".\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Purkinje myocyte\"], \"locations\": [\"cardiac Purkinje fiber\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"naturally occurring, genotype unknown Felis catus\", \"species\": \"Felis catus\", \"genotype\": \"naturally occurring, genotype unknown\", \"category\": \"Naturally occurring veterinary case\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The feline lesion reproduces the cellular phenotype of this node - large, angular, tightly packed Purkinje fibres with few disorganised myofibrils in a rarefied cytoplasm - in a naturally occurring, non-engineered setting.\"}]}}, {\"id\": \"Oxidative Phosphorylation Failure in Cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Respiratory-chain enzymology in histiocytoid cardiomyopathy hearts shows markedly decreased succinate-cytochrome c reductase and rotenone-sensitive NADH-cytochrome c reductase activity, i.e. a segmental block of electron transport at complex III (and, in the NDUFB11 arm, at complex I) with preserved cytochrome c oxidase. The resulting failure of oxidative ATP synthesis in a high-demand tissue is the energetic lesion that the downstream cellular phenotype is built on.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"mitochondrial electron transport, ubiquinol to cytochrome c\", \"mitochondrial electron transport, NADH to ubiquinone\", \"mitochondrial ATP synthesis coupled electron transport\"], \"locations\": [\"myocardium\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unheralded sudden death, often without prodrome and often as the first manifestation of the disease, typically before the age of two years. It is a recognised mimic of sudden infant death syndrome and of sudden unexplained death in childhood.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Supraventricular Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent supraventricular tachycardia mediated by an accessory pathway, reported alongside the pre-excitation phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004755\"}}, {\"id\": \"Surgical Excision of Histiocytoid Nodules\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where a discrete arrhythmogenic nodule can be localised, surgical excision can produce clinical remission. Together with ablation this is the main lesion-directed strategy documented in the histiocytoid cardiomyopathy registry cohort of early-diagnosed, treated survivors.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Torsade de Pointes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polymorphic ventricular tachycardia of the short-coupled torsade de pointes type, initiated by premature ventricular complexes arising from the abnormal Purkinje tissue and typically resistant to antiarrhythmic drugs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001664\"}}, {\"id\": \"Ventricular Pre-excitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wolff-Parkinson-White syndrome with supraventricular tachycardia has been reported as the presenting rhythm disturbance in histiocytoid cardiomyopathy, consistent with the conduction-system localisation of the lesions.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001716\"}}, {\"id\": \"Ventricular Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Incessant, drug-refractory ventricular tachycardia is the cardinal clinical manifestation and often the presenting event. Short-coupled premature ventricular complexes triggering torsade de pointes are a documented variant.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004756\"}}, {\"id\": \"naturally occurring, genotype unknown Felis catus\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A 2-month-old female Savannah kitten died suddenly with cardiac lesions described as identical to human histiocytoid cardiomyopathy - large, angular, tightly packed Purkinje fibres with few disorganised myofibrils in a rarified cytoplasm - together with biventricular noncompaction. This is a spontaneous comparative-pathology observation, not an engineered model, and no causal genotype was established.\"}, {\"id\": \"ndufb11 morpholino knockdown Danio rerio\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Morpholino-mediated knockdown of ndufb11 in zebrafish embryos produced defective cardiac tissue with cardiomegaly, looping defects, and arrhythmia. This is the only reported experimental model addressing the NDUFB11 arm of the disease. It reproduces cardiomegaly and arrhythmia but has not been shown to reproduce the defining histiocytoid/oncocytic cell morphology.\"}], \"edges\": [{\"source\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"target\": \"Oxidative Phosphorylation Failure in Cardiomyocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of a complex I or complex III subunit directly reduces electron transfer through the respiratory chain in cardiac mitochondria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"target\": \"Lactic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A respiratory-chain block shifts pyruvate to lactate systemically, giving the raised blood lactate documented in NDUFB11 complex I neonates. It is a mitochondrial-disease marker, and a normal lactate does not exclude the diagnosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"target\": \"Generalized Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The subunit defect is not confined to the heart: a case with hypotonia had an independently abnormal skeletal-muscle cytochrome c oxidase assay, so skeletal muscle carries the same respiratory-chain lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"target\": \"Extracardiac Anomalies of the Nervous System and Eye\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The nervous-system and ocular anomalies and the oncocytic cells reported in other glands follow from the same systemic respiratory-chain defect rather than from the cardiac lesion. The intervening steps have never been catalogued, so the edge is kept indirect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertrophic, sometimes obstructive, cardiomyopathy arises in the NDUFB11 complex I spectrum that is allelic with histiocytoid cardiomyopathy. The edge is drawn from the shared subunit defect, not from the histiocytoid lesion, because the reported hypertrophic probands were not pathology-proven histiocytoid cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oxidative Phosphorylation Failure in Cardiomyocytes\", \"target\": \"Oncocytic Transformation of Purkinje-like Cardiomyocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic energy failure is followed by compensatory mitochondrial proliferation, lipid microvacuolation, and loss of contractile apparatus in affected cells. The steps linking the bioenergetic defect to the focal, conduction-system-biased distribution of the transformed cells are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oxidative Phosphorylation Failure in Cardiomyocytes\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subset of children present with dilated cardiomyopathy morphology and systolic dysfunction rather than with isolated arrhythmia; this entry attributes that presentation to the bioenergetic failure rather than to the focal nodules.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic ATP deficit in working myocardium with loss of contractile apparatus, giving progressive systolic dysfunction and chamber dilation.\"]}, {\"source\": \"Oncocytic Transformation of Purkinje-like Cardiomyocytes\", \"target\": \"Hamartomatous Nodule Formation in the Conduction System\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transformed cells accumulate as multifocal, sharply demarcated clusters and nodules rather than diffusely, which is what distinguishes histiocytoid cardiomyopathy from a generalised mitochondrial cardiomyopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hamartomatous Nodule Formation in the Conduction System\", \"target\": \"Arrhythmogenic Substrate and Triggered Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nests of electrically abnormal, poorly coupled Purkinje-like cells within and adjacent to the conduction system generate ectopic impulses and triggered activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hamartomatous Nodule Formation in the Conduction System\", \"target\": \"Ventricular Pre-excitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lesional tissue sited in and around the nodal and Purkinje conduction system can provide an accessory conduction route, which is the entry\u0027s stated reason for curating Wolff-Parkinson-White pre-excitation as a presenting rhythm in this disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrhythmogenic Substrate and Triggered Activity\", \"target\": \"Circulatory Failure and Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incessant ventricular tachyarrhythmia degenerates into torsade de pointes, ventricular fibrillation, cardiac arrest, or tachycardia-related cardiogenic shock.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrhythmogenic Substrate and Triggered Activity\", \"target\": \"Ventricular Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomous ectopic foci in the lesional Purkinje-like tissue drive the incessant, drug-refractory ventricular tachycardia that is the cardinal manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrhythmogenic Substrate and Triggered Activity\", \"target\": \"Torsade de Pointes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Short-coupled premature ventricular complexes arising from the same abnormal Purkinje tissue initiate polymorphic ventricular tachycardia of torsade type.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circulatory Failure and Sudden Cardiac Death\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unheralded arrhythmic death, frequently the first manifestation and usually certified at autopsy, is one of the two fatal outcomes this node covers.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circulatory Failure and Sudden Cardiac Death\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The competing fatal endpoint: progressive pump failure from tachycardia-mediated dysfunction and the underlying cardiomyopathy in children who survive the initial arrhythmic presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circulatory Failure and Sudden Cardiac Death\", \"target\": \"Cardiomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chamber enlargement accompanies the failing circulation and completes the classical triad with incessant ventricular tachycardia and sudden death, though the entry records a contemporary series in which heart weight was normal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ventricular Tachycardia\", \"target\": \"Cardiac Arrest\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Degeneration of the incessant tachyarrhythmia into ventricular fibrillation or asystole produces the aborted or fatal arrests reported both at home and in hospital.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Congestive Heart Failure\", \"target\": \"Failure to Thrive\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Poor weight gain in early infancy follows the raised metabolic demand and feeding difficulty of an infant in heart failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ventricular Pre-excitation\", \"target\": \"Supraventricular Tachycardia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The accessory pathway responsible for pre-excitation completes a reentrant circuit, giving the recurrent supraventricular tachycardia reported alongside it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"High-Dose Carvedilol\", \"target\": \"Arrhythmogenic Substrate and Triggered Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Catheter Ablation of Arrhythmogenic Foci\", \"target\": \"Arrhythmogenic Substrate and Triggered Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Excision of Histiocytoid Nodules\", \"target\": \"Hamartomatous Nodule Formation in the Conduction System\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mechanical Circulatory Support (ECMO and Ventricular Assist Device)\", \"target\": \"Circulatory Failure and Sudden Cardiac Death\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Heart Transplantation\", \"target\": \"Hamartomatous Nodule Formation in the Conduction System\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Heart Transplantation\", \"target\": \"Circulatory Failure and Sudden Cardiac Death\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ndufb11 morpholino knockdown Danio rerio\", \"target\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"The model creates the disease\u0027s initiating lesion directly, by knocking down the zebrafish orthologue of the complex I subunit implicated in patients.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"Transient morpholino knockdown of the orthologue is not the human de novo point mutation, and the knockdown is not restricted to cardiac tissue.\"}, {\"source\": \"ndufb11 morpholino knockdown Danio rerio\", \"target\": \"Arrhythmogenic Substrate and Triggered Activity\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Knockdown embryos develop cardiomegaly, looping defects and arrhythmia, so the model reaches the arrhythmic output of the chain from the same genetic lesion.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"It has not been shown to reproduce the defining histiocytoid/oncocytic cell morphology or the focal conduction-system distribution of the lesions, and embryonic zebrafish arrhythmia is not equivalent to incessant infantile ventricular tachycardia.\"}, {\"source\": \"naturally occurring, genotype unknown Felis catus\", \"target\": \"Oncocytic Transformation of Purkinje-like Cardiomyocytes\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The feline lesion reproduces the cellular phenotype of this node - large, angular, tightly packed Purkinje fibres with few disorganised myofibrils in a rarefied cytoplasm - in a naturally occurring, non-engineered setting.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A single spontaneous veterinary case with no causal genotype established, so it supports the cellular lesion without connecting it to the human respiratory-chain genetics; it also carried biventricular noncompaction, which is not obligate in the human disease.\"}, {\"source\": \"MT-CYB\", \"target\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NDUFB11\", \"target\": \"Mitochondrial Respiratory Chain Subunit Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6963,6 +7047,9 @@ This clinical feature is Ventricular tachycardia (HP:0004756), qualified as temp
 
 
                     </div>
+
+
+
 
 
 
@@ -7064,6 +7151,9 @@ This clinical feature is Cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7188,6 +7278,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7277,6 +7370,9 @@ This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7394,6 +7490,9 @@ This clinical feature is Torsade de pointes (HP:0001664), qualified as temporali
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7458,6 +7557,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7554,6 +7656,9 @@ This clinical feature is Left ventricular noncompaction, annotated with Left ven
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7669,6 +7774,9 @@ This clinical feature is Congestive heart failure (HP:0001635), qualified as cou
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7772,6 +7880,9 @@ This clinical feature is Wolff-Parkinson-White syndrome (HP:0001716). HP:0001716
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7868,6 +7979,9 @@ This clinical feature is Supraventricular tachycardia (HP:0004755), qualified as
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7932,6 +8046,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8010,6 +8127,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8118,6 +8238,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8198,6 +8321,9 @@ This clinical feature is Abnormality of the nervous system (HP:0000707). HP:0000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8271,6 +8397,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8387,6 +8516,9 @@ This disease-associated gene is MT-CYB (hgnc:7427). hgnc:7427 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8511,6 +8643,9 @@ This disease-associated gene is NDUFB11 (hgnc:20372). hgnc:20372 is a gene from 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 
@@ -8641,6 +8776,9 @@ This disease-associated gene is NDUFAF2 (hgnc:28086). hgnc:28086 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8711,6 +8849,9 @@ This disease-associated gene is NDUFB9 (hgnc:7704). hgnc:7704 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8787,6 +8928,9 @@ This disease-associated gene is HCCS (hgnc:4837). hgnc:4837 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8855,6 +8999,9 @@ This disease-associated gene is COX7B (hgnc:2291). hgnc:2291 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

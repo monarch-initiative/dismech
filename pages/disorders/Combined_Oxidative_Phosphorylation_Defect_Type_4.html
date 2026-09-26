@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4322,6 +4364,7 @@ No reported COXPD4 patient has been described with an infection phenotype or an 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-tufm-loss-of-function" data-dismech-node="Biallelic TUFM Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic TUFM Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic missense variants in TUFM reduce the function of mitochondrial elongation factor Tu. EF-Tu is a GTPase whose job is to bind charged aminoacyl-tRNAs and escort them to the mitochondrial ribosome, so a hypomorphic EF-Tu limits the rate at which the ribosome can be supplied with substrate. The pathogenicity of the alleles was established experimentally by functional complementation rather than inferred from conservation alone.</div>
 
 
@@ -4380,6 +4423,8 @@ This genetic context concerns TUFM (hgnc:12420). hgnc:12420 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4390,6 +4435,9 @@ This genetic context concerns TUFM (hgnc:12420). hgnc:12420 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous or compound heterozygous germline missense variants, including the recurrent p.Arg339Gln founder allele and the p.His115Pro allele of the cardiomyopathy-predominant patient.</div>
 
@@ -4580,6 +4628,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-elongation-of-mitochondrial-translation" data-dismech-node="Impaired Elongation of Mitochondrial Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Elongation of Mitochondrial Translation</div>
+
 
                 <div class="item-desc">Mitochondria run a translation apparatus of their own, separate from the cytosolic one, dedicated to the thirteen proteins encoded by mitochondrial DNA. EF-Tu is a shared component of that apparatus, not a subunit-specific factor, so limiting it throttles synthesis of all thirteen products simultaneously rather than any one of them selectively.</div>
 
@@ -4795,6 +4844,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-respiratory-chain-complex-deficiency" data-dismech-node="Combined Respiratory Chain Complex Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Respiratory Chain Complex Deficiency</div>
 
+
                 <div class="item-desc">Complexes I, III, IV and V each contain at least one mtDNA-encoded subunit and cannot be assembled in normal amounts when mitochondrial translation is limiting. Complex II contains none and is spared. That pattern - several complexes down together with complex II normal - is the diagnostic signature that distinguishes a translation defect from a lesion in an individual complex, and it is what the &#34;combined&#34; in the disease name denotes.</div>
 
 
@@ -4995,6 +5045,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cellular-energy-failure" data-dismech-node="Cellular Energy Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cellular Energy Failure</div>
 
+
                 <div class="item-desc">With four of the five respiratory complexes under-assembled, cells cannot meet their ATP demand by oxidative phosphorylation and fall back on glycolysis. Tissues differ in how much slack they have, which is why the organs that fail are the ones with the highest and least flexible oxidative demand.</div>
 
 
@@ -5125,6 +5176,7 @@ This pathophysiological event involves decreased aerobic respiration (GO:0009060
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lactate-accumulation" data-dismech-node="Lactate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lactate Accumulation</div>
 
+
                 <div class="item-desc">Lactate produced by glycolytic compensation accumulates in blood and cerebrospinal fluid, producing the severe, early-onset and persistent lactic acidosis that is the most consistent laboratory finding in this disease and the one feature present across every reported phenotypic variant.</div>
 
 
@@ -5200,6 +5252,7 @@ This pathophysiological event involves decreased aerobic respiration (GO:0009060
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-infantile-encephalopathy" data-dismech-node="Progressive Infantile Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Infantile Encephalopathy</div>
+
 
                 <div class="item-desc">The dominant clinical picture in the classical presentation: rapidly progressive, frequently fatal encephalopathy from the neonatal or early infantile period, with microcephaly. Neuroimaging in the index EF-Tu patient showed severe infantile macrocystic leukodystrophy with micropolygyria, and MONDO&#39;s description of the disease likewise records polymicrogyria with white-matter abnormality - a malformation of cortical development alongside the destructive white-matter change, indicating that the energy deficit acts during brain formation and not only after it.</div>
 
@@ -5324,6 +5377,7 @@ This pathophysiological event involves decreased aerobic respiration (GO:0009060
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyopathy" data-dismech-node="Cardiomyopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyopathy</div>
 
+
                 <div class="item-desc">Cardiac involvement has been the presenting and dominant problem in two patients, and it took a different form in each: a dilated cardiomyopathy in an infant with lactic acidosis but no progressive encephalopathy, and a hypertrophic cardiomyopathy in the only reported adult. TUFM therefore belongs in the differential for metabolic cardiomyopathy of either morphology, and these two cases are the clearest evidence that the disease is not obligately neurological. Nothing explains why the morphology differs.</div>
 
 
@@ -5428,7 +5482,7 @@ This pathophysiological event involves decreased aerobic respiration (GO:0009060
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic TUFM Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic missense variants in TUFM reduce the function of mitochondrial elongation factor Tu. EF-Tu is a GTPase whose job is to bind charged aminoacyl-tRNAs and escort them to the mitochondrial ribosome, so a hypomorphic EF-Tu limits the rate at which the ribosome can be supplied with substrate. The pathogenicity of the alleles was established experimentally by functional complementation rather than inferred from conservation alone.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"translation elongation factor activity\", \"GTPase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous or compound heterozygous germline missense variants, including the recurrent p.Arg339Gln founder allele and the p.His115Pro allele of the cardiomyopathy-predominant patient.\", \"gene_terms\": [{\"label\": \"TUFM\", \"id\": \"hgnc:12420\"}]}, \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac involvement has been the presenting and dominant problem in two patients, and it took a different form in each: a dilated cardiomyopathy in an infant with lactic acidosis but no progressive encephalopathy, and a hypertrophic cardiomyopathy in the only reported adult. TUFM therefore belongs in the differential for metabolic cardiomyopathy of either morphology, and these two cases are the clearest evidence that the disease is not obligately neurological. Nothing explains why the morphology differs.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cellular Energy Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With four of the five respiratory complexes under-assembled, cells cannot meet their ATP demand by oxidative phosphorylation and fall back on glycolysis. Tissues differ in how much slack they have, which is why the organs that fail are the ones with the highest and least flexible oxidative demand.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"aerobic respiration\"]}}, {\"id\": \"Combined Respiratory Chain Complex Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complexes I, III, IV and V each contain at least one mtDNA-encoded subunit and cannot be assembled in normal amounts when mitochondrial translation is limiting. Complex II contains none and is spared. That pattern - several complexes down together with complex II normal - is the diagnostic signature that distinguishes a translation defect from a lesion in an individual complex, and it is what the \\\"combined\\\" in the disease name denotes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial respiratory chain complex assembly\", \"oxidative phosphorylation\"], \"locations\": [\"mitochondrion\"], \"animal_models\": [{\"name\": \"Zebrafish tufm-null mutant\", \"species\": \"Zebrafish\", \"genotype\": \"tufm-/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mutant shows dysfunctional mitochondria with oxidative phosphorylation defects, the cellular consequence this node records.\"}, {\"name\": \"Zebrafish tufm-null mutant\", \"species\": \"Zebrafish\", \"genotype\": \"tufm-/-\", \"relationship\": \"RESCUES\", \"fidelity\": \"LOW\", \"description\": \"The same study screened for interventions and put forward probucol as a candidate for managing COXPD4. This is the only therapeutic lead reported for the disease, and it is entirely preclinical.\"}]}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presenting problem in one reported patient, occurring with lactic acidosis but without progressive encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive and frequently fatal infantile encephalopathy in the classical presentation; milder in the later-reported phenotypic variants.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in an adult proband, alongside chronic kidney failure, as a presentation not previously described in this condition. Note this is a different cardiac phenotype from the dilated cardiomyopathy of the infantile-onset patient, so TUFM is associated with both.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Impaired Elongation of Mitochondrial Translation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondria run a translation apparatus of their own, separate from the cytosolic one, dedicated to the thirteen proteins encoded by mitochondrial DNA. EF-Tu is a shared component of that apparatus, not a subunit-specific factor, so limiting it throttles synthesis of all thirteen products simultaneously rather than any one of them selectively.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial translational elongation\", \"mitochondrial translation\"], \"locations\": [\"mitochondrion\"], \"animal_models\": [{\"name\": \"Zebrafish tufm-null mutant\", \"species\": \"Zebrafish\", \"genotype\": \"tufm-/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mutant shows compromised mitochondrial protein translation, which is the step EF-Tu performs, measured directly rather than inferred.\"}]}}, {\"id\": \"Lactate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lactate produced by glycolytic compensation accumulates in blood and cerebrospinal fluid, producing the severe, early-onset and persistent lactic acidosis that is the most consistent laboratory finding in this disease and the one feature present across every reported phenotypic variant.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, early-onset and persistent lactic acidosis, the most consistent laboratory abnormality and present in every reported presentation of the disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe macrocystic white-matter disease in the index patient; white-matter abnormality is part of the neuroimaging description of the condition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002352\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported as a characteristic feature of the condition and present in the most recently described patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Polymicrogyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A malformation of cortical development reported in the index EF-Tu patient and recorded in MONDO\u0027s description of the disease. Its presence indicates that the energy deficit affects brain formation, not only post-natal maintenance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002126\"}}, {\"id\": \"Progressive Infantile Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dominant clinical picture in the classical presentation: rapidly progressive, frequently fatal encephalopathy from the neonatal or early infantile period, with microcephaly. Neuroimaging in the index EF-Tu patient showed severe infantile macrocystic leukodystrophy with micropolygyria, and MONDO\u0027s description of the disease likewise records polymicrogyria with white-matter abnormality - a malformation of cortical development alongside the destructive white-matter change, indicating that the energy deficit acts during brain formation and not only after it.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TUFM\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TUFM\"], \"gene_terms\": [{\"label\": \"TUFM\", \"id\": \"hgnc:12420\"}], \"association\": \"TUFM encodes mitochondrial elongation factor Tu, a GTPase that binds charged aminoacyl-tRNAs and delivers them to the A site of the mitochondrial ribosome. It is one of three nuclear-encoded elongation factors of the mitochondrial translation apparatus, alongside TSFM (EF-Ts) and GFM1 (EF-G1); pathogenic variants in each cause a combined oxidative phosphorylation deficiency, and the three were among the first nuclear-gene causes of a mitochondrial translation defect to be identified. Reported TUFM alleles are missense, so residual elongation capacity is retained.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"TUFM c.1016G\u003eA (p.Arg339Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent allele reported in four separate publications, found in patients from Turkey and proposed as a founder mutation in that population.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"TUFM c.1025T\u003eG (p.Val342Gly)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous allele in the only reported adult patient, whose presentation was hypertrophic cardiomyopathy, chronic kidney failure and sensorineural hearing loss with little neurological involvement.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"TUFM c.344A\u003eC (p.His115Pro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in the patient who presented with dilated cardiomyopathy and lactic acidosis rather than progressive encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Zebrafish tufm-null mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A zebrafish tufm knockout generated specifically as a COXPD4 model. It reproduces the proximal half of the human mechanism directly - impaired mitochondrial protein translation and consequent oxidative phosphorylation defects - and adds a metabolic readout, suppression of the tricarboxylic acid cycle, that has not been measured in patients.\"}], \"edges\": [{\"source\": \"Biallelic TUFM Loss of Function\", \"target\": \"Impaired Elongation of Mitochondrial Translation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced EF-Tu activity limits delivery of charged aminoacyl-tRNAs to the mitochondrial ribosome, which is the elongation step itself.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Elongation of Mitochondrial Translation\", \"target\": \"Combined Respiratory Chain Complex Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The thirteen mtDNA-encoded subunits are distributed across complexes I, III, IV and V, so under-supplying all of them makes those four complexes fail together while complex II, built entirely from nuclear-encoded subunits, is spared.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Cellular Energy Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular Energy Failure\", \"target\": \"Lactate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycolytic compensation converts the accumulating pyruvate to lactate, which leaves the cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular Energy Failure\", \"target\": \"Progressive Infantile Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developing brain has a high and inflexible oxidative demand, which is why it is the organ most consistently and most severely affected.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular Energy Failure\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac muscle is likewise oxidative-dependent. The step itself is as direct as the encephalopathy branch; what is unexplained is why it dominates in some patients and is absent in others, which is recorded as an open question rather than as missing intermediate steps.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lactate Accumulation\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical and laboratory manifestation of the accumulated lactate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Infantile Encephalopathy\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical manifestation by which this node is recognised.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Infantile Encephalopathy\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Infantile Encephalopathy\", \"target\": \"Polymicrogyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A malformation of cortical development, so this edge asserts the energy deficit acts during brain formation rather than only degrading a formed brain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Infantile Encephalopathy\", \"target\": \"Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The destructive white-matter component, reported as macrocystic leukodystrophy in the index patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyopathy\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyopathy\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The alternative cardiac morphology, reported in the adult patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Zebrafish tufm-null mutant\", \"target\": \"Impaired Elongation of Mitochondrial Translation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mutant shows compromised mitochondrial protein translation, which is the step EF-Tu performs, measured directly rather than inferred.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A full knockout rather than a knock-in of a patient missense allele, so it models complete loss of EF-Tu while every reported human genotype is missense with residual activity. That difference matters for this disease specifically, because allele severity is the candidate explanation for the organ selectivity seen in patients. Zebrafish larvae also differ from human infants in oxygen delivery and in reliance on glycolysis.\"}, {\"source\": \"Zebrafish tufm-null mutant\", \"target\": \"Combined Respiratory Chain Complex Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mutant shows dysfunctional mitochondria with oxidative phosphorylation defects, the cellular consequence this node records.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The source reports an oxidative phosphorylation defect without a complex-by-complex breakdown, so the model does not resolve whether complex II is spared - which is the open question on the human node.\"}, {\"source\": \"Zebrafish tufm-null mutant\", \"target\": \"Combined Respiratory Chain Complex Deficiency\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"The same study screened for interventions and put forward probucol as a candidate for managing COXPD4. This is the only therapeutic lead reported for the disease, and it is entirely preclinical.\", \"relationship\": \"RESCUES\", \"fidelity\": \"LOW\", \"limitations\": \"The abstract states probucol is a promising approach without reporting which readout it corrected or by how much, so the rescue is recorded as a claim made by the source rather than a quantified effect, and no readout is attached. It is also a rescue in a full knockout, while every reported human genotype is missense with residual EF-Tu - so even a real effect here would not straightforwardly predict benefit in patients. Fidelity is LOW for that reason, and nothing about this link should be read as clinical evidence.\"}, {\"source\": \"TUFM c.1016G\u003eA (p.Arg339Gln)\", \"target\": \"TUFM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"TUFM c.344A\u003eC (p.His115Pro)\", \"target\": \"TUFM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"TUFM c.1025T\u003eG (p.Val342Gly)\", \"target\": \"TUFM\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic TUFM Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic missense variants in TUFM reduce the function of mitochondrial elongation factor Tu. EF-Tu is a GTPase whose job is to bind charged aminoacyl-tRNAs and escort them to the mitochondrial ribosome, so a hypomorphic EF-Tu limits the rate at which the ribosome can be supplied with substrate. The pathogenicity of the alleles was established experimentally by functional complementation rather than inferred from conservation alone.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"translation elongation factor activity\", \"GTPase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous or compound heterozygous germline missense variants, including the recurrent p.Arg339Gln founder allele and the p.His115Pro allele of the cardiomyopathy-predominant patient.\", \"gene_terms\": [{\"label\": \"TUFM\", \"id\": \"hgnc:12420\"}]}, \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac involvement has been the presenting and dominant problem in two patients, and it took a different form in each: a dilated cardiomyopathy in an infant with lactic acidosis but no progressive encephalopathy, and a hypertrophic cardiomyopathy in the only reported adult. TUFM therefore belongs in the differential for metabolic cardiomyopathy of either morphology, and these two cases are the clearest evidence that the disease is not obligately neurological. Nothing explains why the morphology differs.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cellular Energy Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With four of the five respiratory complexes under-assembled, cells cannot meet their ATP demand by oxidative phosphorylation and fall back on glycolysis. Tissues differ in how much slack they have, which is why the organs that fail are the ones with the highest and least flexible oxidative demand.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"aerobic respiration\"]}}, {\"id\": \"Combined Respiratory Chain Complex Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complexes I, III, IV and V each contain at least one mtDNA-encoded subunit and cannot be assembled in normal amounts when mitochondrial translation is limiting. Complex II contains none and is spared. That pattern - several complexes down together with complex II normal - is the diagnostic signature that distinguishes a translation defect from a lesion in an individual complex, and it is what the \\\"combined\\\" in the disease name denotes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial respiratory chain complex assembly\", \"oxidative phosphorylation\"], \"locations\": [\"mitochondrion\"], \"animal_models\": [{\"name\": \"Zebrafish tufm-null mutant\", \"species\": \"Zebrafish\", \"genotype\": \"tufm-/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mutant shows dysfunctional mitochondria with oxidative phosphorylation defects, the cellular consequence this node records.\"}, {\"name\": \"Zebrafish tufm-null mutant\", \"species\": \"Zebrafish\", \"genotype\": \"tufm-/-\", \"relationship\": \"RESCUES\", \"fidelity\": \"LOW\", \"description\": \"The same study screened for interventions and put forward probucol as a candidate for managing COXPD4. This is the only therapeutic lead reported for the disease, and it is entirely preclinical.\"}]}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presenting problem in one reported patient, occurring with lactic acidosis but without progressive encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive and frequently fatal infantile encephalopathy in the classical presentation; milder in the later-reported phenotypic variants.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in an adult proband, alongside chronic kidney failure, as a presentation not previously described in this condition. Note this is a different cardiac phenotype from the dilated cardiomyopathy of the infantile-onset patient, so TUFM is associated with both.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Impaired Elongation of Mitochondrial Translation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondria run a translation apparatus of their own, separate from the cytosolic one, dedicated to the thirteen proteins encoded by mitochondrial DNA. EF-Tu is a shared component of that apparatus, not a subunit-specific factor, so limiting it throttles synthesis of all thirteen products simultaneously rather than any one of them selectively.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial translational elongation\", \"mitochondrial translation\"], \"locations\": [\"mitochondrion\"], \"animal_models\": [{\"name\": \"Zebrafish tufm-null mutant\", \"species\": \"Zebrafish\", \"genotype\": \"tufm-/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mutant shows compromised mitochondrial protein translation, which is the step EF-Tu performs, measured directly rather than inferred.\"}]}}, {\"id\": \"Lactate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lactate produced by glycolytic compensation accumulates in blood and cerebrospinal fluid, producing the severe, early-onset and persistent lactic acidosis that is the most consistent laboratory finding in this disease and the one feature present across every reported phenotypic variant.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, early-onset and persistent lactic acidosis, the most consistent laboratory abnormality and present in every reported presentation of the disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe macrocystic white-matter disease in the index patient; white-matter abnormality is part of the neuroimaging description of the condition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002352\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported as a characteristic feature of the condition and present in the most recently described patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Polymicrogyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A malformation of cortical development reported in the index EF-Tu patient and recorded in MONDO\u0027s description of the disease. Its presence indicates that the energy deficit affects brain formation, not only post-natal maintenance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002126\"}}, {\"id\": \"Progressive Infantile Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dominant clinical picture in the classical presentation: rapidly progressive, frequently fatal encephalopathy from the neonatal or early infantile period, with microcephaly. Neuroimaging in the index EF-Tu patient showed severe infantile macrocystic leukodystrophy with micropolygyria, and MONDO\u0027s description of the disease likewise records polymicrogyria with white-matter abnormality - a malformation of cortical development alongside the destructive white-matter change, indicating that the energy deficit acts during brain formation and not only after it.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TUFM\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TUFM\"], \"gene_terms\": [{\"label\": \"TUFM\", \"id\": \"hgnc:12420\"}], \"association\": \"TUFM encodes mitochondrial elongation factor Tu, a GTPase that binds charged aminoacyl-tRNAs and delivers them to the A site of the mitochondrial ribosome. It is one of three nuclear-encoded elongation factors of the mitochondrial translation apparatus, alongside TSFM (EF-Ts) and GFM1 (EF-G1); pathogenic variants in each cause a combined oxidative phosphorylation deficiency, and the three were among the first nuclear-gene causes of a mitochondrial translation defect to be identified. Reported TUFM alleles are missense, so residual elongation capacity is retained.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"TUFM c.1016G\u003eA (p.Arg339Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent allele reported in four separate publications, found in patients from Turkey and proposed as a founder mutation in that population.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"TUFM c.1025T\u003eG (p.Val342Gly)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous allele in the only reported adult patient, whose presentation was hypertrophic cardiomyopathy, chronic kidney failure and sensorineural hearing loss with little neurological involvement.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"TUFM c.344A\u003eC (p.His115Pro)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in the patient who presented with dilated cardiomyopathy and lactic acidosis rather than progressive encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Zebrafish tufm-null mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A zebrafish tufm knockout generated specifically as a COXPD4 model. It reproduces the proximal half of the human mechanism directly - impaired mitochondrial protein translation and consequent oxidative phosphorylation defects - and adds a metabolic readout, suppression of the tricarboxylic acid cycle, that has not been measured in patients.\"}], \"edges\": [{\"source\": \"Biallelic TUFM Loss of Function\", \"target\": \"Impaired Elongation of Mitochondrial Translation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced EF-Tu activity limits delivery of charged aminoacyl-tRNAs to the mitochondrial ribosome, which is the elongation step itself.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Elongation of Mitochondrial Translation\", \"target\": \"Combined Respiratory Chain Complex Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The thirteen mtDNA-encoded subunits are distributed across complexes I, III, IV and V, so under-supplying all of them makes those four complexes fail together while complex II, built entirely from nuclear-encoded subunits, is spared.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Complex Deficiency\", \"target\": \"Cellular Energy Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular Energy Failure\", \"target\": \"Lactate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycolytic compensation converts the accumulating pyruvate to lactate, which leaves the cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular Energy Failure\", \"target\": \"Progressive Infantile Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developing brain has a high and inflexible oxidative demand, which is why it is the organ most consistently and most severely affected.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular Energy Failure\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac muscle is likewise oxidative-dependent. The step itself is as direct as the encephalopathy branch; what is unexplained is why it dominates in some patients and is absent in others, which is recorded as an open question rather than as missing intermediate steps.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lactate Accumulation\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical and laboratory manifestation of the accumulated lactate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Infantile Encephalopathy\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical manifestation by which this node is recognised.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Infantile Encephalopathy\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Infantile Encephalopathy\", \"target\": \"Polymicrogyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A malformation of cortical development, so this edge asserts the energy deficit acts during brain formation rather than only degrading a formed brain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Infantile Encephalopathy\", \"target\": \"Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The destructive white-matter component, reported as macrocystic leukodystrophy in the index patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyopathy\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyopathy\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The alternative cardiac morphology, reported in the adult patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Zebrafish tufm-null mutant\", \"target\": \"Impaired Elongation of Mitochondrial Translation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mutant shows compromised mitochondrial protein translation, which is the step EF-Tu performs, measured directly rather than inferred.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A full knockout rather than a knock-in of a patient missense allele, so it models complete loss of EF-Tu while every reported human genotype is missense with residual activity. That difference matters for this disease specifically, because allele severity is the candidate explanation for the organ selectivity seen in patients. Zebrafish larvae also differ from human infants in oxygen delivery and in reliance on glycolysis.\"}, {\"source\": \"Zebrafish tufm-null mutant\", \"target\": \"Combined Respiratory Chain Complex Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mutant shows dysfunctional mitochondria with oxidative phosphorylation defects, the cellular consequence this node records.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The source reports an oxidative phosphorylation defect without a complex-by-complex breakdown, so the model does not resolve whether complex II is spared - which is the open question on the human node.\"}, {\"source\": \"Zebrafish tufm-null mutant\", \"target\": \"Combined Respiratory Chain Complex Deficiency\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"The same study screened for interventions and put forward probucol as a candidate for managing COXPD4. This is the only therapeutic lead reported for the disease, and it is entirely preclinical.\", \"relationship\": \"RESCUES\", \"fidelity\": \"LOW\", \"limitations\": \"The abstract states probucol is a promising approach without reporting which readout it corrected or by how much, so the rescue is recorded as a claim made by the source rather than a quantified effect, and no readout is attached. It is also a rescue in a full knockout, while every reported human genotype is missense with residual EF-Tu - so even a real effect here would not straightforwardly predict benefit in patients. Fidelity is LOW for that reason, and nothing about this link should be read as clinical evidence.\"}, {\"source\": \"TUFM\", \"target\": \"Biallelic TUFM Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TUFM c.1016G\u003eA (p.Arg339Gln)\", \"target\": \"TUFM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"TUFM c.344A\u003eC (p.His115Pro)\", \"target\": \"TUFM\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"TUFM c.1025T\u003eG (p.Val342Gly)\", \"target\": \"TUFM\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5506,6 +5560,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5572,6 +5629,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5659,6 +5719,9 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5736,6 +5799,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5821,6 +5887,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5901,6 +5970,9 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5974,6 +6046,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6059,6 +6134,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6132,6 +6210,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6233,6 +6314,9 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as course progre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6302,6 +6386,9 @@ This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6366,6 +6453,9 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6488,6 +6578,9 @@ This disease-associated gene is TUFM (hgnc:12420). hgnc:12420 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6537,6 +6630,12 @@ This disease-associated gene is TUFM (hgnc:12420). hgnc:12420 is a gene from the
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent allele reported in four separate publications, found in patients from Turkey and proposed as a founder mutation in that population.</div>
@@ -6600,6 +6699,12 @@ This disease-associated gene is TUFM (hgnc:12420). hgnc:12420 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous missense allele in the patient who presented with dilated cardiomyopathy and lactic acidosis rather than progressive encephalopathy.</div>
 
 
@@ -6659,6 +6764,12 @@ This disease-associated gene is TUFM (hgnc:12420). hgnc:12420 is a gene from the
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous allele in the only reported adult patient, whose presentation was hypertrophic cardiomyopathy, chronic kidney failure and sensorineural hearing loss with little neurological involvement.</div>

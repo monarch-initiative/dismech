@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4647,6 +4689,13 @@ This subtype is caused by variation in ANGPTL3 (hgnc:491). hgnc:491 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apob-truncating-variant" data-dismech-node="APOB Truncating Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">APOB Truncating Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A nonsense, frameshift, or canonical splice-site variant in APOB truncates the apoB open reading frame, producing a shortened apoB protein (apoB-XX nomenclature, denoting the percentage of full-length apoB translated) instead of full-length apoB-100/apoB-48. Over 60 distinct truncating APOB mutations, ranging from apoB-2 to apoB-89, have been reported as causes of FHBL1.</div>
 
 
@@ -4742,6 +4791,8 @@ This genetic context concerns APOB (hgnc:603). hgnc:603 is a gene from the HUGO 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4752,6 +4803,9 @@ This genetic context concerns APOB (hgnc:603). hgnc:603 is a gene from the HUGO 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">A truncating allele produces less protein and/or a protein that assembles and secretes lipoprotein particles less efficiently than full-length apoB - a straightforward loss-of-function call, in contrast to the partial, conformational loss-of-function of the ligand-binding-region missense alleles curated in Familial_Defective_Apolipoprotein_B-100.yaml.</div>
 
@@ -4824,6 +4878,13 @@ This genetic context concerns APOB (hgnc:603). hgnc:603 is a gene from the HUGO 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatic-and-intestinal-apob-lipoprotein-assembly-and-secretion" data-dismech-node="Impaired Hepatic and Intestinal ApoB-Lipoprotein Assembly and Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hepatic and Intestinal ApoB-Lipoprotein Assembly and Secretion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Truncated apoB reduces the pool of apoB-lipoprotein particles available for hepatic VLDL and intestinal chylomicron assembly and secretion, a production-limited mechanism distinct from the lipidation defect of abetalipoproteinemia. Kinetic studies attribute the disproportionately low heterozygous apoB levels to markedly reduced VLDL apoB-100 secretion, decreased LDL apoB-100 production, increased VLDL catabolism, and extremely low secretion of the truncated species itself.</div>
 
@@ -5031,6 +5092,13 @@ This pathophysiological event involves decreased very-low-density lipoprotein pa
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-triglyceride-retention" data-dismech-node="Hepatic Triglyceride Retention" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Triglyceride Retention</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Reduced hepatic VLDL export retains triglyceride within hepatocytes, producing hepatic steatosis that can progress to steatohepatitis, fibrosis, and rarely cirrhosis or hepatocellular carcinoma, even in heterozygous carriers. This hepatic-storage consequence is characteristic of the APOB production-limited route and is not seen with the PCSK9 or ANGPTL3 clearance-enhanced routes.</div>
 
 
@@ -5187,6 +5255,13 @@ This pathophysiological event involves increased lipid storage (GO:0019915). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pcsk9-loss-of-function-variant" data-dismech-node="PCSK9 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">PCSK9 Loss-of-Function Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A PCSK9 nonsense or loss-of-function missense variant reduces or abolishes secreted PCSK9 activity. First identified through sequencing of PCSK9 in subjects with low plasma LDL specifically to test whether loss-of-function variants would have the mirror-image effect of the gain-of-function PCSK9 variants that cause autosomal dominant hypercholesterolemia (kb/disorders/Autosomal_Dominant_Hypercholesterolemia_3.yaml).</div>
 
 
@@ -5282,6 +5357,8 @@ This genetic context concerns PCSK9 (hgnc:20001). hgnc:20001 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5292,6 +5369,9 @@ This genetic context concerns PCSK9 (hgnc:20001). hgnc:20001 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">The mirror-image lesion class to the gain-of-function PCSK9 missense variants that cause autosomal dominant hypercholesterolemia type 3 (ADH3): here, nonsense or loss-of-function missense variants reduce or abolish PCSK9 protease activity rather than enhancing it.</div>
 
@@ -5364,6 +5444,13 @@ This genetic context concerns PCSK9 (hgnc:20001). hgnc:20001 is a gene from the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-pcsk9-mediated-ldl-receptor-degradation" data-dismech-node="Reduced PCSK9-Mediated LDL Receptor Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced PCSK9-Mediated LDL Receptor Degradation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">PCSK9 normally binds the hepatic LDL receptor and directs it toward lysosomal degradation after endocytosis rather than recycling it to the cell surface. Loss-of-function PCSK9 variants remove this restraint, so more LDL receptor recycles back to the hepatocyte surface. This is the exact mechanistic node that PCSK9-inhibitor biologics (evolocumab, alirocumab) pharmacologically reproduce to lower LDL cholesterol in hypercholesterolemia.</div>
 
@@ -5513,6 +5600,13 @@ This pathophysiological event involves decreased low-density lipoprotein particl
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-hepatic-ldl-receptor-density" data-dismech-node="Increased Hepatic LDL Receptor Density" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Hepatic LDL Receptor Density</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">More LDL receptor is available at the hepatocyte surface for receptor-mediated uptake of circulating LDL, increasing hepatic clearance of apoB-containing lipoproteins from plasma.</div>
 
 
@@ -5609,6 +5703,13 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-angptl3-loss-of-function-variant" data-dismech-node="ANGPTL3 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">ANGPTL3 Loss-of-Function Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Biallelic ANGPTL3 loss-of-function variants (compound heterozygous or homozygous nonsense/frameshift alleles) abolish secreted ANGPTL3 activity. Discovered by whole-exome sequencing of two siblings with combined hypolipidemia not linked to APOB.</div>
 
 
@@ -5704,6 +5805,8 @@ This genetic context concerns ANGPTL3 (hgnc:491). hgnc:491 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5714,6 +5817,9 @@ This genetic context concerns ANGPTL3 (hgnc:491). hgnc:491 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Nonsense and frameshift alleles that abolish secreted ANGPTL3 protein; the LDL-cholesterol and triglyceride phenotypes are gene-dosage dependent (codominant) while the HDL-cholesterol phenotype requires biallelic loss (recessive), a within-locus dissociation of inheritance mode by trait.</div>
 
@@ -5786,6 +5892,13 @@ This genetic context concerns ANGPTL3 (hgnc:491). hgnc:491 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-angptl3-mediated-lipase-inhibition" data-dismech-node="Loss of ANGPTL3-Mediated Lipase Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ANGPTL3-Mediated Lipase Inhibition</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">ANGPTL3 normally inhibits lipoprotein lipase and endothelial lipase, the key enzymes that hydrolyze circulating triglyceride-rich lipoproteins and HDL, respectively. Loss of ANGPTL3 function increases the activity of both enzymes. This is the established mechanism for the triglyceride and HDL-cholesterol reductions; the mechanism by which ANGPTL3 deficiency also lowers LDL cholesterol is less well resolved (see mechanism_confidence below).</div>
 
@@ -5926,6 +6039,13 @@ This pathophysiological event involves increased lipoprotein lipase activity (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-catabolism-of-triglyceride-rich-lipoproteins" data-dismech-node="Enhanced Catabolism of Triglyceride-Rich Lipoproteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Catabolism of Triglyceride-Rich Lipoproteins</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Unrestrained lipoprotein lipase and endothelial lipase activity accelerates catabolism of triglyceride-rich lipoproteins and HDL, lowering triglycerides and HDL cholesterol together with LDL cholesterol rather than selectively lowering apoB-containing particles as in the APOB and PCSK9 routes. Carriers of ANGPTL3 loss-of-function variants additionally show decreased VLDL apoB production and increased LDL fractional catabolism, indicating ANGPTL3 also acts directly on hepatic lipoprotein secretion and clearance independent of its role inhibiting circulating lipases.</div>
 
 
@@ -6056,6 +6176,13 @@ This pathophysiological event involves increased triglyceride catabolic process 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protection-against-coronary-artery-disease" data-dismech-node="Protection Against Coronary Artery Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Protection Against Coronary Artery Disease</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A shared downstream consequence of the PCSK9 and ANGPTL3 clearance-enhanced routes: lifelong, moderate reduction of circulating LDL cholesterol (and, for ANGPTL3, triglycerides) from birth is associated with substantially reduced coronary heart disease risk, providing the human-genetics validation for PCSK9-inhibitor and ANGPTL3-inhibitor drug development.</div>
 
 
@@ -6116,6 +6243,13 @@ This pathophysiological event involves increased triglyceride catabolic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-circulating-apob-containing-lipoprotein-concentration" data-dismech-node="Reduced Circulating ApoB-Containing Lipoprotein Concentration" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Circulating ApoB-Containing Lipoprotein Concentration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The convergent biochemical phenotype: plasma apoB and LDL cholesterol persistently below the 5th percentile, reached by three mechanistically distinct routes (reduced hepatic/intestinal apoB production, enhanced hepatic LDL-receptor-mediated clearance, or enhanced lipolytic catabolism of triglyceride-rich lipoproteins).</div>
 
@@ -6208,6 +6342,13 @@ This pathophysiological event involves increased triglyceride catabolic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-intestinal-lipid-absorption" data-dismech-node="Impaired Intestinal Lipid Absorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Intestinal Lipid Absorption</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In the severe (homozygous or compound heterozygous FHBL1) form, insufficient intestinal chylomicron secretion impairs absorption and transport of dietary lipid, causing steatorrhea and fat-soluble-vitamin malabsorption. This branch is not seen in heterozygous FHBL1 or in the PCSK9/ANGPTL3 clearance-enhanced routes, which do not affect intestinal chylomicron assembly.</div>
 
@@ -6365,6 +6506,13 @@ This pathophysiological event involves decreased intestinal lipid absorption (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-fat-soluble-vitamin-bioavailability" data-dismech-node="Reduced Fat-Soluble Vitamin Bioavailability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Fat-Soluble Vitamin Bioavailability</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Impaired absorption and lipoprotein transport reduce the bioavailability of vitamins A, D, E, and K in severe (biallelic) FHBL1, mirroring the vitamin deficiency of abetalipoproteinemia and driving the same downstream retinal, neurologic, and coagulation complications when untreated.</div>
 
 
@@ -6463,7 +6611,7 @@ This pathophysiological event involves decreased intestinal lipid absorption (GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ANGPTL3 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ANGPTL3 loss-of-function variants (compound heterozygous or homozygous nonsense/frameshift alleles) abolish secreted ANGPTL3 activity. Discovered by whole-exome sequencing of two siblings with combined hypolipidemia not linked to APOB.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANGPTL3\"], \"gene_terms\": [{\"label\": \"ANGPTL3\", \"id\": \"hgnc:491\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Nonsense and frameshift alleles that abolish secreted ANGPTL3 protein; the LDL-cholesterol and triglyceride phenotypes are gene-dosage dependent (codominant) while the HDL-cholesterol phenotype requires biallelic loss (recessive), a within-locus dissociation of inheritance mode by trait.\", \"gene_terms\": [{\"label\": \"ANGPTL3\", \"id\": \"hgnc:491\"}]}, \"role\": \"trigger\"}}, {\"id\": \"ANGPTL3 loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANGPTL3\"], \"gene_terms\": [{\"label\": \"ANGPTL3\", \"id\": \"hgnc:491\"}], \"association\": \"Causative biallelic loss-of-function variants (codominant for LDL/triglycerides, recessive for HDL)\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"ANGPTL3 nonsense variants (S17X, E129X)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Two independent nonsense mutations identified by exome sequencing in siblings with combined hypolipidemia; compound heterozygotes had markedly lower LDL cholesterol, triglycerides, and HDL cholesterol than heterozygous or non-carrier relatives.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANGPTL3\"], \"gene_terms\": [{\"label\": \"ANGPTL3\", \"id\": \"hgnc:491\"}], \"variant_type\": \"loss_of_function_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"APOB Truncating Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A nonsense, frameshift, or canonical splice-site variant in APOB truncates the apoB open reading frame, producing a shortened apoB protein (apoB-XX nomenclature, denoting the percentage of full-length apoB translated) instead of full-length apoB-100/apoB-48. Over 60 distinct truncating APOB mutations, ranging from apoB-2 to apoB-89, have been reported as causes of FHBL1.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"A truncating allele produces less protein and/or a protein that assembles and secretes lipoprotein particles less efficiently than full-length apoB - a straightforward loss-of-function call, in contrast to the partial, conformational loss-of-function of the ligand-binding-region missense alleles curated in Familial_Defective_Apolipoprotein_B-100.yaml.\", \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}]}, \"role\": \"trigger\"}}, {\"id\": \"APOB truncating variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"association\": \"Causative biallelic or heterozygous truncating variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"APOB truncating variants (apoB-2 to apoB-89)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Over 60 distinct truncating (nonsense, frameshift, splice-site) variants have been reported, named by the percent length of full-length apoB-100 translated (e.g., apoB-67 is the amino-terminal 67% of apoB-100). Severity of the biochemical and clinical phenotype generally scales with truncation length.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"variant_type\": \"loss_of_function_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Apob-38.9 heterozygous mouse (FHBL1 model)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rare but reported progression from hepatic steatosis to steatohepatitis and cirrhosis, occasionally with hepatocellular carcinoma, even in individuals with only one truncating APOB allele.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FHBL1 Heterozygous\"], \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001394\"}}, {\"id\": \"Decreased HDL cholesterol concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic of biallelic ANGPTL3 deficiency, distinguishing combined hypolipidemia from the LDL-selective APOB and PCSK9 routes; segregates as a recessive trait requiring biallelic loss.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"ANGPTL3 Deficiency\"], \"term_id\": \"HP:0003233\"}}, {\"id\": \"Decreased LDL cholesterol concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining biochemical phenotype across all subtypes, apoB and LDL cholesterol below the 5th percentile.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003563\"}}, {\"id\": \"Decreased circulating vitamin E concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fat-soluble vitamin deficiency in severe (biallelic) FHBL1, the deficiency most closely tied to neurologic complications.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FHBL1 Homozygous\"], \"term_id\": \"HP:0100513\"}}, {\"id\": \"Enhanced Catabolism of Triglyceride-Rich Lipoproteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unrestrained lipoprotein lipase and endothelial lipase activity accelerates catabolism of triglyceride-rich lipoproteins and HDL, lowering triglycerides and HDL cholesterol together with LDL cholesterol rather than selectively lowering apoB-containing particles as in the APOB and PCSK9 routes. Carriers of ANGPTL3 loss-of-function variants additionally show decreased VLDL apoB production and increased LDL fractional catabolism, indicating ANGPTL3 also acts directly on hepatic lipoprotein secretion and clearance independent of its role inhibiting circulating lipases.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"triglyceride catabolic process\"], \"role\": \"mediator\"}}, {\"id\": \"Evinacumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Monoclonal antibody against ANGPTL3. Not a treatment for hypobetalipoproteinemia itself - ANGPTL3 deficiency is clinically silent and requires no treatment - but a pharmacological reproduction of this entry\u0027s ANGPTL3-loss-of-function mechanism, developed and approved to lower LDL cholesterol in homozygous familial hypercholesterolemia, where it lowers LDL cholesterol by an LDL-receptor-independent route. Included here as the therapeutic validation of this entry\u0027s human-genetics rationale.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"evinacumab\"]}}, {\"id\": \"Evolocumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fully human monoclonal antibody against PCSK9. Not a treatment for hypobetalipoproteinemia itself - PCSK9 loss-of-function hypobetalipoproteinemia is clinically benign and requires no treatment - but a pharmacological reproduction of the exact PCSK9-loss-of-function mechanism curated in this entry, developed and used to lower LDL cholesterol in hypercholesterolemic patients (see kb/disorders/Autosomal_Dominant_Hypercholesterolemia_3.yaml). Included here as the therapeutic validation of this entry\u0027s human-genetics rationale.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"evolocumab\"]}}, {\"id\": \"Fat malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intestinal lipid absorption is impaired in severe (homozygous/compound heterozygous) FHBL1. Frequency is deliberately omitted: GeneReviews documents the clinical sign (steatorrhea, curated separately below) and the underlying gastrointestinal dysfunction, but does not quantify \\\"fat malabsorption\\\" as a distinct, separately banded finding.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FHBL1 Homozygous\"], \"term_id\": \"HP:0002630\"}}, {\"id\": \"Hepatic Triglyceride Retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced hepatic VLDL export retains triglyceride within hepatocytes, producing hepatic steatosis that can progress to steatohepatitis, fibrosis, and rarely cirrhosis or hepatocellular carcinoma, even in heterozygous carriers. This hepatic-storage consequence is characteristic of the APOB production-limited route and is not seen with the PCSK9 or ANGPTL3 clearance-enhanced routes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"lipid storage\"], \"role\": \"mediator\"}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The main clinical manifestation of heterozygous FHBL1, due to defective hepatic triglyceride export.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FHBL1 Heterozygous\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hypocholesterolemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Total cholesterol is reduced secondary to the reduced apoB-lipoprotein pool.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003146\"}}, {\"id\": \"Impaired Hepatic and Intestinal ApoB-Lipoprotein Assembly and Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Truncated apoB reduces the pool of apoB-lipoprotein particles available for hepatic VLDL and intestinal chylomicron assembly and secretion, a production-limited mechanism distinct from the lipidation defect of abetalipoproteinemia. Kinetic studies attribute the disproportionately low heterozygous apoB levels to markedly reduced VLDL apoB-100 secretion, decreased LDL apoB-100 production, increased VLDL catabolism, and extremely low secretion of the truncated species itself.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"enterocyte\"], \"biological_processes\": [\"very-low-density lipoprotein particle assembly\"], \"role\": \"mediator\", \"animal_models\": [{\"name\": \"Apob-38.9 heterozygous mouse (FHBL1 model)\", \"species\": \"Mouse\", \"genotype\": \"Apob-38.9 heterozygous (Apobec-1(-/-)/Apob(38.9/+) or Apob(38.9/100)), producing only apoB-38.9 and apoB-100\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Apob-38.9 heterozygous mice reproduce the disproportionate (well beyond the 50% gene-dosage expectation) reduction in hepatic apoB-100 secretion documented in human heterozygous FHBL1, and localize the defect in vivo and in primary hepatocytes to a secretion step rather than reduced synthesis from the intact allele.\"}]}}, {\"id\": \"Impaired Intestinal Lipid Absorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the severe (homozygous or compound heterozygous FHBL1) form, insufficient intestinal chylomicron secretion impairs absorption and transport of dietary lipid, causing steatorrhea and fat-soluble-vitamin malabsorption. This branch is not seen in heterozygous FHBL1 or in the PCSK9/ANGPTL3 clearance-enhanced routes, which do not affect intestinal chylomicron assembly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enterocyte\"], \"biological_processes\": [\"intestinal lipid absorption\"], \"role\": \"mediator\"}}, {\"id\": \"Increased Hepatic LDL Receptor Density\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"More LDL receptor is available at the hepatocyte surface for receptor-mediated uptake of circulating LDL, increasing hepatic clearance of apoB-containing lipoproteins from plasma.\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"role\": \"mediator\", \"locations\": [\"liver\"]}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Considered for biallelic (severe) FHBL1 patients who progress to end-stage liver disease from chronic hepatic triglyceride retention and steatohepatitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of ANGPTL3-Mediated Lipase Inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ANGPTL3 normally inhibits lipoprotein lipase and endothelial lipase, the key enzymes that hydrolyze circulating triglyceride-rich lipoproteins and HDL, respectively. Loss of ANGPTL3 function increases the activity of both enzymes. This is the established mechanism for the triglyceride and HDL-cholesterol reductions; the mechanism by which ANGPTL3 deficiency also lowers LDL cholesterol is less well resolved (see mechanism_confidence below).\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"lipoprotein lipase activity\"], \"role\": \"mediator\"}}, {\"id\": \"Low-fat diet with fat-soluble vitamin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For biallelic (severe) FHBL1, a low-fat diet (\u003c30% of total calories) with adequate caloric intake plus high-dose oral vitamin A, D, E, and K supplementation, mirroring management of abetalipoproteinemia. No treatment is typically required for heterozygous FHBL1, PCSK9 loss-of-function, or ANGPTL3 deficiency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"PCSK9 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A PCSK9 nonsense or loss-of-function missense variant reduces or abolishes secreted PCSK9 activity. First identified through sequencing of PCSK9 in subjects with low plasma LDL specifically to test whether loss-of-function variants would have the mirror-image effect of the gain-of-function PCSK9 variants that cause autosomal dominant hypercholesterolemia (kb/disorders/Autosomal_Dominant_Hypercholesterolemia_3.yaml).\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PCSK9\"], \"gene_terms\": [{\"label\": \"PCSK9\", \"id\": \"hgnc:20001\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"The mirror-image lesion class to the gain-of-function PCSK9 missense variants that cause autosomal dominant hypercholesterolemia type 3 (ADH3): here, nonsense or loss-of-function missense variants reduce or abolish PCSK9 protease activity rather than enhancing it.\", \"gene_terms\": [{\"label\": \"PCSK9\", \"id\": \"hgnc:20001\"}]}, \"role\": \"trigger\"}}, {\"id\": \"PCSK9 loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PCSK9\"], \"gene_terms\": [{\"label\": \"PCSK9\", \"id\": \"hgnc:20001\"}], \"association\": \"Causative heterozygous loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"PCSK9 nonsense variants (Y142X, C679X)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense mutations identified in African American subjects with low LDL cholesterol, common in that population (combined frequency ~2%) but rare in European Americans.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PCSK9\"], \"gene_terms\": [{\"label\": \"PCSK9\", \"id\": \"hgnc:20001\"}], \"variant_type\": \"loss_of_function_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Protection Against Coronary Artery Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A shared downstream consequence of the PCSK9 and ANGPTL3 clearance-enhanced routes: lifelong, moderate reduction of circulating LDL cholesterol (and, for ANGPTL3, triglycerides) from birth is associated with substantially reduced coronary heart disease risk, providing the human-genetics validation for PCSK9-inhibitor and ANGPTL3-inhibitor drug development.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent biochemical phenotype: plasma apoB and LDL cholesterol persistently below the 5th percentile, reached by three mechanistically distinct routes (reduced hepatic/intestinal apoB production, enhanced hepatic LDL-receptor-mediated clearance, or enhanced lipolytic catabolism of triglyceride-rich lipoproteins).\", \"meta\": {\"evidence_count\": 1, \"role\": \"central_effector\"}}, {\"id\": \"Reduced Fat-Soluble Vitamin Bioavailability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired absorption and lipoprotein transport reduce the bioavailability of vitamins A, D, E, and K in severe (biallelic) FHBL1, mirroring the vitamin deficiency of abetalipoproteinemia and driving the same downstream retinal, neurologic, and coagulation complications when untreated.\", \"meta\": {\"evidence_count\": 1, \"role\": \"mediator\"}}, {\"id\": \"Reduced PCSK9-Mediated LDL Receptor Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PCSK9 normally binds the hepatic LDL receptor and directs it toward lysosomal degradation after endocytosis rather than recycling it to the cell surface. Loss-of-function PCSK9 variants remove this restraint, so more LDL receptor recycles back to the hepatocyte surface. This is the exact mechanistic node that PCSK9-inhibitor biologics (evolocumab, alirocumab) pharmacologically reproduce to lower LDL cholesterol in hypercholesterolemia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"low-density lipoprotein particle receptor catabolic process\"], \"role\": \"mediator\"}}, {\"id\": \"p.(Arg490Trp) (c.1468C\u003eT) missense founder variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A rare missense variant (rather than a truncation) in APOB exon 11, also historically numbered p.(Arg463Trp). Identified as a founder allele accounting for approximately 71% of FHBL probands in a Lebanese cohort, with the same mutant haplotype shared across unrelated families, and separately reported in families of Italian, Canadian, Spanish, and Dutch origin.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"APOB Truncating Variant\", \"target\": \"Impaired Hepatic and Intestinal ApoB-Lipoprotein Assembly and Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncated apoB is produced in reduced quantity and is secreted far less efficiently than the predicted 50% gene-dosage share.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hepatic and Intestinal ApoB-Lipoprotein Assembly and Secretion\", \"target\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer apoB-lipoprotein particles are secreted into plasma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hepatic and Intestinal ApoB-Lipoprotein Assembly and Secretion\", \"target\": \"Hepatic Triglyceride Retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced hepatic apoB secretion decreases triglyceride export from the liver in VLDL, producing hepatic steatosis even as less apoB-lipoprotein reaches plasma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Triglyceride Retention\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocyte triglyceride retention is observed as hepatic steatosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Triglyceride Retention\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hepatic triglyceride accumulation can progress to steatohepatitis and, rarely, cirrhosis or hepatocellular carcinoma, even in individuals with only a heterozygous truncating allele.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic hepatocyte lipid accumulation and steatohepatitis\"]}, {\"source\": \"PCSK9 Loss-of-Function Variant\", \"target\": \"Reduced PCSK9-Mediated LDL Receptor Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PCSK9 function removes the normal restraint on hepatic LDL receptor turnover.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced PCSK9-Mediated LDL Receptor Degradation\", \"target\": \"Increased Hepatic LDL Receptor Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced receptor degradation increases steady-state hepatic LDL receptor abundance available for uptake.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Hepatic LDL Receptor Density\", \"target\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhanced hepatic LDL-receptor-mediated uptake increases clearance of circulating LDL, unlike the production-limited APOB route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ANGPTL3 Loss-of-Function Variant\", \"target\": \"Loss of ANGPTL3-Mediated Lipase Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of ANGPTL3 removes its normal inhibitory restraint on lipoprotein lipase and endothelial lipase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of ANGPTL3-Mediated Lipase Inhibition\", \"target\": \"Enhanced Catabolism of Triglyceride-Rich Lipoproteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased lipase activity accelerates lipolytic catabolism of VLDL and HDL; the LDL branch is less mechanistically resolved.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enhanced Catabolism of Triglyceride-Rich Lipoproteins\", \"target\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accelerated catabolism of VLDL and LDL, together with reduced VLDL apoB production, reduces circulating apoB-lipoprotein concentration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enhanced Catabolism of Triglyceride-Rich Lipoproteins\", \"target\": \"Decreased HDL cholesterol concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endothelial lipase activation also accelerates HDL catabolism, distinguishing this route from the LDL-selective APOB and PCSK9 routes. Unlike the LDL/triglyceride traits, this HDL effect segregates as a strictly recessive trait requiring biallelic ANGPTL3 loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enhanced Catabolism of Triglyceride-Rich Lipoproteins\", \"target\": \"Protection Against Coronary Artery Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lifelong reduction of all three major apoB/lipid fractions by ANGPTL3 deficiency is associated with reduced coronary atherosclerotic burden and lower odds of coronary artery disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"sustained reduction of circulating LDL cholesterol and triglycerides\"]}, {\"source\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"target\": \"Decreased LDL cholesterol concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced apoB-lipoprotein particle number is measured as decreased LDL cholesterol.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"target\": \"Hypocholesterolemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced apoB-lipoprotein particle number lowers total cholesterol.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"target\": \"Impaired Intestinal Lipid Absorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When severe (homozygous/compound heterozygous FHBL1), reduced intestinal chylomicron secretion impairs dietary fat absorption. This branch does not occur in heterozygous FHBL1 or in the PCSK9/ANGPTL3 clearance-enhanced routes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"failure of intestinal chylomicron export in severe FHBL1\"]}, {\"source\": \"Impaired Intestinal Lipid Absorption\", \"target\": \"Fat malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective chylomicron export produces impaired dietary fat absorption.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Intestinal Lipid Absorption\", \"target\": \"Reduced Fat-Soluble Vitamin Bioavailability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chylomicron failure impairs absorption and transport of vitamins A, D, E, and K.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired intestinal uptake and transport of fat-soluble vitamins\"]}, {\"source\": \"Reduced Fat-Soluble Vitamin Bioavailability\", \"target\": \"Decreased circulating vitamin E concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced vitamin E absorption and transport lowers circulating vitamin E, the deficiency most closely tied to neurologic complications.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low-fat diet with fat-soluble vitamin supplementation\", \"target\": \"Impaired Intestinal Lipid Absorption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-fat diet with fat-soluble vitamin supplementation\", \"target\": \"Reduced Fat-Soluble Vitamin Bioavailability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Cirrhosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Evolocumab\", \"target\": \"Reduced PCSK9-Mediated LDL Receptor Degradation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Evinacumab\", \"target\": \"Loss of ANGPTL3-Mediated Lipase Inhibition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Apob-38.9 heterozygous mouse (FHBL1 model)\", \"target\": \"Impaired Hepatic and Intestinal ApoB-Lipoprotein Assembly and Secretion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Apob-38.9 heterozygous mice reproduce the disproportionate (well beyond the 50% gene-dosage expectation) reduction in hepatic apoB-100 secretion documented in human heterozygous FHBL1, and localize the defect in vivo and in primary hepatocytes to a secretion step rather than reduced synthesis from the intact allele.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"APOB truncating variants\", \"target\": \"APOB Truncating Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCSK9 loss-of-function variants\", \"target\": \"PCSK9 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANGPTL3 loss-of-function variants\", \"target\": \"ANGPTL3 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APOB truncating variants (apoB-2 to apoB-89)\", \"target\": \"APOB truncating variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.(Arg490Trp) (c.1468C\u003eT) missense founder variant\", \"target\": \"APOB truncating variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PCSK9 nonsense variants (Y142X, C679X)\", \"target\": \"PCSK9 loss-of-function variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ANGPTL3 nonsense variants (S17X, E129X)\", \"target\": \"ANGPTL3 loss-of-function variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ANGPTL3 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ANGPTL3 loss-of-function variants (compound heterozygous or homozygous nonsense/frameshift alleles) abolish secreted ANGPTL3 activity. Discovered by whole-exome sequencing of two siblings with combined hypolipidemia not linked to APOB.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANGPTL3\"], \"gene_terms\": [{\"label\": \"ANGPTL3\", \"id\": \"hgnc:491\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Nonsense and frameshift alleles that abolish secreted ANGPTL3 protein; the LDL-cholesterol and triglyceride phenotypes are gene-dosage dependent (codominant) while the HDL-cholesterol phenotype requires biallelic loss (recessive), a within-locus dissociation of inheritance mode by trait.\", \"gene_terms\": [{\"label\": \"ANGPTL3\", \"id\": \"hgnc:491\"}]}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"ANGPTL3 loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANGPTL3\"], \"gene_terms\": [{\"label\": \"ANGPTL3\", \"id\": \"hgnc:491\"}], \"association\": \"Causative biallelic loss-of-function variants (codominant for LDL/triglycerides, recessive for HDL)\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"ANGPTL3 nonsense variants (S17X, E129X)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Two independent nonsense mutations identified by exome sequencing in siblings with combined hypolipidemia; compound heterozygotes had markedly lower LDL cholesterol, triglycerides, and HDL cholesterol than heterozygous or non-carrier relatives.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANGPTL3\"], \"gene_terms\": [{\"label\": \"ANGPTL3\", \"id\": \"hgnc:491\"}], \"variant_type\": \"loss_of_function_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"APOB Truncating Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A nonsense, frameshift, or canonical splice-site variant in APOB truncates the apoB open reading frame, producing a shortened apoB protein (apoB-XX nomenclature, denoting the percentage of full-length apoB translated) instead of full-length apoB-100/apoB-48. Over 60 distinct truncating APOB mutations, ranging from apoB-2 to apoB-89, have been reported as causes of FHBL1.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"A truncating allele produces less protein and/or a protein that assembles and secretes lipoprotein particles less efficiently than full-length apoB - a straightforward loss-of-function call, in contrast to the partial, conformational loss-of-function of the ligand-binding-region missense alleles curated in Familial_Defective_Apolipoprotein_B-100.yaml.\", \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}]}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"APOB truncating variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"association\": \"Causative biallelic or heterozygous truncating variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"APOB truncating variants (apoB-2 to apoB-89)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Over 60 distinct truncating (nonsense, frameshift, splice-site) variants have been reported, named by the percent length of full-length apoB-100 translated (e.g., apoB-67 is the amino-terminal 67% of apoB-100). Severity of the biochemical and clinical phenotype generally scales with truncation length.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"variant_type\": \"loss_of_function_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Apob-38.9 heterozygous mouse (FHBL1 model)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rare but reported progression from hepatic steatosis to steatohepatitis and cirrhosis, occasionally with hepatocellular carcinoma, even in individuals with only one truncating APOB allele.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FHBL1 Heterozygous\"], \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001394\"}}, {\"id\": \"Decreased HDL cholesterol concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic of biallelic ANGPTL3 deficiency, distinguishing combined hypolipidemia from the LDL-selective APOB and PCSK9 routes; segregates as a recessive trait requiring biallelic loss.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"ANGPTL3 Deficiency\"], \"term_id\": \"HP:0003233\"}}, {\"id\": \"Decreased LDL cholesterol concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining biochemical phenotype across all subtypes, apoB and LDL cholesterol below the 5th percentile.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003563\"}}, {\"id\": \"Decreased circulating vitamin E concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fat-soluble vitamin deficiency in severe (biallelic) FHBL1, the deficiency most closely tied to neurologic complications.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FHBL1 Homozygous\"], \"term_id\": \"HP:0100513\"}}, {\"id\": \"Enhanced Catabolism of Triglyceride-Rich Lipoproteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unrestrained lipoprotein lipase and endothelial lipase activity accelerates catabolism of triglyceride-rich lipoproteins and HDL, lowering triglycerides and HDL cholesterol together with LDL cholesterol rather than selectively lowering apoB-containing particles as in the APOB and PCSK9 routes. Carriers of ANGPTL3 loss-of-function variants additionally show decreased VLDL apoB production and increased LDL fractional catabolism, indicating ANGPTL3 also acts directly on hepatic lipoprotein secretion and clearance independent of its role inhibiting circulating lipases.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"triglyceride catabolic process\"], \"role\": \"mediator\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Evinacumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Monoclonal antibody against ANGPTL3. Not a treatment for hypobetalipoproteinemia itself - ANGPTL3 deficiency is clinically silent and requires no treatment - but a pharmacological reproduction of this entry\u0027s ANGPTL3-loss-of-function mechanism, developed and approved to lower LDL cholesterol in homozygous familial hypercholesterolemia, where it lowers LDL cholesterol by an LDL-receptor-independent route. Included here as the therapeutic validation of this entry\u0027s human-genetics rationale.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"evinacumab\"]}}, {\"id\": \"Evolocumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fully human monoclonal antibody against PCSK9. Not a treatment for hypobetalipoproteinemia itself - PCSK9 loss-of-function hypobetalipoproteinemia is clinically benign and requires no treatment - but a pharmacological reproduction of the exact PCSK9-loss-of-function mechanism curated in this entry, developed and used to lower LDL cholesterol in hypercholesterolemic patients (see kb/disorders/Autosomal_Dominant_Hypercholesterolemia_3.yaml). Included here as the therapeutic validation of this entry\u0027s human-genetics rationale.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"evolocumab\"]}}, {\"id\": \"Fat malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intestinal lipid absorption is impaired in severe (homozygous/compound heterozygous) FHBL1. Frequency is deliberately omitted: GeneReviews documents the clinical sign (steatorrhea, curated separately below) and the underlying gastrointestinal dysfunction, but does not quantify \\\"fat malabsorption\\\" as a distinct, separately banded finding.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FHBL1 Homozygous\"], \"term_id\": \"HP:0002630\"}}, {\"id\": \"Hepatic Triglyceride Retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced hepatic VLDL export retains triglyceride within hepatocytes, producing hepatic steatosis that can progress to steatohepatitis, fibrosis, and rarely cirrhosis or hepatocellular carcinoma, even in heterozygous carriers. This hepatic-storage consequence is characteristic of the APOB production-limited route and is not seen with the PCSK9 or ANGPTL3 clearance-enhanced routes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"lipid storage\"], \"role\": \"mediator\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The main clinical manifestation of heterozygous FHBL1, due to defective hepatic triglyceride export.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"FHBL1 Heterozygous\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hypocholesterolemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Total cholesterol is reduced secondary to the reduced apoB-lipoprotein pool.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003146\"}}, {\"id\": \"Impaired Hepatic and Intestinal ApoB-Lipoprotein Assembly and Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Truncated apoB reduces the pool of apoB-lipoprotein particles available for hepatic VLDL and intestinal chylomicron assembly and secretion, a production-limited mechanism distinct from the lipidation defect of abetalipoproteinemia. Kinetic studies attribute the disproportionately low heterozygous apoB levels to markedly reduced VLDL apoB-100 secretion, decreased LDL apoB-100 production, increased VLDL catabolism, and extremely low secretion of the truncated species itself.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"enterocyte\"], \"biological_processes\": [\"very-low-density lipoprotein particle assembly\"], \"role\": \"mediator\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Apob-38.9 heterozygous mouse (FHBL1 model)\", \"species\": \"Mouse\", \"genotype\": \"Apob-38.9 heterozygous (Apobec-1(-/-)/Apob(38.9/+) or Apob(38.9/100)), producing only apoB-38.9 and apoB-100\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Apob-38.9 heterozygous mice reproduce the disproportionate (well beyond the 50% gene-dosage expectation) reduction in hepatic apoB-100 secretion documented in human heterozygous FHBL1, and localize the defect in vivo and in primary hepatocytes to a secretion step rather than reduced synthesis from the intact allele.\"}]}}, {\"id\": \"Impaired Intestinal Lipid Absorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the severe (homozygous or compound heterozygous FHBL1) form, insufficient intestinal chylomicron secretion impairs absorption and transport of dietary lipid, causing steatorrhea and fat-soluble-vitamin malabsorption. This branch is not seen in heterozygous FHBL1 or in the PCSK9/ANGPTL3 clearance-enhanced routes, which do not affect intestinal chylomicron assembly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enterocyte\"], \"biological_processes\": [\"intestinal lipid absorption\"], \"role\": \"mediator\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Increased Hepatic LDL Receptor Density\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"More LDL receptor is available at the hepatocyte surface for receptor-mediated uptake of circulating LDL, increasing hepatic clearance of apoB-containing lipoproteins from plasma.\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"role\": \"mediator\", \"locations\": [\"liver\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Considered for biallelic (severe) FHBL1 patients who progress to end-stage liver disease from chronic hepatic triglyceride retention and steatohepatitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of ANGPTL3-Mediated Lipase Inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ANGPTL3 normally inhibits lipoprotein lipase and endothelial lipase, the key enzymes that hydrolyze circulating triglyceride-rich lipoproteins and HDL, respectively. Loss of ANGPTL3 function increases the activity of both enzymes. This is the established mechanism for the triglyceride and HDL-cholesterol reductions; the mechanism by which ANGPTL3 deficiency also lowers LDL cholesterol is less well resolved (see mechanism_confidence below).\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"lipoprotein lipase activity\"], \"role\": \"mediator\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Low-fat diet with fat-soluble vitamin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For biallelic (severe) FHBL1, a low-fat diet (\u003c30% of total calories) with adequate caloric intake plus high-dose oral vitamin A, D, E, and K supplementation, mirroring management of abetalipoproteinemia. No treatment is typically required for heterozygous FHBL1, PCSK9 loss-of-function, or ANGPTL3 deficiency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"PCSK9 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A PCSK9 nonsense or loss-of-function missense variant reduces or abolishes secreted PCSK9 activity. First identified through sequencing of PCSK9 in subjects with low plasma LDL specifically to test whether loss-of-function variants would have the mirror-image effect of the gain-of-function PCSK9 variants that cause autosomal dominant hypercholesterolemia (kb/disorders/Autosomal_Dominant_Hypercholesterolemia_3.yaml).\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PCSK9\"], \"gene_terms\": [{\"label\": \"PCSK9\", \"id\": \"hgnc:20001\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"The mirror-image lesion class to the gain-of-function PCSK9 missense variants that cause autosomal dominant hypercholesterolemia type 3 (ADH3): here, nonsense or loss-of-function missense variants reduce or abolish PCSK9 protease activity rather than enhancing it.\", \"gene_terms\": [{\"label\": \"PCSK9\", \"id\": \"hgnc:20001\"}]}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"PCSK9 loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PCSK9\"], \"gene_terms\": [{\"label\": \"PCSK9\", \"id\": \"hgnc:20001\"}], \"association\": \"Causative heterozygous loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"PCSK9 nonsense variants (Y142X, C679X)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense mutations identified in African American subjects with low LDL cholesterol, common in that population (combined frequency ~2%) but rare in European Americans.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PCSK9\"], \"gene_terms\": [{\"label\": \"PCSK9\", \"id\": \"hgnc:20001\"}], \"variant_type\": \"loss_of_function_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Protection Against Coronary Artery Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A shared downstream consequence of the PCSK9 and ANGPTL3 clearance-enhanced routes: lifelong, moderate reduction of circulating LDL cholesterol (and, for ANGPTL3, triglycerides) from birth is associated with substantially reduced coronary heart disease risk, providing the human-genetics validation for PCSK9-inhibitor and ANGPTL3-inhibitor drug development.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent biochemical phenotype: plasma apoB and LDL cholesterol persistently below the 5th percentile, reached by three mechanistically distinct routes (reduced hepatic/intestinal apoB production, enhanced hepatic LDL-receptor-mediated clearance, or enhanced lipolytic catabolism of triglyceride-rich lipoproteins).\", \"meta\": {\"evidence_count\": 1, \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced Fat-Soluble Vitamin Bioavailability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired absorption and lipoprotein transport reduce the bioavailability of vitamins A, D, E, and K in severe (biallelic) FHBL1, mirroring the vitamin deficiency of abetalipoproteinemia and driving the same downstream retinal, neurologic, and coagulation complications when untreated.\", \"meta\": {\"evidence_count\": 1, \"role\": \"mediator\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced PCSK9-Mediated LDL Receptor Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PCSK9 normally binds the hepatic LDL receptor and directs it toward lysosomal degradation after endocytosis rather than recycling it to the cell surface. Loss-of-function PCSK9 variants remove this restraint, so more LDL receptor recycles back to the hepatocyte surface. This is the exact mechanistic node that PCSK9-inhibitor biologics (evolocumab, alirocumab) pharmacologically reproduce to lower LDL cholesterol in hypercholesterolemia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"low-density lipoprotein particle receptor catabolic process\"], \"role\": \"mediator\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"p.(Arg490Trp) (c.1468C\u003eT) missense founder variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A rare missense variant (rather than a truncation) in APOB exon 11, also historically numbered p.(Arg463Trp). Identified as a founder allele accounting for approximately 71% of FHBL probands in a Lebanese cohort, with the same mutant haplotype shared across unrelated families, and separately reported in families of Italian, Canadian, Spanish, and Dutch origin.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"variant_type\": \"missense_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"APOB Truncating Variant\", \"target\": \"Impaired Hepatic and Intestinal ApoB-Lipoprotein Assembly and Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncated apoB is produced in reduced quantity and is secreted far less efficiently than the predicted 50% gene-dosage share.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hepatic and Intestinal ApoB-Lipoprotein Assembly and Secretion\", \"target\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer apoB-lipoprotein particles are secreted into plasma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hepatic and Intestinal ApoB-Lipoprotein Assembly and Secretion\", \"target\": \"Hepatic Triglyceride Retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced hepatic apoB secretion decreases triglyceride export from the liver in VLDL, producing hepatic steatosis even as less apoB-lipoprotein reaches plasma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Triglyceride Retention\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocyte triglyceride retention is observed as hepatic steatosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Triglyceride Retention\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hepatic triglyceride accumulation can progress to steatohepatitis and, rarely, cirrhosis or hepatocellular carcinoma, even in individuals with only a heterozygous truncating allele.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic hepatocyte lipid accumulation and steatohepatitis\"]}, {\"source\": \"PCSK9 Loss-of-Function Variant\", \"target\": \"Reduced PCSK9-Mediated LDL Receptor Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PCSK9 function removes the normal restraint on hepatic LDL receptor turnover.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced PCSK9-Mediated LDL Receptor Degradation\", \"target\": \"Increased Hepatic LDL Receptor Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced receptor degradation increases steady-state hepatic LDL receptor abundance available for uptake.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Hepatic LDL Receptor Density\", \"target\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhanced hepatic LDL-receptor-mediated uptake increases clearance of circulating LDL, unlike the production-limited APOB route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ANGPTL3 Loss-of-Function Variant\", \"target\": \"Loss of ANGPTL3-Mediated Lipase Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of ANGPTL3 removes its normal inhibitory restraint on lipoprotein lipase and endothelial lipase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of ANGPTL3-Mediated Lipase Inhibition\", \"target\": \"Enhanced Catabolism of Triglyceride-Rich Lipoproteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased lipase activity accelerates lipolytic catabolism of VLDL and HDL; the LDL branch is less mechanistically resolved.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enhanced Catabolism of Triglyceride-Rich Lipoproteins\", \"target\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accelerated catabolism of VLDL and LDL, together with reduced VLDL apoB production, reduces circulating apoB-lipoprotein concentration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enhanced Catabolism of Triglyceride-Rich Lipoproteins\", \"target\": \"Decreased HDL cholesterol concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endothelial lipase activation also accelerates HDL catabolism, distinguishing this route from the LDL-selective APOB and PCSK9 routes. Unlike the LDL/triglyceride traits, this HDL effect segregates as a strictly recessive trait requiring biallelic ANGPTL3 loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enhanced Catabolism of Triglyceride-Rich Lipoproteins\", \"target\": \"Protection Against Coronary Artery Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lifelong reduction of all three major apoB/lipid fractions by ANGPTL3 deficiency is associated with reduced coronary atherosclerotic burden and lower odds of coronary artery disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"sustained reduction of circulating LDL cholesterol and triglycerides\"]}, {\"source\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"target\": \"Decreased LDL cholesterol concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced apoB-lipoprotein particle number is measured as decreased LDL cholesterol.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"target\": \"Hypocholesterolemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced apoB-lipoprotein particle number lowers total cholesterol.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Circulating ApoB-Containing Lipoprotein Concentration\", \"target\": \"Impaired Intestinal Lipid Absorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When severe (homozygous/compound heterozygous FHBL1), reduced intestinal chylomicron secretion impairs dietary fat absorption. This branch does not occur in heterozygous FHBL1 or in the PCSK9/ANGPTL3 clearance-enhanced routes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"failure of intestinal chylomicron export in severe FHBL1\"]}, {\"source\": \"Impaired Intestinal Lipid Absorption\", \"target\": \"Fat malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective chylomicron export produces impaired dietary fat absorption.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Intestinal Lipid Absorption\", \"target\": \"Reduced Fat-Soluble Vitamin Bioavailability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chylomicron failure impairs absorption and transport of vitamins A, D, E, and K.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired intestinal uptake and transport of fat-soluble vitamins\"]}, {\"source\": \"Reduced Fat-Soluble Vitamin Bioavailability\", \"target\": \"Decreased circulating vitamin E concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced vitamin E absorption and transport lowers circulating vitamin E, the deficiency most closely tied to neurologic complications.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low-fat diet with fat-soluble vitamin supplementation\", \"target\": \"Impaired Intestinal Lipid Absorption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-fat diet with fat-soluble vitamin supplementation\", \"target\": \"Reduced Fat-Soluble Vitamin Bioavailability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Cirrhosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Evolocumab\", \"target\": \"Reduced PCSK9-Mediated LDL Receptor Degradation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Evinacumab\", \"target\": \"Loss of ANGPTL3-Mediated Lipase Inhibition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Apob-38.9 heterozygous mouse (FHBL1 model)\", \"target\": \"Impaired Hepatic and Intestinal ApoB-Lipoprotein Assembly and Secretion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Apob-38.9 heterozygous mice reproduce the disproportionate (well beyond the 50% gene-dosage expectation) reduction in hepatic apoB-100 secretion documented in human heterozygous FHBL1, and localize the defect in vivo and in primary hepatocytes to a secretion step rather than reduced synthesis from the intact allele.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"APOB truncating variants\", \"target\": \"APOB Truncating Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCSK9 loss-of-function variants\", \"target\": \"PCSK9 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANGPTL3 loss-of-function variants\", \"target\": \"ANGPTL3 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APOB truncating variants (apoB-2 to apoB-89)\", \"target\": \"APOB truncating variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.(Arg490Trp) (c.1468C\u003eT) missense founder variant\", \"target\": \"APOB truncating variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PCSK9 nonsense variants (Y142X, C679X)\", \"target\": \"PCSK9 loss-of-function variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ANGPTL3 nonsense variants (S17X, E129X)\", \"target\": \"ANGPTL3 loss-of-function variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6528,6 +6676,9 @@ This clinical feature is Acanthocytosis (HP:0001927). HP:0001927 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6613,6 +6764,9 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6684,6 +6838,9 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6748,6 +6905,9 @@ This clinical feature is Fat malabsorption (HP:0002630). HP:0002630 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6824,6 +6984,9 @@ This clinical feature is Steatorrhea (HP:0002570). HP:0002570 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6888,6 +7051,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6966,6 +7132,9 @@ This clinical feature is Abnormal retinal pigmentation (HP:0007703). HP:0007703 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7051,6 +7220,9 @@ This clinical feature is Decreased LDL cholesterol concentration (HP:0003563). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7115,6 +7287,9 @@ This clinical feature is Hypocholesterolemia (HP:0003146). HP:0003146 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7189,6 +7364,9 @@ This clinical feature is Decreased HDL cholesterol concentration (HP:0003233). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7258,6 +7436,9 @@ This clinical feature is Decreased circulating vitamin E concentration (HP:01005
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7322,6 +7503,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7421,6 +7605,9 @@ This clinical feature is Hyperbilirubinemia (HP:0002904). HP:0002904 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7487,6 +7674,9 @@ This clinical feature is Hypotriglyceridemia (HP:0012153). HP:0012153 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7570,6 +7760,9 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7639,6 +7832,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7703,6 +7899,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7781,6 +7980,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7901,6 +8103,9 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Semidominant to Autosomal Recessive</span>
@@ -7959,6 +8164,7 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7978,11 +8184,17 @@ This variant is in APOB (hgnc:603). hgnc:603 is a gene from the HUGO Gene Nomenc
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss of function variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Over 60 distinct truncating (nonsense, frameshift, splice-site) variants have been reported, named by the percent length of full-length apoB-100 translated (e.g., apoB-67 is the amino-terminal 67% of apoB-100). Severity of the biochemical and clinical phenotype generally scales with truncation length.
@@ -8072,6 +8284,7 @@ This variant is in APOB (hgnc:603). hgnc:603 is a gene from the HUGO Gene Nomenc
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8091,11 +8304,17 @@ This variant is in APOB (hgnc:603). hgnc:603 is a gene from the HUGO Gene Nomenc
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A rare missense variant (rather than a truncation) in APOB exon 11, also historically numbered p.(Arg463Trp). Identified as a founder allele accounting for approximately 71% of FHBL probands in a Lebanese cohort, with the same mutant haplotype shared across unrelated families, and separately reported in families of Italian, Canadian, Spanish, and Dutch origin.
@@ -8190,6 +8409,9 @@ This disease-associated gene is PNPLA3 (hgnc:18590). hgnc:18590 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8264,6 +8486,9 @@ This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -8322,6 +8547,7 @@ This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8341,11 +8567,17 @@ This variant is in PCSK9 (hgnc:20001). hgnc:20001 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss of function variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense mutations identified in African American subjects with low LDL cholesterol, common in that population (combined frequency ~2%) but rare in European Americans.
@@ -8464,6 +8696,9 @@ This disease-associated gene is ANGPTL3 (hgnc:491). hgnc:491 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
@@ -8522,6 +8757,7 @@ This disease-associated gene is ANGPTL3 (hgnc:491). hgnc:491 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8541,11 +8777,17 @@ This variant is in ANGPTL3 (hgnc:491). hgnc:491 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss of function variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Two independent nonsense mutations identified by exome sequencing in siblings with combined hypolipidemia; compound heterozygotes had markedly lower LDL cholesterol, triglycerides, and HDL cholesterol than heterozygous or non-carrier relatives.

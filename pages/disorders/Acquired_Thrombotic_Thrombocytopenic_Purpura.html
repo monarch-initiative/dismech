@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4445,6 +4487,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anti-adamts13-autoantibody-production" data-dismech-node="Anti-ADAMTS13 Autoantibody Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Anti-ADAMTS13 Autoantibody Production</div>
 
+
                 <div class="item-desc">Autoreactive B-lineage cells produce predominantly IgG antibodies against ADAMTS13. Antibodies can inhibit proteolytic activity and/or accelerate antigen clearance. This acquired immune response, rather than a germline ADAMTS13 defect, defines immune TTP.</div>
 
 
@@ -4610,6 +4653,7 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-adamts13-activity-deficiency" data-dismech-node="Severe ADAMTS13 Activity Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe ADAMTS13 Activity Deficiency</div>
 
+
                 <div class="item-desc">Functional ADAMTS13 activity below 10% is the defining biochemical lesion of TTP in the appropriate thrombotic-microangiopathy context. Severe deficiency can persist during apparent clinical remission, so it is a disease-state marker as well as an acute diagnostic marker.</div>
 
 
@@ -4723,6 +4767,7 @@ This pathophysiological event involves decreased proteolysis (GO:0006508). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistence-of-ultralarge-vwf-multimers" data-dismech-node="Persistence of Ultralarge VWF Multimers" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistence of Ultralarge VWF Multimers</div>
+
 
                 <div class="item-desc">Endothelial VWF remains in ultralarge, highly adhesive forms when ADAMTS13 cleavage is severely impaired. Under shear, these multimers bind platelet glycoprotein Ib and recruit platelets.</div>
 
@@ -4838,6 +4883,7 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disseminated-platelet-vwf-microthrombosis" data-dismech-node="Disseminated Platelet-VWF Microthrombosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disseminated Platelet-VWF Microthrombosis</div>
 
+
                 <div class="item-desc">Platelet-rich, VWF-rich thrombi disseminate through small vessels. This is not modeled as conventional fibrin/thrombin thrombogenesis: the defining lesion is VWF-mediated platelet adhesion.</div>
 
 
@@ -4951,6 +4997,7 @@ This pathophysiological event occurs in blood microvessel (UBERON:8410081). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-platelet-consumption" data-dismech-node="Platelet Consumption" data-dismech-type="pathophysiology">
                 <div class="item-name">Platelet Consumption</div>
 
+
                 <div class="item-desc">Platelet incorporation into microthrombi produces the characteristic severe thrombocytopenia.</div>
 
 
@@ -5026,6 +5073,7 @@ This pathophysiological event occurs in blood microvessel (UBERON:8410081). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shear-mediated-erythrocyte-fragmentation" data-dismech-node="Shear-Mediated Erythrocyte Fragmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Shear-Mediated Erythrocyte Fragmentation</div>
+
 
                 <div class="item-desc">Mechanical injury to erythrocytes in obstructed microvessels produces intravascular hemolysis and fragmented cells on the blood smear.</div>
 
@@ -5110,6 +5158,7 @@ This pathophysiological event occurs in blood microvessel (UBERON:8410081). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microvascular-occlusion-and-ischemic-organ-injury" data-dismech-node="Microvascular Occlusion and Ischemic Organ Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Microvascular Occlusion and Ischemic Organ Injury</div>
+
 
                 <div class="item-desc">Platelet-VWF microthrombi obstruct organ microcirculation. Neurologic injury is prominent, but cardiac and renal ischemic injury also occur; severe renal failure should increase consideration of another thrombotic microangiopathy.</div>
 
@@ -5231,6 +5280,7 @@ This pathophysiological event occurs in blood microvessel (UBERON:8410081). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-post-acute-neurovascular-and-psychosocial-sequelae" data-dismech-node="Post-Acute Neurovascular and Psychosocial Sequelae" data-dismech-type="pathophysiology">
                 <div class="item-name">Post-Acute Neurovascular and Psychosocial Sequelae</div>
+
 
                 <div class="item-desc">Clinical remission can be followed by stroke, cognitive impairment, depression, anxiety, and cardiovascular morbidity. These outcomes are observationally associated with surviving iTTP; causal pathways are heterogeneous and incompletely defined.</div>
 
@@ -5412,6 +5462,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5481,6 +5534,9 @@ This clinical feature is Microangiopathic hemolytic anemia (HP:0001937). HP:0001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5545,6 +5601,9 @@ This clinical feature is Schistocytosis (HP:0001981). HP:0001981 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5628,6 +5687,9 @@ This clinical feature is Myocardial infarction (HP:0001658). HP:0001658 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5694,6 +5756,9 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5777,6 +5842,9 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5855,6 +5923,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5919,6 +5990,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5990,6 +6064,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4988,6 +5030,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hibch-catalytic-loss" data-dismech-node="HIBCH catalytic loss" data-dismech-type="pathophysiology">
                 <div class="item-name">HIBCH catalytic loss</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Biallelic pathogenic HIBCH variants reduce mitochondrial 3-hydroxyisobutyryl-CoA hydrolase activity, establishing the initiating enzymatic lesion.</div>
 
 
@@ -5189,6 +5238,13 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-3-hydroxyisobutyryl-coa-hydrolysis" data-dismech-node="Impaired 3-hydroxyisobutyryl-CoA hydrolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired 3-hydroxyisobutyryl-CoA hydrolysis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Failure to convert 3-hydroxyisobutyryl-CoA to free 3-hydroxyisobutyrate disrupts mitochondrial valine catabolism.</div>
 
 
@@ -5324,6 +5380,13 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reactive-valine-derived-intermediate-accumulation" data-dismech-node="Reactive valine-derived intermediate accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reactive valine-derived intermediate accumulation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Methacrylyl-CoA and related electrophilic intermediates can react with sulfhydryl-containing molecules. SCPC, SCPCM, their derivatives, and other urine metabolites report this biochemical state; their contribution to neural injury remains incompletely defined.</div>
 
 
@@ -5436,6 +5499,13 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-variable-secondary-pdh-and-respiratory-chain-dysfunction" data-dismech-node="Variable secondary PDH and respiratory-chain dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Variable secondary PDH and respiratory-chain dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Secondary pyruvate-dehydrogenase-complex and respiratory-chain abnormalities occur in some patients, but are neither universal nor a required bottleneck for the neurologic phenotype.</div>
 
@@ -5597,6 +5667,13 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-illness-associated-acute-neurometabolic-decompensation" data-dismech-node="Illness-associated acute neurometabolic decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Illness-associated acute neurometabolic decompensation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Intercurrent illness, fasting, or another catabolic stress can precipitate acute encephalopathy and neurologic deterioration on the background of disrupted valine metabolism.</div>
 
 
@@ -5705,6 +5782,13 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leigh-like-basal-ganglia-neurometabolic-injury" data-dismech-node="Leigh-like basal-ganglia neurometabolic injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Leigh-like basal-ganglia neurometabolic injury</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">HIBCH deficiency commonly produces a Leigh-like syndrome with bilateral pallidal or broader basal-ganglia injury. The selective neuroanatomic vulnerability is observed consistently, but its molecular basis remains unresolved.</div>
 
@@ -5866,7 +5950,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"3-hydroxyisobutyrylcarnitine (C4-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"presence\": \"INCREASED\", \"specificity\": \"Limited without chromatographic isomer separation; routine C4-OH can include 3-hydroxybutyrylcarnitine and may be normal in HIBCH deficiency.\", \"readouts\": [{\"target\": \"Impaired 3-hydroxyisobutyryl-CoA hydrolysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Substrate-derived 3-hydroxyisobutyrylcarnitine reports the HIBCH hydrolysis block.\"}]}}, {\"id\": \"Blood lactate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"presence\": \"Variable\", \"specificity\": \"Low\", \"readouts\": [{\"target\": \"Variable secondary PDH and respiratory-chain dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated lactate is a nonspecific, inconsistent marker of secondary energy-metabolism dysfunction.\"}]}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of acquired skills was reported in 24 of 38 pooled, literature-ascertained cases (63%).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia was reported in 19 of 38 pooled cases (50%).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Encephalopathy was reported in 19 of 38 pooled cases (50%).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"HIBCH activity in cultured skin fibroblasts\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"presence\": \"DECREASED\", \"specificity\": \"High when measured with an appropriate enzyme assay.\", \"readouts\": [{\"target\": \"HIBCH catalytic loss\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced enzyme activity directly measures the initiating catalytic defect.\"}]}}, {\"id\": \"HIBCH catalytic loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic HIBCH variants reduce mitochondrial 3-hydroxyisobutyryl-CoA hydrolase activity, establishing the initiating enzymatic lesion.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"3-hydroxyisobutyryl-CoA hydrolase activity\"], \"genes\": [\"HIBCH\"], \"gene_terms\": [{\"label\": \"HIBCH\", \"id\": \"hgnc:4908\"}], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"HIBCH pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HIBCH\"], \"gene_terms\": [{\"label\": \"HIBCH\", \"id\": \"hgnc:4908\"}], \"association\": \"Biallelic loss of function\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia was reported in 28 of 38 pooled cases (74%).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Illness-associated acute neurometabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intercurrent illness, fasting, or another catabolic stress can precipitate acute encephalopathy and neurologic deterioration on the background of disrupted valine metabolism.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired 3-hydroxyisobutyryl-CoA hydrolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to convert 3-hydroxyisobutyryl-CoA to free 3-hydroxyisobutyrate disrupts mitochondrial valine catabolism.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"valine catabolic process\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Leigh-like basal-ganglia neurometabolic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HIBCH deficiency commonly produces a Leigh-like syndrome with bilateral pallidal or broader basal-ganglia injury. The selective neuroanatomic vulnerability is observed consistently, but its molecular basis remains unresolved.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"basal ganglion\"]}}, {\"id\": \"Prevention of catabolism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Avoidance of prolonged fasting and individualized sick-day planning are intended to reduce catabolic stress. Acute illness management should be directed by a metabolic specialist; the cached evidence does not define a validated universal emergency protocol.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reactive valine-derived intermediate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Methacrylyl-CoA and related electrophilic intermediates can react with sulfhydryl-containing molecules. SCPC, SCPCM, their derivatives, and other urine metabolites report this biochemical state; their contribution to neural injury remains incompletely defined.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Urinary 2,3-dihydroxy-2-methylbutyrate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"presence\": \"INCREASED\", \"specificity\": \"Limited; it also occurs in ECHS1 deficiency and propionate disorders, and its exact route of formation remains uncertain.\", \"readouts\": [{\"target\": \"Reactive valine-derived intermediate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"This urine metabolite is associated with reactive valine/propionate-pathway intermediates but is not HIBCH-specific.\"}]}}, {\"id\": \"Urinary S-(2-carboxypropyl)cysteamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"specificity\": \"Potentially useful, but sensitivity and specificity are not established.\", \"readouts\": [{\"target\": \"Reactive valine-derived intermediate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"SCPCM is a methacrylyl-CoA-derived thiol conjugate.\"}]}}, {\"id\": \"Urinary S-(2-carboxypropyl)cysteine and its carnitine ester\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"specificity\": \"More directly reflects methacrylyl-CoA thiol conjugation, but also occurs in ECHS1 deficiency and requires specialized analysis.\", \"readouts\": [{\"target\": \"Reactive valine-derived intermediate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"SCPC species report conjugation of reactive methacrylyl-derived intermediates.\"}]}}, {\"id\": \"Valine-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Valine restriction is the expert-recommended targeted dietary approach, intended to reduce substrate flux into the impaired pathway. Evidence is limited to small uncontrolled reports and expert experience; no consensus protocol, controlled efficacy estimate, or universal age-specific valine target is established.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Variable secondary PDH and respiratory-chain dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Secondary pyruvate-dehydrogenase-complex and respiratory-chain abnormalities occur in some patients, but are neither universal nor a required bottleneck for the neurologic phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"mitochondrion\"]}}], \"edges\": [{\"source\": \"HIBCH catalytic loss\", \"target\": \"Impaired 3-hydroxyisobutyryl-CoA hydrolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the enzyme directly blocks its mitochondrial valine-catabolism reaction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired 3-hydroxyisobutyryl-CoA hydrolysis\", \"target\": \"Reactive valine-derived intermediate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Substrate accumulation and pathway back-pressure are associated with methacrylyl-CoA- and acryloyl-CoA-derived metabolites.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reactive valine-derived intermediate accumulation\", \"target\": \"Variable secondary PDH and respiratory-chain dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reactive-intermediate and redox effects may impair mitochondrial enzymes, but abnormalities are inconsistent among affected people.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reactive valine-derived intermediate accumulation\", \"target\": \"Illness-associated acute neurometabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Catabolic stress may increase valine-pathway flux and reactive-metabolite burden, contributing to illness-associated deterioration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increased valine release and pathway flux during catabolism or ketosis.\"]}, {\"source\": \"Reactive valine-derived intermediate accumulation\", \"target\": \"Leigh-like basal-ganglia neurometabolic injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reactive metabolite toxicity may injure vulnerable neural tissue through mechanisms that do not require demonstrable respiratory-chain or PDH deficiency in every patient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variable secondary PDH and respiratory-chain dysfunction\", \"target\": \"Leigh-like basal-ganglia neurometabolic injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy-metabolism impairment may contribute to Leigh-like injury in the subset with secondary enzyme defects.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Illness-associated acute neurometabolic decompensation\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute neurologic deterioration can result in loss of acquired skills.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Illness-associated acute neurometabolic decompensation\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute decompensation manifests clinically as encephalopathy in many reported cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leigh-like basal-ganglia neurometabolic injury\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive or episodic neural injury is associated with regression.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leigh-like basal-ganglia neurometabolic injury\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central neurometabolic injury is associated with hypotonia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leigh-like basal-ganglia neurometabolic injury\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal-ganglia circuit injury is associated with dystonia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Valine-restricted diet\", \"target\": \"Reactive valine-derived intermediate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prevention of catabolism\", \"target\": \"Illness-associated acute neurometabolic decompensation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Impaired 3-hydroxyisobutyryl-CoA hydrolysis\", \"target\": \"3-hydroxyisobutyrylcarnitine (C4-OH)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Substrate-derived 3-hydroxyisobutyrylcarnitine reports the HIBCH hydrolysis block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reactive valine-derived intermediate accumulation\", \"target\": \"Urinary 2,3-dihydroxy-2-methylbutyrate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"This urine metabolite is associated with reactive valine/propionate-pathway intermediates but is not HIBCH-specific.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reactive valine-derived intermediate accumulation\", \"target\": \"Urinary S-(2-carboxypropyl)cysteine and its carnitine ester\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"SCPC species report conjugation of reactive methacrylyl-derived intermediates.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reactive valine-derived intermediate accumulation\", \"target\": \"Urinary S-(2-carboxypropyl)cysteamine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"SCPCM is a methacrylyl-CoA-derived thiol conjugate.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Variable secondary PDH and respiratory-chain dysfunction\", \"target\": \"Blood lactate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated lactate is a nonspecific, inconsistent marker of secondary energy-metabolism dysfunction.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HIBCH catalytic loss\", \"target\": \"HIBCH activity in cultured skin fibroblasts\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced enzyme activity directly measures the initiating catalytic defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HIBCH pathogenic variants\", \"target\": \"HIBCH catalytic loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"3-hydroxyisobutyrylcarnitine (C4-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"presence\": \"INCREASED\", \"specificity\": \"Limited without chromatographic isomer separation; routine C4-OH can include 3-hydroxybutyrylcarnitine and may be normal in HIBCH deficiency.\", \"readouts\": [{\"target\": \"Impaired 3-hydroxyisobutyryl-CoA hydrolysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Substrate-derived 3-hydroxyisobutyrylcarnitine reports the HIBCH hydrolysis block.\"}]}}, {\"id\": \"Blood lactate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"presence\": \"Variable\", \"specificity\": \"Low\", \"readouts\": [{\"target\": \"Variable secondary PDH and respiratory-chain dysfunction\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated lactate is a nonspecific, inconsistent marker of secondary energy-metabolism dysfunction.\"}]}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of acquired skills was reported in 24 of 38 pooled, literature-ascertained cases (63%).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia was reported in 19 of 38 pooled cases (50%).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Encephalopathy was reported in 19 of 38 pooled cases (50%).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001298\"}}, {\"id\": \"HIBCH activity in cultured skin fibroblasts\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"presence\": \"DECREASED\", \"specificity\": \"High when measured with an appropriate enzyme assay.\", \"readouts\": [{\"target\": \"HIBCH catalytic loss\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced enzyme activity directly measures the initiating catalytic defect.\"}]}}, {\"id\": \"HIBCH catalytic loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic HIBCH variants reduce mitochondrial 3-hydroxyisobutyryl-CoA hydrolase activity, establishing the initiating enzymatic lesion.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"3-hydroxyisobutyryl-CoA hydrolase activity\"], \"genes\": [\"HIBCH\"], \"gene_terms\": [{\"label\": \"HIBCH\", \"id\": \"hgnc:4908\"}], \"locations\": [\"mitochondrial matrix\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"HIBCH pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HIBCH\"], \"gene_terms\": [{\"label\": \"HIBCH\", \"id\": \"hgnc:4908\"}], \"association\": \"Biallelic loss of function\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia was reported in 28 of 38 pooled cases (74%).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Illness-associated acute neurometabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intercurrent illness, fasting, or another catabolic stress can precipitate acute encephalopathy and neurologic deterioration on the background of disrupted valine metabolism.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired 3-hydroxyisobutyryl-CoA hydrolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to convert 3-hydroxyisobutyryl-CoA to free 3-hydroxyisobutyrate disrupts mitochondrial valine catabolism.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"valine catabolic process\"], \"locations\": [\"mitochondrial matrix\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Leigh-like basal-ganglia neurometabolic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HIBCH deficiency commonly produces a Leigh-like syndrome with bilateral pallidal or broader basal-ganglia injury. The selective neuroanatomic vulnerability is observed consistently, but its molecular basis remains unresolved.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"basal ganglion\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Prevention of catabolism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Avoidance of prolonged fasting and individualized sick-day planning are intended to reduce catabolic stress. Acute illness management should be directed by a metabolic specialist; the cached evidence does not define a validated universal emergency protocol.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reactive valine-derived intermediate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Methacrylyl-CoA and related electrophilic intermediates can react with sulfhydryl-containing molecules. SCPC, SCPCM, their derivatives, and other urine metabolites report this biochemical state; their contribution to neural injury remains incompletely defined.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"mitochondrial matrix\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Urinary 2,3-dihydroxy-2-methylbutyrate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"presence\": \"INCREASED\", \"specificity\": \"Limited; it also occurs in ECHS1 deficiency and propionate disorders, and its exact route of formation remains uncertain.\", \"readouts\": [{\"target\": \"Reactive valine-derived intermediate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"This urine metabolite is associated with reactive valine/propionate-pathway intermediates but is not HIBCH-specific.\"}]}}, {\"id\": \"Urinary S-(2-carboxypropyl)cysteamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"specificity\": \"Potentially useful, but sensitivity and specificity are not established.\", \"readouts\": [{\"target\": \"Reactive valine-derived intermediate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"SCPCM is a methacrylyl-CoA-derived thiol conjugate.\"}]}}, {\"id\": \"Urinary S-(2-carboxypropyl)cysteine and its carnitine ester\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"specificity\": \"More directly reflects methacrylyl-CoA thiol conjugation, but also occurs in ECHS1 deficiency and requires specialized analysis.\", \"readouts\": [{\"target\": \"Reactive valine-derived intermediate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"SCPC species report conjugation of reactive methacrylyl-derived intermediates.\"}]}}, {\"id\": \"Valine-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Valine restriction is the expert-recommended targeted dietary approach, intended to reduce substrate flux into the impaired pathway. Evidence is limited to small uncontrolled reports and expert experience; no consensus protocol, controlled efficacy estimate, or universal age-specific valine target is established.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Variable secondary PDH and respiratory-chain dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Secondary pyruvate-dehydrogenase-complex and respiratory-chain abnormalities occur in some patients, but are neither universal nor a required bottleneck for the neurologic phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"mitochondrion\"], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"HIBCH catalytic loss\", \"target\": \"Impaired 3-hydroxyisobutyryl-CoA hydrolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the enzyme directly blocks its mitochondrial valine-catabolism reaction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired 3-hydroxyisobutyryl-CoA hydrolysis\", \"target\": \"Reactive valine-derived intermediate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Substrate accumulation and pathway back-pressure are associated with methacrylyl-CoA- and acryloyl-CoA-derived metabolites.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reactive valine-derived intermediate accumulation\", \"target\": \"Variable secondary PDH and respiratory-chain dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reactive-intermediate and redox effects may impair mitochondrial enzymes, but abnormalities are inconsistent among affected people.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reactive valine-derived intermediate accumulation\", \"target\": \"Illness-associated acute neurometabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Catabolic stress may increase valine-pathway flux and reactive-metabolite burden, contributing to illness-associated deterioration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increased valine release and pathway flux during catabolism or ketosis.\"]}, {\"source\": \"Reactive valine-derived intermediate accumulation\", \"target\": \"Leigh-like basal-ganglia neurometabolic injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reactive metabolite toxicity may injure vulnerable neural tissue through mechanisms that do not require demonstrable respiratory-chain or PDH deficiency in every patient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variable secondary PDH and respiratory-chain dysfunction\", \"target\": \"Leigh-like basal-ganglia neurometabolic injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy-metabolism impairment may contribute to Leigh-like injury in the subset with secondary enzyme defects.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Illness-associated acute neurometabolic decompensation\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute neurologic deterioration can result in loss of acquired skills.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Illness-associated acute neurometabolic decompensation\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute decompensation manifests clinically as encephalopathy in many reported cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leigh-like basal-ganglia neurometabolic injury\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive or episodic neural injury is associated with regression.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leigh-like basal-ganglia neurometabolic injury\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central neurometabolic injury is associated with hypotonia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leigh-like basal-ganglia neurometabolic injury\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal-ganglia circuit injury is associated with dystonia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Valine-restricted diet\", \"target\": \"Reactive valine-derived intermediate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prevention of catabolism\", \"target\": \"Illness-associated acute neurometabolic decompensation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Impaired 3-hydroxyisobutyryl-CoA hydrolysis\", \"target\": \"3-hydroxyisobutyrylcarnitine (C4-OH)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Substrate-derived 3-hydroxyisobutyrylcarnitine reports the HIBCH hydrolysis block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reactive valine-derived intermediate accumulation\", \"target\": \"Urinary 2,3-dihydroxy-2-methylbutyrate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"This urine metabolite is associated with reactive valine/propionate-pathway intermediates but is not HIBCH-specific.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reactive valine-derived intermediate accumulation\", \"target\": \"Urinary S-(2-carboxypropyl)cysteine and its carnitine ester\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"SCPC species report conjugation of reactive methacrylyl-derived intermediates.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Reactive valine-derived intermediate accumulation\", \"target\": \"Urinary S-(2-carboxypropyl)cysteamine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"SCPCM is a methacrylyl-CoA-derived thiol conjugate.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Variable secondary PDH and respiratory-chain dysfunction\", \"target\": \"Blood lactate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated lactate is a nonspecific, inconsistent marker of secondary energy-metabolism dysfunction.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HIBCH catalytic loss\", \"target\": \"HIBCH activity in cultured skin fibroblasts\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced enzyme activity directly measures the initiating catalytic defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HIBCH pathogenic variants\", \"target\": \"HIBCH catalytic loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5938,6 +6022,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6002,6 +6089,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6087,6 +6177,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6158,6 +6251,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6224,6 +6320,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6302,6 +6401,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6387,6 +6489,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6451,6 +6556,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6536,6 +6644,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6602,6 +6713,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6678,6 +6792,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6744,6 +6861,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6820,6 +6940,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6891,6 +7014,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6955,6 +7081,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7033,6 +7162,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7151,6 +7283,9 @@ This disease-associated gene is HIBCH (hgnc:4908). hgnc:4908 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

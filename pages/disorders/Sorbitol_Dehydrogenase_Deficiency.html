@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5074,6 +5116,13 @@ The entry deliberately spans the CMT2/dHMN boundary rather than choosing one lab
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-sord-loss-of-function-variants" data-dismech-node="Biallelic SORD Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SORD Loss-of-Function Variants</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Two loss-of-function SORD alleles. The recurrent frameshift c.757delG (p.Ala253GlnfsTer27) dominates the allele spectrum worldwide and is found homozygously in most patients; c.458C&gt;A (p.Ala153Asp) is the commonest second allele. A third allele class - inversion between SORD and its highly homologous pseudogene SORD2P - is invisible to short-read sequencing and accounts for a further tranche of cases. Missense alleles act by destabilising the enzyme rather than by any dominant-negative or neomorphic route: c.404A&gt;G produces insoluble SORD aggregates in vitro, and a splice allele c.908+1G&gt;C disrupts the transcript.</div>
 
 
@@ -5168,6 +5217,8 @@ This genetic context concerns SORD (hgnc:11184). hgnc:11184 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: frameshift, missense, splice-site, and gene-pseudogene inversion</span>
 
 
@@ -5183,6 +5234,9 @@ This genetic context concerns SORD (hgnc:11184). hgnc:11184 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous in most patients and compound heterozygous in the remainder; all characterised alleles converge on absent or non-functional enzyme.</div>
 
@@ -5280,6 +5334,13 @@ This genetic context concerns SORD (hgnc:11184). hgnc:11184 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-sorbitol-dehydrogenase-activity" data-dismech-node="Loss of Sorbitol Dehydrogenase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Sorbitol Dehydrogenase Activity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Sorbitol dehydrogenase (EC 1.1.1.14), the NAD+-dependent second enzyme of the polyol pathway, is absent from patient cells. Protein is undetectable by western blot in fibroblasts homozygous for c.757delG, and red-cell enzyme activity is significantly reduced against run controls - a difference large enough that a screening assay has been built on it. The 30% figure quoted in the biochemical record is that assay&#39;s proposed cutoff, not a measured residual activity of the disease.</div>
 
@@ -5436,6 +5497,13 @@ This pathophysiological event involves absent sorbitol dehydrogenase activity, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polyol-pathway-block-with-sorbitol-accumulation" data-dismech-node="Polyol Pathway Block with Sorbitol Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Polyol Pathway Block with Sorbitol Accumulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Aldose reductase continues to reduce glucose to sorbitol, but the second step is blocked, so sorbitol - a polar, poorly membrane-permeant polyol - accumulates. Intracellular sorbitol is more than ten-fold elevated in patient fibroblasts and fasting serum sorbitol is roughly two orders of magnitude above control. In the Sord-null rat the accumulation is documented in the compartment that matters: serum, CSF and peripheral nerve. This is the metabolic insult that the conserved peripheral-axonal-degeneration module describes generically; here it is the whole trigger, with no toxic, inflammatory or hyperglycaemic component.</div>
 
@@ -5707,6 +5775,13 @@ This pathophysiological event involves decreased sorbitol catabolism, annotated 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osmotic-stress-in-schwann-cells-and-myelinated-axons" data-dismech-node="Osmotic Stress in Schwann Cells and Myelinated Axons" data-dismech-type="pathophysiology">
                 <div class="item-name">Osmotic Stress in Schwann Cells and Myelinated Axons</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">The osmotic candidate for how a trapped metabolite injures nerve. Sorbitol crosses membranes poorly, so an unclearable intracellular pool should draw water in, and the structural finding that fits is the enlarged &#34;ballooned&#34; myelin sheath seen around otherwise intact axons in the Sord-null rat - an abnormality also described in galactosemic neuropathy, where a different polyol accumulates. The node is HYPOTHETICAL by design: the lesion is consistent with osmotic swelling and is the reason this is the leading model, but nobody has measured water content, osmolyte composition or volume regulation in SORD-deficient nerve, so the inference runs from morphology to mechanism rather than the other way round.</div>
 
 
@@ -5876,6 +5951,13 @@ This pathophysiological event involves increased response to osmotic stress (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction-and-oxidative-stress" data-dismech-node="Mitochondrial Dysfunction and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Dysfunction and Oxidative Stress</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Sord-deficient Drosophila show reduced brain ATP production and reactive oxygen species accumulation in CNS and muscle, and both are corrected by aldose reductase inhibition, which ties them to sorbitol rather than to the genotype in general. Independent human support comes from proteomic analysis of patient skeletal muscle, where respiratory complex I deficiency dominated and the malate/oxaloacetate ratio was raised. The node is marked PROVISIONAL because the animal evidence is invertebrate and the human evidence is muscle proteomics rather than nerve.</div>
 
@@ -6057,6 +6139,13 @@ This pathophysiological event involves increased response to oxidative stress (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-motor-axonal-degeneration-and-demyelination" data-dismech-node="Distal Motor Axonal Degeneration and Demyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Motor Axonal Degeneration and Demyelination</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Degeneration falls on myelinated motor axons and largely spares myelinated sensory axons - the structural counterpart of the motor-predominant clinical picture. Rat nerve shows degenerating myelinated axons, de- and remyelinated axons, and enlarged &#34;ballooned&#34; myelin sheaths that the authors propose as a pathognomonic feature. Human sural nerve, sampled in a sensory nerve in a motor-predominant disease, shows correspondingly mild change: modest loss of large myelinated fibres with a few thinly myelinated fibres.</div>
 
@@ -6330,6 +6419,13 @@ This pathophysiological event occurs in peripheral nerve, annotated with nerve (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-length-dependent-motor-predominant-nerve-fiber-dysfunction" data-dismech-node="Length-Dependent Motor-Predominant Nerve Fiber Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Length-Dependent Motor-Predominant Nerve Fiber Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Nerve conduction shows a motor-predominant axonal neuropathy, with conduction velocities reduced into the intermediate range in a minority - which is why some patients are labelled intermediate CMT. Sensory conduction is affected in a pattern that is not simply length-dependent: upper-limb sensory responses are abnormal more often than lower-limb ones, an inversion of the usual gradient that is itself a diagnostic clue. Conformance to the module&#39;s length-dependent node is therefore declared for the motor arm only; the sensory pattern curated here is the exception to it, not an instance of it.</div>
 
 
@@ -6428,6 +6524,13 @@ This pathophysiological event occurs in peripheral nerve, annotated with nerve (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-predominant-hereditary-neuropathy-spanning-cmt2-and-dhmn" data-dismech-node="Motor-Predominant Hereditary Neuropathy Spanning CMT2 and dHMN" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor-Predominant Hereditary Neuropathy Spanning CMT2 and dHMN</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical endpoint is a slowly progressive distal weakness and amyotrophy with foot deformity, beginning in the second decade. Whether an individual is labelled CMT2 or dHMN depends on how much sensory involvement is found, not on genotype: about two-thirds are classified as CMT2 and one-third as dHMN on the same allele spectrum.</div>
 
@@ -6537,7 +6640,7 @@ This pathophysiological event occurs in peripheral nerve, annotated with nerve (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aldose Reductase Inhibition (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Substrate reduction rather than enzyme replacement: inhibiting aldose reductase, the enzyme upstream of the block, reduces flux of glucose into sorbitol and so lowers sorbitol despite the missing SORD. Epalrestat and ranirestat established the principle in patient fibroblasts and in Drosophila; the CNS-penetrant next-generation inhibitor govorestat (AT-007) carried it into the clinic, lowering sorbitol in patient fibroblasts, iPSC-derived motor neurons and fly brain and rescuing synaptic, locomotor and mitochondrial phenotypes in flies. No aldose reductase inhibitor is approved for this indication, and this entry records no clinical efficacy claim: the evidence curated here is preclinical, and the clinical trial is listed separately under clinical_trials.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"epalrestat\", \"govorestat (AT-007)\"]}}, {\"id\": \"Ankle-Foot Orthoses and Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The current standard of care is supportive: ankle-foot orthoses for foot drop, plus physiotherapy for gait and strength maintenance. About a quarter of patients take up orthoses, usually in their thirties.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic SORD Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two loss-of-function SORD alleles. The recurrent frameshift c.757delG (p.Ala253GlnfsTer27) dominates the allele spectrum worldwide and is found homozygously in most patients; c.458C\u003eA (p.Ala153Asp) is the commonest second allele. A third allele class - inversion between SORD and its highly homologous pseudogene SORD2P - is invisible to short-read sequencing and accounts for a further tranche of cases. Missense alleles act by destabilising the enzyme rather than by any dominant-negative or neomorphic route: c.404A\u003eG produces insoluble SORD aggregates in vitro, and a splice allele c.908+1G\u003eC disrupts the transcript.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SORD\"], \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}], \"genetic_context\": {\"allele_type\": \"frameshift, missense, splice-site, and gene-pseudogene inversion\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous in most patients and compound heterozygous in the remainder; all characterised alleles converge on absent or non-functional enzyme.\", \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}]}, \"role\": \"trigger\"}}, {\"id\": \"C57BL/LiA mouse with reduced SORD\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A mouse strain carrying an intronic splicing variant that substantially reduces SORD protein. Under standard husbandry it develops neither neuropathy nor slowed nerve conduction - a negative result that the discovery authors attribute to the low sugar content of standard mouse chow relative to human and Drosophila diets, and therefore to polyol flux rather than to a species difference in the mechanism itself.\"}, {\"id\": \"Distal Motor Axonal Degeneration and Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration falls on myelinated motor axons and largely spares myelinated sensory axons - the structural counterpart of the motor-predominant clinical picture. Rat nerve shows degenerating myelinated axons, de- and remyelinated axons, and enlarged \\\"ballooned\\\" myelin sheaths that the authors propose as a pathognomonic feature. Human sural nerve, sampled in a sensory nerve in a motor-predominant disease, shows correspondingly mild change: modest loss of large myelinated fibres with a few thinly myelinated fibres.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\", \"Schwann cell\", \"sensory neuron\"], \"role\": \"effector\", \"locations\": [\"peripheral nerve\"], \"animal_models\": [{\"name\": \"Sord knockout Sprague Dawley rat\", \"species\": \"Rat\", \"genotype\": \"Sord-/- (CRISPR knockout, Sprague Dawley background)\", \"background\": \"Sprague Dawley\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the motor-over-sensory selectivity of the human lesion at the level of nerve pathology and conduction.\"}, {\"name\": \"C57BL/LiA mouse with reduced SORD\", \"species\": \"Mouse\", \"genotype\": \"intronic splicing variant reducing SORD protein (C57BL/LiA)\", \"background\": \"C57BL/LiA\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Reduced SORD protein in this strain does not produce the human lesion, so the model cannot be used to test the axonal-degeneration arm.\"}]}}, {\"id\": \"Drosophila Sodh2 loss-of-function\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Fly models of SORD loss with elevated head sorbitol, age-dependent synaptic degeneration in the visual system, and progressive locomotor decline on a normal lifespan. They were the system in which aldose reductase inhibition was first shown to rescue the phenotype, and later the system used to show bioenergetic and oxidative changes.\"}, {\"id\": \"Foot Dorsiflexor Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of ankle dorsiflexion, the muscle group most affected and the one used as a quantitative outcome measure in natural-history and trial work.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009027\"}}, {\"id\": \"Length-Dependent Motor-Predominant Nerve Fiber Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nerve conduction shows a motor-predominant axonal neuropathy, with conduction velocities reduced into the intermediate range in a minority - which is why some patients are labelled intermediate CMT. Sensory conduction is affected in a pattern that is not simply length-dependent: upper-limb sensory responses are abnormal more often than lower-limb ones, an inversion of the usual gradient that is itself a diagnostic clue. Conformance to the module\u0027s length-dependent node is therefore declared for the motor arm only; the sensory pattern curated here is the exception to it, not an instance of it.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Loss of Sorbitol Dehydrogenase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sorbitol dehydrogenase (EC 1.1.1.14), the NAD+-dependent second enzyme of the polyol pathway, is absent from patient cells. Protein is undetectable by western blot in fibroblasts homozygous for c.757delG, and red-cell enzyme activity is significantly reduced against run controls - a difference large enough that a screening assay has been built on it. The 30% figure quoted in the biochemical record is that assay\u0027s proposed cutoff, not a measured residual activity of the disease.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"sorbitol dehydrogenase activity\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Patient-derived skin fibroblasts (SORD c.757delG homozygous)\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Human cells carrying the patient genotype, with complete absence of the enzyme protein.\"}]}}, {\"id\": \"Mitochondrial Dysfunction and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sord-deficient Drosophila show reduced brain ATP production and reactive oxygen species accumulation in CNS and muscle, and both are corrected by aldose reductase inhibition, which ties them to sorbitol rather than to the genotype in general. Independent human support comes from proteomic analysis of patient skeletal muscle, where respiratory complex I deficiency dominated and the malate/oxaloacetate ratio was raised. The node is marked PROVISIONAL because the animal evidence is invertebrate and the human evidence is muscle proteomics rather than nerve.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to oxidative stress\"], \"role\": \"amplifier\", \"animal_models\": [{\"name\": \"Drosophila Sodh2 loss-of-function\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"Sodh2(MB01265) homozygous, and neuronal Sodh1/Sodh2 double knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Supplies the bioenergetic and oxidative-stress evidence for this node.\"}]}}, {\"id\": \"Motor-Predominant Hereditary Neuropathy Spanning CMT2 and dHMN\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint is a slowly progressive distal weakness and amyotrophy with foot deformity, beginning in the second decade. Whether an individual is labelled CMT2 or dHMN depends on how much sensory involvement is found, not on genotype: about two-thirds are classified as CMT2 and one-third as dHMN on the same allele spectrum.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Osmotic Stress in Schwann Cells and Myelinated Axons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The osmotic candidate for how a trapped metabolite injures nerve. Sorbitol crosses membranes poorly, so an unclearable intracellular pool should draw water in, and the structural finding that fits is the enlarged \\\"ballooned\\\" myelin sheath seen around otherwise intact axons in the Sord-null rat - an abnormality also described in galactosemic neuropathy, where a different polyol accumulates. The node is HYPOTHETICAL by design: the lesion is consistent with osmotic swelling and is the reason this is the leading model, but nobody has measured water content, osmolyte composition or volume regulation in SORD-deficient nerve, so the inference runs from morphology to mechanism rather than the other way round.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"response to osmotic stress\"], \"role\": \"amplifier\"}}, {\"id\": \"Patient iPSC-derived motor neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"iPSC-derived motor neurons from patients, used to show that govorestat lowers sorbitol in the human cell type the disease actually targets. Patient iPSC lines carrying SORD variants have since been deposited as a shared resource.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:37014713\"}}, {\"id\": \"Patient-derived skin fibroblasts (SORD c.757delG homozygous)\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts from patients homozygous for c.757delG, used to show absent SORD protein and raised intracellular sorbitol, and later as the assay system for aldose reductase inhibitor target engagement.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:32367058\"}}, {\"id\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aldose reductase continues to reduce glucose to sorbitol, but the second step is blocked, so sorbitol - a polar, poorly membrane-permeant polyol - accumulates. Intracellular sorbitol is more than ten-fold elevated in patient fibroblasts and fasting serum sorbitol is roughly two orders of magnitude above control. In the Sord-null rat the accumulation is documented in the compartment that matters: serum, CSF and peripheral nerve. This is the metabolic insult that the conserved peripheral-axonal-degeneration module describes generically; here it is the whole trigger, with no toxic, inflammatory or hyperglycaemic component.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"sorbitol catabolism\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Patient iPSC-derived motor neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Provides the sorbitol readout in a human motor neuron rather than in a fibroblast or fly.\"}], \"animal_models\": [{\"name\": \"Sord knockout Sprague Dawley rat\", \"species\": \"Rat\", \"genotype\": \"Sord-/- (CRISPR knockout, Sprague Dawley background)\", \"background\": \"Sprague Dawley\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Establishes that sorbitol accumulates in the nervous-system compartments that patient serum measurements cannot reach.\"}, {\"name\": \"Drosophila Sodh2 loss-of-function\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"Sodh2(MB01265) homozygous, and neuronal Sodh1/Sodh2 double knockdown\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Aldose reductase inhibitor feeding normalised sorbitol and rescued motor and eye phenotypes, which is the pharmacological proof that the metabolite and not some other consequence of the genotype drives degeneration.\"}]}}, {\"id\": \"SORD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SORD\"], \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}], \"presence\": \"PRESENT\", \"association\": \"SORD (15q21.1) encodes the 357-residue cytosolic NAD+-dependent sorbitol dehydrogenase. Biallelic loss-of-function is necessary and sufficient for disease. Molecular diagnosis is complicated by SORD2P, a highly homologous non-functional pseudogene in which the recurrent c.757delG position is fixed on most control chromosomes, so short-read data mismap and biallelic status is hard to phase; long-read sequencing resolves both problems, and a recurrent SORD/SORD2P inversion is only detectable that way.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SORD c.458C\u003eA (p.Ala153Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele, the second commonest after c.757delG and the one most often found in trans with it. Curated as a variant record because the allele spectrum of this disease is short and top-heavy: two alleles account for most of it, and the rest are largely private.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SORD\"], \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"SORD c.757delG (p.Ala253GlnfsTer27)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent single-nucleotide deletion in SORD exon 7 producing a frameshift and premature termination. It is by far the commonest pathogenic allele, present homozygously in most reported patients and on one allele in most of the rest, and it recurs across European, Middle Eastern and East Asian ancestries rather than tracking a single founder haplotype.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SORD\"], \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}], \"variant_type\": \"frameshift\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"SORD c.908+1G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Splice-donor variant shown by ex vivo cDNA analysis to impair splicing of the SORD transcript - one of the few SORD alleles with direct transcript-level functional evidence.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SORD\"], \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}], \"variant_type\": \"splice site\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"SORD/SORD2P gene-pseudogene inversion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A structural rearrangement between SORD and its pseudogene, and the third commonest pathogenic allele class. It is curated as a variant in its own right rather than left in the diagnostic discussion because it changes what a negative result means: short-read sequencing cannot see it, so it is concentrated precisely among the cases that look monoallelic and therefore unsolved.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SORD\"], \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}], \"variant_type\": \"inversion\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Sord knockout Sprague Dawley rat\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The best-characterised mammalian model. Sorbitol is raised in serum, CSF and peripheral nerve; motor performance and gait decline from about seven months; tibial motor conduction slows; and nerve histology shows degenerating and de/remyelinated axons with enlarged \\\"ballooned\\\" myelin sheaths, affecting motor axons while largely sparing sensory ones.\"}], \"edges\": [{\"source\": \"Biallelic SORD Loss-of-Function Variants\", \"target\": \"Loss of Sorbitol Dehydrogenase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent or unstable protein leaves the cell with no functional sorbitol dehydrogenase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Sorbitol Dehydrogenase Activity\", \"target\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With the oxidative step gone, sorbitol produced by aldose reductase has no exit and is trapped.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"target\": \"Osmotic Stress in Schwann Cells and Myelinated Axons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The osmotic arm: a trapped, poorly permeant polyol raises intracellular osmolarity. Curated as a competing model rather than a settled step.\", \"hypothesis_groups\": [\"osmotic_myelin_injury_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"target\": \"Mitochondrial Dysfunction and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The oxidative arm: bioenergetic failure and ROS accumulation follow the accumulation, but the steps linking the two are not established.\", \"hypothesis_groups\": [\"mitochondrial_oxidative_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"target\": \"Distal Motor Axonal Degeneration and Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deliberately retained alongside the two hypothesis-tagged arms above: the accumulation-to-axon link is evidenced pharmacologically (removing the metabolite prevents degeneration) without any of the candidate routes being established, so this edge carries the part of the claim that survives whichever model turns out to be right. See the gap_sorbitol_to_axon_mechanism discussion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Osmotic Stress in Schwann Cells and Myelinated Axons\", \"target\": \"Distal Motor Axonal Degeneration and Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"On this model the Schwann cell is injured first and axonal degeneration is secondary, which is what the rat morphology - swollen sheaths around initially intact axons - suggests.\", \"hypothesis_groups\": [\"osmotic_myelin_injury_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Dysfunction and Oxidative Stress\", \"target\": \"Distal Motor Axonal Degeneration and Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bioenergetic failure and oxidative stress are the amplifying arm shared with other length-dependent axonopathies.\", \"hypothesis_groups\": [\"mitochondrial_oxidative_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Distal Motor Axonal Degeneration and Demyelination\", \"target\": \"Length-Dependent Motor-Predominant Nerve Fiber Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Motor-Predominant Nerve Fiber Dysfunction\", \"target\": \"Motor-Predominant Hereditary Neuropathy Spanning CMT2 and dHMN\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aldose Reductase Inhibition (Investigational)\", \"target\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ankle-Foot Orthoses and Rehabilitation\", \"target\": \"Foot Dorsiflexor Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived skin fibroblasts (SORD c.757delG homozygous)\", \"target\": \"Loss of Sorbitol Dehydrogenase Activity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Human cells carrying the patient genotype, with complete absence of the enzyme protein.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts are not neurons or Schwann cells, so they report the metabolic lesion but nothing about axonal vulnerability.\"}, {\"source\": \"Patient iPSC-derived motor neurons\", \"target\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Provides the sorbitol readout in a human motor neuron rather than in a fibroblast or fly.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A two-dimensional culture without Schwann cells or long axonal compartments, so it cannot reproduce length-dependent degeneration.\"}, {\"source\": \"Sord knockout Sprague Dawley rat\", \"target\": \"Distal Motor Axonal Degeneration and Demyelination\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the motor-over-sensory selectivity of the human lesion at the level of nerve pathology and conduction.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Histology was assessed at advanced ages and electrophysiology was not followed longitudinally, so the model speaks to the established lesion rather than to its earliest steps.\"}, {\"source\": \"Sord knockout Sprague Dawley rat\", \"target\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes that sorbitol accumulates in the nervous-system compartments that patient serum measurements cannot reach.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Rodent sugar handling and laboratory diet differ from the human setting, which is the same variable invoked to explain why one mouse model fails.\"}, {\"source\": \"C57BL/LiA mouse with reduced SORD\", \"target\": \"Distal Motor Axonal Degeneration and Demyelination\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Reduced SORD protein in this strain does not produce the human lesion, so the model cannot be used to test the axonal-degeneration arm.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The allele is hypomorphic rather than null, and the proposed explanation - dietary sugar limiting polyol flux - has not been tested by feeding these animals a high-sugar diet or by ageing them, so the failure may reflect husbandry rather than a real species difference.\"}, {\"source\": \"Drosophila Sodh2 loss-of-function\", \"target\": \"Mitochondrial Dysfunction and Oxidative Stress\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Supplies the bioenergetic and oxidative-stress evidence for this node.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"An invertebrate without myelin or Schwann cells, so it cannot speak to the myelin abnormality that is central to the mammalian lesion; the readouts are brain and muscle rather than peripheral nerve.\"}, {\"source\": \"Drosophila Sodh2 loss-of-function\", \"target\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Aldose reductase inhibitor feeding normalised sorbitol and rescued motor and eye phenotypes, which is the pharmacological proof that the metabolite and not some other consequence of the genotype drives degeneration.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Rescue was demonstrated in flies and in patient fibroblasts, not in a mammalian nervous system.\"}, {\"source\": \"SORD\", \"target\": \"Biallelic SORD Loss-of-Function Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SORD c.757delG (p.Ala253GlnfsTer27)\", \"target\": \"SORD\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SORD c.458C\u003eA (p.Ala153Asp)\", \"target\": \"SORD\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SORD/SORD2P gene-pseudogene inversion\", \"target\": \"SORD\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SORD c.908+1G\u003eC\", \"target\": \"SORD\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aldose Reductase Inhibition (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Substrate reduction rather than enzyme replacement: inhibiting aldose reductase, the enzyme upstream of the block, reduces flux of glucose into sorbitol and so lowers sorbitol despite the missing SORD. Epalrestat and ranirestat established the principle in patient fibroblasts and in Drosophila; the CNS-penetrant next-generation inhibitor govorestat (AT-007) carried it into the clinic, lowering sorbitol in patient fibroblasts, iPSC-derived motor neurons and fly brain and rescuing synaptic, locomotor and mitochondrial phenotypes in flies. No aldose reductase inhibitor is approved for this indication, and this entry records no clinical efficacy claim: the evidence curated here is preclinical, and the clinical trial is listed separately under clinical_trials.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"epalrestat\", \"govorestat (AT-007)\"]}}, {\"id\": \"Ankle-Foot Orthoses and Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The current standard of care is supportive: ankle-foot orthoses for foot drop, plus physiotherapy for gait and strength maintenance. About a quarter of patients take up orthoses, usually in their thirties.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic SORD Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two loss-of-function SORD alleles. The recurrent frameshift c.757delG (p.Ala253GlnfsTer27) dominates the allele spectrum worldwide and is found homozygously in most patients; c.458C\u003eA (p.Ala153Asp) is the commonest second allele. A third allele class - inversion between SORD and its highly homologous pseudogene SORD2P - is invisible to short-read sequencing and accounts for a further tranche of cases. Missense alleles act by destabilising the enzyme rather than by any dominant-negative or neomorphic route: c.404A\u003eG produces insoluble SORD aggregates in vitro, and a splice allele c.908+1G\u003eC disrupts the transcript.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SORD\"], \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}], \"genetic_context\": {\"allele_type\": \"frameshift, missense, splice-site, and gene-pseudogene inversion\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous in most patients and compound heterozygous in the remainder; all characterised alleles converge on absent or non-functional enzyme.\", \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}]}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"C57BL/LiA mouse with reduced SORD\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A mouse strain carrying an intronic splicing variant that substantially reduces SORD protein. Under standard husbandry it develops neither neuropathy nor slowed nerve conduction - a negative result that the discovery authors attribute to the low sugar content of standard mouse chow relative to human and Drosophila diets, and therefore to polyol flux rather than to a species difference in the mechanism itself.\"}, {\"id\": \"Distal Motor Axonal Degeneration and Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration falls on myelinated motor axons and largely spares myelinated sensory axons - the structural counterpart of the motor-predominant clinical picture. Rat nerve shows degenerating myelinated axons, de- and remyelinated axons, and enlarged \\\"ballooned\\\" myelin sheaths that the authors propose as a pathognomonic feature. Human sural nerve, sampled in a sensory nerve in a motor-predominant disease, shows correspondingly mild change: modest loss of large myelinated fibres with a few thinly myelinated fibres.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\", \"Schwann cell\", \"sensory neuron\"], \"role\": \"effector\", \"locations\": [\"peripheral nerve\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Sord knockout Sprague Dawley rat\", \"species\": \"Rat\", \"genotype\": \"Sord-/- (CRISPR knockout, Sprague Dawley background)\", \"background\": \"Sprague Dawley\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the motor-over-sensory selectivity of the human lesion at the level of nerve pathology and conduction.\"}, {\"name\": \"C57BL/LiA mouse with reduced SORD\", \"species\": \"Mouse\", \"genotype\": \"intronic splicing variant reducing SORD protein (C57BL/LiA)\", \"background\": \"C57BL/LiA\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Reduced SORD protein in this strain does not produce the human lesion, so the model cannot be used to test the axonal-degeneration arm.\"}]}}, {\"id\": \"Drosophila Sodh2 loss-of-function\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Fly models of SORD loss with elevated head sorbitol, age-dependent synaptic degeneration in the visual system, and progressive locomotor decline on a normal lifespan. They were the system in which aldose reductase inhibition was first shown to rescue the phenotype, and later the system used to show bioenergetic and oxidative changes.\"}, {\"id\": \"Foot Dorsiflexor Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of ankle dorsiflexion, the muscle group most affected and the one used as a quantitative outcome measure in natural-history and trial work.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009027\"}}, {\"id\": \"Length-Dependent Motor-Predominant Nerve Fiber Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nerve conduction shows a motor-predominant axonal neuropathy, with conduction velocities reduced into the intermediate range in a minority - which is why some patients are labelled intermediate CMT. Sensory conduction is affected in a pattern that is not simply length-dependent: upper-limb sensory responses are abnormal more often than lower-limb ones, an inversion of the usual gradient that is itself a diagnostic clue. Conformance to the module\u0027s length-dependent node is therefore declared for the motor arm only; the sensory pattern curated here is the exception to it, not an instance of it.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of Sorbitol Dehydrogenase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sorbitol dehydrogenase (EC 1.1.1.14), the NAD+-dependent second enzyme of the polyol pathway, is absent from patient cells. Protein is undetectable by western blot in fibroblasts homozygous for c.757delG, and red-cell enzyme activity is significantly reduced against run controls - a difference large enough that a screening assay has been built on it. The 30% figure quoted in the biochemical record is that assay\u0027s proposed cutoff, not a measured residual activity of the disease.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"sorbitol dehydrogenase activity\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Patient-derived skin fibroblasts (SORD c.757delG homozygous)\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Human cells carrying the patient genotype, with complete absence of the enzyme protein.\"}]}}, {\"id\": \"Mitochondrial Dysfunction and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sord-deficient Drosophila show reduced brain ATP production and reactive oxygen species accumulation in CNS and muscle, and both are corrected by aldose reductase inhibition, which ties them to sorbitol rather than to the genotype in general. Independent human support comes from proteomic analysis of patient skeletal muscle, where respiratory complex I deficiency dominated and the malate/oxaloacetate ratio was raised. The node is marked PROVISIONAL because the animal evidence is invertebrate and the human evidence is muscle proteomics rather than nerve.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to oxidative stress\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Drosophila Sodh2 loss-of-function\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"Sodh2(MB01265) homozygous, and neuronal Sodh1/Sodh2 double knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Supplies the bioenergetic and oxidative-stress evidence for this node.\"}]}}, {\"id\": \"Motor-Predominant Hereditary Neuropathy Spanning CMT2 and dHMN\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint is a slowly progressive distal weakness and amyotrophy with foot deformity, beginning in the second decade. Whether an individual is labelled CMT2 or dHMN depends on how much sensory involvement is found, not on genotype: about two-thirds are classified as CMT2 and one-third as dHMN on the same allele spectrum.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Osmotic Stress in Schwann Cells and Myelinated Axons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The osmotic candidate for how a trapped metabolite injures nerve. Sorbitol crosses membranes poorly, so an unclearable intracellular pool should draw water in, and the structural finding that fits is the enlarged \\\"ballooned\\\" myelin sheath seen around otherwise intact axons in the Sord-null rat - an abnormality also described in galactosemic neuropathy, where a different polyol accumulates. The node is HYPOTHETICAL by design: the lesion is consistent with osmotic swelling and is the reason this is the leading model, but nobody has measured water content, osmolyte composition or volume regulation in SORD-deficient nerve, so the inference runs from morphology to mechanism rather than the other way round.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"response to osmotic stress\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Patient iPSC-derived motor neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"iPSC-derived motor neurons from patients, used to show that govorestat lowers sorbitol in the human cell type the disease actually targets. Patient iPSC lines carrying SORD variants have since been deposited as a shared resource.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:37014713\"}}, {\"id\": \"Patient-derived skin fibroblasts (SORD c.757delG homozygous)\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts from patients homozygous for c.757delG, used to show absent SORD protein and raised intracellular sorbitol, and later as the assay system for aldose reductase inhibitor target engagement.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:32367058\"}}, {\"id\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aldose reductase continues to reduce glucose to sorbitol, but the second step is blocked, so sorbitol - a polar, poorly membrane-permeant polyol - accumulates. Intracellular sorbitol is more than ten-fold elevated in patient fibroblasts and fasting serum sorbitol is roughly two orders of magnitude above control. In the Sord-null rat the accumulation is documented in the compartment that matters: serum, CSF and peripheral nerve. This is the metabolic insult that the conserved peripheral-axonal-degeneration module describes generically; here it is the whole trigger, with no toxic, inflammatory or hyperglycaemic component.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"sorbitol catabolism\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Patient iPSC-derived motor neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Provides the sorbitol readout in a human motor neuron rather than in a fibroblast or fly.\"}], \"animal_models\": [{\"name\": \"Sord knockout Sprague Dawley rat\", \"species\": \"Rat\", \"genotype\": \"Sord-/- (CRISPR knockout, Sprague Dawley background)\", \"background\": \"Sprague Dawley\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Establishes that sorbitol accumulates in the nervous-system compartments that patient serum measurements cannot reach.\"}, {\"name\": \"Drosophila Sodh2 loss-of-function\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"Sodh2(MB01265) homozygous, and neuronal Sodh1/Sodh2 double knockdown\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Aldose reductase inhibitor feeding normalised sorbitol and rescued motor and eye phenotypes, which is the pharmacological proof that the metabolite and not some other consequence of the genotype drives degeneration.\"}]}}, {\"id\": \"SORD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SORD\"], \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}], \"presence\": \"PRESENT\", \"association\": \"SORD (15q21.1) encodes the 357-residue cytosolic NAD+-dependent sorbitol dehydrogenase. Biallelic loss-of-function is necessary and sufficient for disease. Molecular diagnosis is complicated by SORD2P, a highly homologous non-functional pseudogene in which the recurrent c.757delG position is fixed on most control chromosomes, so short-read data mismap and biallelic status is hard to phase; long-read sequencing resolves both problems, and a recurrent SORD/SORD2P inversion is only detectable that way.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SORD c.458C\u003eA (p.Ala153Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele, the second commonest after c.757delG and the one most often found in trans with it. Curated as a variant record because the allele spectrum of this disease is short and top-heavy: two alleles account for most of it, and the rest are largely private.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SORD\"], \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"SORD c.757delG (p.Ala253GlnfsTer27)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent single-nucleotide deletion in SORD exon 7 producing a frameshift and premature termination. It is by far the commonest pathogenic allele, present homozygously in most reported patients and on one allele in most of the rest, and it recurs across European, Middle Eastern and East Asian ancestries rather than tracking a single founder haplotype.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SORD\"], \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}], \"variant_type\": \"frameshift\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"SORD c.908+1G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Splice-donor variant shown by ex vivo cDNA analysis to impair splicing of the SORD transcript - one of the few SORD alleles with direct transcript-level functional evidence.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SORD\"], \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}], \"variant_type\": \"splice site\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"SORD/SORD2P gene-pseudogene inversion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A structural rearrangement between SORD and its pseudogene, and the third commonest pathogenic allele class. It is curated as a variant in its own right rather than left in the diagnostic discussion because it changes what a negative result means: short-read sequencing cannot see it, so it is concentrated precisely among the cases that look monoallelic and therefore unsolved.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SORD\"], \"gene_terms\": [{\"label\": \"SORD\", \"id\": \"hgnc:11184\"}], \"variant_type\": \"inversion\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Sord knockout Sprague Dawley rat\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The best-characterised mammalian model. Sorbitol is raised in serum, CSF and peripheral nerve; motor performance and gait decline from about seven months; tibial motor conduction slows; and nerve histology shows degenerating and de/remyelinated axons with enlarged \\\"ballooned\\\" myelin sheaths, affecting motor axons while largely sparing sensory ones.\"}], \"edges\": [{\"source\": \"Biallelic SORD Loss-of-Function Variants\", \"target\": \"Loss of Sorbitol Dehydrogenase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent or unstable protein leaves the cell with no functional sorbitol dehydrogenase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Sorbitol Dehydrogenase Activity\", \"target\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With the oxidative step gone, sorbitol produced by aldose reductase has no exit and is trapped.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"target\": \"Osmotic Stress in Schwann Cells and Myelinated Axons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The osmotic arm: a trapped, poorly permeant polyol raises intracellular osmolarity. Curated as a competing model rather than a settled step.\", \"hypothesis_groups\": [\"osmotic_myelin_injury_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"target\": \"Mitochondrial Dysfunction and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The oxidative arm: bioenergetic failure and ROS accumulation follow the accumulation, but the steps linking the two are not established.\", \"hypothesis_groups\": [\"mitochondrial_oxidative_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"target\": \"Distal Motor Axonal Degeneration and Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deliberately retained alongside the two hypothesis-tagged arms above: the accumulation-to-axon link is evidenced pharmacologically (removing the metabolite prevents degeneration) without any of the candidate routes being established, so this edge carries the part of the claim that survives whichever model turns out to be right. See the gap_sorbitol_to_axon_mechanism discussion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Osmotic Stress in Schwann Cells and Myelinated Axons\", \"target\": \"Distal Motor Axonal Degeneration and Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"On this model the Schwann cell is injured first and axonal degeneration is secondary, which is what the rat morphology - swollen sheaths around initially intact axons - suggests.\", \"hypothesis_groups\": [\"osmotic_myelin_injury_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Dysfunction and Oxidative Stress\", \"target\": \"Distal Motor Axonal Degeneration and Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bioenergetic failure and oxidative stress are the amplifying arm shared with other length-dependent axonopathies.\", \"hypothesis_groups\": [\"mitochondrial_oxidative_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Distal Motor Axonal Degeneration and Demyelination\", \"target\": \"Length-Dependent Motor-Predominant Nerve Fiber Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Length-Dependent Motor-Predominant Nerve Fiber Dysfunction\", \"target\": \"Motor-Predominant Hereditary Neuropathy Spanning CMT2 and dHMN\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aldose Reductase Inhibition (Investigational)\", \"target\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ankle-Foot Orthoses and Rehabilitation\", \"target\": \"Foot Dorsiflexor Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived skin fibroblasts (SORD c.757delG homozygous)\", \"target\": \"Loss of Sorbitol Dehydrogenase Activity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Human cells carrying the patient genotype, with complete absence of the enzyme protein.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts are not neurons or Schwann cells, so they report the metabolic lesion but nothing about axonal vulnerability.\"}, {\"source\": \"Patient iPSC-derived motor neurons\", \"target\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Provides the sorbitol readout in a human motor neuron rather than in a fibroblast or fly.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A two-dimensional culture without Schwann cells or long axonal compartments, so it cannot reproduce length-dependent degeneration.\"}, {\"source\": \"Sord knockout Sprague Dawley rat\", \"target\": \"Distal Motor Axonal Degeneration and Demyelination\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the motor-over-sensory selectivity of the human lesion at the level of nerve pathology and conduction.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Histology was assessed at advanced ages and electrophysiology was not followed longitudinally, so the model speaks to the established lesion rather than to its earliest steps.\"}, {\"source\": \"Sord knockout Sprague Dawley rat\", \"target\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes that sorbitol accumulates in the nervous-system compartments that patient serum measurements cannot reach.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Rodent sugar handling and laboratory diet differ from the human setting, which is the same variable invoked to explain why one mouse model fails.\"}, {\"source\": \"C57BL/LiA mouse with reduced SORD\", \"target\": \"Distal Motor Axonal Degeneration and Demyelination\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Reduced SORD protein in this strain does not produce the human lesion, so the model cannot be used to test the axonal-degeneration arm.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The allele is hypomorphic rather than null, and the proposed explanation - dietary sugar limiting polyol flux - has not been tested by feeding these animals a high-sugar diet or by ageing them, so the failure may reflect husbandry rather than a real species difference.\"}, {\"source\": \"Drosophila Sodh2 loss-of-function\", \"target\": \"Mitochondrial Dysfunction and Oxidative Stress\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Supplies the bioenergetic and oxidative-stress evidence for this node.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"An invertebrate without myelin or Schwann cells, so it cannot speak to the myelin abnormality that is central to the mammalian lesion; the readouts are brain and muscle rather than peripheral nerve.\"}, {\"source\": \"Drosophila Sodh2 loss-of-function\", \"target\": \"Polyol Pathway Block with Sorbitol Accumulation\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Aldose reductase inhibitor feeding normalised sorbitol and rescued motor and eye phenotypes, which is the pharmacological proof that the metabolite and not some other consequence of the genotype drives degeneration.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Rescue was demonstrated in flies and in patient fibroblasts, not in a mammalian nervous system.\"}, {\"source\": \"SORD\", \"target\": \"Biallelic SORD Loss-of-Function Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SORD c.757delG (p.Ala253GlnfsTer27)\", \"target\": \"SORD\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SORD c.458C\u003eA (p.Ala153Asp)\", \"target\": \"SORD\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SORD/SORD2P gene-pseudogene inversion\", \"target\": \"SORD\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SORD c.908+1G\u003eC\", \"target\": \"SORD\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6618,6 +6721,9 @@ This clinical feature is Distal lower limb muscle weakness (HP:0009053), qualifi
 
 
                     </div>
+
+
+
 
 
 
@@ -6735,6 +6841,9 @@ This clinical feature is Foot dorsiflexor weakness (HP:0009027), qualified as co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6803,6 +6912,9 @@ This clinical feature is Foot deformity, annotated with Abnormal foot morphology
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6931,6 +7043,9 @@ This clinical feature is Distal upper limb muscle weakness (HP:0008959). HP:0008
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7017,7 +7132,7 @@ This clinical feature is Distal upper limb muscle weakness (HP:0008959). HP:0008
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -7027,10 +7142,13 @@ This clinical feature is Distal upper limb muscle weakness (HP:0008959). HP:0008
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7129,6 +7247,9 @@ This clinical feature is Distal amyotrophy (HP:0003693), qualified as course pro
 
 
                     </div>
+
+
+
 
 
 
@@ -7248,6 +7369,9 @@ This clinical feature is Scoliosis (HP:0002650), qualified as severity mild. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7323,6 +7447,9 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7426,6 +7553,9 @@ This clinical feature is Reduced tendon reflexes (HP:0001315). HP:0001315 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7517,6 +7647,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7618,6 +7751,9 @@ This clinical feature is Motor axonal neuropathy (HP:0007002). HP:0007002 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7709,6 +7845,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7827,6 +7966,9 @@ This disease-associated gene is SORD (hgnc:11184). hgnc:11184 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7948,6 +8090,7 @@ This disease-associated gene is SORD (hgnc:11184). hgnc:11184 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7967,11 +8110,17 @@ This variant is in SORD (hgnc:11184). hgnc:11184 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent single-nucleotide deletion in SORD exon 7 producing a frameshift and premature termination. It is by far the commonest pathogenic allele, present homozygously in most reported patients and on one allele in most of the rest, and it recurs across European, Middle Eastern and East Asian ancestries rather than tracking a single founder haplotype.</div>
@@ -8059,6 +8208,7 @@ This variant is in SORD (hgnc:11184). hgnc:11184 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8078,11 +8228,17 @@ This variant is in SORD (hgnc:11184). hgnc:11184 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense allele, the second commonest after c.757delG and the one most often found in trans with it. Curated as a variant record because the allele spectrum of this disease is short and top-heavy: two alleles account for most of it, and the rest are largely private.</div>
@@ -8170,6 +8326,7 @@ This variant is in SORD (hgnc:11184). hgnc:11184 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8189,11 +8346,17 @@ This variant is in SORD (hgnc:11184). hgnc:11184 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">inversion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A structural rearrangement between SORD and its pseudogene, and the third commonest pathogenic allele class. It is curated as a variant in its own right rather than left in the diagnostic discussion because it changes what a negative result means: short-read sequencing cannot see it, so it is concentrated precisely among the cases that look monoallelic and therefore unsolved.</div>
@@ -8256,6 +8419,7 @@ This variant is in SORD (hgnc:11184). hgnc:11184 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8275,11 +8439,17 @@ This variant is in SORD (hgnc:11184). hgnc:11184 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice site</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Splice-donor variant shown by ex vivo cDNA analysis to impair splicing of the SORD transcript - one of the few SORD alleles with direct transcript-level functional evidence.</div>
@@ -11964,10 +12134,10 @@ phenotypes:
     the workup towards a primary myopathy; in the reported case a muscle biopsy
     was performed before whole-exome sequencing found the SORD genotype.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:38406380
     reference_title: &#34;Skeletal muscle involvement in biallelic SORD mutations: case report and review of the literature.&#34;
@@ -13580,7 +13750,7 @@ Biallelic <em>SORD</em> loss-of-function variant → <strong>complete/near-compl
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Sorbitol Dehydrogenase Deficiency", "mondoId": "MONDO:0030055", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sorbitol_Dehydrogenase_Deficiency", "yamlRevision": "331757f79cd0"};
+        const OS_CONFIG = {"diseaseName": "Sorbitol Dehydrogenase Deficiency", "mondoId": "MONDO:0030055", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sorbitol_Dehydrogenase_Deficiency", "yamlRevision": "c7f3f964c772"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

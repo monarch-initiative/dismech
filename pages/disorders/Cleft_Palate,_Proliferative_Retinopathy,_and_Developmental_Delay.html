@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5173,6 +5215,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-garp-loss-of-function" data-dismech-node="GARP Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">GARP Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic LRRC32 variants remove or destabilise GARP, a type I transmembrane leucine-rich-repeat protein whose large ectodomain docks latent TGF-beta at the cell surface. The discovery families carry a homozygous stop-gain, p.(Arg544Ter), which truncates the protein before the transmembrane domain; the fourth patient carries a homozygous missense substitution, p.Ile327Thr, predicted on the GARP:latent-TGF-beta1 crystal structure to destabilise the leucine-rich-repeat solenoid. Neither allele has been shown biochemically to abolish GARP function, so loss of function is inferred from genotype, structure, and phenotype rather than demonstrated directly.</div>
 
 
@@ -5268,6 +5311,8 @@ This genetic context concerns LRRC32 (hgnc:4161). hgnc:4161 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5280,6 +5325,9 @@ This genetic context concerns LRRC32 (hgnc:4161). hgnc:4161 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous germline LRRC32 alleles: the nonsense p.(Arg544Ter) in the discovery families and the missense p.Ile327Thr in the fourth patient.</div>
 
@@ -5415,6 +5463,7 @@ This pathophysiological event involves decreased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-latent-tgf-beta-tethering-at-the-cell-surface" data-dismech-node="Failure of Latent TGF-beta Tethering at the Cell Surface" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Latent TGF-beta Tethering at the Cell Surface</div>
+
 
                 <div class="item-desc">GARP binds the latency-associated peptide of pro-TGF-beta through intermolecular disulphide bonds and holds the resulting latent complex on the plasma membrane. Without GARP the latent complex is not presented at the cell surface. This step was worked out in regulatory T cells and platelets; the same requirement was later shown for membrane-associated latent TGF-beta3 in the palatal epithelium.</div>
 
@@ -5593,6 +5642,7 @@ This pathophysiological event involves decreased transforming growth factor beta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-local-activation-of-tgf-beta" data-dismech-node="Deficient Local Activation of TGF-beta" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Local Activation of TGF-beta</div>
 
+
                 <div class="item-desc">With latent TGF-beta no longer presented at the cell surface, the integrin alphaVbeta6/alphaVbeta8-dependent release of active cytokine cannot proceed where GARP-expressing cells would normally supply it. The defect is in local, cell-contact-dependent availability of active TGF-beta rather than in synthesis of the cytokine or in the receptor-SMAD machinery itself.</div>
 
 
@@ -5747,6 +5797,7 @@ This pathophysiological event involves decreased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-smad2-phosphorylation-in-palatal-medial-edge-epithelium" data-dismech-node="Reduced SMAD2 Phosphorylation in Palatal Medial Edge Epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced SMAD2 Phosphorylation in Palatal Medial Edge Epithelium</div>
+
 
                 <div class="item-desc">Fusion of the secondary palate requires TGF-beta3 signalling in the medial edge epithelium, whose cells normally undergo programmed cell death and epithelial-mesenchymal transformation to remove the midline epithelial seam. In GARP-null mouse embryos both SMAD2 phosphorylation and apoptosis in this cell population are reduced at embryonic day 14.5. This node is characterised entirely in the mouse; no human palatal tissue has been examined.</div>
 
@@ -5950,6 +6001,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-palatal-shelf-fusion" data-dismech-node="Failure of Palatal Shelf Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Palatal Shelf Fusion</div>
 
+
                 <div class="item-desc">The secondary palatal shelves grow out from the maxillary prominences, elevate above the tongue, appose at the midline, and fuse. Loss of the TGF-beta signal in the medial edge epithelium leaves the midline seam intact and the shelves unfused, producing an isolated cleft of the secondary palate without cleft lip.</div>
 
 
@@ -6108,6 +6160,7 @@ This pathophysiological event involves decreased secondary palate development (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disordered-vitreoretinal-development" data-dismech-node="Disordered Vitreoretinal Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Disordered Vitreoretinal Development</div>
+
 
                 <div class="item-desc">TGF-beta isoforms are expressed in the developing retina and are required for normal retinal morphogenesis; combined Tgfb2/Tgfb3 deficiency in mice produces gross retinal, lens, and corneal abnormality with retinal detachment. In CPPRDD the ocular disease is a progressive, childhood-onset vitreoretinopathy with a persistent hyaloid remnant, straightened retinal vessels, a thickened vitreous adherent to the peripheral retina, and traction with secondary retinal tears. How deficient GARP-dependent TGF-beta activation produces this specific vitreoretinal picture is not established.</div>
 
@@ -6292,6 +6345,7 @@ This pathophysiological event involves decreased retina development in camera-ty
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-central-nervous-system-development" data-dismech-node="Impaired Central Nervous System Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Central Nervous System Development</div>
+
 
                 <div class="item-desc">Developmental delay is present in every published patient, and brain imaging in the discovery series showed ventriculomegaly and corpus callosum abnormalities. No GARP-dependent step in brain development has been identified, in mouse or in human tissue; the Garp-null mouse dies within a day of birth and no neurodevelopmental phenotype has been reported in it.</div>
 
@@ -6499,6 +6553,9 @@ This clinical feature is Straightened retinal vessels, annotated with Abnormal r
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6577,6 +6634,9 @@ This clinical feature is Posteriorly rotated ears (HP:0000358). HP:0000358 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6650,6 +6710,9 @@ This clinical feature is Progressive proliferative vitreoretinopathy, annotated 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6756,6 +6819,9 @@ This clinical feature is Secondary retinal tear from vitreoretinal traction, ann
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6820,6 +6886,9 @@ This clinical feature is Bergmeister papilla, annotated with Vascular remnant ar
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6898,6 +6967,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6997,6 +7069,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7061,6 +7136,9 @@ This clinical feature is Dysmorphic facial features, annotated with Abnormal fac
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7135,6 +7213,9 @@ This clinical feature is Triangular face (HP:0000325). HP:0000325 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7204,6 +7285,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7268,6 +7352,9 @@ This clinical feature is High protruding nasal bridge, annotated with Prominent 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7346,6 +7433,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7445,6 +7535,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7509,6 +7602,9 @@ This clinical feature is Corpus callosum abnormality, annotated with Abnormal co
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7592,6 +7688,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7656,6 +7755,9 @@ This clinical feature is Severe failure to thrive, annotated with Failure to thr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7799,6 +7901,9 @@ This disease-associated gene is LRRC32 (hgnc:4161). hgnc:4161 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7898,6 +8003,12 @@ This disease-associated gene is LRRC32 (hgnc:4161). hgnc:4161 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous stop-gain in LRRC32 identified in two families in the discovery series.</div>
 
 
@@ -7920,6 +8031,12 @@ This disease-associated gene is LRRC32 (hgnc:4161). hgnc:4161 is a gene from the
         c.980T&gt;C p.Ile327Thr
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense in LRRC32 in the fourth patient, substituting a conserved isoleucine between leucine-rich repeats R11 and R12; classified a variant of uncertain significance.</div>

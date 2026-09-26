@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hepatitis%20C"
@@ -3996,7 +4038,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4172,6 +4214,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-viral-replication-and-hepatocyte-injury" data-dismech-node="Viral Replication and Hepatocyte Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Viral Replication and Hepatocyte Injury</div>
 
+
                 <div class="item-desc">HCV is a positive-sense single-stranded RNA virus that replicates primarily in hepatocytes. Viral replication causes direct cytopathic effects and triggers immune-mediated hepatocyte destruction. The virus evades immune clearance through high mutation rates and quasispecies diversity.
 </div>
 
@@ -4259,6 +4302,37 @@ This pathophysiological event involves viral life cycle (GO:0019058). GO:0019058
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Immune Evasion</span>
+
+	                            <span class="crosslink-desc">HCV replication expresses viral proteins that antagonize innate antiviral signaling and permit escape from early interferon control.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Jaundice</span>
+
+	                            <span class="crosslink-desc">Acute hepatocyte injury during infection can impair bilirubin processing, producing jaundice.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Elevated Transaminases</span>
+
+	                            <span class="crosslink-desc">HCV replication and immune-mediated hepatocyte injury release aminotransferases into the circulation.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
 
@@ -4266,6 +4340,7 @@ This pathophysiological event involves viral life cycle (GO:0019058). GO:0019058
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-inflammation-and-fibrosis" data-dismech-node="Chronic Inflammation and Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Inflammation and Fibrosis</div>
+
 
                 <div class="item-desc">Persistent HCV infection induces chronic hepatic inflammation with infiltration of lymphocytes and activation of hepatic stellate cells. This leads to progressive fibrosis through excessive collagen deposition, ultimately resulting in cirrhosis.
 </div>
@@ -4444,6 +4519,29 @@ This pathophysiological event involves collagen biosynthetic process (GO:0032964
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cirrhosis</span>
+
+	                            <span class="crosslink-desc">Persistent stellate-cell activation and collagen deposition scar the liver until bridging fibrosis and nodular regeneration produce cirrhosis.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatocellular Carcinoma Development</span>
+
+	                            <span class="crosslink-desc">Chronic HCV inflammation and fibrosis generate the cirrhotic substrate in which hepatocellular carcinoma most often arises.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -4484,6 +4582,7 @@ This pathophysiological event involves collagen biosynthetic process (GO:0032964
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-evasion" data-dismech-node="Immune Evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Evasion</div>
+
 
                 <div class="item-desc">HCV employs multiple strategies to evade host immune responses, including interference with interferon signaling, rapid viral mutation generating escape variants, and exhaustion of HCV-specific T cells.
 </div>
@@ -4572,6 +4671,21 @@ This pathophysiological event involves symbiont-mediated suppression of host typ
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Chronic Inflammation and Fibrosis</span>
+
+	                            <span class="crosslink-desc">Viral escape from interferon-mediated clearance permits persistent hepatocyte infection, sustaining chronic hepatic inflammation and fibrogenesis.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -4614,6 +4728,7 @@ This pathophysiological event involves symbiont-mediated suppression of host typ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-carcinoma-development" data-dismech-node="Hepatocellular Carcinoma Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Carcinoma Development</div>
+
 
                 <div class="item-desc">Chronic inflammation, oxidative stress, and direct viral effects on cell signaling pathways contribute to hepatocarcinogenesis. Cirrhosis is the major risk factor, but HCC can occur in non-cirrhotic livers.
 </div>
@@ -4667,6 +4782,21 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatocellular Carcinoma</span>
+
+	                            <span class="crosslink-desc">The hepatocarcinogenic process culminates in primary hepatocellular carcinoma arising in chronically injured HCV-infected livers.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -4735,6 +4865,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cryoglobulin-immune-complex-deposition" data-dismech-node="Cryoglobulin Immune Complex Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Cryoglobulin Immune Complex Deposition</div>
+
 
                 <div class="item-desc">Chronic HCV antigenaemia drives production of cryoprecipitable immunoglobulin complexes that deposit in small vessels and glomerular capillary walls. This single immune-complex mechanism accounts for the cryoglobulinemia-spectrum extrahepatic manifestations, which affect skin and kidney rather than liver.
 </div>
@@ -4889,7 +5020,7 @@ This pathophysiological event involves increased immune complex formation (GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cryoglobulin Immune Complex Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic HCV antigenaemia drives production of cryoprecipitable immunoglobulin complexes that deposit in small vessels and glomerular capillary walls. This single immune-complex mechanism accounts for the cryoglobulinemia-spectrum extrahepatic manifestations, which affect skin and kidney rather than liver.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"immune complex formation\"]}}, {\"id\": \"Elevated Transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated ALT and AST indicating hepatocyte injury, though levels may fluctuate in chronic infection.\", \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Viral Replication and Hepatocyte Injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum ALT and AST measure hepatocyte injury from HCV replication and immune-mediated destruction.\"}], \"term_id\": \"HP:0002910\"}}, {\"id\": \"Leukocytoclastic Vasculitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous small-vessel vasculitis from immune-complex deposition, the dermatologic manifestation of HCV-associated mixed cryoglobulinemia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034786\"}}, {\"id\": \"Membranoproliferative Glomerulonephritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Immune-complex glomerulonephritis, the classic renal manifestation of HCV-associated mixed cryoglobulinemia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000793\"}}, {\"id\": \"Mixed Cryoglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Immune-complex syndrome with skin, neurologic, renal, and rheumatologic complications; the most prevalent and most strongly HCV-associated extrahepatic manifestation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100778\"}}, {\"id\": \"Viral Replication and Hepatocyte Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCV is a positive-sense single-stranded RNA virus that replicates primarily in hepatocytes. Viral replication causes direct cytopathic effects and triggers immune-mediated hepatocyte destruction. The virus evades immune clearance through high mutation rates and quasispecies diversity.\\n\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"viral life cycle\"]}}], \"edges\": [{\"source\": \"Cryoglobulin Immune Complex Deposition\", \"target\": \"Mixed Cryoglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cryoprecipitable immune complexes are the defining constituent of the mixed cryoglobulinemia syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cryoglobulin Immune Complex Deposition\", \"target\": \"Leukocytoclastic Vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune complexes deposited in dermal small vessels produce the cutaneous leukocytoclastic vasculitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cryoglobulin Immune Complex Deposition\", \"target\": \"Membranoproliferative Glomerulonephritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune complexes deposited in glomerular capillary walls produce membranoproliferative glomerulonephritis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Viral Replication and Hepatocyte Injury\", \"target\": \"Elevated Transaminases\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum ALT and AST measure hepatocyte injury from HCV replication and immune-mediated destruction.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chronic Inflammation and Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent HCV infection induces chronic hepatic inflammation with infiltration of lymphocytes and activation of hepatic stellate cells. This leads to progressive fibrosis through excessive collagen deposition, ultimately resulting in cirrhosis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatic stellate cell\", \"T cell\"], \"biological_processes\": [\"chronic inflammatory response\", \"hepatic stellate cell activation\", \"collagen biosynthetic process\"]}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"End-stage liver fibrosis developing in 15-30% of chronically infected patients over 20-30 years.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001394\"}}, {\"id\": \"Cryoglobulin Immune Complex Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic HCV antigenaemia drives production of cryoprecipitable immunoglobulin complexes that deposit in small vessels and glomerular capillary walls. This single immune-complex mechanism accounts for the cryoglobulinemia-spectrum extrahepatic manifestations, which affect skin and kidney rather than liver.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"immune complex formation\"]}}, {\"id\": \"Direct-Acting Antivirals (DAAs)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral medications targeting viral proteins (NS3/4A protease, NS5A, NS5B polymerase) with cure rates exceeding 95%. Regimens include sofosbuvir/velpatasvir, glecaprevir/pibrentasvir, and others.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Elevated Transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated ALT and AST indicating hepatocyte injury, though levels may fluctuate in chronic infection.\", \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Viral Replication and Hepatocyte Injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum ALT and AST measure hepatocyte injury from HCV replication and immune-mediated destruction.\"}], \"term_id\": \"HP:0002910\"}}, {\"id\": \"Hepatocellular Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Primary liver cancer developing in 1-5% of cirrhotic patients annually.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001402\"}}, {\"id\": \"Hepatocellular Carcinoma Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation, oxidative stress, and direct viral effects on cell signaling pathways contribute to hepatocarcinogenesis. Cirrhosis is the major risk factor, but HCC can occur in non-cirrhotic livers.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"]}}, {\"id\": \"Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCV employs multiple strategies to evade host immune responses, including interference with interferon signaling, rapid viral mutation generating escape variants, and exhaustion of HCV-specific T cells.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"symbiont-mediated suppression of host type I interferon-mediated signaling pathway\"]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Yellow discoloration of skin and sclera due to elevated bilirubin, confined to a minority of acute infections.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000952\"}}, {\"id\": \"Leukocytoclastic Vasculitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous small-vessel vasculitis from immune-complex deposition, the dermatologic manifestation of HCV-associated mixed cryoglobulinemia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034786\"}}, {\"id\": \"Membranoproliferative Glomerulonephritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Immune-complex glomerulonephritis, the classic renal manifestation of HCV-associated mixed cryoglobulinemia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000793\"}}, {\"id\": \"Mixed Cryoglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Immune-complex syndrome with skin, neurologic, renal, and rheumatologic complications; the most prevalent and most strongly HCV-associated extrahepatic manifestation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100778\"}}, {\"id\": \"Viral Replication and Hepatocyte Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCV is a positive-sense single-stranded RNA virus that replicates primarily in hepatocytes. Viral replication causes direct cytopathic effects and triggers immune-mediated hepatocyte destruction. The virus evades immune clearance through high mutation rates and quasispecies diversity.\\n\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"viral life cycle\"]}}], \"edges\": [{\"source\": \"Viral Replication and Hepatocyte Injury\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HCV replication expresses viral proteins that antagonize innate antiviral signaling and permit escape from early interferon control.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Viral Replication and Hepatocyte Injury\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute hepatocyte injury during infection can impair bilirubin processing, producing jaundice.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hepatocyte injury and impaired bilirubin handling\"]}, {\"source\": \"Viral Replication and Hepatocyte Injury\", \"target\": \"Elevated Transaminases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HCV replication and immune-mediated hepatocyte injury release aminotransferases into the circulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Inflammation and Fibrosis\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent stellate-cell activation and collagen deposition scar the liver until bridging fibrosis and nodular regeneration produce cirrhosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Inflammation and Fibrosis\", \"target\": \"Hepatocellular Carcinoma Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic HCV inflammation and fibrosis generate the cirrhotic substrate in which hepatocellular carcinoma most often arises.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cirrhosis-driven regenerative nodules and chronic inflammatory injury\"]}, {\"source\": \"Immune Evasion\", \"target\": \"Chronic Inflammation and Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral escape from interferon-mediated clearance permits persistent hepatocyte infection, sustaining chronic hepatic inflammation and fibrogenesis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Persistent HCV infection after failed innate immune clearance\"]}, {\"source\": \"Hepatocellular Carcinoma Development\", \"target\": \"Hepatocellular Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hepatocarcinogenic process culminates in primary hepatocellular carcinoma arising in chronically injured HCV-infected livers.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cryoglobulin Immune Complex Deposition\", \"target\": \"Mixed Cryoglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cryoprecipitable immune complexes are the defining constituent of the mixed cryoglobulinemia syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cryoglobulin Immune Complex Deposition\", \"target\": \"Leukocytoclastic Vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune complexes deposited in dermal small vessels produce the cutaneous leukocytoclastic vasculitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cryoglobulin Immune Complex Deposition\", \"target\": \"Membranoproliferative Glomerulonephritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune complexes deposited in glomerular capillary walls produce membranoproliferative glomerulonephritis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Direct-Acting Antivirals (DAAs)\", \"target\": \"Viral Replication and Hepatocyte Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Viral Replication and Hepatocyte Injury\", \"target\": \"Elevated Transaminases\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum ALT and AST measure hepatocyte injury from HCV replication and immune-mediated destruction.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4960,6 +5091,9 @@ This clinical feature is B-cell non-Hodgkin lymphoma, annotated with B-cell lymp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HPO has no combined &#34;B-cell non-Hodgkin lymphoma&#34; term. HP:0012191 B-cell lymphoma is a descendant of HP:0012539 Non-Hodgkin lymphoma, so the narrower lineage term is bound here and the non-Hodgkin sense is entailed.</div>
@@ -5045,6 +5179,9 @@ This clinical feature is Leukocytoclastic vasculitis (HP:0034786). HP:0034786 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5111,6 +5248,9 @@ This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5195,7 +5335,7 @@ This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is 
                     <div class="item-name">
                         Jaundice
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
@@ -5220,6 +5360,44 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18657711" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18657711" target="_blank">PMID:18657711</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Symptomatic acute hepatitis C occurs in only about 15% of patients who are infected with hepatitis C virus (HCV)."</div>
+
+
+                <div class="evidence-explanation">Acute HCV is symptomatic in only about 15% of infections, bounding jaundice within the HPO occasional frequency band and contradicting the previous FREQUENT assignment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5261,6 +5439,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cirrhosis" data-dismech-node="Cirrhosis" data-dismech-type="phenotype">
@@ -5288,6 +5469,9 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5385,6 +5569,9 @@ This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5458,6 +5645,9 @@ This clinical feature is Membranoproliferative glomerulonephritis (HP:0000793). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5541,6 +5731,9 @@ This clinical feature is Cryoglobulinemia (HP:0100778). HP:0100778 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5616,6 +5809,9 @@ This clinical feature is Porphyria cutanea tarda, annotated with Cutaneous photo
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No HPO term exists for porphyria cutanea tarda itself (confirmed via OAK search of sqlite:obo:hp); bound to the closest broader phenotype, Cutaneous photosensitivity, with a more specific preferred_term, following the same pattern used for SSPE in Measles.yaml. MONDO:0015104 is the disease-level term for porphyria cutanea tarda.</div>
@@ -5734,6 +5930,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5770,6 +5969,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5862,6 +6064,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Susceptibility)</span>
 
                 </div>
+
+
+
 
 
 
@@ -6006,6 +6211,59 @@ This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical int
                 <div class="item-desc">Oral medications targeting viral proteins (NS3/4A protease, NS5A, NS5B polymerase) with cure rates exceeding 95%. Regimens include sofosbuvir/velpatasvir, glecaprevir/pibrentasvir, and others.
 </div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Viral Replication and Hepatocyte Injury</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; DAAs inhibit HCV nonstructural proteins required for viral replication, eliminating the upstream driver of hepatic infection.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26569658" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26569658" target="_blank">PMID:26569658</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the nucleotide polymerase inhibitor sofosbuvir and the NS5A inhibitor velpatasvir"</div>
+
+
+                <div class="evidence-explanation">Phase 3 HCV trial names the viral replication proteins inhibited by a direct-acting antiviral regimen, supporting the treatment-to-replication target edge.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -7123,6 +7381,45 @@ pathophysiology:
     term:
       id: GO:0019058
       label: viral life cycle
+  downstream:
+  - target: Immune Evasion
+    causal_link_type: DIRECT
+    description: &gt;-
+      HCV replication expresses viral proteins that antagonize innate
+      antiviral signaling and permit escape from early interferon control.
+    evidence:
+    - reference: PMID:16177806
+      reference_title: &#34;Cardif is an adaptor protein in the RIG-I antiviral pathway and is targeted by hepatitis C virus.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Cardif is targeted and inactivated by NS3-4A, a serine protease from hepatitis C virus known to block interferon-beta production.&#34;
+      explanation: In-vitro work showed that the HCV NS3/4A protease inactivates the Cardif/MAVS adaptor in the RIG-I pathway, supporting the direct HCV immune-evasion edge.
+  - target: Jaundice
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Hepatocyte injury and impaired bilirubin handling
+    description: &gt;-
+      Acute hepatocyte injury during infection can impair bilirubin processing,
+      producing jaundice.
+    evidence:
+    - reference: PMID:18657711
+      reference_title: &#34;Acute hepatitis C.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Symptomatic patients with jaundice have a higher likelihood of spontaneous viral clearance than do asymptomatic patients&#34;
+      explanation: Review of acute HCV describes jaundice in the symptomatic acute-infection presentation, the clinical context modeled by this edge.
+  - target: Elevated Transaminases
+    causal_link_type: DIRECT
+    description: &gt;-
+      HCV replication and immune-mediated hepatocyte injury release
+      aminotransferases into the circulation.
+    evidence:
+    - reference: PMID:18657711
+      reference_title: &#34;Acute hepatitis C.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Clinically, acute hepatitis C can increase concentrations of alanine aminotransferase to ten times the upper limit of normal&#34;
+      explanation: Review of acute HCV states that infection can raise ALT concentrations, supporting the hepatocyte-injury to transaminase edge.
 - name: Chronic Inflammation and Fibrosis
   description: &gt;
     Persistent HCV infection induces chronic hepatic inflammation with infiltration
@@ -7156,6 +7453,33 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;patients infected with HCV genotypes 1 through 6 who had decompensated cirrhosis&#34;
     explanation: Study specifically targets HCV patients with decompensated cirrhosis, confirming progression of chronic inflammation to advanced liver damage.
+  downstream:
+  - target: Cirrhosis
+    causal_link_type: DIRECT
+    description: &gt;-
+      Persistent stellate-cell activation and collagen deposition scar the liver
+      until bridging fibrosis and nodular regeneration produce cirrhosis.
+    evidence:
+    - reference: PMID:22537432
+      reference_title: &#34;Epidemiology of viral hepatitis and hepatocellular carcinoma.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;HCV increases the risk for HCC by inducing fibrosis and, eventually, cirrhosis&#34;
+      explanation: Viral-hepatitis epidemiology review places cirrhosis downstream of HCV-induced fibrosis.
+  - target: Hepatocellular Carcinoma Development
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Cirrhosis-driven regenerative nodules and chronic inflammatory injury
+    description: &gt;-
+      Chronic HCV inflammation and fibrosis generate the cirrhotic substrate in
+      which hepatocellular carcinoma most often arises.
+    evidence:
+    - reference: PMID:22537432
+      reference_title: &#34;Epidemiology of viral hepatitis and hepatocellular carcinoma.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;most cases of HCV-related HCC occur among patients with advanced fibrosis or cirrhosis&#34;
+      explanation: Viral-hepatitis epidemiology review links advanced HCV fibrosis or cirrhosis to most HCV-related hepatocellular carcinoma.
 - name: Immune Evasion
   description: &gt;
     HCV employs multiple strategies to evade host immune responses, including
@@ -7178,6 +7502,22 @@ pathophysiology:
     evidence_source: IN_VITRO
     snippet: &#34;&#39;Knockdown&#39; of IPS-1 by small interfering RNA blocked interferon induction by virus infection&#34;
     explanation: In-vitro siRNA-knockdown study demonstrates the RIG-I/IPS-1(MAVS) interferon-induction pathway that HCV NS3/4A disrupts to evade interferon signaling; general virology, not HCV-specific.
+  downstream:
+  - target: Chronic Inflammation and Fibrosis
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Persistent HCV infection after failed innate immune clearance
+    description: &gt;-
+      Viral escape from interferon-mediated clearance permits persistent
+      hepatocyte infection, sustaining chronic hepatic inflammation and
+      fibrogenesis.
+    evidence:
+    - reference: PMID:19759533
+      reference_title: &#34;Genetic variation in IL28B and spontaneous clearance of hepatitis C virus.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Most (70-80%) HCV infections persist and about 30% of individuals with persistent infection develop chronic liver disease, including cirrhosis and hepatocellular carcinoma&#34;
+      explanation: Human natural-history data support persistent HCV infection as the intermediate between failed immune clearance and chronic fibrotic liver disease.
 - name: Hepatocellular Carcinoma Development
   description: &gt;
     Chronic inflammation, oxidative stress, and direct viral effects on cell signaling
@@ -7201,6 +7541,19 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Most (70-80%) HCV infections persist and about 30% of individuals with persistent infection develop chronic liver disease, including cirrhosis and hepatocellular carcinoma&#34;
     explanation: Documents the natural-history progression from persistent HCV infection to cirrhosis and hepatocellular carcinoma.
+  downstream:
+  - target: Hepatocellular Carcinoma
+    causal_link_type: DIRECT
+    description: &gt;-
+      The hepatocarcinogenic process culminates in primary hepatocellular
+      carcinoma arising in chronically injured HCV-infected livers.
+    evidence:
+    - reference: PMID:22537432
+      reference_title: &#34;Epidemiology of viral hepatitis and hepatocellular carcinoma.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Once HCV-related cirrhosis is established, HCC develops at an annual rate of 1%–4%&#34;
+      explanation: Viral-hepatitis epidemiology review quantifies hepatocellular carcinoma incidence after HCV-related cirrhosis is established.
 - name: Cryoglobulin Immune Complex Deposition
   description: &gt;
     Chronic HCV antigenaemia drives production of cryoprecipitable
@@ -7264,13 +7617,20 @@ phenotypes:
     explanation: Review of HCV extrahepatic manifestations establishes fatigue as a very common symptom of chronic hepatitis C (not a treatment adverse event).
 - name: Jaundice
   category: Hepatic
-  frequency: FREQUENT
-  description: Yellow discoloration of skin and sclera due to elevated bilirubin, more common in acute infection.
+  frequency: OCCASIONAL
+  description: Yellow discoloration of skin and sclera due to elevated bilirubin, confined to a minority of acute infections.
   phenotype_term:
     preferred_term: Jaundice
     term:
       id: HP:0000952
       label: Jaundice
+  evidence:
+  - reference: PMID:18657711
+    reference_title: &#34;Acute hepatitis C.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Symptomatic acute hepatitis C occurs in only about 15% of patients who are infected with hepatitis C virus (HCV).&#34;
+    explanation: Acute HCV is symptomatic in only about 15% of infections, bounding jaundice within the HPO occasional frequency band and contradicting the previous FREQUENT assignment.
 - name: Hepatomegaly
   category: Hepatic
   frequency: FREQUENT
@@ -7565,6 +7925,19 @@ treatments:
     term:
       id: NCIT:C16119
       label: Antiviral Therapy
+  target_mechanisms:
+  - target: Viral Replication and Hepatocyte Injury
+    treatment_effect: INHIBITS
+    description: &gt;-
+      DAAs inhibit HCV nonstructural proteins required for viral replication,
+      eliminating the upstream driver of hepatic infection.
+    evidence:
+    - reference: PMID:26569658
+      reference_title: &#34;Sofosbuvir and Velpatasvir for HCV in Patients with Decompensated Cirrhosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;the nucleotide polymerase inhibitor sofosbuvir and the NS5A inhibitor velpatasvir&#34;
+      explanation: Phase 3 HCV trial names the viral replication proteins inhibited by a direct-acting antiviral regimen, supporting the treatment-to-replication target edge.
   evidence:
   - reference: PMID:24725239
     reference_title: &#34;Ledipasvir and sofosbuvir for untreated HCV genotype 1 infection.&#34;
@@ -8182,7 +8555,7 @@ Where mechanistic claims rely on review syntheses, we quoted the authors’ lang
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hepatitis C", "mondoId": "MONDO:0005231", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatitis_C", "yamlRevision": "deb9bb66977c"};
+        const OS_CONFIG = {"diseaseName": "Hepatitis C", "mondoId": "MONDO:0005231", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatitis_C", "yamlRevision": "4786ef05cdf5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

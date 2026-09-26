@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4968,6 +5010,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-serac1-loss-of-function" data-dismech-node="Biallelic SERAC1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SERAC1 Loss of Function</div>
 
+
                 <div class="item-desc">Two loss-of-function SERAC1 alleles - nonsense, frameshift, canonical splice or multi-exon deletion - are the initiating lesion. Heterozygous carriers are unaffected.</div>
 
 
@@ -5043,6 +5086,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-or-mislocalized-serac1-protein" data-dismech-node="Absent or Mislocalized SERAC1 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent or Mislocalized SERAC1 Protein</div>
+
 
                 <div class="item-desc">Patient fibroblasts carrying a homozygous truncating allele contain no detectable SERAC1 protein. A milder C-terminally truncated protein is expressed but is distributed throughout the cell instead of partially colocalizing with mitochondria, so the enzyme is absent from its site of action either way.</div>
 
@@ -5221,6 +5265,7 @@ This pathophysiological event involves decreased mitochondria-associated endopla
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-phosphatidylglycerol-remodeling" data-dismech-node="Impaired Phosphatidylglycerol Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Phosphatidylglycerol Remodeling</div>
 
+
                 <div class="item-desc">Without SERAC1, the phosphatidylglycerol pool of patient fibroblasts shifts towards PG-34:1 and away from PG-36:1. Lentiviral complementation with wild-type SERAC1 partially normalizes the ratio, establishing that the lipid change is a direct consequence of the enzyme deficiency rather than a downstream epiphenomenon.</div>
 
 
@@ -5393,6 +5438,7 @@ This pathophysiological event involves decreased phosphatidylglycerol acyl-chain
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-cardiolipin-subspecies-composition" data-dismech-node="Altered Cardiolipin Subspecies Composition" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Cardiolipin Subspecies Composition</div>
 
+
                 <div class="item-desc">The shifted phosphatidylglycerol pool yields cardiolipin of abnormal acyl composition. Cardiolipin is required for assembly and stability of the respiratory chain supercomplexes, which is the route by which a phospholipid defect becomes a bioenergetic one.</div>
 
 
@@ -5553,6 +5599,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bis-monoacylglycerol-phosphate-depletion-and-free-cholesterol-accumulation" data-dismech-node="Bis(monoacylglycerol)phosphate Depletion and Free Cholesterol Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Bis(monoacylglycerol)phosphate Depletion and Free Cholesterol Accumulation</div>
 
+
                 <div class="item-desc">Low BMP impairs intracellular cholesterol trafficking, so unesterified cholesterol accumulates and is unevenly distributed, demonstrable by filipin staining in patient fibroblasts. This is a parallel cellular consequence of the same remodeling defect rather than a step on the bioenergetic route.</div>
 
 
@@ -5691,6 +5738,7 @@ This pathophysiological event involves decreased intracellular cholesterol trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-network-fragmentation-and-deficient-calcium-transfer" data-dismech-node="Mitochondrial Network Fragmentation and Deficient Calcium Transfer" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Network Fragmentation and Deficient Calcium Transfer</div>
+
 
                 <div class="item-desc">Patient fibroblasts show a severely fragmented mitochondrial network with altered cristae morphology, and the calcium buffering function between cytoplasm and mitochondria is deficient. Liver ultrastructure in a second patient shows abnormal circular mitochondrial cristae.</div>
 
@@ -5881,6 +5929,7 @@ This pathophysiological event involves decreased mitochondrial calcium uptake, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-serine-import-and-mtdna-depletion" data-dismech-node="Impaired Mitochondrial Serine Import and mtDNA Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Serine Import and mtDNA Depletion</div>
+
 
                 <div class="item-desc">An alternative and not yet reconciled model places SERAC1 on the outer mitochondrial membrane as a partner of the serine transporter SFXN1. Loss of SERAC1 then impairs the one-carbon cycle, unbalances the nucleotide pool and depletes mitochondrial DNA. Hepatic mtDNA depletion has been observed in one patient, and nucleoside supplementation restored mtDNA content in the mouse and cell models.</div>
 
@@ -6097,6 +6146,7 @@ This pathophysiological event involves decreased mitochondrial serine import, an
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-chain-complex-deficiency" data-dismech-node="Respiratory Chain Complex Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory Chain Complex Deficiency</div>
 
+
                 <div class="item-desc">Reduced activity and amount of respiratory chain complexes I, III and IV, measured in liver mitochondria. The deficiency is secondary to the phospholipid and contact-site defect, and is characteristically variable between tissues - respiratory chain activity in fresh muscle can be entirely normal, so a negative muscle biopsy does not exclude the diagnosis.</div>
 
 
@@ -6270,6 +6320,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-bioenergetic-failure" data-dismech-node="Mitochondrial Bioenergetic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Bioenergetic Failure</div>
 
+
                 <div class="item-desc">The convergence point of the cardiolipin, calcium and mtDNA branches: insufficient mitochondrial ATP production in tissues with high and sustained energy demand.</div>
 
 
@@ -6429,6 +6480,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-3-methylglutaconic-aciduria-and-lactic-acidosis" data-dismech-node="Secondary 3-Methylglutaconic Aciduria and Lactic Acidosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary 3-Methylglutaconic Aciduria and Lactic Acidosis</div>
 
+
                 <div class="item-desc">Persistently increased urinary excretion of 3-methylglutaconic and 3-methylglutaric acid, with elevated blood lactate and alanine. This is a secondary 3-methylglutaconic aciduria of the class defined by defective phospholipid remodeling, not a primary block in leucine catabolism as in AUH deficiency.</div>
 
 
@@ -6537,6 +6589,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-basal-ganglia-neurodegeneration" data-dismech-node="Basal Ganglia Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Basal Ganglia Neurodegeneration</div>
+
 
                 <div class="item-desc">Staged degeneration of the basal ganglia, beginning with pallidal T2 change, progressing to swelling of the putamen and caudate nucleus with a spared dorsal-putaminal &#34;eye&#34;, and finally to progressive putaminal involvement. The &#34;eye&#34; has not been reported in any other disorder and is pathognomonic.</div>
 
@@ -6764,6 +6817,7 @@ This pathophysiological event occurs in globus pallidus (UBERON:0001875). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-and-auditory-pathway-degeneration" data-dismech-node="Cochlear and Auditory Pathway Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear and Auditory Pathway Degeneration</div>
 
+
                 <div class="item-desc">Bilateral sensorineural hearing loss, usually severe and evident in infancy, giving the &#34;D&#34; of the acronym. Whether the lesion is cochlear hair cell, spiral ganglion or central is not established in MEGDEL, so the anatomical binding here is to the cochlea rather than to a specific cell population.</div>
 
 
@@ -6860,6 +6914,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-mitochondrial-injury" data-dismech-node="Hepatocellular Mitochondrial Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Mitochondrial Injury</div>
+
 
                 <div class="item-desc">Mitochondrial hepatopathy with hepatocytes showing granular cytoplasm and fine intracytoplasmic lipid droplets, and abnormal circular mitochondrial cristae on electron microscopy. Clinically this ranges from persistently elevated transaminases to fulminant neonatal liver failure - which, distinctively, may occur without any transaminase elevation or cholestasis.</div>
 
@@ -7217,6 +7272,9 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7294,6 +7352,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7404,6 +7465,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7479,6 +7543,9 @@ This clinical feature is 3-Methylglutaconic aciduria (HP:0003535). HP:0003535 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7564,6 +7631,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7632,6 +7702,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7712,6 +7785,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7813,6 +7889,9 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7879,6 +7958,9 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7982,6 +8064,9 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8053,6 +8138,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8119,6 +8207,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8222,6 +8313,9 @@ This clinical feature is Dystonia (HP:0001332), qualified as course progressive.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8295,6 +8389,9 @@ This clinical feature is Severe global developmental delay (HP:0011344). HP:0011
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8361,6 +8458,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8439,6 +8539,9 @@ This clinical feature is Abnormal basal ganglia morphology (HP:0002134). HP:0002
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8505,6 +8608,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8581,6 +8687,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8647,6 +8756,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8729,6 +8841,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8849,6 +8964,9 @@ This disease-associated gene is SERAC1 (hgnc:21061). hgnc:21061 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8921,6 +9039,12 @@ This disease-associated gene is SERAC1 (hgnc:21061). hgnc:21061 is a gene from t
         c.442C&gt;T (p.Arg148*)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense allele found in trans with c.438delC in a patient with MEGDEL syndrome, optic atrophy and myoclonic epilepsy.</div>
@@ -9006,6 +9130,12 @@ This disease-associated gene is SERAC1 (hgnc:21061). hgnc:21061 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous frameshift allele generating premature translation termination, reported in a Palestinian child.</div>
 
 
@@ -9087,6 +9217,12 @@ This disease-associated gene is SERAC1 (hgnc:21061). hgnc:21061 is a gene from t
         c.1495A&gt;G (p.Met499Val)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Hypomorphic missense allele found in compound heterozygosity in a Chinese patient whose phenotype was complicated hereditary spastic paraplegia rather than classic MEGDEL.</div>
@@ -9172,6 +9308,12 @@ This disease-associated gene is SERAC1 (hgnc:21061). hgnc:21061 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous nonsense allele in a consanguineous Tunisian family with the severe phenotype.</div>
 
 
@@ -9253,6 +9395,12 @@ This disease-associated gene is SERAC1 (hgnc:21061). hgnc:21061 is a gene from t
         rs797045105 insertion
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous frameshift insertion identified by exome sequencing in an Iranian proband, heterozygous in both unaffected parents.</div>
@@ -9338,6 +9486,12 @@ This disease-associated gene is SERAC1 (hgnc:21061). hgnc:21061 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous canonical splice-acceptor allele in an Egyptian proband with relatively delayed onset and neither hepatopathy nor deafness.</div>
 
 
@@ -9419,6 +9573,12 @@ This disease-associated gene is SERAC1 (hgnc:21061). hgnc:21061 is a gene from t
         Homozygous splice variant causing juvenile complicated HSP
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The hypomorphic splice allele underlying the juvenile complicated-hereditary-spastic-paraplegia presentation in a large consanguineous family. It abolishes full-length protein yet leaves a milder lipid phenotype than the classic infantile alleles, which is the clearest genotype-phenotype evidence in this disease.</div>
@@ -9527,6 +9687,12 @@ This disease-associated gene is SERAC1 (hgnc:21061). hgnc:21061 is a gene from t
         Deletion of exons 2-4
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Multi-exon deletion allele, in trans with c.1601A&gt;T (p.His534Leu), in a child whose development improved beyond clinical expectation.</div>
@@ -11489,10 +11655,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
                 </div>
 
-                <div class="evidence-snippet">"a newborn infant with a metabolic crisis, lethal multiorgan failure on day six of life, and increased excretion of 3-methylglutaconic acid"</div>
+                <div class="evidence-snippet">"In the diagnostic work-up of a newborn infant with a metabolic crisis, lethal multiorgan failure on day six of life, and increased excretion of 3-methylglutaconic acid, we found using whole genome sequencing a homozygous SERAC1 mutation indicating MEGDHEL syndrome (3-methylglutaconic aciduria..."</div>
 
 
-                <div class="evidence-explanation">Documents the lethal neonatal crisis phase.</div>
+                <div class="evidence-explanation">Restores the homozygous SERAC1/MEGDHEL diagnosis of the neonate with lethal metabolic crisis. The selected clinical sentence does not supply every biochemical detail or demonstrate an intervention window.</div>
 
 
 
@@ -14413,9 +14579,16 @@ progression:
     reference_title: &#34;Severe neonatal MEGDHEL syndrome with a homozygous truncating mutation in SERAC1.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: a newborn infant with a metabolic crisis, lethal multiorgan failure on
-      day six of life, and increased excretion of 3-methylglutaconic acid
-    explanation: Documents the lethal neonatal crisis phase.
+    snippet: &gt;-
+      In the diagnostic work-up of a newborn infant with a metabolic crisis, lethal multiorgan
+      failure on day six of life, and increased excretion of 3-methylglutaconic acid, we found using
+      whole genome sequencing a homozygous SERAC1 mutation indicating MEGDHEL syndrome
+      (3-methylglutaconic aciduria with deafness-dystonia, hepatopathy, encephalopathy, and
+      Leigh-like syndrome).
+    explanation: &gt;-
+      Restores the homozygous SERAC1/MEGDHEL diagnosis of the neonate with lethal metabolic crisis.
+      The selected clinical sentence does not supply every biochemical detail or demonstrate an
+      intervention window.
 - phase: Chronic progressive neurodegeneration
   notes: &gt;-
     Infantile sensorineural deafness and truncal hypotonia, then severe
@@ -16034,7 +16207,7 @@ Treatment scope, and what could not be cited. Nutritional and feeding support an
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "3-methylglutaconic_Aciduria_With_Deafness_Encephalopathy_And_Leigh-like_Syndrome", "mondoId": "MONDO:0013875", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "3-methylglutaconic_Aciduria_With_Deafness_Encephalopathy_And_Leigh-like_Syndrome", "yamlRevision": "4fd4c22edb45"};
+        const OS_CONFIG = {"diseaseName": "3-methylglutaconic_Aciduria_With_Deafness_Encephalopathy_And_Leigh-like_Syndrome", "mondoId": "MONDO:0013875", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "3-methylglutaconic_Aciduria_With_Deafness_Encephalopathy_And_Leigh-like_Syndrome", "yamlRevision": "108a424f8ff3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

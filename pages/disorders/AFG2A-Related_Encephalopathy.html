@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4586,6 +4628,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-afg2a-loss-of-function" data-dismech-node="Biallelic AFG2A Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic AFG2A Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Biallelic pathogenic variants in AFG2A (formerly SPATA5) reduce the amount or the activity of an 892-amino-acid AAA+ ATPase. Most reported alleles are missense or small in-frame changes rather than complete nulls, and no individual carrying two unequivocal null alleles has been reported, which is consistent with hypomorphic rather than complete loss of function being compatible with life. The protein carries two conserved ATPase modules.</div>
 
 
@@ -4765,6 +4814,13 @@ This pathophysiological event involves Cytosol (GO:0005829). GO:0005829 is a cel
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-55lcc-atpase-complex-dysfunction" data-dismech-node="55LCC ATPase Complex Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">55LCC ATPase Complex Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">AFG2A does not act alone. It assembles with its paralogue AFG2B (SPATA5L1) and the heterodimeric partners C1orf109 and CINP into a 4:2:2:2 assembly named 55LCC, built from an N-terminal ring of C1orf109, CINP and the N-terminal domains of AFG2A and AFG2B sitting above two hexameric AAA+ ATPase rings. Reduced AFG2A activity therefore compromises a shared machine rather than a single enzyme, which is the structural reason AFG2A and AFG2B disease phenotypes overlap.</div>
 
 
@@ -4886,6 +4942,13 @@ This pathophysiological event involves 55LCC complex.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cytoplasmic-pre-60s-ribosomal-maturation" data-dismech-node="Impaired Cytoplasmic Pre-60S Ribosomal Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cytoplasmic Pre-60S Ribosomal Maturation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In yeast the AFG2A orthologue Drg1 strips the assembly factor Rlp24, a placeholder for the ribosomal protein Rpl24, off pre-60S particles as soon as they reach the cytoplasm; the human equivalent step is performed by AFG2A within the 55LCC complex, with recognition of the pre-60S particle mediated by the human-specific subunit CINP. When AFG2A activity falls, large ribosomal subunits stall at this last maturation checkpoint.</div>
 
@@ -5100,6 +5163,13 @@ This pathophysiological event involves Preribosome, large subunit precursor (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-global-protein-synthesis" data-dismech-node="Reduced Global Protein Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Global Protein Synthesis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Depletion of AFG2A or of its partner C1orf109 lowers bulk protein synthesis in human cells, consistent with impaired late pre-60S maturation.</div>
 
 
@@ -5234,6 +5304,13 @@ This pathophysiological event involves Cytoplasmic translation (GO:0002181). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroepithelial-vulnerability-during-differentiation" data-dismech-node="Neuroepithelial Vulnerability During Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroepithelial Vulnerability During Differentiation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">This node answers the central puzzle of the disorder: why a defect in a ubiquitous housekeeping machine produces an almost purely neurological phenotype. Human cerebral organoid work on the sister 55LCC subunit AIRIM/C1orf109 showed that ribosome levels fall physiologically during neuroepithelial differentiation, creating a developmental window in which any further reduction in 60S output crosses a threshold and selectively impairs translation of specific transcripts, disrupting both survival and cell fate commitment. Enhancing mTOR activity suppressed the AIRIM organoid phenotype, identifying a candidate rescue axis for 55LCC-related ribosome-biogenesis disorders that remains untested in AFG2A deficiency.</div>
 
@@ -5404,6 +5481,13 @@ This pathophysiological event involves Cytoplasmic translation (GO:0002181). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-replisome-proteostasis-failure" data-dismech-node="Replisome Proteostasis Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Replisome Proteostasis Failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The 55LCC complex has a second, ribosome-independent job: its ATPase activity is stimulated by replication fork DNA and it couples cysteine protease-dependent cleavage of replisome substrates to replication fork damage. Losing that activity produces ubiquitin-independent proteotoxicity, replication stress and chromosome instability. Whether this branch contributes to the human neurodevelopmental phenotype is proposed by the authors but not established in patient material, so the node is provisional.</div>
 
 
@@ -5544,6 +5628,13 @@ This pathophysiological event involves Replisome (GO:0030894). GO:0030894 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-mitochondrial-fusion-fission-imbalance" data-dismech-node="Neuronal Mitochondrial Fusion-Fission Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Mitochondrial Fusion-Fission Imbalance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Silencing the gene in rat primary cortical neurons shortens mitochondria by about 20% and halves the fusion-to-fission ratio. Patient-derived fibroblasts likewise show altered mitochondrial morphology and dynamics. This occurs even though the protein itself is dominantly cytosolic and does not co-localise with mitochondrial markers, so the effect is indirect; the intervening steps are unknown.</div>
 
@@ -5790,6 +5881,13 @@ This pathophysiological event involves Mitochondrion (GO:0005739). GO:0005739 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-atp-deficit" data-dismech-node="Neuronal ATP Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal ATP Deficit</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The axonal ATP/ADP ratio falls by roughly 12% in knockdown neurons and is restored by re-expression of the wild-type human protein, establishing specificity. The same energy failure is detectable in patient blood cells, where oxygen consumption rates in platelets and peripheral blood mononuclear cells are impaired and monocyte mitochondrial mass is reduced.</div>
 
 
@@ -5984,6 +6082,13 @@ This pathophysiological event involves ATP biosynthetic process (GO:0006754). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cortical-neuron-growth" data-dismech-node="Impaired Cortical Neuron Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cortical Neuron Growth</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Developing cortical neurons deficient in the protein grow markedly shorter axons, and the defect is rescued by re-expressing the wild-type human protein. This is the most proximate cellular correlate available for the congenital microcephaly, hypomyelination and thin corpus callosum seen in patients, although no experiment has yet connected the neuronal growth defect to the human imaging findings directly.</div>
 
 
@@ -6128,6 +6233,13 @@ This pathophysiological event involves Axon extension (GO:0048675). GO:0048675 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-microcephaly" data-dismech-node="Congenital Microcephaly" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Microcephaly</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The organism-level endpoint of the pathway. Reduced brain growth is present at birth in the large majority of affected children and, with sensorineural deafness and epilepsy, forms the diagnostic triad.</div>
 
 
@@ -6213,6 +6325,13 @@ This pathophysiological event involves Axon extension (GO:0048675). GO:0048675 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-mitochondrial-pathology" data-dismech-node="Skeletal Muscle Mitochondrial Pathology" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal Muscle Mitochondrial Pathology</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Muscle is affected as well as brain. A quadriceps biopsy from an 8-year-old girl with a typical presentation and two compound heterozygous variants showed a histochemical pattern suggesting mitochondrial pathology, and proteomic profiling found 82 dysregulated proteins of which 15 are mitochondrial. This provides the tissue-level counterpart of the mitochondrial dysfunction seen in neurons and fibroblasts, and it is one reason the disorder is investigated as a suspected mitochondrial myopathy.</div>
 
@@ -6377,7 +6496,7 @@ This pathophysiological event involves Mitochondrion (GO:0005739). GO:0005739 is
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"55LCC ATPase Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AFG2A does not act alone. It assembles with its paralogue AFG2B (SPATA5L1) and the heterodimeric partners C1orf109 and CINP into a 4:2:2:2 assembly named 55LCC, built from an N-terminal ring of C1orf109, CINP and the N-terminal domains of AFG2A and AFG2B sitting above two hexameric AAA+ ATPase rings. Reduced AFG2A activity therefore compromises a shared machine rather than a single enzyme, which is the structural reason AFG2A and AFG2B disease phenotypes overlap.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"AFG2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"presence\": \"Biallelic pathogenic or likely pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"Anti-seizure medication polytherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most individuals with epilepsy require more than one anti-seizure medication and remain refractory. No agent has shown disease-specific superiority; the reported regimens span valproate, levetiracetam, lamotrigine, vigabatrin, ACTH, topiramate, zonisamide, clobazam, phenobarbital, rufinamide, cannabidiol and others. Only four of sixteen individuals with follow-up data achieved seizure freedom. In the reported IESS series, corticosteroids and vigabatrin did not achieve seizure control.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biallelic AFG2A Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in AFG2A (formerly SPATA5) reduce the amount or the activity of an 892-amino-acid AAA+ ATPase. Most reported alleles are missense or small in-frame changes rather than complete nulls, and no individual carrying two unequivocal null alleles has been reported, which is consistent with hypomorphic rather than complete loss of function being compatible with life. The protein carries two conserved ATPase modules.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"role\": \"root\"}}, {\"id\": \"Congenital Microcephaly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level endpoint of the pathway. Reduced brain growth is present at birth in the large majority of affected children and, with sensorineural deafness and epilepsy, forms the diagnostic triad.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Early hearing habilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sensorineural deafness is congenital and detectable on newborn or neonatal brainstem audiometry, so amplification or implantation can be started in the first months. One genotyped child received a hearing device before the age of two months after postnatal brainstem audiometry showed sensorineural deafness. No systematic outcome data for cochlear implantation in this disorder exist, and profound intellectual disability with cerebral visual impairment complicates candidacy assessment, so this is curated as supportive habilitation rather than as an intervention with demonstrated efficacy in this genotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Cortical Neuron Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developing cortical neurons deficient in the protein grow markedly shorter axons, and the defect is rescued by re-expressing the wild-type human protein. This is the most proximate cellular correlate available for the congenital microcephaly, hypomyelination and thin corpus callosum seen in patients, although no experiment has yet connected the neuronal growth defect to the human imaging findings directly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cerebral cortex neuron\"], \"biological_processes\": [\"Axon extension\"]}}, {\"id\": \"Impaired Cytoplasmic Pre-60S Ribosomal Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In yeast the AFG2A orthologue Drg1 strips the assembly factor Rlp24, a placeholder for the ribosomal protein Rpl24, off pre-60S particles as soon as they reach the cytoplasm; the human equivalent step is performed by AFG2A within the 55LCC complex, with recognition of the pre-60S particle mediated by the human-specific subunit CINP. When AFG2A activity falls, large ribosomal subunits stall at this last maturation checkpoint.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Ribosomal large subunit biogenesis\", \"Ribosome assembly\"]}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"When epilepsy occurs, it most often declares itself as an infantile epileptic spasms syndrome in the first two years of life, with a mean onset around 9 to 14 months. Epileptic spasms or tonic seizures typically emerge between 6 and 12 months in the smaller Japanese series. In the reported IESS series, neither corticosteroids nor vigabatrin achieved seizure control.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0012469\"}}, {\"id\": \"Ketogenic diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The ketogenic diet is the only intervention with disease-specific evidence. In a series of five genotyped patients, four received the diet for drug-resistant epilepsy with seizure reduction rates of 0%, 30%, 70% and 100%; the patient who became seizure free is maintained on ketogenic diet monotherapy. Non-seizure benefits (social interaction, attention, motor function) were reported in three. Fibroblasts from these patients cultured in a ketogenic-diet-mimicking medium showed reversal of the mitochondrial morphology, dynamics and ATP abnormalities, giving a plausible mechanistic rationale. The evidence is a small uncontrolled series and is recorded as partial.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Neuroepithelial Vulnerability During Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This node answers the central puzzle of the disorder: why a defect in a ubiquitous housekeeping machine produces an almost purely neurological phenotype. Human cerebral organoid work on the sister 55LCC subunit AIRIM/C1orf109 showed that ribosome levels fall physiologically during neuroepithelial differentiation, creating a developmental window in which any further reduction in 60S output crosses a threshold and selectively impairs translation of specific transcripts, disrupting both survival and cell fate commitment. Enhancing mTOR activity suppressed the AIRIM organoid phenotype, identifying a candidate rescue axis for 55LCC-related ribosome-biogenesis disorders that remains untested in AFG2A deficiency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Differentiating neuroepithelium\"], \"biological_processes\": [\"Cytoplasmic translation\"]}}, {\"id\": \"Neuronal ATP Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The axonal ATP/ADP ratio falls by roughly 12% in knockdown neurons and is restored by re-expression of the wild-type human protein, establishing specificity. The same energy failure is detectable in patient blood cells, where oxygen consumption rates in platelets and peripheral blood mononuclear cells are impaired and monocyte mitochondrial mass is reduced.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"ATP biosynthetic process\"]}}, {\"id\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Silencing the gene in rat primary cortical neurons shortens mitochondria by about 20% and halves the fusion-to-fission ratio. Patient-derived fibroblasts likewise show altered mitochondrial morphology and dynamics. This occurs even though the protein itself is dominantly cytosolic and does not co-localise with mitochondrial markers, so the effect is indirect; the intervening steps are unknown.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cerebral cortex neuron\"], \"biological_processes\": [\"Mitochondrial fusion\", \"Mitochondrial fission\"]}}, {\"id\": \"Reduced Global Protein Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of AFG2A or of its partner C1orf109 lowers bulk protein synthesis in human cells, consistent with impaired late pre-60S maturation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Cytoplasmic translation\"]}}, {\"id\": \"Replisome Proteostasis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 55LCC complex has a second, ribosome-independent job: its ATPase activity is stimulated by replication fork DNA and it couples cysteine protease-dependent cleavage of replisome substrates to replication fork damage. Losing that activity produces ubiquitin-independent proteotoxicity, replication stress and chromosome instability. Whether this branch contributes to the human neurodevelopmental phenotype is proposed by the authors but not established in patient material, so the node is provisional.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA replication\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy affects roughly three quarters of individuals. Generalised-onset seizures predominate, and the epilepsy is usually drug resistant, requiring polytherapy. A minority of individuals never develop seizures at all, so epilepsy is a frequent but not obligate feature despite the historical name of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral sensorineural hearing loss, usually detectable from early infancy, is one of the three cardinal features. It is the single most consistent finding across families and, in at least one sibling, has been the ONLY manifestation of a confirmed biallelic genotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Skeletal Muscle Mitochondrial Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Muscle is affected as well as brain. A quadriceps biopsy from an 8-year-old girl with a typical presentation and two compound heterozygous variants showed a histochemical pattern suggesting mitochondrial pathology, and proteomic profiling found 82 dysregulated proteins of which 15 are mitochondrial. This provides the tissue-level counterpart of the mitochondrial dysfunction seen in neurons and fibroblasts, and it is one reason the disorder is investigated as a suspected mitochondrial myopathy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"]}}, {\"id\": \"c.1822_1824del (p.Asp608del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous in-frame deletion segregating with severe intellectual disability and microcephaly in an extended consanguineous family with seven affected individuals; molecular modelling predicted a deleterious effect on protein function.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"variant_type\": \"in-frame deletion\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.251G\u003eA (p.Arg84Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent missense allele; found homozygous through maternal uniparental isodisomy of chromosome 4 in a diagnostic case of developmental encephalopathy with late-onset epilepsy, and one of the four alleles accounting for 42% of reported individuals.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.989_991del (p.Thr330del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent in-frame single-amino-acid deletion reported in multiple unrelated families, including the Japanese siblings, the Polish family in which one sibling had isolated hearing loss, and several of the Estonian and German compound heterozygotes.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"variant_type\": \"in-frame deletion\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Biallelic AFG2A Loss of Function\", \"target\": \"55LCC ATPase Complex Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AFG2A is the catalytic core of the 55LCC complex, so reduced AFG2A ATPase activity is directly a deficiency of the complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic AFG2A Loss of Function\", \"target\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Knockdown of the gene in rat cortical neurons shifts the mitochondrial fusion-fission balance, but the molecular steps between the ATPase defect and the mitochondrial phenotype have not been identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic AFG2A Loss of Function\", \"target\": \"Skeletal Muscle Mitochondrial Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Muscle biopsy in a genotyped patient shows a mitochondrial histochemical pattern and a dysregulated mitochondrial proteome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"55LCC ATPase Complex Dysfunction\", \"target\": \"Impaired Cytoplasmic Pre-60S Ribosomal Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The complex performs the terminal cytoplasmic maturation step on the pre-60S particle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"55LCC ATPase Complex Dysfunction\", \"target\": \"Replisome Proteostasis Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same complex extracts and licenses degradation of replisome components at damaged replication forks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cytoplasmic Pre-60S Ribosomal Maturation\", \"target\": \"Reduced Global Protein Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer mature 60S subunits reach the translating pool, so bulk translation capacity falls.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Global Protein Synthesis\", \"target\": \"Neuroepithelial Vulnerability During Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Other 55LCC-subunit organoid models link reduced ribosome availability to neuroepithelial vulnerability, but the intervening steps and their relevance to AFG2A-deficient cells have not been tested directly.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuroepithelial Vulnerability During Differentiation\", \"target\": \"Impaired Cortical Neuron Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attrition and mis-specification of differentiating neuroepithelium is the proposed route to reduced brain growth, but the intervening steps have not been mapped in AFG2A deficiency itself.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"target\": \"Neuronal ATP Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion-fission imbalance is accompanied by a measured fall in the axonal ATP/ADP ratio in the same experiments.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal ATP Deficit\", \"target\": \"Impaired Cortical Neuron Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axon extension is one of the most energy-demanding processes in a developing neuron.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neuron Growth\", \"target\": \"Congenital Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced growth of individual cortical neurons is the presumed cellular cause of the whole-organism reduction in brain and head growth, but no experiment has connected the two directly in AFG2A deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ketogenic diet\", \"target\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet\", \"target\": \"Infantile spasms\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-seizure medication polytherapy\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Early hearing habilitation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AFG2A\", \"target\": \"Biallelic AFG2A Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.989_991del (p.Thr330del)\", \"target\": \"AFG2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1822_1824del (p.Asp608del)\", \"target\": \"AFG2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.251G\u003eA (p.Arg84Gln)\", \"target\": \"AFG2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"55LCC ATPase Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AFG2A does not act alone. It assembles with its paralogue AFG2B (SPATA5L1) and the heterodimeric partners C1orf109 and CINP into a 4:2:2:2 assembly named 55LCC, built from an N-terminal ring of C1orf109, CINP and the N-terminal domains of AFG2A and AFG2B sitting above two hexameric AAA+ ATPase rings. Reduced AFG2A activity therefore compromises a shared machine rather than a single enzyme, which is the structural reason AFG2A and AFG2B disease phenotypes overlap.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"AFG2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"presence\": \"Biallelic pathogenic or likely pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"Anti-seizure medication polytherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most individuals with epilepsy require more than one anti-seizure medication and remain refractory. No agent has shown disease-specific superiority; the reported regimens span valproate, levetiracetam, lamotrigine, vigabatrin, ACTH, topiramate, zonisamide, clobazam, phenobarbital, rufinamide, cannabidiol and others. Only four of sixteen individuals with follow-up data achieved seizure freedom. In the reported IESS series, corticosteroids and vigabatrin did not achieve seizure control.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biallelic AFG2A Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in AFG2A (formerly SPATA5) reduce the amount or the activity of an 892-amino-acid AAA+ ATPase. Most reported alleles are missense or small in-frame changes rather than complete nulls, and no individual carrying two unequivocal null alleles has been reported, which is consistent with hypomorphic rather than complete loss of function being compatible with life. The protein carries two conserved ATPase modules.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"role\": \"root\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Congenital Microcephaly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level endpoint of the pathway. Reduced brain growth is present at birth in the large majority of affected children and, with sensorineural deafness and epilepsy, forms the diagnostic triad.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Early hearing habilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sensorineural deafness is congenital and detectable on newborn or neonatal brainstem audiometry, so amplification or implantation can be started in the first months. One genotyped child received a hearing device before the age of two months after postnatal brainstem audiometry showed sensorineural deafness. No systematic outcome data for cochlear implantation in this disorder exist, and profound intellectual disability with cerebral visual impairment complicates candidacy assessment, so this is curated as supportive habilitation rather than as an intervention with demonstrated efficacy in this genotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Cortical Neuron Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developing cortical neurons deficient in the protein grow markedly shorter axons, and the defect is rescued by re-expressing the wild-type human protein. This is the most proximate cellular correlate available for the congenital microcephaly, hypomyelination and thin corpus callosum seen in patients, although no experiment has yet connected the neuronal growth defect to the human imaging findings directly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cerebral cortex neuron\"], \"biological_processes\": [\"Axon extension\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Cytoplasmic Pre-60S Ribosomal Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In yeast the AFG2A orthologue Drg1 strips the assembly factor Rlp24, a placeholder for the ribosomal protein Rpl24, off pre-60S particles as soon as they reach the cytoplasm; the human equivalent step is performed by AFG2A within the 55LCC complex, with recognition of the pre-60S particle mediated by the human-specific subunit CINP. When AFG2A activity falls, large ribosomal subunits stall at this last maturation checkpoint.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Ribosomal large subunit biogenesis\", \"Ribosome assembly\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"When epilepsy occurs, it most often declares itself as an infantile epileptic spasms syndrome in the first two years of life, with a mean onset around 9 to 14 months. Epileptic spasms or tonic seizures typically emerge between 6 and 12 months in the smaller Japanese series. In the reported IESS series, neither corticosteroids nor vigabatrin achieved seizure control.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0012469\"}}, {\"id\": \"Ketogenic diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The ketogenic diet is the only intervention with disease-specific evidence. In a series of five genotyped patients, four received the diet for drug-resistant epilepsy with seizure reduction rates of 0%, 30%, 70% and 100%; the patient who became seizure free is maintained on ketogenic diet monotherapy. Non-seizure benefits (social interaction, attention, motor function) were reported in three. Fibroblasts from these patients cultured in a ketogenic-diet-mimicking medium showed reversal of the mitochondrial morphology, dynamics and ATP abnormalities, giving a plausible mechanistic rationale. The evidence is a small uncontrolled series and is recorded as partial.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Neuroepithelial Vulnerability During Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This node answers the central puzzle of the disorder: why a defect in a ubiquitous housekeeping machine produces an almost purely neurological phenotype. Human cerebral organoid work on the sister 55LCC subunit AIRIM/C1orf109 showed that ribosome levels fall physiologically during neuroepithelial differentiation, creating a developmental window in which any further reduction in 60S output crosses a threshold and selectively impairs translation of specific transcripts, disrupting both survival and cell fate commitment. Enhancing mTOR activity suppressed the AIRIM organoid phenotype, identifying a candidate rescue axis for 55LCC-related ribosome-biogenesis disorders that remains untested in AFG2A deficiency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Differentiating neuroepithelium\"], \"biological_processes\": [\"Cytoplasmic translation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Neuronal ATP Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The axonal ATP/ADP ratio falls by roughly 12% in knockdown neurons and is restored by re-expression of the wild-type human protein, establishing specificity. The same energy failure is detectable in patient blood cells, where oxygen consumption rates in platelets and peripheral blood mononuclear cells are impaired and monocyte mitochondrial mass is reduced.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"ATP biosynthetic process\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Silencing the gene in rat primary cortical neurons shortens mitochondria by about 20% and halves the fusion-to-fission ratio. Patient-derived fibroblasts likewise show altered mitochondrial morphology and dynamics. This occurs even though the protein itself is dominantly cytosolic and does not co-localise with mitochondrial markers, so the effect is indirect; the intervening steps are unknown.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cerebral cortex neuron\"], \"biological_processes\": [\"Mitochondrial fusion\", \"Mitochondrial fission\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Reduced Global Protein Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of AFG2A or of its partner C1orf109 lowers bulk protein synthesis in human cells, consistent with impaired late pre-60S maturation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Cytoplasmic translation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Replisome Proteostasis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 55LCC complex has a second, ribosome-independent job: its ATPase activity is stimulated by replication fork DNA and it couples cysteine protease-dependent cleavage of replisome substrates to replication fork damage. Losing that activity produces ubiquitin-independent proteotoxicity, replication stress and chromosome instability. Whether this branch contributes to the human neurodevelopmental phenotype is proposed by the authors but not established in patient material, so the node is provisional.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA replication\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy affects roughly three quarters of individuals. Generalised-onset seizures predominate, and the epilepsy is usually drug resistant, requiring polytherapy. A minority of individuals never develop seizures at all, so epilepsy is a frequent but not obligate feature despite the historical name of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral sensorineural hearing loss, usually detectable from early infancy, is one of the three cardinal features. It is the single most consistent finding across families and, in at least one sibling, has been the ONLY manifestation of a confirmed biallelic genotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Skeletal Muscle Mitochondrial Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Muscle is affected as well as brain. A quadriceps biopsy from an 8-year-old girl with a typical presentation and two compound heterozygous variants showed a histochemical pattern suggesting mitochondrial pathology, and proteomic profiling found 82 dysregulated proteins of which 15 are mitochondrial. This provides the tissue-level counterpart of the mitochondrial dysfunction seen in neurons and fibroblasts, and it is one reason the disorder is investigated as a suspected mitochondrial myopathy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"c.1822_1824del (p.Asp608del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous in-frame deletion segregating with severe intellectual disability and microcephaly in an extended consanguineous family with seven affected individuals; molecular modelling predicted a deleterious effect on protein function.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"variant_type\": \"in-frame deletion\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.251G\u003eA (p.Arg84Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent missense allele; found homozygous through maternal uniparental isodisomy of chromosome 4 in a diagnostic case of developmental encephalopathy with late-onset epilepsy, and one of the four alleles accounting for 42% of reported individuals.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.989_991del (p.Thr330del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent in-frame single-amino-acid deletion reported in multiple unrelated families, including the Japanese siblings, the Polish family in which one sibling had isolated hearing loss, and several of the Estonian and German compound heterozygotes.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"variant_type\": \"in-frame deletion\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Biallelic AFG2A Loss of Function\", \"target\": \"55LCC ATPase Complex Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AFG2A is the catalytic core of the 55LCC complex, so reduced AFG2A ATPase activity is directly a deficiency of the complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic AFG2A Loss of Function\", \"target\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Knockdown of the gene in rat cortical neurons shifts the mitochondrial fusion-fission balance, but the molecular steps between the ATPase defect and the mitochondrial phenotype have not been identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic AFG2A Loss of Function\", \"target\": \"Skeletal Muscle Mitochondrial Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Muscle biopsy in a genotyped patient shows a mitochondrial histochemical pattern and a dysregulated mitochondrial proteome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"55LCC ATPase Complex Dysfunction\", \"target\": \"Impaired Cytoplasmic Pre-60S Ribosomal Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The complex performs the terminal cytoplasmic maturation step on the pre-60S particle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"55LCC ATPase Complex Dysfunction\", \"target\": \"Replisome Proteostasis Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same complex extracts and licenses degradation of replisome components at damaged replication forks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cytoplasmic Pre-60S Ribosomal Maturation\", \"target\": \"Reduced Global Protein Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer mature 60S subunits reach the translating pool, so bulk translation capacity falls.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Global Protein Synthesis\", \"target\": \"Neuroepithelial Vulnerability During Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Other 55LCC-subunit organoid models link reduced ribosome availability to neuroepithelial vulnerability, but the intervening steps and their relevance to AFG2A-deficient cells have not been tested directly.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuroepithelial Vulnerability During Differentiation\", \"target\": \"Impaired Cortical Neuron Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attrition and mis-specification of differentiating neuroepithelium is the proposed route to reduced brain growth, but the intervening steps have not been mapped in AFG2A deficiency itself.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"target\": \"Neuronal ATP Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion-fission imbalance is accompanied by a measured fall in the axonal ATP/ADP ratio in the same experiments.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal ATP Deficit\", \"target\": \"Impaired Cortical Neuron Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axon extension is one of the most energy-demanding processes in a developing neuron.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neuron Growth\", \"target\": \"Congenital Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced growth of individual cortical neurons is the presumed cellular cause of the whole-organism reduction in brain and head growth, but no experiment has connected the two directly in AFG2A deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ketogenic diet\", \"target\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet\", \"target\": \"Infantile spasms\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-seizure medication polytherapy\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Early hearing habilitation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AFG2A\", \"target\": \"Biallelic AFG2A Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.989_991del (p.Thr330del)\", \"target\": \"AFG2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1822_1824del (p.Asp608del)\", \"target\": \"AFG2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.251G\u003eA (p.Arg84Gln)\", \"target\": \"AFG2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6446,6 +6565,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Gastrointestinal symptoms 78.95% in the 51-individual pooled cohort, of which dysphagia 30%, gastro-oesophageal reflux 20% and constipation 16.67%; gastrointestinal problems 73% in the earlier 30-patient summary.</div>
@@ -6555,6 +6677,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </div>
 
 
+
+
+
                     <div class="item-desc">93.62% in the 51-individual pooled cohort; 77% specifically sensorineural in the earlier 30-patient summary.</div>
 
 
@@ -6660,6 +6785,9 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Visual impairment 79.49% overall in the 51-individual pooled cohort, of which cortical blindness 9.68%, refractive abnormality 9.68% and strabismus 9.68%; cortical visual impairment specifically 41% in the earlier 30-patient summary.</div>
@@ -6769,6 +6897,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">85.71% in the 51-individual pooled cohort; 90% in the earlier 30-patient summary.</div>
 
 
@@ -6868,6 +6999,9 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6932,6 +7066,9 @@ This clinical feature is Retrognathia (HP:0000278). HP:0000278 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7010,6 +7147,9 @@ This clinical feature is Increased circulating lactate concentration (HP:0002151
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band deliberately omitted. Two individuals (Patient IDs 43 and 45) had a persistent mild lactate elevation of 1.9 to 3.9 mmol/l, but the denominator is not the full 51-individual cohort: the phrase used is &#34;two individuals in our cohort&#34;, and the discussion identifies them as cases 3 and 5 of the authors&#39; own five-patient ketogenic-diet series, so systematic metabolic data are not available for the pooled literature cases. Against a denominator of 51 the band would be VERY_RARE and against a denominator of 5 it would be VERY_FREQUENT, so no band is asserted.</div>
@@ -7094,6 +7234,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">71.74% in the 51-individual pooled cohort.</div>
 
 
@@ -7165,6 +7308,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">60.87% in the 51-individual pooled cohort. Motor impairment overall was 97.83% of those with data, and 59.09% were GMFCS level V.</div>
@@ -7274,6 +7420,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </div>
 
 
+
+
+
                     <div class="item-desc">97.92% in the 51-individual pooled cohort; severity was moderate-to-severe in 25% and severe-to-profound in 75% of the 32 cases with graded data.</div>
 
 
@@ -7375,6 +7524,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7468,6 +7620,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Neurodevelopmental delay 84.31% in the 51-individual pooled cohort; global developmental delay in all patients in the earlier 30-patient summary.</div>
 
 
@@ -7539,6 +7694,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">38 of 51 individuals (74.5%) in the pooled cohort; 73% in the earlier 30-patient summary. Drug resistance was reported in 82.35% of the 17 individuals with anti-seizure medication data, but that denominator is small and conditioned on having epilepsy, so no separate frequency band is asserted for drug resistance.</div>
@@ -7635,6 +7793,9 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band deliberately omitted. Infantile epileptic spasms syndrome was reported in 16 of the 24 individuals with detailed epilepsy data (66.67%), which is 16 of the whole 51-individual cohort (31%). The band would be FREQUENT on one denominator and would sit at the top of FREQUENT on the other, so the raw fractions are recorded here instead of an asserted band.</div>
@@ -7761,6 +7922,9 @@ This clinical feature is Multifocal epileptiform discharges (HP:0010841). HP:001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7852,6 +8016,9 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Denominator, stated explicitly because it is not the pooled cohort. The GMFCS percentages do not run over the 51 pooled individuals; they resolve arithmetically to n=22, since 59.09% is 13/22, 27.27% is 6/22, 9.09% is 2/22 and 4.55% is 1/22, which sum to 22 individuals and to 100%. The deep research artifact records the GMFCS subgroup as n=22 explicitly, and the same paper reports motor impairment over a different subgroup again (97.83%, i.e. 45/46), so denominators vary from section to section. The cached paper&#39;s own prose conflicts with its own arithmetic. It reads &#34;All individuals were assessed using the Gross Motor Function Classification System (GMFCS)&#34;, which taken literally would put the denominator at 51. The arithmetic is preferred here over the prose. The band is chosen on the n=22 reading: 19 of the 22 individuals actually graded (86.36%) were at GMFCS level IV or V, both of which denote non-ambulatory status requiring physical assistance, and 86.36% is above 80% and so maps to VERY_FREQUENT. On the alternative reading, in which the same 19 individuals are taken over the full pooled cohort, 19/51 is 37% and the band would be FREQUENT. The n=22 reading is used because individuals who were not graded are unknown rather than known to be ambulatory, which is the usual convention for frequency denominators; a reader who instead treats the paper&#39;s &#34;All individuals&#34; wording as authoritative should read this band as FREQUENT. Note that the entry deliberately omits three other frequency bands (for example infantile epileptic spasms syndrome, 16/24 with detailed epilepsy data but 16/51 of the cohort) where the denominator is unknown, is very small, or is conditioned in a way that leaves no principled choice between readings. Here the band is retained rather than dropped because the subgroup denominator is recoverable exactly from the published percentages and both readings are recorded. The 9.09% at level III walk with a handheld mobility device and the 4.55% at level II are ambulatory with limitations.</div>
@@ -7952,6 +8119,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Dystonia 21.74% in the 51-individual pooled cohort; movement disorders of any kind 36.96%.</div>
 
 
@@ -8048,6 +8218,9 @@ This clinical feature is Cerebral hypomyelination (HP:0006808). HP:0006808 is a 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Hypomyelination 39.02% and abnormal MRI overall 68.29% in the 51-individual pooled cohort; abnormal brain MRI 67% in the earlier 30-patient summary. Brain MRI was normal in 31.71% of cases.</div>
@@ -8148,6 +8321,9 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Global brain atrophy 34.15% in the 51-individual pooled cohort.</div>
 
 
@@ -8244,6 +8420,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">29.27% in the 51-individual pooled cohort.</div>
@@ -8364,6 +8543,9 @@ This disease-associated gene is AFG2A, annotated with SPATA5 (hgnc:18119). hgnc:
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8447,6 +8629,7 @@ This disease-associated gene is AFG2A, annotated with SPATA5 (hgnc:18119). hgnc:
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8466,11 +8649,17 @@ This variant is in AFG2A, annotated with SPATA5 (hgnc:18119). hgnc:18119 is a ge
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">in-frame deletion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent in-frame single-amino-acid deletion reported in multiple unrelated families, including the Japanese siblings, the Polish family in which one sibling had isolated hearing loss, and several of the Estonian and German compound heterozygotes.</div>
@@ -8558,6 +8747,7 @@ This variant is in AFG2A, annotated with SPATA5 (hgnc:18119). hgnc:18119 is a ge
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8577,11 +8767,17 @@ This variant is in AFG2A, annotated with SPATA5 (hgnc:18119). hgnc:18119 is a ge
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">in-frame deletion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous in-frame deletion segregating with severe intellectual disability and microcephaly in an extended consanguineous family with seven affected individuals; molecular modelling predicted a deleterious effect on protein function.</div>
@@ -8644,6 +8840,7 @@ This variant is in AFG2A, annotated with SPATA5 (hgnc:18119). hgnc:18119 is a ge
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8663,11 +8860,17 @@ This variant is in AFG2A, annotated with SPATA5 (hgnc:18119). hgnc:18119 is a ge
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent missense allele; found homozygous through maternal uniparental isodisomy of chromosome 4 in a diagnostic case of developmental encephalopathy with late-onset epilepsy, and one of the four alleles accounting for 42% of reported individuals.</div>

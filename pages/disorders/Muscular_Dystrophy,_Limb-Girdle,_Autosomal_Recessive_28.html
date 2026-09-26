@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4843,6 +4885,7 @@ Because the missing metabolite is known, the disease is one of the few LGMD subt
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-hmg-coa-reductase-catalytic-activity" data-dismech-node="Reduced HMG-CoA Reductase Catalytic Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced HMG-CoA Reductase Catalytic Activity</div>
 
+
                 <div class="item-desc">Disease-associated HMGCR alleles are amorphic to hypomorphic: they reduce catalytic rate and destabilise the enzyme rather than preventing its expression or mislocalising it. The founding G822D allele retains the protein in its normal cytoplasmic and endoplasmic-reticulum distribution while losing most of its turnover number and most of its affinity for HMG-CoA, and independently assayed alleles from a second cohort show the same pattern of reduced activity with reduced stability.</div>
 
 
@@ -5009,6 +5052,7 @@ This pathophysiological event involves decreased HMG-CoA reductase activity, ann
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mevalonate-pathway-flux-reduction" data-dismech-node="Mevalonate Pathway Flux Reduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mevalonate Pathway Flux Reduction</div>
 
+
                 <div class="item-desc">Reduced enzyme activity lowers production of mevalonate, the committed product of the pathway. This is measurable in patients rather than inferred: circulating mevalonolactone in the treated proband sat at roughly a fifth of the control average. Sterol output is comparatively spared, since patient cholesterol is low but within the normal range, which is the first indication that the sterol branch is not where the disease is expressed.</div>
 
 
@@ -5155,6 +5199,7 @@ This pathophysiological event involves decreased mevalonate pathway flux, annota
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isoprenoid-depletion-and-impaired-protein-geranylgeranylation" data-dismech-node="Isoprenoid Depletion and Impaired Protein Geranylgeranylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Isoprenoid Depletion and Impaired Protein Geranylgeranylation</div>
+
 
                 <div class="item-desc">The branch of the mevalonate pathway that appears to carry the myopathy is the isoprenoid one. In muscle-specific Hmgcr-knockout mice the fiber-type loss is reversed by geranylgeraniol, the precursor of geranylgeranyl pyrophosphate, and independently knocking out the Rab geranylgeranyltransferase beta subunit produces its own myopathy and aggravates the Hmgcr one. This is a mouse-derived mechanism; no patient measurement of prenylation exists.</div>
 
@@ -5349,6 +5394,7 @@ This pathophysiological event involves decreased isoprenoid biosynthesis, annota
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myofiber-mitochondrial-dysfunction" data-dismech-node="Myofiber Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Myofiber Mitochondrial Dysfunction</div>
 
+
                 <div class="item-desc">Mitochondrial abnormalities appear early in Hmgcr-deficient muscle, before weakness is clinically apparent, and the first fibers lost are the mitochondria-rich oxidative ones. Hmgcr-knockdown myoblasts show a matching transcriptional and respirometric signature. Whether this is the proximate cause of fiber loss in patients is not established.</div>
 
 
@@ -5541,6 +5587,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-myoblast-proliferation-and-myotube-fusion" data-dismech-node="Impaired Myoblast Proliferation and Myotube Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Myoblast Proliferation and Myotube Fusion</div>
+
 
                 <div class="item-desc">HMGCR loss impairs the myogenic program itself, not only the maintenance of mature fibers. Knockdown myoblasts proliferate less, die more, and fail to fuse into myotubes, and re-expression of wild-type but not variant HMGCR restores fusion. This developmental component is a plausible explanation for the congenital and neonatal-onset end of the clinical spectrum.</div>
 
@@ -5799,6 +5846,7 @@ This pathophysiological event involves increased myoblast apoptosis, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-myofiber-loss-and-fatty-replacement" data-dismech-node="Progressive Myofiber Loss and Fatty Replacement" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Myofiber Loss and Fatty Replacement</div>
+
 
                 <div class="item-desc">Muscle is lost slowly and replaced by fat, most severely in the proximal and axial groups, with distal and facial muscles relatively spared. The tissue signature is the point at which this disease diverges from the sarcolemmal LGMD subtypes. Biopsy findings range from entirely non-specific myopathic change to nothing at all: the founding kindred showed no necrosis, fibrosis or inflammation, and immunohistochemistry for dystrophin, the sarcoglycans and dysferlin is normal across cohorts. The absence of an inflammatory infiltrate also distinguishes it from anti-HMGCR necrotizing myopathy.</div>
 
@@ -6227,6 +6275,9 @@ This clinical feature is Increased circulating troponin T concentration (HP:0410
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6320,6 +6371,9 @@ This clinical feature is Cirrhosis (HP:0001394), qualified as course progressive
 
 
                     </div>
+
+
+
 
 
 
@@ -6430,6 +6484,9 @@ This clinical feature is Calf muscle hypertrophy (HP:0008981). HP:0008981 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6518,7 +6575,7 @@ This clinical feature is Calf muscle hypertrophy (HP:0008981). HP:0008981 is a p
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -6528,10 +6585,13 @@ This clinical feature is Calf muscle hypertrophy (HP:0008981). HP:0008981 is a p
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6662,6 +6722,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6758,6 +6821,9 @@ This clinical feature is Axial muscle weakness (HP:0003327). HP:0003327 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6844,6 +6910,9 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
 
 
                     </div>
+
+
+
 
 
 
@@ -6945,6 +7014,9 @@ This clinical feature is Gowers sign (HP:0003391). HP:0003391 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7016,6 +7088,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7082,6 +7157,9 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7178,6 +7256,9 @@ This clinical feature is EMG: myopathic abnormalities (HP:0003458). HP:0003458 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7306,6 +7387,9 @@ This clinical feature is Loss of ambulation (HP:0002505), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7402,6 +7486,9 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7468,6 +7555,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7548,6 +7638,9 @@ This clinical feature is Exercise-induced myalgia (HP:0003738). HP:0003738 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7668,6 +7761,9 @@ This disease-associated gene is HMGCR (hgnc:5006). hgnc:5006 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7779,6 +7875,7 @@ This disease-associated gene is HMGCR (hgnc:5006). hgnc:5006 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7798,11 +7895,17 @@ This variant is in HMGCR (hgnc:5006). hgnc:5006 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The founding allele, homozygous in six affected members of a consanguineous Bedouin kindred from the Negev with fourth-decade-onset disease. Enzymologically the best characterised of the disease alleles: it leaves the protein correctly localised while reducing turnover and substrate affinity.</div>
@@ -7914,6 +8017,7 @@ This variant is in HMGCR (hgnc:5006). hgnc:5006 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7933,11 +8037,17 @@ This variant is in HMGCR (hgnc:5006). hgnc:5006 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent ultra-rare allele found homozygous in three of the six Middle Eastern families, spanning onset from birth to fourteen years within the same genotype. It sits in the Lalpha10 helix of the catalytic L domain and is notable for being missed by in silico predictors, which is why it went unrecognised in earlier sequencing analyses.</div>
@@ -8025,6 +8135,7 @@ This variant is in HMGCR (hgnc:5006). hgnc:5006 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8044,11 +8155,17 @@ This variant is in HMGCR (hgnc:5006). hgnc:5006 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The allele of the single reported neonatal-onset, early-lethal case. It is the only disease allele for which a homozygous knock-in mouse has been made, and that mouse dies in utero.</div>
@@ -10900,10 +11017,10 @@ phenotypes:
     35,761 U/L, and is frequently the incidental finding that starts the diagnostic
     workup. It falls as muscle mass is lost late in the disease.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:36745799
@@ -12992,7 +13109,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Muscular Dystrophy, Limb-Girdle, Autosomal Recessive 28", "mondoId": "MONDO:0957270", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Muscular_Dystrophy,_Limb-Girdle,_Autosomal_Recessive_28", "yamlRevision": "39dcc79c0469"};
+        const OS_CONFIG = {"diseaseName": "Muscular Dystrophy, Limb-Girdle, Autosomal Recessive 28", "mondoId": "MONDO:0957270", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Muscular_Dystrophy,_Limb-Girdle,_Autosomal_Recessive_28", "yamlRevision": "692a70f17799"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

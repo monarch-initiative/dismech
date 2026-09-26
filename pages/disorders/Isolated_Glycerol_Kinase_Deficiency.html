@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4883,6 +4925,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glycerol-kinase-loss-of-function" data-dismech-node="Glycerol Kinase Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Glycerol Kinase Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Hemizygous loss-of-function variants in GK (Xp21.2) — nonsense, frameshift, splice-site, missense and partial gene deletions — abolish or severely reduce glycerol kinase activity, which is measurable at under 10% of reference in patient fibroblasts. Because the gene is X-linked, essentially all clinically ascertained patients are hemizygous males and mothers are unaffected heterozygotes. No genotype-phenotype correlation has been established, so this node is modelled as a single functional lesion rather than an allele-graded one.</div>
 
 
@@ -5132,6 +5181,13 @@ This pathophysiological event involves glycerol kinase activity (GO:0004370), qu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-glycerol-entry-into-gluconeogenesis-and-glycerolipid-synthesis" data-dismech-node="Loss of Glycerol Entry into Gluconeogenesis and Glycerolipid Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Glycerol Entry into Gluconeogenesis and Glycerolipid Synthesis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Glycerol-3-phosphate is the shared branch point at which glycerol either feeds the gluconeogenic and glycolytic pools or is acylated into triglycerides and phospholipids. Blocking its formation removes glycerol from both destinations at once. In vivo tracer studies show that affected men convert glycerol into neither glucose nor triglyceride, while a residual, order-of-magnitude-reduced conversion to lactate persists and has been attributed to homologous kinases encoded by other genes.</div>
 
 
@@ -5373,6 +5429,13 @@ This pathophysiological event involves decreased glycerol-3-phosphate metabolic 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperglycerolaemia-and-glyceroluria" data-dismech-node="Hyperglycerolaemia and Glyceroluria" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperglycerolaemia and Glyceroluria</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Glycerol that cannot be phosphorylated accumulates in the circulation and spills into the urine. This is the obligate, lifelong biochemical signature of the disorder and is present equally in symptomatic children and asymptomatic adults; it is not itself known to be injurious, and its clinical importance in the adult form is entirely as a measurement interferent.</div>
 
 
@@ -5512,6 +5575,13 @@ This pathophysiological event involves decreased glycerol catabolic process (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fasting-and-catabolic-stress-intolerance" data-dismech-node="Fasting and Catabolic-Stress Intolerance" data-dismech-type="pathophysiology">
                 <div class="item-name">Fasting and Catabolic-Stress Intolerance</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A compensated state is converted into a crisis by anything that raises the demand for endogenous glucose: intercurrent infection, prolonged fasting, vomiting, or strenuous exercise. This node conforms to the module&#39;s amplifier step by way of its energy-deficit arm only. The toxic-metabolite half of that module node is deliberately NOT asserted here: the metabolite that accumulates in this disease is glycerol, and no toxicity of glycerol has been demonstrated — long-term vascular follow-up of hyperglycerolaemic patients was negative, and adults with lifelong hyperglycerolaemia are asymptomatic.</div>
 
 
@@ -5612,6 +5682,13 @@ This pathophysiological event involves decreased glycerol catabolic process (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperketotic-hypoglycaemic-decompensation" data-dismech-node="Hyperketotic Hypoglycaemic Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperketotic Hypoglycaemic Decompensation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The acute crisis: hypoglycaemia with marked ketosis and metabolic acidosis, typically with vomiting. Compared with the organic acidaemias and urea-cycle disorders that anchor the shared decompensation module, the biochemical pattern here is the hypoglycaemia-and-ketoacidosis one rather than the hyperammonaemic one, and it is confined to childhood.</div>
 
@@ -5786,6 +5863,13 @@ This pathophysiological event involves increased ketone body biosynthetic proces
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-encephalopathic-crisis" data-dismech-node="Encephalopathic Crisis" data-dismech-type="pathophysiology">
                 <div class="item-name">Encephalopathic Crisis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The Reye-like clinical presentation of the childhood crisis: vomiting, lethargy progressing to disturbed consciousness, and seizures. Seizures are not always tied to a documented catabolic state — one reported patient had recurrent convulsions as the sole acute manifestation — so the link between the biochemical crisis and every neurological event is not one-to-one.</div>
 
 
@@ -5871,6 +5955,13 @@ This pathophysiological event involves increased ketone body biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pseudohypertriglyceridaemia-on-lipase-based-triglyceride-assay" data-dismech-node="Pseudohypertriglyceridaemia on Lipase-Based Triglyceride Assay" data-dismech-type="pathophysiology">
                 <div class="item-name">Pseudohypertriglyceridaemia on Lipase-Based Triglyceride Assay</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">An analytical artefact, not a lipid disorder. Enzymatic triglyceride assays liberate glycerol with a lipase and measure it as a proxy for triglyceride; in hyperglycerolaemia the pre-existing endogenous glycerol is counted as though it were triglyceride-derived. Orthogonal NMR measurement in the same patients returns normal triglycerides and, in the same comparison, shows that lipase-based assays simultaneously under-report LDL cholesterol. The serum is characteristically not lipaemic, which is the bedside clue that the number is wrong.</div>
 
@@ -5972,6 +6063,13 @@ This pathophysiological event involves increased ketone body biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-misdiagnosis-as-primary-hypertriglyceridaemia-and-ineffective-lipid-lowering-treatment" data-dismech-node="Misdiagnosis as Primary Hypertriglyceridaemia and Ineffective Lipid-Lowering Treatment" data-dismech-type="pathophysiology">
                 <div class="item-name">Misdiagnosis as Primary Hypertriglyceridaemia and Ineffective Lipid-Lowering Treatment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The dominant morbidity of the adult form is iatrogenic and informational rather than metabolic: years of hypolipidaemic drug exposure, dietary restriction and cardiovascular alarm directed at a laboratory number that no treatment can move. One reported patient was treated for 13 years before the correct diagnosis was made. The counterfactual is well documented — once the diagnosis is made, lipid-lowering treatment is stopped without adverse consequence.</div>
 
@@ -6081,7 +6179,7 @@ This pathophysiological event involves increased ketone body biosynthetic proces
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Encephalopathic Crisis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Reye-like clinical presentation of the childhood crisis: vomiting, lethargy progressing to disturbed consciousness, and seizures. Seizures are not always tied to a documented catabolic state \\u2014 one reported patient had recurrent convulsions as the sole acute manifestation \\u2014 so the link between the biochemical crisis and every neurological event is not one-to-one.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Fasting and Catabolic-Stress Intolerance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A compensated state is converted into a crisis by anything that raises the demand for endogenous glucose: intercurrent infection, prolonged fasting, vomiting, or strenuous exercise. This node conforms to the module\u0027s amplifier step by way of its energy-deficit arm only. The toxic-metabolite half of that module node is deliberately NOT asserted here: the metabolite that accumulates in this disease is glycerol, and no toxicity of glycerol has been demonstrated \\u2014 long-term vascular follow-up of hyperglycerolaemic patients was negative, and adults with lifelong hyperglycerolaemia are asymptomatic.\", \"meta\": {\"evidence_count\": 2, \"role\": \"amplifier\"}}, {\"id\": \"Fibroblast glycerol kinase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Decreased\", \"readouts\": [{\"target\": \"Glycerol Kinase Loss of Function\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Enzymatic confirmation of the trigger lesion in patient-derived cells.\"}]}}, {\"id\": \"Frequent Feeding, Glucose Access and Avoidance of Strenuous Exercise\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management of the symptomatic childhood form is entirely preventive: keep the child out of the catabolic state that unmasks the missing gluconeogenic substrate. Frequent meals, ready access to glucose, and avoidance of strenuous sport were sufficient for a good long-term outcome in two boys followed for around 20 years, whose crises then ceased after puberty.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Glycerol Kinase Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous loss-of-function variants in GK (Xp21.2) \\u2014 nonsense, frameshift, splice-site, missense and partial gene deletions \\u2014 abolish or severely reduce glycerol kinase activity, which is measurable at under 10% of reference in patient fibroblasts. Because the gene is X-linked, essentially all clinically ascertained patients are hemizygous males and mothers are unaffected heterozygotes. No genotype-phenotype correlation has been established, so this node is modelled as a single functional lesion rather than an allele-graded one.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Hepatocyte\"], \"molecular_functions\": [\"glycerol kinase activity\"], \"genes\": [\"GK\"], \"gene_terms\": [{\"label\": \"GK\", \"id\": \"hgnc:4289\"}], \"role\": \"trigger\"}}, {\"id\": \"Hemizygous GK loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GK\"], \"gene_terms\": [{\"label\": \"GK\", \"id\": \"hgnc:4289\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Hyperglycerolaemia and Glyceroluria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glycerol that cannot be phosphorylated accumulates in the circulation and spills into the urine. This is the obligate, lifelong biochemical signature of the disorder and is present equally in symptomatic children and asymptomatic adults; it is not itself known to be injurious, and its clinical importance in the adult form is entirely as a measurement interferent.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycerol catabolic process\"], \"role\": \"effector\"}}, {\"id\": \"Hyperketotic Hypoglycaemic Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The acute crisis: hypoglycaemia with marked ketosis and metabolic acidosis, typically with vomiting. Compared with the organic acidaemias and urea-cycle disorders that anchor the shared decompensation module, the biochemical pattern here is the hypoglycaemia-and-ketoacidosis one rather than the hyperammonaemic one, and it is confined to childhood.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glucose homeostasis\", \"ketone body biosynthetic process\"], \"role\": \"central_effector\"}}, {\"id\": \"Loss of Glycerol Entry into Gluconeogenesis and Glycerolipid Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glycerol-3-phosphate is the shared branch point at which glycerol either feeds the gluconeogenic and glycolytic pools or is acylated into triglycerides and phospholipids. Blocking its formation removes glycerol from both destinations at once. In vivo tracer studies show that affected men convert glycerol into neither glucose nor triglyceride, while a residual, order-of-magnitude-reduced conversion to lactate persists and has been attributed to homologous kinases encoded by other genes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"gluconeogenesis\", \"triglyceride biosynthetic process\", \"glycerol-3-phosphate metabolic process\"], \"role\": \"amplifier\"}}, {\"id\": \"Misdiagnosis as Primary Hypertriglyceridaemia and Ineffective Lipid-Lowering Treatment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dominant morbidity of the adult form is iatrogenic and informational rather than metabolic: years of hypolipidaemic drug exposure, dietary restriction and cardiovascular alarm directed at a laboratory number that no treatment can move. One reported patient was treated for 13 years before the correct diagnosis was made. The counterfactual is well documented \\u2014 once the diagnosis is made, lipid-lowering treatment is stopped without adverse consequence.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Plasma glycerol\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"readouts\": [{\"target\": \"Hyperglycerolaemia and Glyceroluria\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"A raised plasma glycerol is the direct measurement of the accumulation node and is what distinguishes this disorder from true hypertriglyceridaemia.\"}]}}, {\"id\": \"Pseudohypertriglyceridaemia on Lipase-Based Triglyceride Assay\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An analytical artefact, not a lipid disorder. Enzymatic triglyceride assays liberate glycerol with a lipase and measure it as a proxy for triglyceride; in hyperglycerolaemia the pre-existing endogenous glycerol is counted as though it were triglyceride-derived. Orthogonal NMR measurement in the same patients returns normal triglycerides and, in the same comparison, shows that lipase-based assays simultaneously under-report LDL cholesterol. The serum is characteristically not lipaemic, which is the bedside clue that the number is wrong.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Serum triglyceride measured by lipase-based enzymatic assay\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"readouts\": [{\"target\": \"Pseudohypertriglyceridaemia on Lipase-Based Triglyceride Assay\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"The elevation is method-dependent; a normal NMR triglyceride in the same sample identifies the result as an artefact rather than a lipid abnormality.\"}]}}, {\"id\": \"Urinary glycerol\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"readouts\": [{\"target\": \"Hyperglycerolaemia and Glyceroluria\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Urinary spillover of unphosphorylated glycerol measures the same accumulation node non-invasively.\"}]}}, {\"id\": \"Withdrawal of Lipid-Lowering Therapy After Diagnosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In the adult form the therapeutic act is subtractive. Once the raised triglyceride is recognised as glycerol, hypolipidaemic drugs directed at it can be stopped; in a paediatric series all three patients had lipid-lowering treatment discontinued after diagnosis without adverse outcome, and a long-followed hyperglycerolaemic cohort showed no premature atherosclerotic cardiovascular disease attributable to the condition itself. A published clinical suspicion score exists specifically to spare these patients unwarranted treatment. Ordinary cardiovascular risk factors still require routine monitoring.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Glycerol Kinase Loss of Function\", \"target\": \"Loss of Glycerol Entry into Gluconeogenesis and Glycerolipid Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Phosphorylation of glycerol to glycerol-3-phosphate is the committed entry step; without it circulating glycerol cannot be routed into either pathway.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glycerol Kinase Loss of Function\", \"target\": \"Hyperglycerolaemia and Glyceroluria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unphosphorylated glycerol accumulates in plasma and is excreted in urine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Glycerol Entry into Gluconeogenesis and Glycerolipid Synthesis\", \"target\": \"Fasting and Catabolic-Stress Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of one gluconeogenic substrate is silent while glucose supply is adequate; it becomes limiting when fasting, exercise or intercurrent illness raises the demand for endogenous glucose production.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperglycerolaemia and Glyceroluria\", \"target\": \"Pseudohypertriglyceridaemia on Lipase-Based Triglyceride Assay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Routine analysers hydrolyse triglyceride and quantify the liberated glycerol, so a raised endogenous glycerol concentration is read directly as raised triglyceride.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fasting and Catabolic-Stress Intolerance\", \"target\": \"Hyperketotic Hypoglycaemic Decompensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Once endogenous glucose production cannot keep pace, blood glucose falls and ketogenesis is driven hard, producing the ketoacidotic biochemical picture.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperketotic Hypoglycaemic Decompensation\", \"target\": \"Encephalopathic Crisis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoglycaemia and acidosis produce the neurological face of the crisis \\u2014 lethargy, disturbed consciousness, and in some patients convulsions.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pseudohypertriglyceridaemia on Lipase-Based Triglyceride Assay\", \"target\": \"Misdiagnosis as Primary Hypertriglyceridaemia and Ineffective Lipid-Lowering Treatment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A spuriously high triglyceride result in an otherwise well adult is acted on as though it were dyslipidaemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Frequent Feeding, Glucose Access and Avoidance of Strenuous Exercise\", \"target\": \"Fasting and Catabolic-Stress Intolerance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Withdrawal of Lipid-Lowering Therapy After Diagnosis\", \"target\": \"Misdiagnosis as Primary Hypertriglyceridaemia and Ineffective Lipid-Lowering Treatment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hyperglycerolaemia and Glyceroluria\", \"target\": \"Plasma glycerol\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A raised plasma glycerol is the direct measurement of the accumulation node and is what distinguishes this disorder from true hypertriglyceridaemia.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Hyperglycerolaemia and Glyceroluria\", \"target\": \"Urinary glycerol\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Urinary spillover of unphosphorylated glycerol measures the same accumulation node non-invasively.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Pseudohypertriglyceridaemia on Lipase-Based Triglyceride Assay\", \"target\": \"Serum triglyceride measured by lipase-based enzymatic assay\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The elevation is method-dependent; a normal NMR triglyceride in the same sample identifies the result as an artefact rather than a lipid abnormality.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Glycerol Kinase Loss of Function\", \"target\": \"Fibroblast glycerol kinase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Enzymatic confirmation of the trigger lesion in patient-derived cells.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Hemizygous GK loss-of-function variants\", \"target\": \"Glycerol Kinase Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Encephalopathic Crisis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Reye-like clinical presentation of the childhood crisis: vomiting, lethargy progressing to disturbed consciousness, and seizures. Seizures are not always tied to a documented catabolic state \\u2014 one reported patient had recurrent convulsions as the sole acute manifestation \\u2014 so the link between the biochemical crisis and every neurological event is not one-to-one.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Fasting and Catabolic-Stress Intolerance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A compensated state is converted into a crisis by anything that raises the demand for endogenous glucose: intercurrent infection, prolonged fasting, vomiting, or strenuous exercise. This node conforms to the module\u0027s amplifier step by way of its energy-deficit arm only. The toxic-metabolite half of that module node is deliberately NOT asserted here: the metabolite that accumulates in this disease is glycerol, and no toxicity of glycerol has been demonstrated \\u2014 long-term vascular follow-up of hyperglycerolaemic patients was negative, and adults with lifelong hyperglycerolaemia are asymptomatic.\", \"meta\": {\"evidence_count\": 2, \"role\": \"amplifier\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Fibroblast glycerol kinase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Decreased\", \"readouts\": [{\"target\": \"Glycerol Kinase Loss of Function\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Enzymatic confirmation of the trigger lesion in patient-derived cells.\"}]}}, {\"id\": \"Frequent Feeding, Glucose Access and Avoidance of Strenuous Exercise\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management of the symptomatic childhood form is entirely preventive: keep the child out of the catabolic state that unmasks the missing gluconeogenic substrate. Frequent meals, ready access to glucose, and avoidance of strenuous sport were sufficient for a good long-term outcome in two boys followed for around 20 years, whose crises then ceased after puberty.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Glycerol Kinase Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous loss-of-function variants in GK (Xp21.2) \\u2014 nonsense, frameshift, splice-site, missense and partial gene deletions \\u2014 abolish or severely reduce glycerol kinase activity, which is measurable at under 10% of reference in patient fibroblasts. Because the gene is X-linked, essentially all clinically ascertained patients are hemizygous males and mothers are unaffected heterozygotes. No genotype-phenotype correlation has been established, so this node is modelled as a single functional lesion rather than an allele-graded one.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Hepatocyte\"], \"molecular_functions\": [\"glycerol kinase activity\"], \"genes\": [\"GK\"], \"gene_terms\": [{\"label\": \"GK\", \"id\": \"hgnc:4289\"}], \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hemizygous GK loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GK\"], \"gene_terms\": [{\"label\": \"GK\", \"id\": \"hgnc:4289\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Hyperglycerolaemia and Glyceroluria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glycerol that cannot be phosphorylated accumulates in the circulation and spills into the urine. This is the obligate, lifelong biochemical signature of the disorder and is present equally in symptomatic children and asymptomatic adults; it is not itself known to be injurious, and its clinical importance in the adult form is entirely as a measurement interferent.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycerol catabolic process\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hyperketotic Hypoglycaemic Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The acute crisis: hypoglycaemia with marked ketosis and metabolic acidosis, typically with vomiting. Compared with the organic acidaemias and urea-cycle disorders that anchor the shared decompensation module, the biochemical pattern here is the hypoglycaemia-and-ketoacidosis one rather than the hyperammonaemic one, and it is confined to childhood.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glucose homeostasis\", \"ketone body biosynthetic process\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of Glycerol Entry into Gluconeogenesis and Glycerolipid Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glycerol-3-phosphate is the shared branch point at which glycerol either feeds the gluconeogenic and glycolytic pools or is acylated into triglycerides and phospholipids. Blocking its formation removes glycerol from both destinations at once. In vivo tracer studies show that affected men convert glycerol into neither glucose nor triglyceride, while a residual, order-of-magnitude-reduced conversion to lactate persists and has been attributed to homologous kinases encoded by other genes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"gluconeogenesis\", \"triglyceride biosynthetic process\", \"glycerol-3-phosphate metabolic process\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Misdiagnosis as Primary Hypertriglyceridaemia and Ineffective Lipid-Lowering Treatment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dominant morbidity of the adult form is iatrogenic and informational rather than metabolic: years of hypolipidaemic drug exposure, dietary restriction and cardiovascular alarm directed at a laboratory number that no treatment can move. One reported patient was treated for 13 years before the correct diagnosis was made. The counterfactual is well documented \\u2014 once the diagnosis is made, lipid-lowering treatment is stopped without adverse consequence.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Plasma glycerol\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"readouts\": [{\"target\": \"Hyperglycerolaemia and Glyceroluria\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"A raised plasma glycerol is the direct measurement of the accumulation node and is what distinguishes this disorder from true hypertriglyceridaemia.\"}]}}, {\"id\": \"Pseudohypertriglyceridaemia on Lipase-Based Triglyceride Assay\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An analytical artefact, not a lipid disorder. Enzymatic triglyceride assays liberate glycerol with a lipase and measure it as a proxy for triglyceride; in hyperglycerolaemia the pre-existing endogenous glycerol is counted as though it were triglyceride-derived. Orthogonal NMR measurement in the same patients returns normal triglycerides and, in the same comparison, shows that lipase-based assays simultaneously under-report LDL cholesterol. The serum is characteristically not lipaemic, which is the bedside clue that the number is wrong.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Serum triglyceride measured by lipase-based enzymatic assay\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"readouts\": [{\"target\": \"Pseudohypertriglyceridaemia on Lipase-Based Triglyceride Assay\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"The elevation is method-dependent; a normal NMR triglyceride in the same sample identifies the result as an artefact rather than a lipid abnormality.\"}]}}, {\"id\": \"Urinary glycerol\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"readouts\": [{\"target\": \"Hyperglycerolaemia and Glyceroluria\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Urinary spillover of unphosphorylated glycerol measures the same accumulation node non-invasively.\"}]}}, {\"id\": \"Withdrawal of Lipid-Lowering Therapy After Diagnosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In the adult form the therapeutic act is subtractive. Once the raised triglyceride is recognised as glycerol, hypolipidaemic drugs directed at it can be stopped; in a paediatric series all three patients had lipid-lowering treatment discontinued after diagnosis without adverse outcome, and a long-followed hyperglycerolaemic cohort showed no premature atherosclerotic cardiovascular disease attributable to the condition itself. A published clinical suspicion score exists specifically to spare these patients unwarranted treatment. Ordinary cardiovascular risk factors still require routine monitoring.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Glycerol Kinase Loss of Function\", \"target\": \"Loss of Glycerol Entry into Gluconeogenesis and Glycerolipid Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Phosphorylation of glycerol to glycerol-3-phosphate is the committed entry step; without it circulating glycerol cannot be routed into either pathway.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glycerol Kinase Loss of Function\", \"target\": \"Hyperglycerolaemia and Glyceroluria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unphosphorylated glycerol accumulates in plasma and is excreted in urine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Glycerol Entry into Gluconeogenesis and Glycerolipid Synthesis\", \"target\": \"Fasting and Catabolic-Stress Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of one gluconeogenic substrate is silent while glucose supply is adequate; it becomes limiting when fasting, exercise or intercurrent illness raises the demand for endogenous glucose production.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperglycerolaemia and Glyceroluria\", \"target\": \"Pseudohypertriglyceridaemia on Lipase-Based Triglyceride Assay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Routine analysers hydrolyse triglyceride and quantify the liberated glycerol, so a raised endogenous glycerol concentration is read directly as raised triglyceride.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fasting and Catabolic-Stress Intolerance\", \"target\": \"Hyperketotic Hypoglycaemic Decompensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Once endogenous glucose production cannot keep pace, blood glucose falls and ketogenesis is driven hard, producing the ketoacidotic biochemical picture.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperketotic Hypoglycaemic Decompensation\", \"target\": \"Encephalopathic Crisis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoglycaemia and acidosis produce the neurological face of the crisis \\u2014 lethargy, disturbed consciousness, and in some patients convulsions.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pseudohypertriglyceridaemia on Lipase-Based Triglyceride Assay\", \"target\": \"Misdiagnosis as Primary Hypertriglyceridaemia and Ineffective Lipid-Lowering Treatment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A spuriously high triglyceride result in an otherwise well adult is acted on as though it were dyslipidaemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Frequent Feeding, Glucose Access and Avoidance of Strenuous Exercise\", \"target\": \"Fasting and Catabolic-Stress Intolerance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Withdrawal of Lipid-Lowering Therapy After Diagnosis\", \"target\": \"Misdiagnosis as Primary Hypertriglyceridaemia and Ineffective Lipid-Lowering Treatment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hyperglycerolaemia and Glyceroluria\", \"target\": \"Plasma glycerol\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A raised plasma glycerol is the direct measurement of the accumulation node and is what distinguishes this disorder from true hypertriglyceridaemia.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Hyperglycerolaemia and Glyceroluria\", \"target\": \"Urinary glycerol\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Urinary spillover of unphosphorylated glycerol measures the same accumulation node non-invasively.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Pseudohypertriglyceridaemia on Lipase-Based Triglyceride Assay\", \"target\": \"Serum triglyceride measured by lipase-based enzymatic assay\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The elevation is method-dependent; a normal NMR triglyceride in the same sample identifies the result as an artefact rather than a lipid abnormality.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Glycerol Kinase Loss of Function\", \"target\": \"Fibroblast glycerol kinase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Enzymatic confirmation of the trigger lesion in patient-derived cells.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Hemizygous GK loss-of-function variants\", \"target\": \"Glycerol Kinase Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6158,6 +6256,9 @@ This clinical feature is Vomiting (HP:0002013), qualified as temporality recurre
 
 
                     </div>
+
+
+
 
 
 
@@ -6240,6 +6341,9 @@ This clinical feature is Elevated circulating glycerol concentration (HP:0040302
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6332,6 +6436,9 @@ This clinical feature is Hypoglycemia (HP:0001943), qualified as temporality rec
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6396,6 +6503,9 @@ This clinical feature is Episodic ketoacidosis (HP:0005974). HP:0005974 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6474,6 +6584,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6588,6 +6701,9 @@ This disease-associated gene is GK (hgnc:4289). hgnc:4289 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

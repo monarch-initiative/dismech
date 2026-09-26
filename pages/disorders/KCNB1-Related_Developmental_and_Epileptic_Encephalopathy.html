@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5356,6 +5398,7 @@ This readout is measured by multielectrode array recording.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kcnb1-variant-and-altered-kv2-1-channel-function" data-dismech-node="KCNB1 Variant and Altered Kv2.1 Channel Function" data-dismech-type="pathophysiology">
                 <div class="item-name">KCNB1 Variant and Altered Kv2.1 Channel Function</div>
 
+
                 <div class="item-desc">De novo heterozygous KCNB1 variants, most located in the pore/selectivity-filter and voltage-sensor regions of the channel, alter the function of Kv2.1, the alpha subunit of the delayed-rectifier voltage-gated potassium channel that is the major delayed-rectifier K+ current of cortical and hippocampal pyramidal neurons and an important regulator of neuronal excitability. This is the upstream molecular trigger of the disorder.</div>
 
 
@@ -5553,6 +5596,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-negative-loss-of-delayed-rectifier-k-current" data-dismech-node="Dominant-Negative Loss of Delayed-Rectifier K+ Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant-Negative Loss of Delayed-Rectifier K+ Current</div>
+
 
                 <div class="item-desc">Mutant Kv2.1 subunits co-assemble with wild-type subunits into heterotetrameric channels, so a single variant allele suppresses the delayed-rectifier K+ current in a dominant-negative fashion. Pore-domain variants can selectively abolish the endogenous Kv2 current, while selectivity-filter variants additionally cause loss of K+ selectivity, rendering the channel a nonselective, depolarizing cation conductance. Loss of the repolarizing delayed-rectifier current, together with an aberrant inward cation current, is predicted to depolarize the resting membrane potential and impair membrane repolarization.</div>
 
@@ -5824,6 +5868,7 @@ This pathophysiological event involves decreased voltage-gated potassium channel
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-kv2-1-clustering-and-er-plasma-membrane-junction-organization" data-dismech-node="Disrupted Kv2.1 Clustering and ER-Plasma-Membrane Junction Organization" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Kv2.1 Clustering and ER-Plasma-Membrane Junction Organization</div>
 
+
                 <div class="item-desc">Beyond conducting current, Kv2.1 localizes to dense surface clusters of largely non-conducting channels that play a direct structural role in forming stable endoplasmic reticulum-plasma-membrane junctions, which serve as membrane-trafficking and Ca2+-signaling hubs. Disease variants perturb Kv2.1 expression and subcellular localization and reciprocally alter the trafficking of co-assembled wild-type subunits, so this non-conducting scaffolding role is an independent, conductance-separable arm of the pathophysiology.</div>
 
 
@@ -6047,6 +6092,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excitation-inhibition-imbalance" data-dismech-node="Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitation-Inhibition Imbalance</div>
 
+
                 <div class="item-desc">Loss of the repolarizing delayed-rectifier current and an aberrant depolarizing cation conductance disturb the excitability of cortical and hippocampal neurons. In heterologous studies the dominant-negative and gain-of-function defects predict depolarized resting potential and increased cellular excitability, whereas neuronal studies of some variants show impaired repetitive firing of pyramidal cells; both routes converge on a disturbed balance between excitatory and inhibitory signaling in cortical networks.</div>
 
 
@@ -6213,6 +6259,7 @@ This pathophysiological event occurs in neocortex (UBERON:0001950). UBERON:00019
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-hyperexcitability-and-hypersynchrony" data-dismech-node="Neuronal Hyperexcitability and Hypersynchrony" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Hyperexcitability and Hypersynchrony</div>
+
 
                 <div class="item-desc">The net excitatory bias produces a hyperexcitable, hypersynchronous cortical and hippocampal network state that converts the altered excitability into paroxysmal discharges, manifesting clinically as infantile-onset seizures with high-amplitude spike-and-wave electroencephalographic discharges.</div>
 
@@ -6386,6 +6433,7 @@ This pathophysiological event occurs in neocortex (UBERON:0001950). UBERON:00019
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neurodevelopment-and-cortical-network-maturation" data-dismech-node="Impaired Neurodevelopment and Cortical Network Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neurodevelopment and Cortical Network Maturation</div>
+
 
                 <div class="item-desc">Abnormal excitability and disturbed activity-dependent signaling during a critical developmental window impair maturation and stability of cortical neuronal circuits. Insufficient or dysregulated pyramidal-neuron firing is predicted to disturb both the development and the stability of neuronal networks, producing developmental delay in essentially all patients, with frequently severe-to-profound intellectual disability, autistic features, and behavioral problems that are partly independent of seizure burden.</div>
 
@@ -6675,6 +6723,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6755,6 +6806,9 @@ This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6821,6 +6875,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6897,6 +6954,9 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6963,6 +7023,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7039,6 +7102,9 @@ This clinical feature is Severe to profound intellectual disability, annotated w
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7110,6 +7176,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7176,6 +7245,9 @@ This clinical feature is Behavioral problems, annotated with Atypical behavior (
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7292,6 +7364,9 @@ This disease-associated gene is KCNB1 (hgnc:6231). hgnc:6231 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

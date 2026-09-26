@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -6980,6 +7022,7 @@ respectively. A mild ID was present in one patient (3 %)."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypomorphic-pre-replication-complex-defect" data-dismech-node="Hypomorphic Pre-Replication Complex Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypomorphic Pre-Replication Complex Defect</div>
 
+
                 <div class="item-desc">Biallelic partial loss-of-function variants in ORC1, ORC4, ORC6, CDT1 or CDC6 reduce the level, stability, chromatin association or complex assembly of pre-replication complex components. Because these are essential genes, only hypomorphic allele combinations are compatible with survival, and residual activity largely sets disease severity.</div>
 
 
@@ -7318,6 +7361,7 @@ This pathophysiological event involves decreased DNA replication origin binding 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-orc1-bah-recognition-of-h4k20me2" data-dismech-node="Loss of ORC1 BAH Recognition of H4K20me2" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ORC1 BAH Recognition of H4K20me2</div>
 
+
                 <div class="item-desc">In metazoans, ORC is directed to origins by chromatin rather than by DNA sequence, and the ORC1 BAH domain performs that reading step by binding histone H4 dimethylated at lysine 20. MGORS-associated BAH domain mutations abrogate this recognition, reducing ORC1 occupancy at origins and ORC chromatin loading. This is a candidate explanation for why the ORC1 arm sits at the severe end of the clinical gradient, since it removes the targeting step upstream of licensing rather than merely reducing licensing capacity.</div>
 
 
@@ -7500,6 +7544,7 @@ This pathophysiological event involves decreased DNA replication origin binding 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stabilized-geminin-and-excess-licensing-inhibition" data-dismech-node="Stabilized Geminin and Excess Licensing Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Stabilized Geminin and Excess Licensing Inhibition</div>
 
+
                 <div class="item-desc">De novo heterozygous GMNN variants remove the N-terminal destruction box that normally targets geminin for degradation by the anaphase-promoting complex. The resulting stabilized geminin persists and continues to inhibit CDT1, so the dominant arm of MGORS reaches the same licensing deficit by gaining an inhibitor rather than losing an activator.</div>
 
 
@@ -7618,6 +7663,7 @@ This pathophysiological event involves GMNN (hgnc:17493). hgnc:17493 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-replication-origin-licensing" data-dismech-node="Impaired Replication Origin Licensing" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Replication Origin Licensing</div>
+
 
                 <div class="item-desc">The convergent molecular consequence of both the loss-of-activator and the gain-of-inhibitor arms is inefficient assembly of the pre-replicative complex during G1, leaving fewer origins licensed and available to fire in S phase. Notably, the measured licensing deficit in patient cells does not track linearly with S-phase progression rate, so licensing capacity alone does not predict clinical severity.</div>
 
@@ -7799,6 +7845,7 @@ This pathophysiological event involves decreased DNA replication initiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cmg-helicase-assembly-and-origin-firing" data-dismech-node="Impaired CMG Helicase Assembly and Origin Firing" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CMG Helicase Assembly and Origin Firing</div>
+
 
                 <div class="item-desc">A second mechanistic module lies downstream of licensing: CDC45, the GINS subunits GINS2 and GINS3, the MCM2-7 core subunits MCM3, MCM5 and MCM7, and the replisome factor DONSON build and activate the CDC45-MCM2-7-GINS (CMG) replicative helicase. Hypomorphic variants here leave origins licensed but unable to fire efficiently, and additionally slow ongoing fork progression during S phase. DONSON is the outlier of the set: it has no role in the pre-replication or pre-initiation complexes themselves, and its requirement for CDC45 and GINS chromatin loading was only established in 2023.</div>
 
@@ -8289,6 +8336,7 @@ This pathophysiological event involves decreased DNA helicase activity (GO:00036
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-s-phase-entry-and-reduced-cell-proliferation" data-dismech-node="Delayed S-Phase Entry and Reduced Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed S-Phase Entry and Reduced Cell Proliferation</div>
 
+
                 <div class="item-desc">Patient cells enter S phase late, accumulate within S phase, and progress through the cell cycle slowly. The proliferative shortfall is the shared cellular phenotype of every molecular arm, and in severe alleles it tips over into premature senescence.</div>
 
 
@@ -8537,6 +8585,7 @@ This pathophysiological event involves decreased DNA replication (GO:0006260). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-centriole-duplication-and-primary-cilium-formation" data-dismech-node="Impaired Centriole Duplication and Primary Cilium Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Centriole Duplication and Primary Cilium Formation</div>
 
+
                 <div class="item-desc">Origin licensing proteins have a non-replicative requirement in centrosome and centriole copy number control. ORC1-deficient patient cells and cells depleted of licensing proteins form primary cilia poorly, adding a ciliopathy-like arm to the pathogenesis that is independent of the replication rate itself.</div>
 
 
@@ -8709,6 +8758,7 @@ This pathophysiological event involves decreased cilium assembly (GO:0060271). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-hedgehog-signaling-and-impaired-chondroinduction" data-dismech-node="Reduced Hedgehog Signaling and Impaired Chondroinduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Hedgehog Signaling and Impaired Chondroinduction</div>
+
 
                 <div class="item-desc">Blunted ciliary Hedgehog signaling in patient fibroblasts is accompanied by impaired chondroinduction in cell-based assays, offering a mechanism for the cartilage-derived structures that are disproportionately affected in MGORS (external ear, patella) beyond simple global proliferation loss.</div>
 
@@ -8917,6 +8967,7 @@ This pathophysiological event involves decreased chondrocyte differentiation (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-prenatal-and-postnatal-growth-restriction" data-dismech-node="Global Prenatal and Postnatal Growth Restriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Prenatal and Postnatal Growth Restriction</div>
 
+
                 <div class="item-desc">The organism-level consequence is severe growth failure beginning in utero. Growth velocity is most impaired during pregnancy and the first year of life, after which height tracks parallel to normal centiles from a much lower starting point, producing a mean adult height near four and a half standard deviations below the mean.</div>
 
 
@@ -9067,6 +9118,7 @@ This pathophysiological event involves decreased chondrocyte differentiation (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tissue-disproportionate-growth-failure" data-dismech-node="Tissue-Disproportionate Growth Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Tissue-Disproportionate Growth Failure</div>
 
+
                 <div class="item-desc">Growth failure in MGORS is not uniform. External ear cartilage, the patella, mammary tissue and the external genitalia are affected out of proportion to overall stature, which is why the clinical triad and the mammary and genital findings, rather than short stature alone, define the syndrome.</div>
 
 
@@ -9206,6 +9258,7 @@ This pathophysiological event involves decreased chondrocyte differentiation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-suture-dysregulation-and-premature-fusion" data-dismech-node="Cranial Suture Dysregulation and Premature Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial Suture Dysregulation and Premature Fusion</div>
+
 
                 <div class="item-desc">In the CMG-module arms, and particularly CDC45 and GINS2, the replication defect additionally perturbs cranial suture homeostasis, producing coronal craniosynostosis that can dominate the presentation even when growth restriction is comparatively mild.</div>
 
@@ -9418,6 +9471,9 @@ This clinical feature is Decreased total neutrophil count (HP:0001875). HP:00018
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9523,6 +9579,9 @@ This clinical feature is Breast hypoplasia (HP:0003187). HP:0003187 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9601,6 +9660,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9667,6 +9729,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9783,6 +9848,9 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as infanti
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9874,6 +9942,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9969,6 +10040,9 @@ This clinical feature is Microtia (HP:0008551). HP:0008551 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10058,6 +10132,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10166,6 +10243,9 @@ This clinical feature is Decreased response to growth hormone stimulation test (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10241,6 +10321,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10340,6 +10423,9 @@ This clinical feature is Hypoplastic labia minora (HP:0000064). HP:0000064 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10404,6 +10490,9 @@ This clinical feature is Clitoral hypertrophy (HP:0008665). HP:0008665 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10484,6 +10573,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10610,6 +10702,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10679,6 +10774,9 @@ This clinical feature is Narrow mouth (HP:0000160). HP:0000160 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10743,6 +10841,9 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10857,6 +10958,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10936,6 +11040,9 @@ This clinical feature is Patellar aplasia (HP:0006443). HP:0006443 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11005,6 +11112,9 @@ This clinical feature is Patellar hypoplasia (HP:0003065). HP:0003065 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11069,6 +11179,9 @@ This clinical feature is Recurrent patellar luxation, annotated with Recurrent p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11145,6 +11258,9 @@ This clinical feature is Genu recurvatum (HP:0002816). HP:0002816 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11210,6 +11326,9 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11294,6 +11413,9 @@ This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11394,6 +11516,9 @@ This clinical feature is Lipodystrophy (HP:0009125). HP:0009125 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11460,6 +11585,9 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11532,6 +11660,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11621,6 +11752,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11691,6 +11825,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11780,6 +11917,9 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11859,6 +11999,9 @@ This clinical feature is Congenital pulmonary emphysema, annotated with Emphysem
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11985,6 +12128,9 @@ This clinical feature is Bronchomalacia (HP:0002780). HP:0002780 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12055,6 +12201,9 @@ This clinical feature is Laryngomalacia (HP:0001601). HP:0001601 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12120,6 +12269,9 @@ This clinical feature is Tracheomalacia (HP:0002779). HP:0002779 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -12206,6 +12358,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12272,6 +12427,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -12417,6 +12575,9 @@ This disease-associated gene is ORC1 (hgnc:8487). hgnc:8487 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12487,6 +12648,9 @@ This disease-associated gene is ORC4 (hgnc:8490). hgnc:8490 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -12565,6 +12729,9 @@ This disease-associated gene is ORC6 (hgnc:17151). hgnc:17151 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12635,6 +12802,9 @@ This disease-associated gene is CDT1 (hgnc:24576). hgnc:24576 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -12713,6 +12883,9 @@ This disease-associated gene is CDC6 (hgnc:1744). hgnc:1744 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12783,6 +12956,9 @@ This disease-associated gene is GMNN (hgnc:17493). hgnc:17493 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -12861,6 +13037,9 @@ This disease-associated gene is CDC45 (hgnc:1739). hgnc:1739 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12931,6 +13110,9 @@ This disease-associated gene is MCM5 (hgnc:6948). hgnc:6948 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -13009,6 +13191,9 @@ This disease-associated gene is MCM7 (hgnc:6950). hgnc:6950 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13079,6 +13264,9 @@ This disease-associated gene is MCM3 (hgnc:6945). hgnc:6945 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -13157,6 +13345,9 @@ This disease-associated gene is GINS2 (hgnc:24575). hgnc:24575 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13231,6 +13422,9 @@ This disease-associated gene is GINS3 (hgnc:25851). hgnc:25851 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13301,6 +13495,9 @@ This disease-associated gene is DONSON (hgnc:2993). hgnc:2993 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
