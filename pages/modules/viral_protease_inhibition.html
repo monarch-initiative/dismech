@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1768,7 +1820,7 @@ This mechanism module involves Negative Regulation of Viral Process (GO:0048525)
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">i</div>
                 <h2 class="card-title">Notes</h2>
             </div>
-            <div class="item-desc">This pathogen-process-centric module models biological steps rather than individual drugs. Disorder nodes reference exact anchors with conforms_to, and protease-inhibitor treatments point to the conforming virus-specific processing node with target_mechanisms. Key conformance / treatment target: &#34;Virus-Encoded Protease-Dependent Polyprotein Processing&#34;. The two outputs are deliberately distinct. COVID-19 and Acute_Hepatitis_C_Virus_Infection conform through &#34;Replication-Complex Formation and Viral RNA Replication&#34;; an HIV conformer would instead use &#34;Protease-Driven Structural Virion Maturation&#34; and may continue to &#34;Production of Immature, Non-Infectious Virions&#34;. As a high-precision operational curation boundary, a qualifying branch must model synthesis of a viral polyprotein precursor, cleavage at defined junctions by a virus-encoded protease, and exactly the applicable productive output: nonstructural replicase function and viral RNA replication, or Gag/Gag-Pol structural maturation. Conformance to the central virus-encoded processing node is mandatory. Protease-resistance and immature-particle nodes are optional, context-specific extensions and are not sufficient by themselves. Host-protease entry or priming (including TMPRSS2 and furin), host CYP3A boosting, protease-mediated immune evasion without the polyprotein-processing trunk, replication or viremia alone, immature particles alone, and non-protease antiviral targets do not qualify. Ritonavir is itself an HIV protease inhibitor, but in modern regimens it is used almost exclusively as a pharmacokinetic enhancer. In nirmatrelvir/ritonavir it inhibits host CYP3A rather than the viral protease; that boosting role is therefore described separately from viral target inhibition and resistance. See projects/ANTIVIRAL.md.</div>
+            <div class="item-desc">This pathogen-process-centric module models biological steps rather than individual drugs. Disorder nodes reference exact anchors with conforms_to, and protease-inhibitor treatments point to the conforming virus-specific processing node with target_mechanisms. Key conformance / treatment target: &#34;Virus-Encoded Protease-Dependent Polyprotein Processing&#34;. The two outputs are deliberately distinct. COVID-19 and Hepatitis_C conform through &#34;Replication-Complex Formation and Viral RNA Replication&#34;; an HIV conformer would instead use &#34;Protease-Driven Structural Virion Maturation&#34; and may continue to &#34;Production of Immature, Non-Infectious Virions&#34;. As a high-precision operational curation boundary, a qualifying branch must model synthesis of a viral polyprotein precursor, cleavage at defined junctions by a virus-encoded protease, and exactly the applicable productive output: nonstructural replicase function and viral RNA replication, or Gag/Gag-Pol structural maturation. Conformance to the central virus-encoded processing node is mandatory. Protease-resistance and immature-particle nodes are optional, context-specific extensions and are not sufficient by themselves. Host-protease entry or priming (including TMPRSS2 and furin), host CYP3A boosting, protease-mediated immune evasion without the polyprotein-processing trunk, replication or viremia alone, immature particles alone, and non-protease antiviral targets do not qualify. Ritonavir is itself an HIV protease inhibitor, but in modern regimens it is used almost exclusively as a pharmacokinetic enhancer. In nirmatrelvir/ritonavir it inhibits host CYP3A rather than the viral protease; that boosting role is therefore described separately from viral target inhibition and resistance. See projects/ANTIVIRAL.md.</div>
         </div>
         
 
@@ -1792,31 +1844,6 @@ This mechanism module involves Negative Regulation of Viral Process (GO:0048525)
             <div class="crosslink-list">
                 
                 <div class="crosslink-item">
-                    <a href="../disorders/Acute_Hepatitis_C_Virus_Infection.html">Acute Hepatitis C Virus Infection</a>
-                    
-                    <span class="crosslink-desc">
-                        via
-                        
-                        
-                        
-                        HCV Polyprotein Translation → Synthesis of the Viral Polyprotein Precursor
-                        
-                        
-                        , 
-                        
-                        HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein → Virus-Encoded Protease-Dependent Polyprotein Processing
-                        
-                        
-                        , 
-                        
-                        HCV genome replication and early viremia → Replication-Complex Formation and Viral RNA Replication
-                        
-                        
-                    </span>
-                    
-                </div>
-                
-                <div class="crosslink-item">
                     <a href="../disorders/COVID-19.html">COVID-19</a>
                     
                     <span class="crosslink-desc">
@@ -1835,6 +1862,31 @@ This mechanism module involves Negative Regulation of Viral Process (GO:0048525)
                         , 
                         
                         SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication → Replication-Complex Formation and Viral RNA Replication
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Hepatitis_C.html">Hepatitis C</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        HCV Polyprotein Translation → Synthesis of the Viral Polyprotein Precursor
+                        
+                        
+                        , 
+                        
+                        HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein → Virus-Encoded Protease-Dependent Polyprotein Processing
+                        
+                        
+                        , 
+                        
+                        HCV genome replication and early viremia → Replication-Complex Formation and Viral RNA Replication
                         
                         
                     </span>
@@ -1880,11 +1932,13 @@ This mechanism module involves Negative Regulation of Viral Process (GO:0048525)
             
             <div class="item-box anchor-target" id="module-pathophysiology-synthesis-of-the-viral-polyprotein-precursor" data-dismech-node="Synthesis of the Viral Polyprotein Precursor" data-dismech-type="pathophysiology">
                 <div class="item-name">Synthesis of the Viral Polyprotein Precursor</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The viral genome is expressed as one or more polyprotein precursors. These precursors contain structural proteins, replicative enzymes, or both, and must be cleaved into individual functional products. Examples include HIV Gag and Gag-Pol, the HCV polyprotein, and the SARS-CoV-2 replicase polyproteins pp1a and pp1ab.</div>
                 
@@ -1931,16 +1985,16 @@ This pathophysiological event involves Viral Gene Expression (GO:0019080). GO:00
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Acute_Hepatitis_C_Virus_Infection.html">Acute Hepatitis C Virus Infection</a>
+                            <a href="../disorders/COVID-19.html">COVID-19</a>
                             
-                            <span class="crosslink-desc">as HCV Polyprotein Translation</span>
+                            <span class="crosslink-desc">as SARS-CoV-2 Replicase Polyprotein Translation (pp1a/pp1ab)</span>
                             
                         </div>
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/COVID-19.html">COVID-19</a>
+                            <a href="../disorders/Hepatitis_C.html">Hepatitis C</a>
                             
-                            <span class="crosslink-desc">as SARS-CoV-2 Replicase Polyprotein Translation (pp1a/pp1ab)</span>
+                            <span class="crosslink-desc">as HCV Polyprotein Translation</span>
                             
                         </div>
                         
@@ -1967,11 +2021,13 @@ This pathophysiological event involves Viral Gene Expression (GO:0019080). GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-virus-encoded-protease-dependent-polyprotein-processing" data-dismech-node="Virus-Encoded Protease-Dependent Polyprotein Processing" data-dismech-type="pathophysiology">
                 <div class="item-name">Virus-Encoded Protease-Dependent Polyprotein Processing</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A virus-encoded peptidase cleaves the polyprotein precursor at defined sites. This shared druggable step is instantiated by HIV protease cleavage of Gag and Gag-Pol, HCV NS3/4A cleavage within the nonstructural region, and SARS-CoV-2 Mpro (3CLpro/nsp5) cleavage of pp1a and pp1ab. Active-site or substrate-cleft protease inhibitors prevent the applicable cleavage events. The products and downstream phenotype are branch-specific rather than interchangeable across these virus families.</div>
                 
@@ -2018,16 +2074,16 @@ This pathophysiological event involves Viral Protein Processing (GO:0019082). GO
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Acute_Hepatitis_C_Virus_Infection.html">Acute Hepatitis C Virus Infection</a>
+                            <a href="../disorders/COVID-19.html">COVID-19</a>
                             
-                            <span class="crosslink-desc">as HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein</span>
+                            <span class="crosslink-desc">as SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab</span>
                             
                         </div>
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/COVID-19.html">COVID-19</a>
+                            <a href="../disorders/Hepatitis_C.html">Hepatitis C</a>
                             
-                            <span class="crosslink-desc">as SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab</span>
+                            <span class="crosslink-desc">as HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein</span>
                             
                         </div>
                         
@@ -2068,11 +2124,13 @@ This pathophysiological event involves Viral Protein Processing (GO:0019082). GO
             
             <div class="item-box anchor-target" id="module-pathophysiology-replication-complex-formation-and-viral-rna-replication" data-dismech-node="Replication-Complex Formation and Viral RNA Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Replication-Complex Formation and Viral RNA Replication</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In the replicase branch, proteolytic processing releases viral nonstructural proteins that form or support the replication machinery. SARS-CoV-2 pp1a/pp1ab processing releases products including the RNA polymerase and helicase, and HCV NS3/4A processing of the nonstructural region is essential for viral replication. Inhibition of the upstream protease prevents this functional replicase output; it is not represented as production of an immature particle.</div>
                 
@@ -2119,16 +2177,16 @@ This pathophysiological event involves Viral RNA Genome Replication (GO:0039694)
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Acute_Hepatitis_C_Virus_Infection.html">Acute Hepatitis C Virus Infection</a>
+                            <a href="../disorders/COVID-19.html">COVID-19</a>
                             
-                            <span class="crosslink-desc">as HCV genome replication and early viremia</span>
+                            <span class="crosslink-desc">as SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication</span>
                             
                         </div>
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/COVID-19.html">COVID-19</a>
+                            <a href="../disorders/Hepatitis_C.html">Hepatitis C</a>
                             
-                            <span class="crosslink-desc">as SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication</span>
+                            <span class="crosslink-desc">as HCV genome replication and early viremia</span>
                             
                         </div>
                         
@@ -2141,11 +2199,13 @@ This pathophysiological event involves Viral RNA Genome Replication (GO:0039694)
             
             <div class="item-box anchor-target" id="module-pathophysiology-protease-driven-structural-virion-maturation" data-dismech-node="Protease-Driven Structural Virion Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Protease-Driven Structural Virion Maturation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In the structural-maturation branch exemplified by HIV-1, protease-mediated Gag and Gag-Pol cleavage reorganizes the immature particle and produces the mature capsid and other functional virion components. This branch is not used for SARS-CoV-2 Mpro or HCV NS3/4A conformances.</div>
                 
@@ -2207,11 +2267,13 @@ This pathophysiological event involves Virion Assembly (GO:0019068). GO:0019068 
             
             <div class="item-box anchor-target" id="module-pathophysiology-production-of-immature-non-infectious-virions" data-dismech-node="Production of Immature, Non-Infectious Virions" data-dismech-type="pathophysiology">
                 <div class="item-name">Production of Immature, Non-Infectious Virions</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In the HIV structural-maturation branch, inhibiting viral protease prevents complete Gag and Gag-Pol cleavage. Particles can be released but retain immature architecture and are non-infectious. This consequence is scoped to the structural branch and is not asserted as the phenotype of HCV NS3/4A or SARS-CoV-2 Mpro inhibition.</div>
                 
@@ -2259,11 +2321,13 @@ This pathophysiological event involves Negative Regulation of Viral Process (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-protease-inhibitor-resistance" data-dismech-node="Protease-Inhibitor Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Protease-Inhibitor Resistance</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Viral proteases can acquire substitutions that reduce inhibitor affinity while preserving enough catalytic activity for polyprotein processing. HCV NS3/4A resistance-associated substitutions at positions including R155, A156, and D168 illustrate this adaptive escape. Host-drug metabolism and pharmacokinetic boosting are intentionally excluded from this node: ritonavir or cobicistat enhancement changes inhibitor exposure, whereas resistance is a heritable viral target change selected under drug pressure.</div>
                 
@@ -2280,6 +2344,9 @@ This pathophysiological event involves Negative Regulation of Viral Process (GO:
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

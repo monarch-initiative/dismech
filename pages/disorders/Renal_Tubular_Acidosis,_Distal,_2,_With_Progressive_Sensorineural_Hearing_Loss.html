@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Renal%20Tubular%20Acidosis%2C%20Distal%2C%202%2C%20With%20Progressive%20Sensorineural%20Hearing%20Loss"
@@ -3979,7 +4056,7 @@ Two things complicate the simple picture and are curated rather than smoothed ov
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4114,6 +4191,7 @@ Two things complicate the simple picture and are curated rather than smoothed ov
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4184,6 +4262,7 @@ Two things complicate the simple picture and are curated rather than smoothed ov
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4205,6 +4284,7 @@ Two things complicate the simple picture and are curated rather than smoothed ov
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4296,6 +4376,7 @@ Third, phenotype: hearing loss is markedly less common than in the recessive for
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4320,6 +4401,7 @@ Third, phenotype: hearing loss is markedly less common than in the recessive for
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4341,6 +4423,7 @@ Third, phenotype: hearing loss is markedly less common than in the recessive for
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4501,6 +4584,7 @@ Several explanations are available and none is established: residual wild-type s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atp6v1b1-variants-disabling-the-v-atpase-b1-subunit" data-dismech-node="ATP6V1B1 Variants Disabling the V-ATPase B1 Subunit" data-dismech-type="pathophysiology">
                 <div class="item-name">ATP6V1B1 Variants Disabling the V-ATPase B1 Subunit</div>
 
+
                 <div class="item-desc">Loss of the B1 subunit of the V1 cytosolic domain of the vacuolar H+-ATPase. B1 is one of the few V-ATPase subunits whose expression is essentially restricted to kidney and inner ear, which is precisely why a defect in it produces a two-organ disease rather than a systemic one - the ubiquitous pumps elsewhere use a different B isoform and are unaffected.</div>
 
 
@@ -4553,6 +4637,8 @@ This genetic context concerns ATP6V1B1 (hgnc:853). hgnc:853 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4565,6 +4651,9 @@ This genetic context concerns ATP6V1B1 (hgnc:853). hgnc:853 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic loss of function in the classical recessive presentation. The dominant Arg394 variants are curated separately as a subtype, since their mechanism and their phenotype both differ.</div>
 
@@ -4614,6 +4703,7 @@ This genetic context concerns ATP6V1B1 (hgnc:853). hgnc:853 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4635,6 +4725,7 @@ This genetic context concerns ATP6V1B1 (hgnc:853). hgnc:853 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4660,6 +4751,7 @@ This genetic context concerns ATP6V1B1 (hgnc:853). hgnc:853 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-apical-proton-secretion" data-dismech-node="Failure of Apical Proton Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Apical Proton Secretion</div>
+
 
                 <div class="item-desc">The pump cannot move protons across the apical membrane. This single failure is the branch point of the entry: the same defective transport step is read out as acidosis in the kidney and as deafness in the ear, and neither is downstream of the other.</div>
 
@@ -4818,6 +4910,7 @@ This pathophysiological event involves proton-transporting V-type ATPase, V1 dom
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4840,6 +4933,7 @@ This pathophysiological event involves proton-transporting V-type ATPase, V1 dom
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-renal-net-acid-excretion" data-dismech-node="Impaired Renal Net Acid Excretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Renal Net Acid Excretion</div>
+
 
                 <div class="item-desc">The collecting duct cannot acidify the tubular lumen, so acid generated by metabolism is retained. The signature is an inappropriately alkaline urine in the face of systemic acidosis - the urine pH will not fall below roughly 5.3 no matter how acidotic the blood becomes, which is what distinguishes a distal tubular defect from other causes of acidosis.</div>
 
@@ -4986,6 +5080,7 @@ This pathophysiological event occurs in collecting duct of renal tubule (UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5008,6 +5103,7 @@ This pathophysiological event occurs in collecting duct of renal tubule (UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperchloraemic-metabolic-acidosis-with-hypokalaemia" data-dismech-node="Hyperchloraemic Metabolic Acidosis with Hypokalaemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperchloraemic Metabolic Acidosis with Hypokalaemia</div>
+
 
                 <div class="item-desc">Normal-anion-gap metabolic acidosis with hypokalaemia. The chronic acid load is then buffered at the expense of bone mineral and shifts urinary chemistry toward stone formation, which is how a transport defect in one cell type ends up causing rickets and nephrocalcinosis.</div>
 
@@ -5081,6 +5177,7 @@ This pathophysiological event occurs in collecting duct of renal tubule (UBERON:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5103,6 +5200,7 @@ This pathophysiological event occurs in collecting duct of renal tubule (UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nephrocalcinosis-and-skeletal-demineralisation" data-dismech-node="Nephrocalcinosis and Skeletal Demineralisation" data-dismech-type="pathophysiology">
                 <div class="item-name">Nephrocalcinosis and Skeletal Demineralisation</div>
+
 
                 <div class="item-desc">Calcium deposition in the renal parenchyma with stone formation, and rickets or osteomalacia with growth failure. These are the manifestations that untreated disease accumulates over time, and the ones alkali therapy is given to prevent.</div>
 
@@ -5162,6 +5260,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5184,6 +5283,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-endolymph-ph-homeostasis" data-dismech-node="Disrupted Endolymph pH Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Endolymph pH Homeostasis</div>
+
 
                 <div class="item-desc">The endolymph of the inner ear is an unusual extracellular fluid whose ionic and pH composition must be actively maintained, and the same B1-containing pump does that maintenance. This is the second, independent branch of the disease - it is not a consequence of acidosis, and patients can have it with the renal phenotype barely apparent.</div>
 
@@ -5296,6 +5396,7 @@ This pathophysiological event occurs in epithelium of endolymphatic sac (UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5317,6 +5418,7 @@ This pathophysiological event occurs in epithelium of endolymphatic sac (UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5342,6 +5444,7 @@ This pathophysiological event occurs in epithelium of endolymphatic sac (UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endolymphatic-enlargement-and-progressive-hearing-loss" data-dismech-node="Endolymphatic Enlargement and Progressive Hearing Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Endolymphatic Enlargement and Progressive Hearing Loss</div>
+
 
                 <div class="item-desc">Enlarged endolymphatic compartments - seen radiologically as an enlarged vestibular aqueduct - with sensorineural hearing loss that progresses over time. Onset and severity vary considerably between patients carrying comparable variants, and the mouse work below suggests genetic background is part of why.</div>
 
@@ -5434,6 +5537,7 @@ This pathophysiological event occurs in endolymphatic sac (UBERON:0002223). UBER
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5479,7 +5583,7 @@ This pathophysiological event occurs in endolymphatic sac (UBERON:0002223). UBER
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADV7103 (prolonged-release potassium citrate and bicarbonate)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A combination controlled-release potassium bicarbonate and potassium citrate preparation, approved in Europe. Its value is adherence rather than a new mechanism: conventional alkali must be taken several times daily including overnight to hold the correction, and this formulation allows less frequent dosing.\\n\\nIt is curated separately from generic alkali because it is a named, regulator-approved product for this indication rather than a class, and because the dosing interval is the practical obstacle to treating a lifelong condition that begins in infancy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"potassium citrate\"]}}, {\"id\": \"ATP6V1B1 Variants Disabling the V-ATPase B1 Subunit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of the B1 subunit of the V1 cytosolic domain of the vacuolar H+-ATPase. B1 is one of the few V-ATPase subunits whose expression is essentially restricted to kidney and inner ear, which is precisely why a defect in it produces a two-organ disease rather than a systemic one - the ubiquitous pumps elsewhere use a different B isoform and are unaffected.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic loss of function in the classical recessive presentation. The dominant Arg394 variants are curated separately as a subtype, since their mechanism and their phenotype both differ.\", \"gene_terms\": [{\"label\": \"ATP6V1B1\", \"id\": \"hgnc:853\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Alkali Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral alkali - bicarbonate or citrate salts - given to correct the systemic acidosis the kidney cannot correct itself. Citrate preparations do double duty, since urinary citrate is also the inhibitor of calcium precipitation that is depleted in this disease, so replacing it addresses both the acidosis and the stone risk.\\nIt corrects the consequence, not the cause: the pump remains defective and the urine remains inappropriately alkaline. It also does nothing for the ear, because the auditory branch is not downstream of the acidosis.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"sodium bicarbonate\", \"potassium citrate\"]}}, {\"id\": \"Atp6v1b1 knockout mouse (C57BL/6 background)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The original targeted knockout. It fails to reproduce either half of the human phenotype convincingly - compensated acidosis rather than overt acidosis, and normal hearing - which is what made the spontaneous MRL mutant above worth reporting.\"}, {\"id\": \"Avoidance of Potassium-Sparing Diuretics\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"GeneReviews lists potassium-sparing diuretics among the agents to use with caution or avoid. This is counterintuitive at first sight, because the disease runs with hypokalemia and a potassium-sparing agent looks corrective - but the defect is in distal proton secretion, which these drugs impair further, so the acidosis worsens while the potassium is being chased.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Disrupted Endolymph pH Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The endolymph of the inner ear is an unusual extracellular fluid whose ionic and pH composition must be actively maintained, and the same B1-containing pump does that maintenance. This is the second, independent branch of the disease - it is not a consequence of acidosis, and patients can have it with the renal phenotype barely apparent.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"regulation of pH\"], \"role\": \"effector\", \"locations\": [\"epithelium of endolymphatic sac\"]}}, {\"id\": \"Endolymphatic Enlargement and Progressive Hearing Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Enlarged endolymphatic compartments - seen radiologically as an enlarged vestibular aqueduct - with sensorineural hearing loss that progresses over time. Onset and severity vary considerably between patients carrying comparable variants, and the mouse work below suggests genetic background is part of why.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"endolymphatic sac\"], \"animal_models\": [{\"name\": \"MRL-Atp6v1b1vtx/vtx spontaneous mutant mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v1b1 vortex (vtx) homozygous, MRL/MpJ background\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the auditory phenotype and its structural correlate.\"}, {\"name\": \"Atp6v1b1 knockout mouse (C57BL/6 background)\", \"species\": \"Mouse\", \"genotype\": \"Atp6v1b1 -/-, primarily C57BL/6 background\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Hearing is normal in this model despite the gene being knocked out.\"}]}}, {\"id\": \"Failure of Apical Proton Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pump cannot move protons across the apical membrane. This single failure is the branch point of the entry: the same defective transport step is read out as acidosis in the kidney and as deafness in the ear, and neither is downstream of the other.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"proton transmembrane transport\"], \"molecular_functions\": [\"proton-transporting ATPase activity, rotational mechanism\"], \"role\": \"central_effector\"}}, {\"id\": \"Hearing Amplification and Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Amplification or cochlear implantation as the hearing loss progresses. Curated as a separate treatment from alkali therapy because it addresses a separate branch of the disease - correcting the acidosis has no effect on the ear. The serial audiometry that decides when to escalate is curated under diagnosis#Audiologic Assessment, so this record covers the intervention rather than the monitoring.\"}, {\"id\": \"Hyperchloraemic Metabolic Acidosis with Hypokalaemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normal-anion-gap metabolic acidosis with hypokalaemia. The chronic acid load is then buffered at the expense of bone mineral and shifts urinary chemistry toward stone formation, which is how a transport defect in one cell type ends up causing rickets and nephrocalcinosis.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"animal_models\": [{\"name\": \"MRL-Atp6v1b1vtx/vtx spontaneous mutant mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v1b1 vortex (vtx) homozygous, MRL/MpJ background\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The renal branch is not reproduced. The mice alkalinise their urine, showing the pump defect is present and doing something, but they do not develop the systemic acidosis that defines the human disease.\"}]}}, {\"id\": \"Impaired Renal Net Acid Excretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The collecting duct cannot acidify the tubular lumen, so acid generated by metabolism is retained. The signature is an inappropriately alkaline urine in the face of systemic acidosis - the urine pH will not fall below roughly 5.3 no matter how acidotic the blood becomes, which is what distinguishes a distal tubular defect from other causes of acidosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"kidney collecting duct alpha-intercalated cell\"], \"biological_processes\": [\"regulation of pH\"], \"role\": \"effector\", \"locations\": [\"collecting duct of renal tubule\"]}}, {\"id\": \"MRL-Atp6v1b1vtx/vtx spontaneous mutant mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A spontaneous Atp6v1b1 mutation arising in an MRL/MpJ colony. It reproduces the ear half of the human disease and not the kidney half - profound hearing impairment with enlarged endolymphatic compartments, but alkaline urine without overt metabolic acidosis.\"}, {\"id\": \"Nephrocalcinosis and Skeletal Demineralisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Calcium deposition in the renal parenchyma with stone formation, and rickets or osteomalacia with growth failure. These are the manifestations that untreated disease accumulates over time, and the ones alkali therapy is given to prevent.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"kidney\"]}}], \"edges\": [{\"source\": \"ATP6V1B1 Variants Disabling the V-ATPase B1 Subunit\", \"target\": \"Failure of Apical Proton Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The subunit is part of the pump that performs the secretion, so losing it removes the activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Apical Proton Secretion\", \"target\": \"Impaired Renal Net Acid Excretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the collecting duct the lost activity is the acid-secreting step itself.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Apical Proton Secretion\", \"target\": \"Disrupted Endolymph pH Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the inner ear the same pump maintains endolymph pH, so its loss acts there independently of anything happening in the kidney.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Renal Net Acid Excretion\", \"target\": \"Hyperchloraemic Metabolic Acidosis with Hypokalaemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retained acid titrates plasma bicarbonate, and the compensatory distal sodium handling drives potassium loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperchloraemic Metabolic Acidosis with Hypokalaemia\", \"target\": \"Nephrocalcinosis and Skeletal Demineralisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bone and stone consequences follow from sustained systemic acidosis rather than from the pump defect acting locally.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic acidosis mobilises bone carbonate as buffer, causing demineralisation.\", \"Acidosis raises urinary calcium while lowering urinary citrate, and citrate is itself an inhibitor of calcium precipitation, so both the stone-forming load and the protection against it move the wrong way.\"]}, {\"source\": \"Disrupted Endolymph pH Homeostasis\", \"target\": \"Endolymphatic Enlargement and Progressive Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route from disturbed endolymph pH to enlarged endolymphatic compartments and cochlear dysfunction is not established in detail; the association is firm, the intermediate steps are not.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Alkali Replacement Therapy\", \"target\": \"Hyperchloraemic Metabolic Acidosis with Hypokalaemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hearing Amplification and Cochlear Implantation\", \"target\": \"Endolymphatic Enlargement and Progressive Hearing Loss\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of Potassium-Sparing Diuretics\", \"target\": \"Failure of Apical Proton Secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ADV7103 (prolonged-release potassium citrate and bicarbonate)\", \"target\": \"Hyperchloraemic Metabolic Acidosis with Hypokalaemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MRL-Atp6v1b1vtx/vtx spontaneous mutant mouse\", \"target\": \"Endolymphatic Enlargement and Progressive Hearing Loss\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the auditory phenotype and its structural correlate.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Strain-dependent, which is the substantive caveat rather than a formality: moving the same mutation onto a C57BL/6J background abolished the inner-ear phenotype entirely. What the model demonstrates is therefore conditional on modifier background, and a mapped Chr 13 locus accounts for only about a fifth of the threshold variance, so most of the modifying genetics remains unidentified.\"}, {\"source\": \"MRL-Atp6v1b1vtx/vtx spontaneous mutant mouse\", \"target\": \"Hyperchloraemic Metabolic Acidosis with Hypokalaemia\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The renal branch is not reproduced. The mice alkalinise their urine, showing the pump defect is present and doing something, but they do not develop the systemic acidosis that defines the human disease.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"This is a species difference with an identified mechanism rather than an unexplained failure: B2-containing H+-ATPase complexes, normally confined to intracellular organelles, relocalise to the apical membrane of intercalated cells in B1-deficient mice and substitute for the missing subunit. Human patients evidently do not compensate to the same degree. Any therapeutic strategy tested in these mice for the renal phenotype is therefore being tested in an animal that has already compensated.\"}, {\"source\": \"Atp6v1b1 knockout mouse (C57BL/6 background)\", \"target\": \"Endolymphatic Enlargement and Progressive Hearing Loss\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Hearing is normal in this model despite the gene being knocked out.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The failure is background-dependent rather than intrinsic to the gene disruption, as the MRL mutant demonstrates. Read together, the two models say that whether Atp6v1b1 loss produces deafness in a mouse depends on modifier genes - which is a caution about using either strain as the reference model, and a candidate explanation for why hearing loss varies so much between human patients with comparable variants.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADV7103 (prolonged-release potassium citrate and bicarbonate)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A combination controlled-release potassium bicarbonate and potassium citrate preparation, approved in Europe. Its value is adherence rather than a new mechanism: conventional alkali must be taken several times daily including overnight to hold the correction, and this formulation allows less frequent dosing.\\n\\nIt is curated separately from generic alkali because it is a named, regulator-approved product for this indication rather than a class, and because the dosing interval is the practical obstacle to treating a lifelong condition that begins in infancy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"potassium citrate\"]}}, {\"id\": \"ATP6V1B1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ATP6V1B1\"], \"gene_terms\": [{\"label\": \"ATP6V1B1\", \"id\": \"hgnc:853\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ATP6V1B1 Variants Disabling the V-ATPase B1 Subunit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of the B1 subunit of the V1 cytosolic domain of the vacuolar H+-ATPase. B1 is one of the few V-ATPase subunits whose expression is essentially restricted to kidney and inner ear, which is precisely why a defect in it produces a two-organ disease rather than a systemic one - the ubiquitous pumps elsewhere use a different B isoform and are unaffected.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic loss of function in the classical recessive presentation. The dominant Arg394 variants are curated separately as a subtype, since their mechanism and their phenotype both differ.\", \"gene_terms\": [{\"label\": \"ATP6V1B1\", \"id\": \"hgnc:853\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Alkali Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral alkali - bicarbonate or citrate salts - given to correct the systemic acidosis the kidney cannot correct itself. Citrate preparations do double duty, since urinary citrate is also the inhibitor of calcium precipitation that is depleted in this disease, so replacing it addresses both the acidosis and the stone risk.\\nIt corrects the consequence, not the cause: the pump remains defective and the urine remains inappropriately alkaline. It also does nothing for the ear, because the auditory branch is not downstream of the acidosis.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"sodium bicarbonate\", \"potassium citrate\"]}}, {\"id\": \"Atp6v1b1 knockout mouse (C57BL/6 background)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The original targeted knockout. It fails to reproduce either half of the human phenotype convincingly - compensated acidosis rather than overt acidosis, and normal hearing - which is what made the spontaneous MRL mutant above worth reporting.\"}, {\"id\": \"Avoidance of Potassium-Sparing Diuretics\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"GeneReviews lists potassium-sparing diuretics among the agents to use with caution or avoid. This is counterintuitive at first sight, because the disease runs with hypokalemia and a potassium-sparing agent looks corrective - but the defect is in distal proton secretion, which these drugs impair further, so the acidosis worsens while the potassium is being chased.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Disrupted Endolymph pH Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The endolymph of the inner ear is an unusual extracellular fluid whose ionic and pH composition must be actively maintained, and the same B1-containing pump does that maintenance. This is the second, independent branch of the disease - it is not a consequence of acidosis, and patients can have it with the renal phenotype barely apparent.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"regulation of pH\"], \"role\": \"effector\", \"locations\": [\"epithelium of endolymphatic sac\"]}}, {\"id\": \"Endolymphatic Enlargement and Progressive Hearing Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Enlarged endolymphatic compartments - seen radiologically as an enlarged vestibular aqueduct - with sensorineural hearing loss that progresses over time. Onset and severity vary considerably between patients carrying comparable variants, and the mouse work below suggests genetic background is part of why.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"endolymphatic sac\"], \"animal_models\": [{\"name\": \"MRL-Atp6v1b1vtx/vtx spontaneous mutant mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v1b1 vortex (vtx) homozygous, MRL/MpJ background\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the auditory phenotype and its structural correlate.\"}, {\"name\": \"Atp6v1b1 knockout mouse (C57BL/6 background)\", \"species\": \"Mouse\", \"genotype\": \"Atp6v1b1 -/-, primarily C57BL/6 background\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Hearing is normal in this model despite the gene being knocked out.\"}]}}, {\"id\": \"Failure of Apical Proton Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pump cannot move protons across the apical membrane. This single failure is the branch point of the entry: the same defective transport step is read out as acidosis in the kidney and as deafness in the ear, and neither is downstream of the other.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"proton transmembrane transport\"], \"molecular_functions\": [\"proton-transporting ATPase activity, rotational mechanism\"], \"role\": \"central_effector\"}}, {\"id\": \"Hearing Amplification and Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Amplification or cochlear implantation as the hearing loss progresses. Curated as a separate treatment from alkali therapy because it addresses a separate branch of the disease - correcting the acidosis has no effect on the ear. The serial audiometry that decides when to escalate is curated under diagnosis#Audiologic Assessment, so this record covers the intervention rather than the monitoring.\"}, {\"id\": \"Hyperchloraemic Metabolic Acidosis with Hypokalaemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normal-anion-gap metabolic acidosis with hypokalaemia. The chronic acid load is then buffered at the expense of bone mineral and shifts urinary chemistry toward stone formation, which is how a transport defect in one cell type ends up causing rickets and nephrocalcinosis.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"animal_models\": [{\"name\": \"MRL-Atp6v1b1vtx/vtx spontaneous mutant mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v1b1 vortex (vtx) homozygous, MRL/MpJ background\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The renal branch is not reproduced. The mice alkalinise their urine, showing the pump defect is present and doing something, but they do not develop the systemic acidosis that defines the human disease.\"}]}}, {\"id\": \"Impaired Renal Net Acid Excretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The collecting duct cannot acidify the tubular lumen, so acid generated by metabolism is retained. The signature is an inappropriately alkaline urine in the face of systemic acidosis - the urine pH will not fall below roughly 5.3 no matter how acidotic the blood becomes, which is what distinguishes a distal tubular defect from other causes of acidosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"kidney collecting duct alpha-intercalated cell\"], \"biological_processes\": [\"regulation of pH\"], \"role\": \"effector\", \"locations\": [\"collecting duct of renal tubule\"]}}, {\"id\": \"MRL-Atp6v1b1vtx/vtx spontaneous mutant mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A spontaneous Atp6v1b1 mutation arising in an MRL/MpJ colony. It reproduces the ear half of the human disease and not the kidney half - profound hearing impairment with enlarged endolymphatic compartments, but alkaline urine without overt metabolic acidosis.\"}, {\"id\": \"Nephrocalcinosis and Skeletal Demineralisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Calcium deposition in the renal parenchyma with stone formation, and rickets or osteomalacia with growth failure. These are the manifestations that untreated disease accumulates over time, and the ones alkali therapy is given to prevent.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"kidney\"]}}], \"edges\": [{\"source\": \"ATP6V1B1 Variants Disabling the V-ATPase B1 Subunit\", \"target\": \"Failure of Apical Proton Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The subunit is part of the pump that performs the secretion, so losing it removes the activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Apical Proton Secretion\", \"target\": \"Impaired Renal Net Acid Excretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the collecting duct the lost activity is the acid-secreting step itself.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Apical Proton Secretion\", \"target\": \"Disrupted Endolymph pH Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the inner ear the same pump maintains endolymph pH, so its loss acts there independently of anything happening in the kidney.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Renal Net Acid Excretion\", \"target\": \"Hyperchloraemic Metabolic Acidosis with Hypokalaemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retained acid titrates plasma bicarbonate, and the compensatory distal sodium handling drives potassium loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperchloraemic Metabolic Acidosis with Hypokalaemia\", \"target\": \"Nephrocalcinosis and Skeletal Demineralisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bone and stone consequences follow from sustained systemic acidosis rather than from the pump defect acting locally.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic acidosis mobilises bone carbonate as buffer, causing demineralisation.\", \"Acidosis raises urinary calcium while lowering urinary citrate, and citrate is itself an inhibitor of calcium precipitation, so both the stone-forming load and the protection against it move the wrong way.\"]}, {\"source\": \"Disrupted Endolymph pH Homeostasis\", \"target\": \"Endolymphatic Enlargement and Progressive Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route from disturbed endolymph pH to enlarged endolymphatic compartments and cochlear dysfunction is not established in detail; the association is firm, the intermediate steps are not.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Alkali Replacement Therapy\", \"target\": \"Hyperchloraemic Metabolic Acidosis with Hypokalaemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hearing Amplification and Cochlear Implantation\", \"target\": \"Endolymphatic Enlargement and Progressive Hearing Loss\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of Potassium-Sparing Diuretics\", \"target\": \"Failure of Apical Proton Secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ADV7103 (prolonged-release potassium citrate and bicarbonate)\", \"target\": \"Hyperchloraemic Metabolic Acidosis with Hypokalaemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MRL-Atp6v1b1vtx/vtx spontaneous mutant mouse\", \"target\": \"Endolymphatic Enlargement and Progressive Hearing Loss\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the auditory phenotype and its structural correlate.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Strain-dependent, which is the substantive caveat rather than a formality: moving the same mutation onto a C57BL/6J background abolished the inner-ear phenotype entirely. What the model demonstrates is therefore conditional on modifier background, and a mapped Chr 13 locus accounts for only about a fifth of the threshold variance, so most of the modifying genetics remains unidentified.\"}, {\"source\": \"MRL-Atp6v1b1vtx/vtx spontaneous mutant mouse\", \"target\": \"Hyperchloraemic Metabolic Acidosis with Hypokalaemia\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The renal branch is not reproduced. The mice alkalinise their urine, showing the pump defect is present and doing something, but they do not develop the systemic acidosis that defines the human disease.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"This is a species difference with an identified mechanism rather than an unexplained failure: B2-containing H+-ATPase complexes, normally confined to intracellular organelles, relocalise to the apical membrane of intercalated cells in B1-deficient mice and substitute for the missing subunit. Human patients evidently do not compensate to the same degree. Any therapeutic strategy tested in these mice for the renal phenotype is therefore being tested in an animal that has already compensated.\"}, {\"source\": \"Atp6v1b1 knockout mouse (C57BL/6 background)\", \"target\": \"Endolymphatic Enlargement and Progressive Hearing Loss\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Hearing is normal in this model despite the gene being knocked out.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The failure is background-dependent rather than intrinsic to the gene disruption, as the MRL mutant demonstrates. Read together, the two models say that whether Atp6v1b1 loss produces deafness in a mouse depends on modifier genes - which is a caution about using either strain as the reference model, and a candidate explanation for why hearing loss varies so much between human patients with comparable variants.\"}, {\"source\": \"ATP6V1B1\", \"target\": \"ATP6V1B1 Variants Disabling the V-ATPase B1 Subunit\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5498,17 +5602,15 @@ This pathophysiological event occurs in endolymphatic sac (UBERON:0002223). UBER
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5518,7 +5620,7 @@ This pathophysiological event occurs in endolymphatic sac (UBERON:0002223). UBER
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-loss" data-dismech-node="Sensorineural Hearing Loss" data-dismech-type="phenotype">
@@ -5571,6 +5673,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5585,6 +5690,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5612,6 +5718,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5635,14 +5742,236 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-enlarged-vestibular-aqueduct" data-dismech-node="Enlarged Vestibular Aqueduct" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Enlarged Vestibular Aqueduct
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0011387</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Enlarged vestibular aqueduct (HP:0011387). HP:0011387 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28934385" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28934385" target="_blank">PMID:28934385</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"they provide a new genetic model for nonsyndromic deafness with enlarged vestibular aqueduct (EVA; OMIM #600791)"</div>
+
+
+                <div class="evidence-explanation">PARTIAL and MODEL_ORGANISM because the enlarged vestibular aqueduct is established here in mice and framed as a model for a human condition, rather than measured in ATP6V1B1 patients in this source.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrocalcinosis" data-dismech-node="Nephrocalcinosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nephrocalcinosis
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000121</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23923981" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23923981" target="_blank">PMID:23923981</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hypokalemia, hypercalciuria, hypocitraturia, nephrocalcinosis and nephrolithiasis"</div>
+
+
+                <div class="evidence-explanation">Lists nephrocalcinosis with the urinary abnormalities that produce it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypercalciuria" data-dismech-node="Hypercalciuria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypercalciuria
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002150</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23923981" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23923981" target="_blank">PMID:23923981</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hypokalemia, hypercalciuria, hypocitraturia, nephrocalcinosis and nephrolithiasis"</div>
+
+
+                <div class="evidence-explanation">Names hypercalciuria among the defining urinary abnormalities.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nephrolithiasis" data-dismech-node="Nephrolithiasis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5660,15 +5989,18 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000787</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Kidney stone, annotated with Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5688,6 +6020,7 @@ This clinical feature is Kidney stone, annotated with Nephrolithiasis (HP:000078
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5720,14 +6053,14 @@ This clinical feature is Kidney stone, annotated with Nephrolithiasis (HP:000078
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypokalemia" data-dismech-node="Hypokalemia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperchloremic-metabolic-acidosis" data-dismech-node="Hyperchloremic Metabolic Acidosis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Hypokalemia
+                        Hyperchloremic Metabolic Acidosis
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        <span class="phenotype-freq">OBLIGATE</span>
 
 
 
@@ -5739,15 +6072,18 @@ This clinical feature is Kidney stone, annotated with Nephrolithiasis (HP:000078
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002900</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004918" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004918</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hyperchloremic metabolic acidosis (HP:0004918). HP:0004918 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5767,6 +6103,81 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Distal renal tubular acidosis (DRTA) is characterized by tubular defects in urinary acidification and hyperchloremic metabolic acidosis"</div>
+
+
+                <div class="evidence-explanation">States the defining biochemical abnormality.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypokalemia" data-dismech-node="Hypokalemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypokalemia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002900</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23923981" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23923981" target="_blank">PMID:23923981</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5818,15 +6229,18 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002748</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002748</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5846,6 +6260,7 @@ This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5897,15 +6312,18 @@ This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5925,6 +6343,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5936,295 +6355,6 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                 <div class="evidence-explanation">Names delayed growth as a feature of the disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperchloremic-metabolic-acidosis" data-dismech-node="Hyperchloremic Metabolic Acidosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperchloremic Metabolic Acidosis
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004918" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004918</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperchloremic metabolic acidosis (HP:0004918). HP:0004918 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23923981" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23923981" target="_blank">PMID:23923981</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Distal renal tubular acidosis (DRTA) is characterized by tubular defects in urinary acidification and hyperchloremic metabolic acidosis"</div>
-
-
-                <div class="evidence-explanation">States the defining biochemical abnormality.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrocalcinosis" data-dismech-node="Nephrocalcinosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nephrocalcinosis
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000121</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23923981" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23923981" target="_blank">PMID:23923981</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hypokalemia, hypercalciuria, hypocitraturia, nephrocalcinosis and nephrolithiasis"</div>
-
-
-                <div class="evidence-explanation">Lists nephrocalcinosis with the urinary abnormalities that produce it.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-enlarged-vestibular-aqueduct" data-dismech-node="Enlarged Vestibular Aqueduct" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Enlarged Vestibular Aqueduct
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0011387</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Enlarged vestibular aqueduct (HP:0011387). HP:0011387 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28934385" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28934385" target="_blank">PMID:28934385</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"they provide a new genetic model for nonsyndromic deafness with enlarged vestibular aqueduct (EVA; OMIM #600791)"</div>
-
-
-                <div class="evidence-explanation">PARTIAL and MODEL_ORGANISM because the enlarged vestibular aqueduct is established here in mice and framed as a model for a human condition, rather than measured in ATP6V1B1 patients in this source.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypercalciuria" data-dismech-node="Hypercalciuria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypercalciuria
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002150</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23923981" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23923981" target="_blank">PMID:23923981</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hypokalemia, hypercalciuria, hypocitraturia, nephrocalcinosis and nephrolithiasis"</div>
-
-
-                <div class="evidence-explanation">Names hypercalciuria among the defining urinary abnormalities.</div>
 
 
 
@@ -6314,6 +6444,9 @@ This disease-associated gene is ATP6V1B1 (hgnc:853). hgnc:853 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6328,6 +6461,7 @@ This disease-associated gene is ATP6V1B1 (hgnc:853). hgnc:853 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6352,6 +6486,7 @@ This disease-associated gene is ATP6V1B1 (hgnc:853). hgnc:853 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6473,6 +6608,31 @@ This treatment uses potassium citrate, annotated with potassium citrate (anhydro
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral alkali - bicarbonate or citrate salts - given to correct the systemic acidosis the kidney cannot correct itself. Citrate preparations do double duty, since urinary citrate is also the inhibitor of calcium precipitation that is depleted in this disease, so replacing it addresses both the acidosis and the stone risk.
 It corrects the consequence, not the cause: the pump remains defective and the urine remains inappropriately alkaline. It also does nothing for the ear, because the auditory branch is not downstream of the acidosis.</div>
 
@@ -6516,6 +6676,7 @@ It corrects the consequence, not the cause: the pump remains defective and the u
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6540,6 +6701,7 @@ It corrects the consequence, not the cause: the pump remains defective and the u
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6561,6 +6723,7 @@ It corrects the consequence, not the cause: the pump remains defective and the u
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6620,6 +6783,31 @@ This treatment is hearing amplification and cochlear implantation, annotated wit
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6694,6 +6882,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">GeneReviews lists potassium-sparing diuretics among the agents to use with caution or avoid. This is counterintuitive at first sight, because the disease runs with hypokalemia and a potassium-sparing agent looks corrective - but the defect is in distal proton secretion, which these drugs impair further, so the acidosis worsens while the potassium is being chased.</div>
 
 
@@ -6733,6 +6946,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6818,6 +7032,31 @@ This treatment uses potassium citrate, annotated with potassium citrate (anhydro
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A combination controlled-release potassium bicarbonate and potassium citrate preparation, approved in Europe. Its value is adherence rather than a new mechanism: conventional alkali must be taken several times daily including overnight to hold the correction, and this formulation allows less frequent dosing.
 
 It is curated separately from generic alkali because it is a named, regulator-approved product for this indication rather than a class, and because the dosing interval is the practical obstacle to treating a lifelong condition that begins in infancy.</div>
@@ -6859,6 +7098,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6967,6 +7207,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7051,6 +7292,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7141,6 +7383,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7228,6 +7471,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7249,6 +7493,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7323,6 +7568,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7487,6 +7733,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7526,6 +7773,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7605,6 +7853,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7644,6 +7893,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7781,6 +8031,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7820,6 +8071,7 @@ It is curated separately from generic alkali because it is a named, regulator-ap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8998,6 +9250,21 @@ diagnosis:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">GeneReviews. An earlier draft of this entry stated that no GeneReviews chapter covers ATP6V1B1-related distal renal tubular acidosis. That was wrong. &#34;Hereditary Distal Renal Tubular Acidosis&#34; (PMID:31600044) is gene-panel scoped - ATP6V0A4, ATP6V1B1, SLC4A1, FOXI1, WDR72 - but it covers this gene explicitly, naming ATP6V1B1 among the genes whose dRTA carries sensorineural hearing loss and singling out the p.Arg394 heterozygous variants as the dominant form. It is now tagged and mined across all four sections.
+Evidence-source note. Three items quote background sentences from PMID:28934385, a mouse genetics paper, describing human V-ATPase biology rather than that paper&#39;s own mouse results. They are graded OTHER rather than HUMAN_CLINICAL, since the publication presents no human observations, or MODEL_ORGANISM, since the sentences are not about the mice.
+Scope against dRTA3. The deep-research preflight warned that ATP6V0A4 was mentioned at 32% the rate of ATP6V1B1. ATP6V0A4 causes a distinct entity - distal RTA type 3 - and those sections were excluded from curation. ATP6V0A4 appears in this entry only where a cited source uses it as an explicit contrast, notably that the Atp6v0a4 knockout mouse recapitulates both the acidosis and the hearing loss while the Atp6v1b1 knockout does not.
+Cache text defects. The cached record for PMID:28934385 has lost the spaces around italicised genotype strings (&#34;whyAtp6v1b1-/-knockout&#34;) and renders the minus sign as U+2212. Snippets from that source were chosen to avoid those spans rather than quoting the damage, and the explanations say where a quote stops short for that reason.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

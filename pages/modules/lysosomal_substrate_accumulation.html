@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1581,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">lysosomal_substrate_accumulation</span>
-                <span class="badge badge-count">57 disorders</span>
+                <span class="badge badge-count">58 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1940,7 +1992,7 @@ This mechanism module involves increased inflammatory response (GO:0006954). GO:
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">57</span>
+                <span class="card-count">58</span>
             </div>
             
             <div class="crosslink-list">
@@ -1999,21 +2051,6 @@ This mechanism module involves increased inflammatory response (GO:0006954). GO:
                         , 
                         
                         Neuronal and glial lysosomal storage → Storage-Cell Cytotoxicity and Neuroinflammation
-                        
-                        
-                    </span>
-                    
-                </div>
-                
-                <div class="crosslink-item">
-                    <a href="../disorders/Attenuated_Mucopolysaccharidosis_Type_I.html">Attenuated Mucopolysaccharidosis Type I</a>
-                    
-                    <span class="crosslink-desc">
-                        via
-                        
-                        
-                        
-                        Partial IDUA deficiency with residual alpha-L-iduronidase activity → Lysosomal Hydrolase or Cofactor Deficiency
                         
                         
                     </span>
@@ -2094,6 +2131,26 @@ This mechanism module involves increased inflammatory response (GO:0006954). GO:
                         , 
                         
                         Sialyloligosaccharide Lysosomal Accumulation → Lysosomal Substrate Accumulation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Dysostosis_Multiplex,_Ain-Naz_Type.html">Dysostosis Multiplex, Ain-Naz Type</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Loss of Mannose-6-Phosphate Tagging of Lysosomal Hydrolases → Lysosomal Hydrolase or Cofactor Deficiency
+                        
+                        
+                        , 
+                        
+                        Multisystem Lysosomal Substrate Accumulation → Lysosomal Substrate Accumulation
                         
                         
                     </span>
@@ -2476,6 +2533,11 @@ This mechanism module involves increased inflammatory response (GO:0006954). GO:
                         Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle → Lysosomal Substrate Accumulation
                         
                         
+                        , 
+                        
+                        Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle → Lysosomal Substrate Accumulation
+                        
+                        
                     </span>
                     
                 </div>
@@ -2524,6 +2586,11 @@ This mechanism module involves increased inflammatory response (GO:0006954). GO:
                         
                         
                         Arylsulfatase A Deficiency → Lysosomal Hydrolase or Cofactor Deficiency
+                        
+                        
+                        , 
+                        
+                        Saposin B Deficiency → Lysosomal Hydrolase or Cofactor Deficiency
                         
                         
                         , 
@@ -3001,6 +3068,21 @@ This mechanism module involves increased inflammatory response (GO:0006954). GO:
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Usher_Syndrome_Type_4.html">Usher Syndrome Type 4</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Impaired Lysosomal Degradation of 3-O-Sulfated Heparan Sulfate → Lysosomal Substrate Accumulation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Wolman_Disease.html">Wolman Disease</a>
                     
                     <span class="crosslink-desc">
@@ -3059,11 +3141,13 @@ This mechanism module involves increased inflammatory response (GO:0006954). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-lysosomal-hydrolase-or-cofactor-deficiency" data-dismech-node="Lysosomal Hydrolase or Cofactor Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Hydrolase or Cofactor Deficiency</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A monogenic loss-of-function defect reduces the activity of a specific acid hydrolase that degrades a macromolecular substrate within the lysosome, or of a non-enzymatic protein (activator, membrane transporter, or trafficking factor) required for normal lysosomal catabolism. The identity of the deficient enzyme/protein varies by disorder, but the consequence — loss of the catabolic step for a particular substrate — is the conserved trigger of the module.</div>
                 
@@ -3126,13 +3210,6 @@ This pathophysiological event involves decreased macromolecule catabolic process
                         </div>
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Attenuated_Mucopolysaccharidosis_Type_I.html">Attenuated Mucopolysaccharidosis Type I</a>
-                            
-                            <span class="crosslink-desc">as Partial IDUA deficiency with residual alpha-L-iduronidase activity</span>
-                            
-                        </div>
-                        
-                        <div class="crosslink-item">
                             <a href="../disorders/Cholesteryl_Ester_Storage_Disease.html">Cholesteryl Ester Storage Disease</a>
                             
                             <span class="crosslink-desc">as Lysosomal Acid Lipase Deficiency</span>
@@ -3157,6 +3234,13 @@ This pathophysiological event involves decreased macromolecule catabolic process
                             <a href="../disorders/Congenital_Sialidosis_Type_2.html">Congenital Sialidosis Type 2</a>
                             
                             <span class="crosslink-desc">as Severe Neuraminidase-1 Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dysostosis_Multiplex,_Ain-Naz_Type.html">Dysostosis Multiplex, Ain-Naz Type</a>
+                            
+                            <span class="crosslink-desc">as Loss of Mannose-6-Phosphate Tagging of Lysosomal Hydrolases</span>
                             
                         </div>
                         
@@ -3262,6 +3346,13 @@ This pathophysiological event involves decreased macromolecule catabolic process
                             <a href="../disorders/Metachromatic_Leukodystrophy.html">Metachromatic Leukodystrophy</a>
                             
                             <span class="crosslink-desc">as Arylsulfatase A Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Metachromatic_Leukodystrophy.html">Metachromatic Leukodystrophy</a>
+                            
+                            <span class="crosslink-desc">as Saposin B Deficiency</span>
                             
                         </div>
                         
@@ -3386,11 +3477,13 @@ This pathophysiological event involves decreased macromolecule catabolic process
             
             <div class="item-box anchor-target" id="module-pathophysiology-lysosomal-substrate-accumulation" data-dismech-node="Lysosomal Substrate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Substrate Accumulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The substrate that can no longer be degraded accumulates undegraded within the lysosomal lumen. Storage is frequently restricted to the cell types in which that substrate is normally turned over in greatest quantity (e.g., macrophages for glucocerebroside, neurons for gangliosides), which patterns the organ-specific clinical picture. This intralysosomal accumulation is the central, defining effector event of every lysosomal storage disease and the key conformance target for disorder entries.</div>
                 
@@ -3452,6 +3545,13 @@ This pathophysiological event involves decreased macromolecule catabolic process
                             <a href="../disorders/Congenital_Sialidosis_Type_2.html">Congenital Sialidosis Type 2</a>
                             
                             <span class="crosslink-desc">as Sialyloligosaccharide Lysosomal Accumulation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dysostosis_Multiplex,_Ain-Naz_Type.html">Dysostosis Multiplex, Ain-Naz Type</a>
+                            
+                            <span class="crosslink-desc">as Multisystem Lysosomal Substrate Accumulation</span>
                             
                         </div>
                         
@@ -3585,6 +3685,13 @@ This pathophysiological event involves decreased macromolecule catabolic process
                             <a href="../disorders/Late-Onset_Pompe_Disease.html">Late-Onset Pompe Disease</a>
                             
                             <span class="crosslink-desc">as Attenuated Lysosomal Glycogen Accumulation in Skeletal and Respiratory Muscle</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Late-Onset_Pompe_Disease.html">Late-Onset Pompe Disease</a>
+                            
+                            <span class="crosslink-desc">as Lysosomal Glycogen Accumulation in Vascular and Visceral Smooth Muscle</span>
                             
                         </div>
                         
@@ -3764,6 +3871,13 @@ This pathophysiological event involves decreased macromolecule catabolic process
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Usher_Syndrome_Type_4.html">Usher Syndrome Type 4</a>
+                            
+                            <span class="crosslink-desc">as Impaired Lysosomal Degradation of 3-O-Sulfated Heparan Sulfate</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Wolman_Disease.html">Wolman Disease</a>
                             
                             <span class="crosslink-desc">as Lysosomal Cholesteryl Ester and Triglyceride Storage</span>
@@ -3793,11 +3907,13 @@ This pathophysiological event involves decreased macromolecule catabolic process
             
             <div class="item-box anchor-target" id="module-pathophysiology-autophagic-lysosomal-dysfunction-and-secondary-cascade" data-dismech-node="Autophagic-Lysosomal Dysfunction and Secondary Cascade" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagic-Lysosomal Dysfunction and Secondary Cascade</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Progressive lysosomal storage impairs core lysosome functions, blocking autophagic flux and disturbing membrane repair, exocytosis, lipid homeostasis, and signalling. Substrate accumulation is only the first event of a cascade that includes accumulation of secondary metabolites and impairment of cellular trafficking, cell signalling, mitochondrial function, and calcium homeostasis. This amplifying step converts a single catabolic block into broad cellular dysfunction.</div>
                 
@@ -3924,11 +4040,13 @@ This pathophysiological event involves dysregulated lysosome organization (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-storage-cell-cytotoxicity-and-neuroinflammation" data-dismech-node="Storage-Cell Cytotoxicity and Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Storage-Cell Cytotoxicity and Neuroinflammation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The affected cell becomes an engorged storage cell whose impaired autophagy and lysosomal dysfunction compromise viability, driving apoptotic death. In the central nervous system, impaired neuronal autophagy initiates neuronal damage and activates microglia and astrocytes, producing a neuroinflammatory response that amplifies neurodegeneration. The specific storage cell varies by disorder (lipid-laden macrophage, ganglioside-laden neuron, GAG-laden mesenchymal and neural cells), but the progression from storage to cytotoxicity and inflammation is conserved.</div>
                 
@@ -4111,11 +4229,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             
             <div class="item-box anchor-target" id="module-pathophysiology-progressive-multisystem-and-neurodegenerative-disease" data-dismech-node="Progressive Multisystem and Neurodegenerative Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Multisystem and Neurodegenerative Disease</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The lack of degradation and lysosomal storage perturbs cellular homeostasis and, in turn, damages multiple organ systems. The specific clinical pattern (hepatosplenomegaly, skeletal dysplasia, cardiomyopathy, renal disease, psychomotor regression) depends on which cell types store substrate, but the final common outcome of progressive, multisystem, often neurodegenerative disease is conserved across the lysosomal storage diseases.</div>
                 
@@ -4172,6 +4292,9 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

@@ -2,8 +2,7 @@ name: 00 · PR Shepherd
 
 on:
   schedule:
-    - cron: "37 */4 * * *"  # agent + merge controller every 4h
-    - cron: "37 1-3,5-7,9-11,13-15,17-19,21-23 * * *"  # merge controller only in intervening hours
+    - cron: "37 * * * *"  # hourly, offset from the curation scanner
   workflow_dispatch:
     inputs:
       max_prs:
@@ -48,12 +47,165 @@ on:
         required: false
         default: ""
         type: string
+      review_retry_delay_hours:
+        description: "Minimum hours after a failed review attempt (0 bypasses backoff)"
+        default: "1"
+        type: string
+      max_review_retries:
+        description: "Maximum failed review runs to retry (0 disables retries)"
+        default: "5"
+        type: string
+      max_cache_repairs:
+        description: "Maximum additive CSV cache-conflict repairs (0 disables)"
+        default: "3"
+        type: string
+      max_assignment_actions:
+        description: "Maximum inactive-assignment reminders or releases (0 disables)"
+        default: "10"
+        type: string
 
 jobs:
+  assignment-inactivity:
+    # Independent ownership housekeeping, including human-authored/assigned PRs.
+    # Only trusted default-branch code; no PR checkout, dependencies, or LLM.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: pr-shepherd-assignment-inactivity
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    env:
+      DRY_RUN: ${{ inputs.dry_run || false }}
+      SPECIFIC_PR: ${{ inputs.pr_number || '' }}
+      ASSIGNMENT_LIMIT: ${{ inputs.max_assignment_actions || '10' }}
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Generate scoped assignment token
+        id: assignment-token
+        if: ${{ env.DRY_RUN != 'true' && env.ASSIGNMENT_LIMIT != '0' }}
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          permission-pull-requests: write
+      - name: Remind or release inactive assignments
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_ASSIGNMENT_TOKEN: ${{ steps.assignment-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          args=(--repo "$GITHUB_REPOSITORY" --max-actions "$ASSIGNMENT_LIMIT")
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "$SPECIFIC_PR" ]; then args+=(--specific-pr "$SPECIFIC_PR"); fi
+          python scripts/expire_pr_assignments.py "${args[@]}"
+
+  retry-reviews:
+    # Independent of the agent, its shortlist, and the merge controller.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: pr-shepherd-review-retries
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+      pull-requests: read
+    env:
+      DRY_RUN: ${{ inputs.dry_run || false }}
+      RETRY_DELAY: ${{ inputs.review_retry_delay_hours || '1' }}
+      RETRY_LIMIT: ${{ inputs.max_review_retries || '5' }}
+      SPECIFIC_PR: ${{ inputs.pr_number || '' }}
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Generate scoped retry token
+        id: retry-token
+        if: ${{ env.DRY_RUN != 'true' }}
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          permission-actions: write
+      - name: Retry failed reviews (deterministic)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_RETRY_TOKEN: ${{ steps.retry-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          args=(--repo "$GITHUB_REPOSITORY" --min-delay-hours "$RETRY_DELAY" --max-retries "$RETRY_LIMIT")
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "$SPECIFIC_PR" ]; then args+=(--specific-pr "$SPECIFIC_PR"); fi
+          python scripts/retry_failed_reviews.py "${args[@]}"
+
+  repair-caches:
+    # Fixed trusted code only: no PR checkout, dependency install, or LLM.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: pr-shepherd-cache-repairs
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    env:
+      DRY_RUN: ${{ inputs.dry_run || false }}
+      SPECIFIC_PR: ${{ inputs.pr_number || '' }}
+      REPAIR_LIMIT: ${{ inputs.max_cache_repairs || '3' }}
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Generate scoped cache repair token
+        id: cache-token
+        if: ${{ env.DRY_RUN != 'true' && env.REPAIR_LIMIT != '0' }}
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Repair additive cache conflicts (deterministic)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_CACHE_REPAIR_TOKEN: ${{ steps.cache-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          args=(--repo "$GITHUB_REPOSITORY" --max-repairs "$REPAIR_LIMIT")
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "$SPECIFIC_PR" ]; then args+=(--specific-pr "$SPECIFIC_PR"); fi
+          python scripts/repair_generated_cache_conflicts.py "${args[@]}"
+
   shepherd:
+    needs: repair-caches
     if: >-
-      ${{ github.event_name == 'workflow_dispatch' ||
-          github.event.schedule != '37 1-3,5-7,9-11,13-15,17-19,21-23 * * *' }}
+      ${{ !cancelled() && (github.event_name == 'workflow_dispatch' ||
+          github.event.schedule != '37 1-3,5-7,9-11,13-15,17-19,21-23 * * *') }}
     runs-on: ubuntu-latest
     # GitHub App installation tokens expire after about an hour. Keep the whole
     # job inside that lifetime because its token is minted in the first step.
@@ -145,6 +297,11 @@ jobs:
           fi
           uv run --no-project python scripts/pr_shepherd_policy.py "${args[@]}"
 
+      - name: Set up latest Claude Code
+        id: setup-claude-code
+        if: ${{ steps.pr-candidates.outputs.pr_numbers != '' }}
+        uses: ./.github/actions/setup-claude-code
+
       - name: Run PR Shepherd
         id: pr-shepherd
         if: ${{ steps.pr-candidates.outputs.pr_numbers != '' }}
@@ -159,7 +316,11 @@ jobs:
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+          CC_LANGFUSE_TRACE_TAGS: >-
+            ["repo:${{ github.repository }}", "workflow:pr-shepherd",
+            "run:${{ github.run_id }}", "attempt:${{ github.run_attempt }}", "job:${{ github.job }}"]
         with:
+          path_to_claude_code_executable: ${{ steps.setup-claude-code.outputs.executable }}
           # Auth: prefer ANTHROPIC_API_KEY (pay-per-use, no weekly subscription
           # cap); fall back to the OAuth token only when no API key is set. The
           # conditional keeps exactly one non-empty, so the action never has to
@@ -193,7 +354,10 @@ jobs:
             DRY_RUN: ${{ inputs.dry_run || false }}
 
             You are the automated PR Shepherd for the dismech repository. Your job is to tend
-            stuck bot-authored pull requests and move at most MAX_PRS of them forward in this run.
+            stuck unassigned pull requests by any author and move at most MAX_PRS forward in this run.
+            You own recovery of eligible abandoned PRs, including Python, tests, scripts,
+            schemas, workflows, documentation, and curation. A code change or an old comment
+            calling it "outside curation scope" is not a reason to leave a PR abandoned.
 
             You are authenticated as the ai4c-agent bot through a short-lived GitHub App token
             (exposed as GH_TOKEN). Use that token for all GitHub operations, including branch
@@ -203,21 +367,29 @@ jobs:
             pushing a fix commit you do NOT need to (and should NOT) manually re-trigger review; the
             push itself is enough.
 
+            Failed/timed-out claude-code-review runs belong to the independent deterministic
+            retry-reviews job. Do not rerun or dispatch replacements for those runs here,
+            including when the PR remains REVIEW_REQUIRED. Missing/cancelled reviews remain
+            in this agent's recovery scope.
+
             Start by reading the full contents of CLAUDE.md. Follow all repository conventions,
             especially the rule that references_cache/*.md must never be created or hand-edited.
             If a reference cache entry is needed, regenerate it with `just fetch-reference <ID>`.
 
             Candidate PRs:
-            - The deterministic policy step has already normalized GitHub App login variants
-              (`app/<slug>`, `<slug>[bot]`, and `<slug>`), verified Bot identity where
-              applicable, excluded assigned/claimed PRs, and selected CANDIDATE_PRS.
+            - The deterministic policy step has selected open PRs targeting main with heads in
+              this repository (`isCrossRepository == false`), excluded assigned PRs and separately
+              managed automation branches, and selected CANDIDATE_PRS. Fork heads and missing or
+              unknown head-repository metadata are ineligible.
+              Author identity does not affect eligibility: human and bot authors are treated alike.
             - CANDIDATE_PRS is a bounded shortlist of at most 3 × MAX_PRS, ranked as:
-              approved-but-behind updateable branches, approved conflicts, approved aligned-but-red
-              or blocked branches, stale changes requested, then review gaps. Approved PRs are omitted
-              only when an exact ancestry, merge-state, and check-rollup inspection shows the
-              deterministic merge job owns them; aligned but red/blocked PRs remain agent-tendable.
+              oldest changes requested, conflicts, approved red or blocked branches, then review
+              gaps. Approved PRs are omitted when merge-state and check-rollup inspection shows
+              the deterministic merge job owns them. That job does not require a branch to
+              contain current main; approved clean PRs need no freshness-only update.
             - Inspect and act only on PR numbers in CANDIDATE_PRS. If SPECIFIC_PR was supplied,
-              it appears there only when it passed the same bot-author policy.
+              it appears there only when it passed the same assignment, head-repository, and
+              lifecycle guards.
             - Draft state is metadata, not an exclusion, priority, or hold signal. Treat a draft
               exactly like any other open PR while tending review feedback or branch state.
             - Separately managed automation PRs whose heads start with `auto/` have already
@@ -229,64 +401,96 @@ jobs:
 
             Gather enough context for each candidate before choosing:
             - PR metadata: author, draft state, base/head refs, head SHA, updated/created time,
-              reviewDecision, mergeStateStatus, statusCheckRollup, and labels.
-            - The current main SHA and PR head SHA. Determine freshness with GitHub's exact commit
-              comparison (`repos/$REPO/compare/$MAIN_SHA...$HEAD_SHA`): the head contains main only
-              when `behind_by == 0` and `merge_base_commit.sha == $MAIN_SHA`. `baseRefOid` is useful
-              metadata but is NOT an ancestry signal, even when it equals current main.
+              isCrossRepository, assignees, reviewDecision, mergeStateStatus, statusCheckRollup,
+              and labels.
+            - The current main SHA and PR head SHA. If a branch update is needed to resolve a
+              blocker, determine freshness with GitHub's exact commit comparison
+              (`repos/$REPO/compare/$MAIN_SHA...$HEAD_SHA`): the head contains main only when
+              `behind_by == 0` and `merge_base_commit.sha == $MAIN_SHA`. `baseRefOid` is useful
+              metadata but is NOT an ancestry signal. Being behind alone is not a blocker.
             - Reviews and review comments, especially the latest review state per reviewer.
             - Recent workflow/check status, including cancelled Claude review runs.
-            - Existing discussion so you do not repeat an action already taken.
+            - Recent activity and existing discussion so you do not repeat an action already
+              taken or duplicate an ongoing repair. Inspect the actual activity; do not impose
+              a fixed PR-age cutoff or treat human authorship as evidence of active ownership.
 
             Classify each candidate into one of these states:
-            - APPROVED + CLEAN: latest reviewDecision is APPROVED, the exact comparison proves the
-              PR head contains current main, and mergeStateStatus is clean (or a draft is otherwise
-              mergeable once the controller performs its just-in-time ready transition).
-            - APPROVED + BEHIND/CONFLICT: latest reviewDecision is APPROVED and the exact comparison
-              does not prove the head contains current main, or the branch conflicts with main.
-            - APPROVED + ALIGNED + RED/BLOCKED: the exact comparison proves the head contains main,
-              but a failed/cancelled check or non-draft blocked merge state prevents closing.
+            - APPROVED + CLEAN: latest reviewDecision is APPROVED, the branch is mergeable, and
+              checks and mergeStateStatus are clean (or a draft is otherwise mergeable once the
+              controller performs its just-in-time ready transition), even if behind main.
+            - CONFLICTING: the branch conflicts with main, under any review state.
+            - APPROVED + RED/BLOCKED: a failed/cancelled check or non-draft blocked merge state
+              prevents closing; investigate the blocker regardless of branch freshness.
             - CHANGES_REQUESTED: latest effective review state requests changes.
             - REVIEW_REQUIRED + cancelled review: the PR still requires review and the current or
               latest Claude review workflow run for the PR was cancelled or never completed after
               the latest head SHA.
 
             Prioritize the most stuck PRs in this order:
-            1. APPROVED + BEHIND/CONFLICT PRs that can be updated without a rebase or force-push.
-            2. APPROVED + ALIGNED + RED/BLOCKED PRs with a terminal or cancelled check.
-            3. Stale CHANGES_REQUESTED PRs, oldest updated first and with more review cycles first.
+            1. Stale CHANGES_REQUESTED PRs, oldest updated first.
+            2. CONFLICTING PRs, including unapproved PRs whose conflicts prevent review.
+            3. APPROVED + RED/BLOCKED PRs with a terminal or cancelled check.
             4. REVIEW_REQUIRED PRs whose review was cancelled or missing after the latest push.
             APPROVED + CLEAN needs no agent action; the deterministic controller owns it.
 
-            Then process only the highest-ranked PRs up to MAX_PRS.
+            Process actionable PRs in that order, up to MAX_PRS. Inspecting a candidate or
+            finding a concrete blocker does not use up an action slot: continue through the
+            shortlist until the budget is used or every candidate has been investigated.
+
+            Repair scope and validation:
+            - Before checking out a PR branch or executing its code, re-read its metadata and
+              require `isCrossRepository == false`. If it is true, missing, or unknown, skip
+              the PR; do not check out or execute its code.
+            - Address review feedback and reproducible CI failures in the files the repair
+              requires, including Python under src/, scripts/, and tests/. Keep the change
+              tied to the PR's intended behavior and the diagnosed failure; inspect callers
+              and tests before editing. Resolve conflicts by preserving both sides' intent.
+            - Run the relevant focused tests and checks. For a Python behavior fix, reproduce
+              the failure and add or update a meaningful regression test when needed. For KB
+              changes, follow the evidence/term validation and history-record conventions.
+            - The deterministic cache-conflict job handles only merges it can prove preserve
+              both sides. A refusal from it means investigate the conflict here, not abandon
+              the PR. Never use a blanket ours/theirs resolution for generated directories,
+              drop either side's unique cache entries, or replace a whole cache from main.
+              Regenerate reference and term caches only through their supported commands.
+              Never read, recreate, or restore the retired dataset-accession JSON cache.
+              If an old PR carries it, keep its deletion without reading or merging its contents.
+            - Before any push, verify the remote head and assignment again. If the head moved,
+              stop that push and re-inspect; never overwrite another contributor's work.
+              Reconfirm `isCrossRepository == false`; stop if that cannot be established.
+              Review the final diff against main for unrelated deletions or stale reversions.
+              Bundle the review fixes, necessary conflict repair, and validation in one push.
 
             Allowed actions by state:
             - APPROVED + CLEAN:
               - Take no action. Do not mark a draft ready, merge, or enable auto-merge. The
                 deterministic controller owns these transitions and checks current-main health.
-            - APPROVED + BEHIND/CONFLICT:
-              - First try GitHub's update-branch API with the current head SHA.
-              - If update-branch reports conflicts, you may attempt a local merge from the base
-                branch into the PR branch, but never rebase and never force-push.
-              - If conflicts are not safely resolvable, post a concise comment explaining the
-                blocker and leave the PR otherwise untouched.
-              - Update at most ONE behind branch per run. Each merge advances main and makes other
-                pre-updated branches stale again; batching updates creates review/CI churn.
-            - APPROVED + ALIGNED + RED/BLOCKED:
+            - CONFLICTING:
+              - Inspect the conflicting files and the changes on both branches, then attempt a
+                local merge from the base into the PR branch without rewriting history.
+              - Resolve understood code and content conflicts, including Python; validate the
+                combined result before a normal push. If review feedback also needs work,
+                address it in the same push.
+              - If a conflict remains ambiguous after investigation, report the exact competing
+                changes and the decision needed; continue to the next candidate.
+            - APPROVED + RED/BLOCKED:
               - Inspect the failing or cancelled check and its logs. If checks are genuinely still
                 running, take no action.
               - Re-run an exact cancelled or clearly transient workflow failure once. Do not keep
                 retrying a reproducible failure.
-              - If the failure has a clear curation-scope fix, use the same edit, validation, commit,
+              - If the failure has a clear fix, use the same edit, validation, commit,
                 and normal-push rules as CHANGES_REQUESTED below; a fresh review will follow.
-              - If the cause is ambiguous or outside curation scope, report the specific blocker
-                rather than updating an already-current branch or guessing at a fix.
+              - If an actual blocker requires main to be integrated, use GitHub's update-branch
+                API with the current head SHA, or a local merge when combining it with fixes.
+                Never refresh a branch solely because it is behind main.
+              - If the cause remains ambiguous after investigation, report the specific blocker
+                and continue to the next candidate.
             - CHANGES_REQUESTED:
               - Read the review and inline comments.
               - Checkout the PR branch and address clear, safe feedback.
-              - Only edit curation-scope files: kb/, cache/, references_cache/ via regeneration
-                only, and research/. If the review requires changes outside that scope, post a
-                clarifying comment instead of guessing.
+              - Investigate and fix clear feedback across the repair scope above. Existing
+                shepherd comments declining Python or test changes do not prohibit this work.
+              - Resolve branch conflicts in the same repair when they prevent review or CI.
               - Validate changed files with the relevant `just` or `uv run` commands before
                 committing and pushing.
               - Commit a small fix on top of the PR branch and push normally. Do not rebase,
@@ -310,10 +514,11 @@ jobs:
             - Never merge a PR, enable auto-merge, approve a review, or mark a draft ready.
               Those transitions belong to deterministic policy or a human maintainer.
             - Never force-push, rebase, reset, or rewrite PR history.
-            - Never modify human-authored PRs.
+            - Author identity never excludes a PR from repair. Human and bot-authored PRs follow
+              the same assignment, lifecycle, validation, and history-preservation rules.
             - Never modify a PR that is assigned when you inspect it; assignment is the
-              repository's explicit human-claim/hold signal even if it was unassigned when
-              the shortlist was built.
+              deterministic active-work hold even if it was unassigned when the shortlist was
+              built. For unassigned PRs, assess ongoing work from recent activity and discussion.
             - Never create duplicate scanner work or assign `dragon-ai-agent` just to trigger work.
             - If you are unsure about a biological, clinical, ontology, or evidence fix, ask for
               clarification on the PR instead of guessing.
@@ -326,6 +531,9 @@ jobs:
               Example: "🐑 **PR Shepherd** (action run) — Updated the branch against main. A fresh review will run next."
             - If you scan candidates but find nothing actionable, do NOT post comments.
               Instead, print your summary to stdout so it can be captured in GITHUB_STEP_SUMMARY.
+            - For every skipped candidate, name the concrete unresolved blocker, investigation
+              performed, and next action needed. File type, author identity, old age, or
+              "outside curation scope" alone are never adequate reasons to skip.
 
             End by posting or logging a concise summary of candidates scanned, selected PRs, actions
             taken, validation run, and any blockers that remain.

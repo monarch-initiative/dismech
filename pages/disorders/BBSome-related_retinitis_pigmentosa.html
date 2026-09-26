@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=BBSome-related%20retinitis%20pigmentosa"
@@ -3996,7 +4073,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">20</div>
+                <div class="stat-value">25</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4588,6 +4665,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4655,6 +4733,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4741,6 +4820,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4762,6 +4842,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4867,6 +4948,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4941,6 +5023,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4989,7 +5072,7 @@
 
 
 
-    <a class="entity-ref-chip" href="#animal-model-bbs1-p-met390arg-homozygous-knock-in-mus-musculus">animal_models#Bbs1 p.Met390Arg homozygous knock-in</a>
+    <a class="entity-ref-chip" href="#animal-model-bbs1-p-met390arg-knock-in-mouse">animal_models#Bbs1 p.Met390Arg homozygous knock-in</a>
 
 
 
@@ -5022,6 +5105,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5043,6 +5127,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5080,6 +5165,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-partial-or-retina-selective-bbsome-dysfunction" data-dismech-node="Partial or retina-selective BBSome dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Partial or retina-selective BBSome dysfunction</div>
+
 
                 <div class="item-desc">Biallelic mild, hypomorphic, or retina-selective alleles reduce BBSome function in photoreceptors. The precise allele mechanism differs by locus: retina-specific splicing is established for TTC8, a visual-function-selective effect for ARL6 p.Ala89Val, a noncoding splice defect for BBS1, missense associations for BBS2, and partial aberrant splicing for BBS9.</div>
 
@@ -5355,6 +5441,39 @@ This pathophysiological event involves cilium (GO:0005929). GO:0005929 is a cell
 
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-zebrafish-bbs3-knockdown-with-bbs3l-p-ala89val-rescue">Zebrafish bbs3 knockdown with BBS3L p.Ala89Val rescue</a>
+
+                            <span class="crosslink-meta">Danio rerio</span>
+
+
+                            <span class="crosslink-meta">recapitulates</span>
+
+
+                            <span class="crosslink-desc">Rescue assays separate a preserved general intracellular-transport function of BBS3 A89V from its failure to restore vision, reproducing the allele-specific, retina-restricted deficit this node describes.</span>
+
+                        </div>
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-bbs8-knockout-mouse">Bbs8 knockout mouse</a>
+
+                            <span class="crosslink-meta">Mus musculus</span>
+
+
+                            <span class="crosslink-meta">perturbs</span>
+
+
+                            <span class="crosslink-desc">Complete Bbs8 (TTC8) loss perturbs BBSome function in the retina; the reported readouts are retinal-pigment-epithelium expression, polarity and morphology changes rather than photoreceptor cargo.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
 
 
 	                <div class="crosslink-block">
@@ -5391,6 +5510,7 @@ This pathophysiological event involves cilium (GO:0005929). GO:0005929 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5412,6 +5532,7 @@ This pathophysiological event involves cilium (GO:0005929). GO:0005929 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5439,6 +5560,7 @@ This pathophysiological event involves cilium (GO:0005929). GO:0005929 is a cell
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5463,6 +5585,7 @@ This pathophysiological event involves cilium (GO:0005929). GO:0005929 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-photoreceptor-outer-segment-cargo-and-lipid-dysregulation" data-dismech-node="Photoreceptor outer-segment cargo and lipid dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor outer-segment cargo and lipid dysregulation</div>
+
 
                 <div class="item-desc">The photoreceptor outer segment is a specialized cilium with continuous membrane renewal. BBSome loss destabilizes the complex, permits accumulation of membrane-associated cargo, and disrupts lipid and cholesterol composition. Early visual dysfunction can precede overt outer-segment disorganization.</div>
 
@@ -5535,6 +5658,26 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-zebrafish-bbs1-null-mutant">Zebrafish bbs1 null mutant</a>
+
+                            <span class="crosslink-meta">Danio rerio</span>
+
+
+                            <span class="crosslink-meta">recapitulates</span>
+
+
+                            <span class="crosslink-desc">Proteomics and lipidomics on isolated outer segments show BBSome destabilisation, membrane-protein accumulation and raised cholesterol after Bbs1 loss, the cargo and lipid disturbance this node describes.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
 
 
 	                <div class="crosslink-block">
@@ -5571,6 +5714,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5593,6 +5737,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-rod-first-photoreceptor-degeneration" data-dismech-node="Progressive rod-first photoreceptor degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive rod-first photoreceptor degeneration</div>
+
 
                 <div class="item-desc">Rod-predominant degeneration produces the characteristic rod-cone electrophysiologic pattern, night blindness, and peripheral field loss. Ongoing disease later compromises cones, macular structure, and central visual acuity.</div>
 
@@ -5695,6 +5840,39 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-zebrafish-bbs1-null-mutant">Zebrafish bbs1 null mutant</a>
+
+                            <span class="crosslink-meta">Danio rerio</span>
+
+
+                            <span class="crosslink-meta">partially recapitulates</span>
+
+
+                            <span class="crosslink-desc">Early visual deficits precede progressive outer-segment morphological anomalies, reproducing the degenerative sequence but not its rod-first order.</span>
+
+                        </div>
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-bbs1-p-met390arg-knock-in-mouse">Bbs1 p.Met390Arg knock-in mouse</a>
+
+                            <span class="crosslink-meta">Mus musculus</span>
+
+
+                            <span class="crosslink-meta">recapitulates</span>
+
+
+                            <span class="crosslink-desc">The recurrent human BBS1 allele in a rod-dominant mouse retina loses ERG b-wave amplitude and outer-nuclear-layer thickness, the degeneration this node describes, and the TUDCA arm shows the process is modifiable.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
 
 
 	                <div class="crosslink-block">
@@ -5771,6 +5949,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5792,6 +5971,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5817,6 +5997,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-cone-and-macular-structural-loss" data-dismech-node="Secondary cone and macular structural loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary cone and macular structural loss</div>
+
 
                 <div class="item-desc">Later cone involvement and macular thinning reduce central acuity. Photoreceptor outer-segment loss is visible on OCT, while cystoid macular edema can add a potentially treatable cause of central visual impairment.</div>
 
@@ -5889,6 +6070,26 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-zebrafish-bbs2-homozygous-mutant">Zebrafish bbs2 homozygous mutant</a>
+
+                            <span class="crosslink-meta">Danio rerio</span>
+
+
+                            <span class="crosslink-meta">partially recapitulates</span>
+
+
+                            <span class="crosslink-desc">Adult bbs2 mutants lose cone photoreceptors progressively with microglial activation, matching the cone loss this node describes but not its sequence after rod loss.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
 
 
 	                <div class="crosslink-block">
@@ -5949,6 +6150,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5994,7 +6196,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARL6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARL6\"], \"gene_terms\": [{\"label\": \"ARL6\", \"id\": \"hgnc:13210\"}], \"association\": \"Pathogenic biallelic variants, including the retina-selective p.Ala89Val effect\"}}, {\"id\": \"Abnormal electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Full-field ERG usually demonstrates rod-cone dysfunction and may become non-recordable.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000512\"}}, {\"id\": \"BBS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BBS1\"], \"gene_terms\": [{\"label\": \"BBS1\", \"id\": \"hgnc:966\"}], \"association\": \"Pathogenic biallelic variants at the mild end of the BBS1 allelic spectrum\"}}, {\"id\": \"BBS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BBS2\"], \"gene_terms\": [{\"label\": \"BBS2\", \"id\": \"hgnc:967\"}], \"association\": \"Pathogenic biallelic variants, especially reported missense combinations\"}}, {\"id\": \"BBS9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BBS9\"], \"gene_terms\": [{\"label\": \"BBS9\", \"id\": \"hgnc:30000\"}], \"association\": \"Pathogenic biallelic variants, including a hypomorphic splice-affecting allele\"}}, {\"id\": \"Bone spicule pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mid-peripheral bone-spicule pigmentation is a characteristic later fundus sign.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007737\"}}, {\"id\": \"Cystoid macular edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cystoid macular edema is a potentially treatable complication that can worsen central vision.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011505\"}}, {\"id\": \"Low-vision rehabilitation and adaptive support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Magnification, contrast and lighting optimization, orientation and mobility training, educational or workplace accommodations, and assistive technology are individualized as acuity and field loss progress.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nyctalopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Night blindness is an early functional consequence of rod dysfunction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000662\"}}, {\"id\": \"Ophthalmic surveillance and complication management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Serial acuity, visual-field, OCT, and examination assessments document progression and detect potentially treatable contributors such as cystoid macular edema or cataract. Management should be individualized by a retinal specialist; surveillance is not a disease-modifying treatment.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Partial or retina-selective BBSome dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic mild, hypomorphic, or retina-selective alleles reduce BBSome function in photoreceptors. The precise allele mechanism differs by locus: retina-specific splicing is established for TTC8, a visual-function-selective effect for ARL6 p.Ala89Val, a noncoding splice defect for BBS1, missense associations for BBS2, and partial aberrant splicing for BBS9.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"protein localization to cilium\"], \"genes\": [\"ARL6\", \"TTC8\", \"BBS1\", \"BBS2\", \"BBS9\"], \"gene_terms\": [{\"label\": \"ARL6\", \"id\": \"hgnc:13210\"}, {\"label\": \"TTC8\", \"id\": \"hgnc:20087\"}, {\"label\": \"BBS1\", \"id\": \"hgnc:966\"}, {\"label\": \"BBS2\", \"id\": \"hgnc:967\"}, {\"label\": \"BBS9\", \"id\": \"hgnc:30000\"}]}}, {\"id\": \"Peripheral visual field loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rod-rich peripheral retinal degeneration produces progressive field constriction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007994\"}}, {\"id\": \"Photoreceptor outer segment loss on macular OCT\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macular OCT can show progressive loss of outer-segment structure and outer-nuclear-layer thinning.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030610\"}}, {\"id\": \"Photoreceptor outer-segment cargo and lipid dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The photoreceptor outer segment is a specialized cilium with continuous membrane renewal. BBSome loss destabilizes the complex, permits accumulation of membrane-associated cargo, and disrupts lipid and cholesterol composition. Early visual dysfunction can precede overt outer-segment disorganization.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"photoreceptor cell\"], \"locations\": [\"retina\"]}}, {\"id\": \"Progressive rod-first photoreceptor degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rod-predominant degeneration produces the characteristic rod-cone electrophysiologic pattern, night blindness, and peripheral field loss. Ongoing disease later compromises cones, macular structure, and central visual acuity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"rod photoreceptor cell\", \"cone photoreceptor cell\"], \"locations\": [\"retina\"]}}, {\"id\": \"Progressive visual loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual function declines over years to decades as retinal degeneration advances.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000529\"}}, {\"id\": \"Rod-cone dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A rod-predominant inherited retinal dystrophy with later cone involvement is the defining manifestation of this class.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000510\"}}, {\"id\": \"Secondary cone and macular structural loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Later cone involvement and macular thinning reduce central acuity. Photoreceptor outer-segment loss is visible on OCT, while cystoid macular edema can add a potentially treatable cause of central visual impairment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cone photoreceptor cell\"], \"locations\": [\"retina\"]}}, {\"id\": \"TTC8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TTC8\"], \"gene_terms\": [{\"label\": \"TTC8\", \"id\": \"hgnc:20087\"}], \"association\": \"Pathogenic biallelic variants, including a retina-specific splice allele\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central acuity becomes impaired with cone and macular involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Partial or retina-selective BBSome dysfunction\", \"target\": \"Photoreceptor outer-segment cargo and lipid dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced BBSome function disturbs the composition and homeostasis of the photoreceptor outer segment.\"}, {\"source\": \"Photoreceptor outer-segment cargo and lipid dysregulation\", \"target\": \"Progressive rod-first photoreceptor degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent outer-segment homeostatic failure leads to progressive photoreceptor degeneration.\"}, {\"source\": \"Progressive rod-first photoreceptor degeneration\", \"target\": \"Rod-cone dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rod-first loss with secondary cone involvement defines the clinical retinal dystrophy.\"}, {\"source\": \"Progressive rod-first photoreceptor degeneration\", \"target\": \"Nyctalopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rod dysfunction impairs vision under low-light conditions.\"}, {\"source\": \"Progressive rod-first photoreceptor degeneration\", \"target\": \"Peripheral visual field loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive rod-rich peripheral retinal disease constricts the visual field.\"}, {\"source\": \"Progressive rod-first photoreceptor degeneration\", \"target\": \"Abnormal electroretinogram\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rod-cone dysfunction reduces or extinguishes full-field ERG responses.\"}, {\"source\": \"Progressive rod-first photoreceptor degeneration\", \"target\": \"Bone spicule pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic photoreceptor and retinal-pigment-epithelium injury produces characteristic pigment migration.\"}, {\"source\": \"Progressive rod-first photoreceptor degeneration\", \"target\": \"Secondary cone and macular structural loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continuing rod-cone degeneration extends to central retinal structure and function.\"}, {\"source\": \"Secondary cone and macular structural loss\", \"target\": \"Progressive visual loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive central structural loss worsens vision over years.\"}, {\"source\": \"Secondary cone and macular structural loss\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macular and cone involvement reduce central visual function.\"}, {\"source\": \"Secondary cone and macular structural loss\", \"target\": \"Photoreceptor outer segment loss on macular OCT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Outer-retinal structural loss is visible on macular OCT.\"}, {\"source\": \"Secondary cone and macular structural loss\", \"target\": \"Cystoid macular edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cystoid macular edema can superimpose additional central visual dysfunction.\"}, {\"source\": \"Low-vision rehabilitation and adaptive support\", \"target\": \"Progressive visual loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low-vision rehabilitation and adaptive support\", \"target\": \"Peripheral visual field loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmic surveillance and complication management\", \"target\": \"Cystoid macular edema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmic surveillance and complication management\", \"target\": \"Progressive visual loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ARL6\", \"target\": \"Partial or retina-selective BBSome dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TTC8\", \"target\": \"Partial or retina-selective BBSome dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BBS1\", \"target\": \"Partial or retina-selective BBSome dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BBS2\", \"target\": \"Partial or retina-selective BBSome dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BBS9\", \"target\": \"Partial or retina-selective BBSome dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARL6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARL6\"], \"gene_terms\": [{\"label\": \"ARL6\", \"id\": \"hgnc:13210\"}], \"association\": \"Pathogenic biallelic variants, including the retina-selective p.Ala89Val effect\"}}, {\"id\": \"Abnormal electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Full-field ERG usually demonstrates rod-cone dysfunction and may become non-recordable.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000512\"}}, {\"id\": \"BBS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BBS1\"], \"gene_terms\": [{\"label\": \"BBS1\", \"id\": \"hgnc:966\"}], \"association\": \"Pathogenic biallelic variants at the mild end of the BBS1 allelic spectrum\"}}, {\"id\": \"BBS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BBS2\"], \"gene_terms\": [{\"label\": \"BBS2\", \"id\": \"hgnc:967\"}], \"association\": \"Pathogenic biallelic variants, especially reported missense combinations\"}}, {\"id\": \"BBS9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BBS9\"], \"gene_terms\": [{\"label\": \"BBS9\", \"id\": \"hgnc:30000\"}], \"association\": \"Pathogenic biallelic variants, including a hypomorphic splice-affecting allele\"}}, {\"id\": \"Bbs1 p.Met390Arg knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The recurrent human BBS1 allele produces retinal degeneration in mice. TUDCA preserved ERG and outer-nuclear-layer measures in this model, but the experiment is preclinical and does not establish a human treatment.\"}, {\"id\": \"Bbs8 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Bbs8 loss alters retinal-pigment-epithelium transcript and protein expression before and during retinal degeneration, broadening the cellular context beyond photoreceptors.\"}, {\"id\": \"Bone spicule pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mid-peripheral bone-spicule pigmentation is a characteristic later fundus sign.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007737\"}}, {\"id\": \"Cystoid macular edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cystoid macular edema is a potentially treatable complication that can worsen central vision.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011505\"}}, {\"id\": \"Low-vision rehabilitation and adaptive support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Magnification, contrast and lighting optimization, orientation and mobility training, educational or workplace accommodations, and assistive technology are individualized as acuity and field loss progress.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nyctalopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Night blindness is an early functional consequence of rod dysfunction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000662\"}}, {\"id\": \"Ophthalmic surveillance and complication management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Serial acuity, visual-field, OCT, and examination assessments document progression and detect potentially treatable contributors such as cystoid macular edema or cataract. Management should be individualized by a retinal specialist; surveillance is not a disease-modifying treatment.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Partial or retina-selective BBSome dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic mild, hypomorphic, or retina-selective alleles reduce BBSome function in photoreceptors. The precise allele mechanism differs by locus: retina-specific splicing is established for TTC8, a visual-function-selective effect for ARL6 p.Ala89Val, a noncoding splice defect for BBS1, missense associations for BBS2, and partial aberrant splicing for BBS9.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"protein localization to cilium\"], \"genes\": [\"ARL6\", \"TTC8\", \"BBS1\", \"BBS2\", \"BBS9\"], \"gene_terms\": [{\"label\": \"ARL6\", \"id\": \"hgnc:13210\"}, {\"label\": \"TTC8\", \"id\": \"hgnc:20087\"}, {\"label\": \"BBS1\", \"id\": \"hgnc:966\"}, {\"label\": \"BBS2\", \"id\": \"hgnc:967\"}, {\"label\": \"BBS9\", \"id\": \"hgnc:30000\"}], \"animal_models\": [{\"name\": \"Zebrafish bbs3 knockdown with BBS3L p.Ala89Val rescue\", \"species\": \"Danio rerio\", \"genotype\": \"bbs3 knockdown with BBS3 or BBS3L p.Ala89Val rescue constructs\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Rescue assays separate a preserved general intracellular-transport function of BBS3 A89V from its failure to restore vision, reproducing the allele-specific, retina-restricted deficit this node describes.\"}, {\"name\": \"Bbs8 knockout mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Bbs8 knockout\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"Complete Bbs8 (TTC8) loss perturbs BBSome function in the retina; the reported readouts are retinal-pigment-epithelium expression, polarity and morphology changes rather than photoreceptor cargo.\"}]}}, {\"id\": \"Peripheral visual field loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rod-rich peripheral retinal degeneration produces progressive field constriction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007994\"}}, {\"id\": \"Photoreceptor outer segment loss on macular OCT\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macular OCT can show progressive loss of outer-segment structure and outer-nuclear-layer thinning.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030610\"}}, {\"id\": \"Photoreceptor outer-segment cargo and lipid dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The photoreceptor outer segment is a specialized cilium with continuous membrane renewal. BBSome loss destabilizes the complex, permits accumulation of membrane-associated cargo, and disrupts lipid and cholesterol composition. Early visual dysfunction can precede overt outer-segment disorganization.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"photoreceptor cell\"], \"locations\": [\"retina\"], \"animal_models\": [{\"name\": \"Zebrafish bbs1 null mutant\", \"species\": \"Danio rerio\", \"genotype\": \"bbs1 null mutant\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Proteomics and lipidomics on isolated outer segments show BBSome destabilisation, membrane-protein accumulation and raised cholesterol after Bbs1 loss, the cargo and lipid disturbance this node describes.\"}]}}, {\"id\": \"Progressive rod-first photoreceptor degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rod-predominant degeneration produces the characteristic rod-cone electrophysiologic pattern, night blindness, and peripheral field loss. Ongoing disease later compromises cones, macular structure, and central visual acuity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"rod photoreceptor cell\", \"cone photoreceptor cell\"], \"locations\": [\"retina\"], \"animal_models\": [{\"name\": \"Zebrafish bbs1 null mutant\", \"species\": \"Danio rerio\", \"genotype\": \"bbs1 null mutant\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Early visual deficits precede progressive outer-segment morphological anomalies, reproducing the degenerative sequence but not its rod-first order.\"}, {\"name\": \"Bbs1 p.Met390Arg knock-in mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Bbs1 p.Met390Arg homozygous knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The recurrent human BBS1 allele in a rod-dominant mouse retina loses ERG b-wave amplitude and outer-nuclear-layer thickness, the degeneration this node describes, and the TUDCA arm shows the process is modifiable.\"}]}}, {\"id\": \"Progressive visual loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual function declines over years to decades as retinal degeneration advances.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000529\"}}, {\"id\": \"Rod-cone dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A rod-predominant inherited retinal dystrophy with later cone involvement is the defining manifestation of this class.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000510\"}}, {\"id\": \"Secondary cone and macular structural loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Later cone involvement and macular thinning reduce central acuity. Photoreceptor outer-segment loss is visible on OCT, while cystoid macular edema can add a potentially treatable cause of central visual impairment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cone photoreceptor cell\"], \"locations\": [\"retina\"], \"animal_models\": [{\"name\": \"Zebrafish bbs2 homozygous mutant\", \"species\": \"Danio rerio\", \"genotype\": \"bbs2 homozygous mutant\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Adult bbs2 mutants lose cone photoreceptors progressively with microglial activation, matching the cone loss this node describes but not its sequence after rod loss.\"}]}}, {\"id\": \"TTC8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TTC8\"], \"gene_terms\": [{\"label\": \"TTC8\", \"id\": \"hgnc:20087\"}], \"association\": \"Pathogenic biallelic variants, including a retina-specific splice allele\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central acuity becomes impaired with cone and macular involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000505\"}}, {\"id\": \"Zebrafish bbs1 null mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Bbs1 loss destabilizes the BBSome in outer segments, changes protein and lipid composition, produces early functional deficits, and later causes outer-segment disorganization and retinal degeneration.\"}, {\"id\": \"Zebrafish bbs2 homozygous mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Adult mutant retinas undergo progressive cone loss with inflammatory and stress-response activation and fail to mount an effective regenerative response.\"}, {\"id\": \"Zebrafish bbs3 knockdown with BBS3L p.Ala89Val rescue\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Zebrafish rescue assays separate a preserved general transport function from failure to rescue visual impairment by BBS3L p.Ala89Val, modeling the retina-selective ARL6 allele effect.\"}], \"edges\": [{\"source\": \"Partial or retina-selective BBSome dysfunction\", \"target\": \"Photoreceptor outer-segment cargo and lipid dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced BBSome function disturbs the composition and homeostasis of the photoreceptor outer segment.\"}, {\"source\": \"Photoreceptor outer-segment cargo and lipid dysregulation\", \"target\": \"Progressive rod-first photoreceptor degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent outer-segment homeostatic failure leads to progressive photoreceptor degeneration.\"}, {\"source\": \"Progressive rod-first photoreceptor degeneration\", \"target\": \"Rod-cone dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rod-first loss with secondary cone involvement defines the clinical retinal dystrophy.\"}, {\"source\": \"Progressive rod-first photoreceptor degeneration\", \"target\": \"Nyctalopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rod dysfunction impairs vision under low-light conditions.\"}, {\"source\": \"Progressive rod-first photoreceptor degeneration\", \"target\": \"Peripheral visual field loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive rod-rich peripheral retinal disease constricts the visual field.\"}, {\"source\": \"Progressive rod-first photoreceptor degeneration\", \"target\": \"Abnormal electroretinogram\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rod-cone dysfunction reduces or extinguishes full-field ERG responses.\"}, {\"source\": \"Progressive rod-first photoreceptor degeneration\", \"target\": \"Bone spicule pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic photoreceptor and retinal-pigment-epithelium injury produces characteristic pigment migration.\"}, {\"source\": \"Progressive rod-first photoreceptor degeneration\", \"target\": \"Secondary cone and macular structural loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continuing rod-cone degeneration extends to central retinal structure and function.\"}, {\"source\": \"Secondary cone and macular structural loss\", \"target\": \"Progressive visual loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive central structural loss worsens vision over years.\"}, {\"source\": \"Secondary cone and macular structural loss\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macular and cone involvement reduce central visual function.\"}, {\"source\": \"Secondary cone and macular structural loss\", \"target\": \"Photoreceptor outer segment loss on macular OCT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Outer-retinal structural loss is visible on macular OCT.\"}, {\"source\": \"Secondary cone and macular structural loss\", \"target\": \"Cystoid macular edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cystoid macular edema can superimpose additional central visual dysfunction.\"}, {\"source\": \"Low-vision rehabilitation and adaptive support\", \"target\": \"Progressive visual loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low-vision rehabilitation and adaptive support\", \"target\": \"Peripheral visual field loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmic surveillance and complication management\", \"target\": \"Cystoid macular edema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmic surveillance and complication management\", \"target\": \"Progressive visual loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Zebrafish bbs3 knockdown with BBS3L p.Ala89Val rescue\", \"target\": \"Partial or retina-selective BBSome dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Rescue assays separate a preserved general intracellular-transport function of BBS3 A89V from its failure to restore vision, reproducing the allele-specific, retina-restricted deficit this node describes.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Transient morpholino knockdown in larval zebrafish with overexpressed rescue constructs; the readout is a visual behaviour rather than photoreceptor histology, and BBSome assembly is not assayed directly.\"}, {\"source\": \"Zebrafish bbs1 null mutant\", \"target\": \"Photoreceptor outer-segment cargo and lipid dysregulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Proteomics and lipidomics on isolated outer segments show BBSome destabilisation, membrane-protein accumulation and raised cholesterol after Bbs1 loss, the cargo and lipid disturbance this node describes.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Complete Bbs1 null in a cone-dominant zebrafish retina; the human non-syndromic alleles are hypomorphic, and outer-segment lipid handling may differ between fish and human photoreceptors.\"}, {\"source\": \"Zebrafish bbs1 null mutant\", \"target\": \"Progressive rod-first photoreceptor degeneration\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Early visual deficits precede progressive outer-segment morphological anomalies, reproducing the degenerative sequence but not its rod-first order.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Zebrafish retina is cone-dominant and regenerates, so the rod-first progression and irreversibility that define the human node are not modelled; the abstract reports morphological anomalies rather than photoreceptor loss.\"}, {\"source\": \"Bbs1 p.Met390Arg knock-in mouse\", \"target\": \"Progressive rod-first photoreceptor degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The recurrent human BBS1 allele in a rod-dominant mouse retina loses ERG b-wave amplitude and outer-nuclear-layer thickness, the degeneration this node describes, and the TUDCA arm shows the process is modifiable.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mice lack a macula and degenerate faster than human RP, and the M390R allele is syndromic in mice, so the model does not isolate the non-syndromic presentation. The cited abstract reports degeneration through the treated-versus-control contrast rather than a natural-history series.\"}, {\"source\": \"Bbs8 knockout mouse\", \"target\": \"Partial or retina-selective BBSome dysfunction\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Complete Bbs8 (TTC8) loss perturbs BBSome function in the retina; the reported readouts are retinal-pigment-epithelium expression, polarity and morphology changes rather than photoreceptor cargo.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"A syndromic complete null, not the hypomorphic or retina-selective allele the node describes, and the measurements are made in the RPE, a compartment the entry\u0027s pathograph does not model.\"}, {\"source\": \"Zebrafish bbs2 homozygous mutant\", \"target\": \"Secondary cone and macular structural loss\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Adult bbs2 mutants lose cone photoreceptors progressively with microglial activation, matching the cone loss this node describes but not its sequence after rod loss.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Zebrafish have a cone-rich retina without a macula, so cone loss here is primary rather than secondary to rod degeneration; the zebrafish retina can normally regenerate, a capacity humans lack, although these mutants fail to mount that response.\"}, {\"source\": \"ARL6\", \"target\": \"Partial or retina-selective BBSome dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TTC8\", \"target\": \"Partial or retina-selective BBSome dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BBS1\", \"target\": \"Partial or retina-selective BBSome dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BBS2\", \"target\": \"Partial or retina-selective BBSome dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BBS9\", \"target\": \"Partial or retina-selective BBSome dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6011,34 +6213,18 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(6)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(3)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-rod-cone-dystrophy" data-dismech-node="Rod-cone dystrophy" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Rod-cone dystrophy
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Eye
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-rod-cone-dystrophy" data-dismech-node="Rod-cone dystrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Rod-cone dystrophy
-
-
+                    <span class="phenotype-category">Ocular</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6050,7 +6236,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is rod-cone dystrophy (HP:0000510). HP:0000510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6070,6 +6259,7 @@ This clinical feature is rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6094,21 +6284,21 @@ This clinical feature is rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nyctalopia" data-dismech-node="Nyctalopia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nyctalopia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-nyctalopia" data-dismech-node="Nyctalopia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Nyctalopia
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
+                    <span class="phenotype-category">Ocular</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6120,7 +6310,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6140,6 +6333,7 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6164,15 +6358,16 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-electroretinogram" data-dismech-node="Abnormal electroretinogram" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal electroretinogram
+            <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-visual-field-loss" data-dismech-node="Peripheral visual field loss" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Peripheral visual field loss
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
+                    <span class="phenotype-category">Ocular</span>
 
 
 
@@ -6181,16 +6376,92 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000512</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007994" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007994</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral visual field loss (HP:0007994). HP:0007994 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:791" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:791" target="_blank">ORPHA:791</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0007994 | Peripheral visual field loss | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Provides broad RP frequency support.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-electroretinogram" data-dismech-node="Abnormal electroretinogram" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Abnormal electroretinogram
+
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+                    <span class="phenotype-category">Ocular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000512</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6210,6 +6481,7 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6237,6 +6509,7 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6258,83 +6531,16 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
 
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-visual-loss" data-dismech-node="Progressive visual loss" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive visual loss
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000529" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000529</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42022048" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42022048" target="_blank">PMID:42022048</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The median BCVA was 0.47 logarithm of minimum angle of resolution (LogMAR) (interquartile range 0.3-0.8) at baseline and 1.3 LogMAR (interquartile range 0.7-2.4) at follow-up, with an average decline of 0.05 LogMAR/year."</div>
-
-
-                <div class="evidence-explanation">Quantifies progressive acuity loss in BBS1 retinopathy.</div>
-
-
-
             </div>
 
+            <div class="item-box phenotype-box anchor-target" id="phenotype-bone-spicule-pigmentation" data-dismech-node="Bone spicule pigmentation" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Bone spicule pigmentation
 
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-visual-impairment" data-dismech-node="Visual impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Visual impairment
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+                    <span class="phenotype-category">Ocular</span>
 
 
 
@@ -6343,237 +6549,18 @@ This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a p
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007737" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0007737</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:791" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:791" target="_blank">ORPHA:791</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000505 | Visual impairment | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Provides broad RP frequency support.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-photoreceptor-outer-segment-loss-on-macular-oct" data-dismech-node="Photoreceptor outer segment loss on macular OCT" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Photoreceptor outer segment loss on macular OCT
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030610" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0030610</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Photoreceptor outer segment loss on macular OCT (HP:0030610). HP:0030610 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:791" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:791" target="_blank">ORPHA:791</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0030610 | Photoreceptor outer segment loss on macular OCT | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Provides broad RP frequency support.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-visual-field-loss" data-dismech-node="Peripheral visual field loss" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Peripheral visual field loss
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007994" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0007994</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral visual field loss (HP:0007994). HP:0007994 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:791" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:791" target="_blank">ORPHA:791</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0007994 | Peripheral visual field loss | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Provides broad RP frequency support.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-spicule-pigmentation" data-dismech-node="Bone spicule pigmentation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bone spicule pigmentation
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Spicular pigmentation of the retina</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007737" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0007737</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Bone spicule pigmentation of the retina, annotated with Spicular pigmentation of the retina (HP:0007737). HP:0007737 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6593,6 +6580,7 @@ This clinical feature is Bone spicule pigmentation of the retina, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6617,15 +6605,14 @@ This clinical feature is Bone spicule pigmentation of the retina, annotated with
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cystoid-macular-edema" data-dismech-node="Cystoid macular edema" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cystoid macular edema
-
-                        <span class="phenotype-freq">FREQUENT</span>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-visual-loss" data-dismech-node="Progressive visual loss" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Progressive visual loss
 
 
+                    <span class="phenotype-category">Ocular</span>
 
 
 
@@ -6634,16 +6621,92 @@ This clinical feature is Bone spicule pigmentation of the retina, annotated with
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0000529" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000529</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011505</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cystoid macular edema (HP:0011505). HP:0011505 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42022048" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42022048" target="_blank">PMID:42022048</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The median BCVA was 0.47 logarithm of minimum angle of resolution (LogMAR) (interquartile range 0.3-0.8) at baseline and 1.3 LogMAR (interquartile range 0.7-2.4) at follow-up, with an average decline of 0.05 LogMAR/year."</div>
+
+
+                <div class="evidence-explanation">Quantifies progressive acuity loss in BBS1 retinopathy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-visual-impairment" data-dismech-node="Visual impairment" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Visual impairment
+
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+                    <span class="phenotype-category">Ocular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000505</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
 
 
 
@@ -6663,6 +6726,155 @@ This clinical feature is Cystoid macular edema (HP:0011505). HP:0011505 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000505 | Visual impairment | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Provides broad RP frequency support.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-photoreceptor-outer-segment-loss-on-macular-oct" data-dismech-node="Photoreceptor outer segment loss on macular OCT" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Photoreceptor outer segment loss on macular OCT
+
+                    <span class="phenotype-freq">FREQUENT</span>
+
+
+                    <span class="phenotype-category">Ocular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030610" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0030610</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Photoreceptor outer segment loss on macular OCT (HP:0030610). HP:0030610 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:791" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:791" target="_blank">ORPHA:791</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0030610 | Photoreceptor outer segment loss on macular OCT | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Provides broad RP frequency support.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-cystoid-macular-edema" data-dismech-node="Cystoid macular edema" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Cystoid macular edema
+
+                    <span class="phenotype-freq">FREQUENT</span>
+
+
+                    <span class="phenotype-category">Ocular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011505</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cystoid macular edema (HP:0011505). HP:0011505 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:791" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:791" target="_blank">ORPHA:791</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6687,34 +6899,8 @@ This clinical feature is Cystoid macular edema (HP:0011505). HP:0011505 is a phe
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -6761,6 +6947,9 @@ This disease-associated gene is ARL6 (hgnc:13210). hgnc:13210 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6775,6 +6964,7 @@ This disease-associated gene is ARL6 (hgnc:13210). hgnc:13210 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6832,6 +7022,9 @@ This disease-associated gene is TTC8 (hgnc:20087). hgnc:20087 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6846,6 +7039,7 @@ This disease-associated gene is TTC8 (hgnc:20087). hgnc:20087 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6870,6 +7064,7 @@ This disease-associated gene is TTC8 (hgnc:20087). hgnc:20087 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6927,6 +7122,9 @@ This disease-associated gene is BBS1 (hgnc:966). hgnc:966 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6941,6 +7139,7 @@ This disease-associated gene is BBS1 (hgnc:966). hgnc:966 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6965,6 +7164,7 @@ This disease-associated gene is BBS1 (hgnc:966). hgnc:966 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7022,6 +7222,9 @@ This disease-associated gene is BBS2 (hgnc:967). hgnc:967 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7036,6 +7239,7 @@ This disease-associated gene is BBS2 (hgnc:967). hgnc:967 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7060,6 +7264,7 @@ This disease-associated gene is BBS2 (hgnc:967). hgnc:967 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7117,6 +7322,9 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7131,6 +7339,7 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7155,6 +7364,7 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7238,6 +7448,7 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7300,6 +7511,7 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7368,6 +7580,7 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7430,6 +7643,7 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7498,6 +7712,7 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7560,6 +7775,7 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7637,6 +7853,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Magnification, contrast and lighting optimization, orientation and mobility training, educational or workplace accommodations, and assistive technology are individualized as acuity and field loss progress.</div>
 
 
@@ -7700,6 +7930,7 @@ This treatment targets Peripheral visual field loss (HP:0007994). HP:0007994 is 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7756,6 +7987,20 @@ This treatment is eye examination (NCIT:C38060). NCIT:C38060 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7824,6 +8069,7 @@ This treatment targets Progressive visual loss (HP:0000529). HP:0000529 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7845,6 +8091,7 @@ This treatment targets Progressive visual loss (HP:0000529). HP:0000529 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7909,6 +8156,20 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling addresses autosomal recessive recurrence, carrier testing, reproductive options, the gene-specific allelic spectrum, and uncertainty about later systemic BBS manifestations. Molecularly confirmed relatives should receive phenotype-appropriate evaluation.</div>
 
 
@@ -7930,6 +8191,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8040,6 +8302,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8126,6 +8389,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8218,6 +8482,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8304,6 +8569,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8396,6 +8662,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8420,6 +8687,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8441,6 +8709,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8511,6 +8780,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8532,6 +8802,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8587,6 +8858,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8608,6 +8880,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8712,6 +8985,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8780,6 +9054,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8845,6 +9120,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8942,6 +9218,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9023,6 +9300,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9130,6 +9408,7 @@ This clinical trial targets Progressive visual loss (HP:0000529). HP:0000529 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9234,6 +9513,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Not linked to a pathograph node: the cited report characterises pluripotency only and reports no retinal differentiation or BBSome readout, so there is no mechanism claim for a modeled_mechanisms link to carry. Linking it would assert a model result that has not been published.</div>
+
 
 
     <details class="evidence-details">
@@ -9250,6 +9531,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9344,6 +9626,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Not linked to a pathograph node: the cited report characterises pluripotency only and reports no retinal differentiation or BBSome readout, so there is no mechanism claim for a modeled_mechanisms link to carry. Linking it would assert a model result that has not been published.</div>
+
 
 
     <details class="evidence-details">
@@ -9360,6 +9644,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9397,9 +9682,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
             </div>
 
 
-            <div class="item-box exp-model-box anchor-target" id="animal-model-bbs3-knockdown-with-bbs3-or-bbs3l-p-ala89val-rescue-constructs-danio-rerio" data-dismech-node="bbs3 knockdown with BBS3 or BBS3L p.Ala89Val rescue constructs Danio rerio" data-dismech-type="animal_model">
+            <div class="item-box exp-model-box anchor-target" id="animal-model-zebrafish-bbs3-knockdown-with-bbs3l-p-ala89val-rescue" data-dismech-node="Zebrafish bbs3 knockdown with BBS3L p.Ala89Val rescue" data-dismech-type="animal_model">
                 <div class="item-name">
-                    bbs3 knockdown with BBS3 or BBS3L p.Ala89Val rescue constructs Danio rerio
+                    Zebrafish bbs3 knockdown with BBS3L p.Ala89Val rescue
 
                 </div>
 
@@ -9436,6 +9721,193 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-partial-or-retina-selective-bbsome-dysfunction">Partial or retina-selective BBSome dysfunction</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">Rescue assays separate a preserved general intracellular-transport function of BBS3 A89V from its failure to restore vision, reproducing the allele-specific, retina-restricted deficit this node describes.</span>
+
+
+                <div class="mapping-notes">Limitations: Transient morpholino knockdown in larval zebrafish with overexpressed rescue constructs; the readout is a visual behaviour rather than photoreceptor histology, and BBSome assembly is not assayed directly.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Intracellular transport delay after BBS3 A89V rescue</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: RESTORED</div>
+
+
+        <div class="mapping-notes">Interpretation: The A89V allele retains the general transport function lost on bbs3 knockdown.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21282186" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21282186" target="_blank">PMID:21282186</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BBS3 A89V is sufficient to rescue the transport delays induced by the loss of bbs3"</div>
+
+
+                <div class="evidence-explanation">Reports the transport-delay rescue measurement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Visual function after BBS3L A89V rescue</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: DECREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Vision stayed impaired despite the rescue construct, so the allele is deficient specifically for retinal function.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21282186" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21282186" target="_blank">PMID:21282186</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BBS3L A89V, however, was unable to rescue vision impairment"</div>
+
+
+                <div class="evidence-explanation">Reports the failed vision rescue measurement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21282186" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21282186" target="_blank">PMID:21282186</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we find that BBS3 A89V is sufficient to rescue the transport delays induced by the loss of bbs3, indicating that this mutation does not affect the function of BBS3 as it relates to syndromic disease. BBS3L A89V, however, was unable to rescue vision impairment, highlighting a role for a..."</div>
+
+
+                <div class="evidence-explanation">The paired rescue assays show the allele is functional for the syndromic transport role and deficient only for vision, which is the retina-selective dysfunction the node asserts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9454,6 +9926,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9478,9 +9951,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
             </div>
 
 
-            <div class="item-box exp-model-box anchor-target" id="animal-model-bbs1-null-mutant-danio-rerio" data-dismech-node="bbs1 null mutant Danio rerio" data-dismech-type="animal_model">
+            <div class="item-box exp-model-box anchor-target" id="animal-model-zebrafish-bbs1-null-mutant" data-dismech-node="Zebrafish bbs1 null mutant" data-dismech-type="animal_model">
                 <div class="item-name">
-                    bbs1 null mutant Danio rerio
+                    Zebrafish bbs1 null mutant
 
                 </div>
 
@@ -9521,6 +9994,313 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-photoreceptor-outer-segment-cargo-and-lipid-dysregulation">Photoreceptor outer-segment cargo and lipid dysregulation</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">Proteomics and lipidomics on isolated outer segments show BBSome destabilisation, membrane-protein accumulation and raised cholesterol after Bbs1 loss, the cargo and lipid disturbance this node describes.</span>
+
+
+                <div class="mapping-notes">Limitations: Complete Bbs1 null in a cone-dominant zebrafish retina; the human non-syndromic alleles are hypomorphic, and outer-segment lipid handling may differ between fish and human photoreceptors.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Outer-segment membrane-protein accumulation</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Membrane-associated proteins, enriched for lipid-homeostasis factors, accumulate in outer segments lacking a stable BBSome.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35277505" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35277505" target="_blank">PMID:35277505</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bbs1-loss leads to accumulation of membrane-associated proteins in OSs, with enrichment in proteins involved in lipid homeostasis"</div>
+
+
+                <div class="evidence-explanation">Reports the outer-segment proteomic measurement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Outer-segment cholesterol content</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Outer-segment lipid composition is disrupted with excess cholesterol.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35277505" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35277505" target="_blank">PMID:35277505</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disruption of the tightly regulated OS lipid composition with increased OS cholesterol content are paralleled by early functional visual deficits, which precede progressive OS morphological anomalies."</div>
+
+
+                <div class="evidence-explanation">Reports the outer-segment lipidomic measurement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35277505" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35277505" target="_blank">PMID:35277505</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Quantitative proteomics and lipidomics on samples enriched for isolated OSs show that Bbs1 is required for BBSome-complex stability and that Bbs1-loss leads to accumulation of membrane-associated proteins in OSs, with enrichment in proteins involved in lipid homeostasis."</div>
+
+
+                <div class="evidence-explanation">Direct measurement of outer-segment cargo and lipid composition in the model, which is the primary source for this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-progressive-rod-first-photoreceptor-degeneration">Progressive rod-first photoreceptor degeneration</a>
+
+                <span class="crosslink-meta">partially recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: low</span>
+
+
+                <span class="crosslink-desc">Early visual deficits precede progressive outer-segment morphological anomalies, reproducing the degenerative sequence but not its rod-first order.</span>
+
+
+                <div class="mapping-notes">Limitations: Zebrafish retina is cone-dominant and regenerates, so the rod-first progression and irreversibility that define the human node are not modelled; the abstract reports morphological anomalies rather than photoreceptor loss.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Visual function</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: DECREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Functional visual deficits appear early, before structural change.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35277505" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35277505" target="_blank">PMID:35277505</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"early functional visual deficits, which precede progressive OS morphological anomalies"</div>
+
+
+                <div class="evidence-explanation">Reports the functional visual measurement and its timing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35277505" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35277505" target="_blank">PMID:35277505</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disruption of the tightly regulated OS lipid composition with increased OS cholesterol content are paralleled by early functional visual deficits, which precede progressive OS morphological anomalies."</div>
+
+
+                <div class="evidence-explanation">Functional then structural photoreceptor decline in the model supports the degeneration node only in part, because the rod-first order is not demonstrated in a cone-rich retina.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9539,6 +10319,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9563,9 +10344,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
             </div>
 
 
-            <div class="item-box exp-model-box anchor-target" id="animal-model-bbs1-p-met390arg-homozygous-knock-in-mus-musculus" data-dismech-node="Bbs1 p.Met390Arg homozygous knock-in Mus musculus" data-dismech-type="animal_model">
+            <div class="item-box exp-model-box anchor-target" id="animal-model-bbs1-p-met390arg-knock-in-mouse" data-dismech-node="Bbs1 p.Met390Arg knock-in mouse" data-dismech-type="animal_model">
                 <div class="item-name">
-                    Bbs1 p.Met390Arg homozygous knock-in Mus musculus
+                    Bbs1 p.Met390Arg knock-in mouse
 
                 </div>
 
@@ -9604,6 +10385,135 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-progressive-rod-first-photoreceptor-degeneration">Progressive rod-first photoreceptor degeneration</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">The recurrent human BBS1 allele in a rod-dominant mouse retina loses ERG b-wave amplitude and outer-nuclear-layer thickness, the degeneration this node describes, and the TUDCA arm shows the process is modifiable.</span>
+
+
+                <div class="mapping-notes">Limitations: Mice lack a macula and degenerate faster than human RP, and the M390R allele is syndromic in mice, so the model does not isolate the non-syndromic presentation. The cited abstract reports degeneration through the treated-versus-control contrast rather than a natural-history series.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">ERG b-wave amplitude and outer nuclear layer thickness under TUDCA</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: RESTORED</div>
+
+
+        <div class="mapping-notes">Interpretation: Bile-acid treatment preserved retinal function and outer-nuclear-layer structure relative to vehicle-treated mutants.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22110077" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22110077" target="_blank">PMID:22110077</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Histologically, outer segments were preserved, and the outer nuclear layer was significantly thicker in the treated Bbs1 and rd10 mice than in the controls."</div>
+
+
+                <div class="evidence-explanation">Reports the histological measurement behind this readout.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22110077" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22110077" target="_blank">PMID:22110077</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TUDCA treatment preserved ERG b-waves and the outer nuclear layer in Bbs1(M390R/M390R) mice, and prevented obesity assessed at P120."</div>
+
+
+                <div class="evidence-explanation">Preservation under treatment implies loss of ERG b-wave and outer nuclear layer in untreated mutants, which is the degeneration the node asserts; the inference runs through the treatment contrast.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9622,6 +10532,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9646,9 +10557,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
             </div>
 
 
-            <div class="item-box exp-model-box anchor-target" id="animal-model-bbs8-knockout-mus-musculus" data-dismech-node="Bbs8 knockout Mus musculus" data-dismech-type="animal_model">
+            <div class="item-box exp-model-box anchor-target" id="animal-model-bbs8-knockout-mouse" data-dismech-node="Bbs8 knockout mouse" data-dismech-type="animal_model">
                 <div class="item-name">
-                    Bbs8 knockout Mus musculus
+                    Bbs8 knockout mouse
 
                 </div>
 
@@ -9685,6 +10596,193 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-partial-or-retina-selective-bbsome-dysfunction">Partial or retina-selective BBSome dysfunction</a>
+
+                <span class="crosslink-meta">perturbs</span>
+
+
+                <span class="crosslink-meta">fidelity: low</span>
+
+
+                <span class="crosslink-desc">Complete Bbs8 (TTC8) loss perturbs BBSome function in the retina; the reported readouts are retinal-pigment-epithelium expression, polarity and morphology changes rather than photoreceptor cargo.</span>
+
+
+                <div class="mapping-notes">Limitations: A syndromic complete null, not the hypomorphic or retina-selective allele the node describes, and the measurements are made in the RPE, a compartment the entry&#39;s pathograph does not model.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">RPE gene and protein expression</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: ALTERED</div>
+
+
+        <div class="mapping-notes">Interpretation: Signalling and developmental pathways change first, then RPE homeostasis and function.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33681195" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33681195" target="_blank">PMID:33681195</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the RPE shows changes in gene and protein expression initially involved in signaling pathways and developmental processes, and at a later time point RPE homeostasis and function"</div>
+
+
+                <div class="evidence-explanation">Reports the transcriptomic and proteomic RPE measurement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">RPE cellular polarization and morphology</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: ALTERED</div>
+
+
+        <div class="mapping-notes">Interpretation: Cytoskeletal and adhesion changes produce defective polarization with an EMT-like appearance.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33681195" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33681195" target="_blank">PMID:33681195</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Differentially regulated molecules affecting the cytoskeleton and cellular adhesion, led to defective cellular polarization and morphology associated with a possible epithelial-to-mesenchymal transition (EMT)-like phenotype."</div>
+
+
+                <div class="evidence-explanation">Reports the RPE morphology measurement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33681195" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33681195" target="_blank">PMID:33681195</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We demonstrate that upon loss of Bbs8, predominantly thought to be a ciliary gene, the RPE shows changes in gene and protein expression initially involved in signaling pathways and developmental processes, and at a later time point RPE homeostasis and function."</div>
+
+
+                <div class="evidence-explanation">Bbs8 loss produces measurable retinal consequences, supporting the model as a perturbation of BBSome function even though its readouts sit outside the photoreceptor nodes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9703,6 +10801,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9727,9 +10826,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
             </div>
 
 
-            <div class="item-box exp-model-box anchor-target" id="animal-model-bbs2-homozygous-mutant-danio-rerio" data-dismech-node="bbs2 homozygous mutant Danio rerio" data-dismech-type="animal_model">
+            <div class="item-box exp-model-box anchor-target" id="animal-model-zebrafish-bbs2-homozygous-mutant" data-dismech-node="Zebrafish bbs2 homozygous mutant" data-dismech-type="animal_model">
                 <div class="item-name">
-                    bbs2 homozygous mutant Danio rerio
+                    Zebrafish bbs2 homozygous mutant
 
                 </div>
 
@@ -9768,6 +10867,193 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-secondary-cone-and-macular-structural-loss">Secondary cone and macular structural loss</a>
+
+                <span class="crosslink-meta">partially recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: low</span>
+
+
+                <span class="crosslink-desc">Adult bbs2 mutants lose cone photoreceptors progressively with microglial activation, matching the cone loss this node describes but not its sequence after rod loss.</span>
+
+
+                <div class="mapping-notes">Limitations: Zebrafish have a cone-rich retina without a macula, so cone loss here is primary rather than secondary to rod degeneration; the zebrafish retina can normally regenerate, a capacity humans lack, although these mutants fail to mount that response.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Cone photoreceptor number</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: DECREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Cone photoreceptors are lost progressively in adult mutant retinas.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37293546" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37293546" target="_blank">PMID:37293546</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"zebrafish carrying mutations in cep290 or bbs2 undergo progressive loss of cone photoreceptors"</div>
+
+
+                <div class="evidence-explanation">Reports the cone-loss measurement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Microglial activation and inflammatory signalling</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Degeneration is accompanied by microglial activation and inflammatory pathway upregulation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37293546" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37293546" target="_blank">PMID:37293546</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Genes in pathways associated with inflammation, apoptosis, stress response, and PDGF signaling were overrepresented."</div>
+
+
+                <div class="evidence-explanation">Reports the transcriptomic inflammation measurement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37293546" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37293546" target="_blank">PMID:37293546</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"zebrafish carrying mutations in cep290 or bbs2 undergo progressive loss of cone photoreceptors and exhibit signs of microglia activation and inflammation, but the mutants fail to stimulate a regeneration response."</div>
+
+
+                <div class="evidence-explanation">Progressive cone loss in the model supports the cone-loss node in part; the secondary, rod-first order is not reproduced.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9786,6 +11072,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11035,7 +12322,8 @@ clinical_trials:
     status. ClinicalTrials.gov describes it as Early Phase 1; represented as
     PHASE_I because the schema has no Early Phase 1 value.
 animal_models:
-- species: Danio rerio
+- name: Zebrafish bbs3 knockdown with BBS3L p.Ala89Val rescue
+  species: Danio rerio
   genotype: bbs3 knockdown with BBS3 or BBS3L p.Ala89Val rescue constructs
   description: &gt;-
     Zebrafish rescue assays separate a preserved general transport function from
@@ -11054,7 +12342,61 @@ animal_models:
       a role for a specific amino acid within BBS3 that is necessary for visual
       function, but dispensable in other cell types.
     explanation: Demonstrates a retina-selective functional deficit in vivo.
-- species: Danio rerio
+  modeled_mechanisms:
+  - target: Partial or retina-selective BBSome dysfunction
+    relationship: RECAPITULATES
+    fidelity: MODERATE
+    model_scale: ORGANISM
+    description: &gt;-
+      Rescue assays separate a preserved general intracellular-transport
+      function of BBS3 A89V from its failure to restore vision, reproducing the
+      allele-specific, retina-restricted deficit this node describes.
+    limitations: &gt;-
+      Transient morpholino knockdown in larval zebrafish with overexpressed
+      rescue constructs; the readout is a visual behaviour rather than
+      photoreceptor histology, and BBSome assembly is not assayed directly.
+    evidence:
+    - reference: PMID:21282186
+      reference_title: Functional analysis of BBS3 A89V that results in non-syndromic retinal degeneration.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Here, we find that BBS3 A89V is sufficient to rescue the transport delays
+        induced by the loss of bbs3, indicating that this mutation does not
+        affect the function of BBS3 as it relates to syndromic disease. BBS3L
+        A89V, however, was unable to rescue vision impairment, highlighting a
+        role for a specific amino acid within BBS3 that is necessary for visual
+        function, but dispensable in other cell types.
+      explanation: The paired rescue assays show the allele is functional for the syndromic
+        transport role and deficient only for vision, which is the retina-selective
+        dysfunction the node asserts.
+    readouts:
+    - name: Intracellular transport delay after BBS3 A89V rescue
+      target: Partial or retina-selective BBSome dysfunction
+      direction: RESTORED
+      interpretation: The A89V allele retains the general transport function lost on bbs3 knockdown.
+      evidence:
+      - reference: PMID:21282186
+        reference_title: Functional analysis of BBS3 A89V that results in non-syndromic retinal degeneration.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &gt;-
+          BBS3 A89V is sufficient to rescue the transport delays induced by the loss of bbs3
+        explanation: Reports the transport-delay rescue measurement.
+    - name: Visual function after BBS3L A89V rescue
+      target: Partial or retina-selective BBSome dysfunction
+      direction: DECREASED
+      interpretation: Vision stayed impaired despite the rescue construct, so the allele is deficient specifically for retinal function.
+      evidence:
+      - reference: PMID:21282186
+        reference_title: Functional analysis of BBS3 A89V that results in non-syndromic retinal degeneration.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &gt;-
+          BBS3L A89V, however, was unable to rescue vision impairment
+        explanation: Reports the failed vision rescue measurement.
+- name: Zebrafish bbs1 null mutant
+  species: Danio rerio
   genotype: bbs1 null mutant
   description: &gt;-
     Bbs1 loss destabilizes the BBSome in outer segments, changes protein and
@@ -11075,7 +12417,100 @@ animal_models:
       photoreceptor differentiation are unaffected by Bbs1-loss, supported by
       an initially unaffected transcriptome.
     explanation: Identifies the Bbs1-null zebrafish model and its initially preserved retinal development.
-- species: Mus musculus
+  modeled_mechanisms:
+  - target: Photoreceptor outer-segment cargo and lipid dysregulation
+    relationship: RECAPITULATES
+    fidelity: MODERATE
+    model_scale: MOLECULAR
+    description: &gt;-
+      Proteomics and lipidomics on isolated outer segments show BBSome
+      destabilisation, membrane-protein accumulation and raised cholesterol
+      after Bbs1 loss, the cargo and lipid disturbance this node describes.
+    limitations: &gt;-
+      Complete Bbs1 null in a cone-dominant zebrafish retina; the human
+      non-syndromic alleles are hypomorphic, and outer-segment lipid handling
+      may differ between fish and human photoreceptors.
+    evidence:
+    - reference: PMID:35277505
+      reference_title: Loss of the Bardet-Biedl protein Bbs1 alters photoreceptor outer segment protein and lipid composition.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Quantitative proteomics and lipidomics on samples enriched for isolated
+        OSs show that Bbs1 is required for BBSome-complex stability and that
+        Bbs1-loss leads to accumulation of membrane-associated proteins in OSs,
+        with enrichment in proteins involved in lipid homeostasis.
+      explanation: Direct measurement of outer-segment cargo and lipid composition in the
+        model, which is the primary source for this node.
+    readouts:
+    - name: Outer-segment membrane-protein accumulation
+      target: Photoreceptor outer-segment cargo and lipid dysregulation
+      direction: INCREASED
+      interpretation: Membrane-associated proteins, enriched for lipid-homeostasis factors, accumulate in outer segments lacking a stable BBSome.
+      evidence:
+      - reference: PMID:35277505
+        reference_title: Loss of the Bardet-Biedl protein Bbs1 alters photoreceptor outer segment protein and lipid composition.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &gt;-
+          Bbs1-loss leads to accumulation of membrane-associated proteins in OSs,
+          with enrichment in proteins involved in lipid homeostasis
+        explanation: Reports the outer-segment proteomic measurement.
+    - name: Outer-segment cholesterol content
+      target: Photoreceptor outer-segment cargo and lipid dysregulation
+      direction: INCREASED
+      interpretation: Outer-segment lipid composition is disrupted with excess cholesterol.
+      evidence:
+      - reference: PMID:35277505
+        reference_title: Loss of the Bardet-Biedl protein Bbs1 alters photoreceptor outer segment protein and lipid composition.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &gt;-
+          Disruption of the tightly regulated OS lipid composition with increased
+          OS cholesterol content are paralleled by early functional visual
+          deficits, which precede progressive OS morphological anomalies.
+        explanation: Reports the outer-segment lipidomic measurement.
+  - target: Progressive rod-first photoreceptor degeneration
+    relationship: PARTIALLY_RECAPITULATES
+    fidelity: LOW
+    model_scale: TISSUE
+    description: &gt;-
+      Early visual deficits precede progressive outer-segment morphological
+      anomalies, reproducing the degenerative sequence but not its rod-first
+      order.
+    limitations: &gt;-
+      Zebrafish retina is cone-dominant and regenerates, so the rod-first
+      progression and irreversibility that define the human node are not
+      modelled; the abstract reports morphological anomalies rather than
+      photoreceptor loss.
+    evidence:
+    - reference: PMID:35277505
+      reference_title: Loss of the Bardet-Biedl protein Bbs1 alters photoreceptor outer segment protein and lipid composition.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Disruption of the tightly regulated OS lipid composition with increased OS
+        cholesterol content are paralleled by early functional visual deficits,
+        which precede progressive OS morphological anomalies.
+      explanation: Functional then structural photoreceptor decline in the model supports the
+        degeneration node only in part, because the rod-first order is not
+        demonstrated in a cone-rich retina.
+    readouts:
+    - name: Visual function
+      target: Progressive rod-first photoreceptor degeneration
+      direction: DECREASED
+      interpretation: Functional visual deficits appear early, before structural change.
+      evidence:
+      - reference: PMID:35277505
+        reference_title: Loss of the Bardet-Biedl protein Bbs1 alters photoreceptor outer segment protein and lipid composition.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &gt;-
+          early functional visual deficits, which precede progressive OS
+          morphological anomalies
+        explanation: Reports the functional visual measurement and its timing.
+- name: Bbs1 p.Met390Arg knock-in mouse
+  species: Mus musculus
   genotype: Bbs1 p.Met390Arg homozygous knock-in
   description: &gt;-
     The recurrent human BBS1 allele produces retinal degeneration in mice.
@@ -11094,7 +12529,50 @@ animal_models:
       TUDCA treatment preserved ERG b-waves and the outer nuclear layer in
       Bbs1(M390R/M390R) mice, and prevented obesity assessed at P120.
     explanation: Demonstrates structural and functional rescue in a BBS1 allele-specific mouse model.
-- species: Mus musculus
+  modeled_mechanisms:
+  - target: Progressive rod-first photoreceptor degeneration
+    relationship: RECAPITULATES
+    fidelity: MODERATE
+    model_scale: TISSUE
+    description: &gt;-
+      The recurrent human BBS1 allele in a rod-dominant mouse retina loses ERG
+      b-wave amplitude and outer-nuclear-layer thickness, the degeneration
+      this node describes, and the TUDCA arm shows the process is modifiable.
+    limitations: &gt;-
+      Mice lack a macula and degenerate faster than human RP, and the M390R
+      allele is syndromic in mice, so the model does not isolate the
+      non-syndromic presentation. The cited abstract reports degeneration
+      through the treated-versus-control contrast rather than a natural-history
+      series.
+    evidence:
+    - reference: PMID:22110077
+      reference_title: TUDCA slows retinal degeneration in two different mouse models of retinitis pigmentosa and prevents obesity in Bardet-Biedl syndrome type 1 mice.
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        TUDCA treatment preserved ERG b-waves and the outer nuclear layer in
+        Bbs1(M390R/M390R) mice, and prevented obesity assessed at P120.
+      explanation: Preservation under treatment implies loss of ERG b-wave and outer nuclear
+        layer in untreated mutants, which is the degeneration the node asserts;
+        the inference runs through the treatment contrast.
+    readouts:
+    - name: ERG b-wave amplitude and outer nuclear layer thickness under TUDCA
+      target: Progressive rod-first photoreceptor degeneration
+      direction: RESTORED
+      interpretation: Bile-acid treatment preserved retinal function and outer-nuclear-layer structure relative to vehicle-treated mutants.
+      evidence:
+      - reference: PMID:22110077
+        reference_title: TUDCA slows retinal degeneration in two different mouse models of retinitis pigmentosa and prevents obesity in Bardet-Biedl syndrome type 1 mice.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &gt;-
+          Histologically, outer segments were preserved, and the outer nuclear
+          layer was significantly thicker in the treated Bbs1 and rd10 mice than
+          in the controls.
+        explanation: Reports the histological measurement behind this readout.
+- name: Bbs8 knockout mouse
+  species: Mus musculus
   genotype: Bbs8 knockout
   description: &gt;-
     Bbs8 loss alters retinal-pigment-epithelium transcript and protein
@@ -11113,7 +12591,78 @@ animal_models:
       ciliary gene, the RPE shows changes in gene and protein expression
       initially involved in signaling pathways and developmental processes
     explanation: Establishes molecular RPE changes after Bbs8 loss.
-- species: Danio rerio
+  modeled_mechanisms:
+  - target: Partial or retina-selective BBSome dysfunction
+    relationship: PERTURBS
+    fidelity: LOW
+    model_scale: TISSUE
+    description: &gt;-
+      Complete Bbs8 (TTC8) loss perturbs BBSome function in the retina; the
+      reported readouts are retinal-pigment-epithelium expression, polarity and
+      morphology changes rather than photoreceptor cargo.
+    limitations: &gt;-
+      A syndromic complete null, not the hypomorphic or retina-selective allele
+      the node describes, and the measurements are made in the RPE, a
+      compartment the entry&#39;s pathograph does not model.
+    divergences:
+    - divergence_type: BOUNDARY_OMISSION
+      materiality: QUALIFYING
+      description: &gt;-
+        The pathograph has no retinal-pigment-epithelium node, so the RPE
+        polarity and expression defects this model reports have no target of
+        their own; the link lands on the upstream BBSome-loss node because
+        TTC8 is one of its genes.
+    - divergence_type: CAUSE_UNREPRESENTED
+      materiality: QUALIFYING
+      description: &gt;-
+        The node describes hypomorphic or retina-selective BBSome alleles; the
+        model is a complete syndromic Bbs8 null, so the partial-loss cause the
+        node asserts is not represented in the model.
+    evidence:
+    - reference: PMID:33681195
+      reference_title: Loss of Ciliary Gene Bbs8 Results in Physiological Defects in the Retinal Pigment Epithelium.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        We demonstrate that upon loss of Bbs8, predominantly thought to be a
+        ciliary gene, the RPE shows changes in gene and protein expression
+        initially involved in signaling pathways and developmental processes,
+        and at a later time point RPE homeostasis and function.
+      explanation: Bbs8 loss produces measurable retinal consequences, supporting the model as
+        a perturbation of BBSome function even though its readouts sit outside
+        the photoreceptor nodes.
+    readouts:
+    - name: RPE gene and protein expression
+      target: Partial or retina-selective BBSome dysfunction
+      direction: ALTERED
+      interpretation: Signalling and developmental pathways change first, then RPE homeostasis and function.
+      evidence:
+      - reference: PMID:33681195
+        reference_title: Loss of Ciliary Gene Bbs8 Results in Physiological Defects in the Retinal Pigment Epithelium.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &gt;-
+          the RPE shows changes in gene and protein expression initially involved
+          in signaling pathways and developmental processes, and at a later time
+          point RPE homeostasis and function
+        explanation: Reports the transcriptomic and proteomic RPE measurement.
+    - name: RPE cellular polarization and morphology
+      target: Partial or retina-selective BBSome dysfunction
+      direction: ALTERED
+      interpretation: Cytoskeletal and adhesion changes produce defective polarization with an EMT-like appearance.
+      evidence:
+      - reference: PMID:33681195
+        reference_title: Loss of Ciliary Gene Bbs8 Results in Physiological Defects in the Retinal Pigment Epithelium.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &gt;-
+          Differentially regulated molecules affecting the cytoskeleton and cellular
+          adhesion, led to defective cellular polarization and morphology
+          associated with a possible epithelial-to-mesenchymal transition
+          (EMT)-like phenotype.
+        explanation: Reports the RPE morphology measurement.
+- name: Zebrafish bbs2 homozygous mutant
+  species: Danio rerio
   genotype: bbs2 homozygous mutant
   description: &gt;-
     Adult mutant retinas undergo progressive cone loss with inflammatory and
@@ -11133,6 +12682,59 @@ animal_models:
       of cone photoreceptors and exhibit signs of microglia activation and
       inflammation, but the mutants fail to stimulate a regeneration response.
     explanation: Defines the degenerative and inflammatory bbs2-mutant retinal phenotype.
+  modeled_mechanisms:
+  - target: Secondary cone and macular structural loss
+    relationship: PARTIALLY_RECAPITULATES
+    fidelity: LOW
+    model_scale: TISSUE
+    description: &gt;-
+      Adult bbs2 mutants lose cone photoreceptors progressively with microglial
+      activation, matching the cone loss this node describes but not its
+      sequence after rod loss.
+    limitations: &gt;-
+      Zebrafish have a cone-rich retina without a macula, so cone loss here is
+      primary rather than secondary to rod degeneration; the zebrafish retina
+      can normally regenerate, a capacity humans lack, although these mutants
+      fail to mount that response.
+    evidence:
+    - reference: PMID:37293546
+      reference_title: Comparative analysis of transcriptional changes in zebrafish cep290 and bbs2 mutants by RNA-seq reveals upregulation of inflammatory and stress-related pathways.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        zebrafish carrying mutations in cep290 or bbs2 undergo progressive loss of
+        cone photoreceptors and exhibit signs of microglia activation and
+        inflammation, but the mutants fail to stimulate a regeneration
+        response.
+      explanation: Progressive cone loss in the model supports the cone-loss node in part; the
+        secondary, rod-first order is not reproduced.
+    readouts:
+    - name: Cone photoreceptor number
+      target: Secondary cone and macular structural loss
+      direction: DECREASED
+      interpretation: Cone photoreceptors are lost progressively in adult mutant retinas.
+      evidence:
+      - reference: PMID:37293546
+        reference_title: Comparative analysis of transcriptional changes in zebrafish cep290 and bbs2 mutants by RNA-seq reveals upregulation of inflammatory and stress-related pathways.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &gt;-
+          zebrafish carrying mutations in cep290 or bbs2 undergo progressive loss of
+          cone photoreceptors
+        explanation: Reports the cone-loss measurement.
+    - name: Microglial activation and inflammatory signalling
+      target: Secondary cone and macular structural loss
+      direction: INCREASED
+      interpretation: Degeneration is accompanied by microglial activation and inflammatory pathway upregulation.
+      evidence:
+      - reference: PMID:37293546
+        reference_title: Comparative analysis of transcriptional changes in zebrafish cep290 and bbs2 mutants by RNA-seq reveals upregulation of inflammatory and stress-related pathways.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &gt;-
+          Genes in pathways associated with inflammation, apoptosis, stress
+          response, and PDGF signaling were overrepresented.
+        explanation: Reports the transcriptomic inflammation measurement.
 experimental_models:
 - name: KCi001-A BBS1 patient-derived induced pluripotent stem cell line
   experimental_model_type: CELL_LINE
@@ -11160,6 +12762,12 @@ experimental_models:
       cell (iPSC) KCi001-A from a BBS patient compound heterozygous for two
       disease causing BBS1 variants
     explanation: Establishes the genotype-defined human iPSC resource.
+  notes: &gt;-
+    Not linked to a pathograph node: the cited report characterises
+    pluripotency only and reports no retinal differentiation or BBSome
+    readout, so there is no mechanism claim for a modeled_mechanisms link to
+    carry. Linking it would assert a model result that has not been
+    published.
 - name: IBMS-iPSC-063-06 BBS2 patient-derived induced pluripotent stem cell line
   experimental_model_type: CELL_LINE
   organism:
@@ -11185,6 +12793,12 @@ experimental_models:
       IBMS-iPSC-063-06, from a patient carrying the BBS2 homologous c534 + 1G &gt; T
       mutation.
     explanation: Establishes the genotype-defined human BBS2 iPSC resource.
+  notes: &gt;-
+    Not linked to a pathograph node: the cited report characterises
+    pluripotency only and reports no retinal differentiation or BBSome
+    readout, so there is no mechanism claim for a modeled_mechanisms link to
+    carry. Linking it would assert a model result that has not been
+    published.
 datasets:
 - accession: geo:GSE144847
   title: Transcriptome profile of Bbs8/TTC8 Knockout mouse RPE Tissue
@@ -11785,7 +13399,7 @@ review_notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "BBSome-related retinitis pigmentosa", "mondoId": "MONDO:0019200", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BBSome-related_retinitis_pigmentosa", "yamlRevision": "a3bede157bb9"};
+        const OS_CONFIG = {"diseaseName": "BBSome-related retinitis pigmentosa", "mondoId": "MONDO:0019200", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BBSome-related_retinitis_pigmentosa", "yamlRevision": "288e0fd46152"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

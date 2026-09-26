@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1985,11 +2037,13 @@ This mechanism module involves decreased intestinal absorption (GO:0050892). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-epithelial-stress-and-injury" data-dismech-node="Epithelial Stress and Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelial Stress and Injury</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Immune-mediated, toxic, microbial, or treatment-related insults injure the intestinal mucosa and epithelial compartment. Across diseases, this includes crypt injury, enterocyte apoptosis, and failed epithelial renewal that destabilize the epithelial surface before overt barrier leak or malabsorptive failure becomes clinically evident.</div>
                 
@@ -2126,11 +2180,13 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             
             <div class="item-box anchor-target" id="module-pathophysiology-mlck-actomyosin-mediated-tight-junction-remodeling" data-dismech-node="MLCK/Actomyosin-Mediated Tight Junction Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">MLCK/Actomyosin-Mediated Tight Junction Remodeling</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Barrier-disrupting stimuli can activate myosin light chain kinase (MLCK), increase myosin II regulatory light chain (MLC) phosphorylation, and drive perijunctional actomyosin contraction. This remodels tight-junction architecture and primes the epithelium for increased paracellular flux.</div>
                 
@@ -2257,11 +2313,13 @@ This pathophysiological event involves actomyosin (GO:0042641). GO:0042641 is a 
             
             <div class="item-box anchor-target" id="module-pathophysiology-paracellular-barrier-leak" data-dismech-node="Paracellular Barrier Leak" data-dismech-type="pathophysiology">
                 <div class="item-name">Paracellular Barrier Leak</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Junctional remodeling and tight-junction protein loss reduce epithelial resistance and increase paracellular permeability. The result is a leak-prone surface that permits flux of solutes and luminal contents across the epithelial barrier and can directly contribute to leak-flux diarrhea.</div>
                 
@@ -2372,11 +2430,13 @@ This pathophysiological event involves decreased tight junction assembly (GO:012
             
             <div class="item-box anchor-target" id="module-pathophysiology-luminal-access-and-inflammatory-amplification" data-dismech-node="Luminal Access and Inflammatory Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Luminal Access and Inflammatory Amplification</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Increased permeability permits microbial products, dietary antigens, toxins, and other luminal contents to access the mucosa more readily. This amplifies local cytokine responses and sustains the inflammatory state, reinforcing epithelial damage and creating a self-perpetuating barrier-failure loop.</div>
                 
@@ -2508,11 +2568,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             
             <div class="item-box anchor-target" id="module-pathophysiology-villus-blunting-and-surface-loss" data-dismech-node="Villus Blunting and Surface Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Villus Blunting and Surface Loss</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Enterocyte apoptosis and impaired epithelial renewal shorten villi, reduce epithelial surface area, and diminish the absorptive interface available for nutrient and fluid uptake.</div>
                 
@@ -2586,11 +2648,13 @@ This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a 
             
             <div class="item-box anchor-target" id="module-pathophysiology-absorptive-failure-and-transport-dysregulation" data-dismech-node="Absorptive Failure and Transport Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Absorptive Failure and Transport Dysregulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Reduced absorptive surface area together with inflammatory reprogramming of epithelial transport lowers effective fluid and electrolyte absorption. In parallel, altered transporter activity promotes water retention within the intestinal lumen, coupling malabsorptive failure to diarrheal output.</div>
                 
@@ -2696,11 +2760,13 @@ This pathophysiological event involves decreased intestinal absorption (GO:00508
             
             <div class="item-box anchor-target" id="module-pathophysiology-diarrhea" data-dismech-node="Diarrhea" data-dismech-type="pathophysiology">
                 <div class="item-name">Diarrhea</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The combined effects of paracellular leak, inflammatory exudation, and reduced absorptive capacity increase stool water content and frequency. The phenotype may be driven predominantly by leak-flux or malabsorptive mechanisms, but the convergent outcome is diarrheal fluid loss.</div>
                 
@@ -2717,6 +2783,9 @@ This pathophysiological event involves decreased intestinal absorption (GO:00508
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

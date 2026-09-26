@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4038,6 +4115,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inhalation-and-intracellular-replication-in-alveolar-macrophages" data-dismech-node="Inhalation and Intracellular Replication in Alveolar Macrophages" data-dismech-type="pathophysiology">
                 <div class="item-name">Inhalation and Intracellular Replication in Alveolar Macrophages</div>
 
+
                 <div class="item-desc">Legionnaires&#39; disease results from inhalation of Legionella-contaminated aerosols followed by bacterial replication inside alveolar macrophages, where the organism establishes a replication-permissive intracellular compartment (the Legionella-containing vacuole). This obligate intracellular lifestyle is the basis for the requirement for cell-penetrant antibiotics, because beta-lactams cannot reach the cytoplasmic organism.
 </div>
 
@@ -4227,6 +4305,7 @@ This pathophysiological event involves Dot/Icm type IV secretion of effector pro
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4248,6 +4327,7 @@ This pathophysiological event involves Dot/Icm type IV secretion of effector pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4275,6 +4355,7 @@ This pathophysiological event involves Dot/Icm type IV secretion of effector pro
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4299,6 +4380,7 @@ This pathophysiological event involves Dot/Icm type IV secretion of effector pro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-flagellin-triggered-naip5-nlrc4-inflammasome-restriction" data-dismech-node="Flagellin-Triggered NAIP5/NLRC4 Inflammasome Restriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Flagellin-Triggered NAIP5/NLRC4 Inflammasome Restriction</div>
+
 
                 <div class="item-desc">Host innate immunity restricts intracellular Legionella replication through cytosolic sensing of bacterial flagellin. Flagellin is recognized by NAIP5 (BIRC1e), which nucleates the NLRC4 inflammasome, activating caspase-1 and pyroptotic death of the infected cell. In murine models this axis explains why most wild-type mouse strains are naturally non-permissive to L. pneumophila, whereas NAIP5-deficient A/J macrophages permit intracellular replication. The human relevance of this specific restriction pathway is inferred from these model-organism data.
 </div>
@@ -4436,6 +4518,7 @@ This pathophysiological event involves caspase-1-dependent pyroptotic response, 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4458,6 +4541,7 @@ This pathophysiological event involves caspase-1-dependent pyroptotic response, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-lobar-pneumonia-with-extrapulmonary-features" data-dismech-node="Severe Lobar Pneumonia with Extrapulmonary Features" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Lobar Pneumonia with Extrapulmonary Features</div>
+
 
                 <div class="item-desc">Legionella replication in the lung produces a severe lobar pneumonia that frequently requires intensive care. A characteristic feature is prominent extrapulmonary involvement — gastrointestinal and neurologic abnormalities and relative bradycardia — that helps distinguish Legionnaires&#39; disease from other community-acquired pneumonias.
 </div>
@@ -4556,6 +4640,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4577,6 +4662,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4602,6 +4688,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-requirement-for-cell-penetrant-antimicrobials" data-dismech-node="Requirement for Cell-Penetrant Antimicrobials" data-dismech-type="pathophysiology">
                 <div class="item-name">Requirement for Cell-Penetrant Antimicrobials</div>
+
 
                 <div class="item-desc">Because Legionella replicates inside host cells, effective treatment requires antibiotics that accumulate intracellularly — macrolides (e.g., azithromycin) and fluoroquinolones (e.g., levofloxacin) — whereas beta-lactams, which penetrate cells poorly, are ineffective. This pharmacokinetic gating, rather than a single enzyme target, governs drug selection.
 </div>
@@ -4675,6 +4762,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4696,6 +4784,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4723,6 +4812,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4745,6 +4835,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ribosomal-protein-synthesis-inhibition-by-macrolides" data-dismech-node="Ribosomal Protein Synthesis Inhibition by Macrolides" data-dismech-type="pathophysiology">
                 <div class="item-name">Ribosomal Protein Synthesis Inhibition by Macrolides</div>
+
 
                 <div class="item-desc">Macrolides such as azithromycin, a first-line therapy for Legionnaires&#39; disease, accumulate intracellularly and inhibit bacterial protein synthesis by binding the 50S subunit of the Legionella 70S ribosome — the conserved bacterial-translation target this node represents.
 </div>
@@ -4818,6 +4909,7 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4840,6 +4932,7 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-gyrase-and-topoisomerase-iv-inhibition-by-fluoroquinolones" data-dismech-node="DNA Gyrase and Topoisomerase IV Inhibition by Fluoroquinolones" data-dismech-type="pathophysiology">
                 <div class="item-name">DNA Gyrase and Topoisomerase IV Inhibition by Fluoroquinolones</div>
+
 
                 <div class="item-desc">Respiratory fluoroquinolones such as levofloxacin, a first-line alternative for Legionnaires&#39; disease, are cell-penetrant and kill intracellular Legionella by trapping the DNA gyrase/topoisomerase IV cleavage complex — the bactericidal fluoroquinolone target this node represents.
 </div>
@@ -4910,6 +5003,7 @@ This pathophysiological event involves DNA Topological Change (GO:0006265). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5032,6 +5126,9 @@ This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5046,6 +5143,7 @@ This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5109,6 +5207,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5123,6 +5224,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5186,6 +5288,9 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5200,6 +5305,7 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5263,6 +5369,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5277,6 +5386,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5340,6 +5450,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5354,6 +5467,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5408,6 +5522,9 @@ This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5422,6 +5539,7 @@ This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5485,6 +5603,9 @@ This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5499,6 +5620,7 @@ This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5562,6 +5684,9 @@ This clinical feature is Confusion (HP:0001289). HP:0001289 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5576,6 +5701,7 @@ This clinical feature is Confusion (HP:0001289). HP:0001289 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5600,6 +5726,7 @@ This clinical feature is Confusion (HP:0001289). HP:0001289 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5654,6 +5781,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5668,6 +5798,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5731,6 +5862,9 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5745,6 +5879,7 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5881,6 +6016,31 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Macrolide antibiotic that accumulates intracellularly and inhibits bacterial protein synthesis at the ribosome; a first-line treatment for Legionnaires&#39; disease because it reaches the intracellular organism.
 </div>
 
@@ -5947,6 +6107,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6032,6 +6193,31 @@ This treatment uses levofloxacin (CHEBI:63598). CHEBI:63598 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Respiratory fluoroquinolone that penetrates host cells and inhibits bacterial DNA gyrase/topoisomerase IV; a first-line alternative to macrolides for Legionnaires&#39; disease.
 </div>
 
@@ -6085,6 +6271,7 @@ This treatment uses levofloxacin (CHEBI:63598). CHEBI:63598 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6170,6 +6357,31 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Tetracycline antibiotic that penetrates host cells and inhibits bacterial protein synthesis; a cell-penetrant alternative agent for Legionnaires&#39; disease when macrolides or fluoroquinolones are unsuitable.
 </div>
 
@@ -6210,6 +6422,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6302,6 +6515,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6356,6 +6570,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6381,8 +6596,338 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
         <!-- Infectious Agent -->
 
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-legionella-pneumophila">
+                <div class="item-name">Legionella pneumophila</div>
+
+                <div class="item-desc">L. pneumophila causes the large majority of Legionnaires&#39; disease, with serogroup 1 predominating. The same species is bound in the sibling entry Pontiac_Fever, the self-limited non-pneumonic syndrome caused by the same organism.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Legionella pneumophila
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_446" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-29">NCBITaxon:446</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38565811" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38565811" target="_blank">PMID:38565811</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Legionella pneumophila (Lp) is the most frequent cause of disease"</div>
+
+
+                <div class="evidence-explanation">Names L. pneumophila as the species responsible for most disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27906087" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906087" target="_blank">PMID:27906087</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Legionella pneumophila, a major cause of Legionnaires&#39; disease, accounts for 2-15 % of all community-acquired pneumonia requiring hospitalization and up to 30 % of community-acquired pneumonia requiring intensive care unit admission."</div>
+
+
+                <div class="evidence-explanation">Quantifies the share of hospitalized community-acquired pneumonia attributable to L. pneumophila. The sentence is the background paragraph of this case series, not its own 14-patient result.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-legionella-species">
+                <div class="item-name">Legionella species</div>
+
+                <div class="item-desc">Legionnaires&#39; disease is the pneumonic form of legionellosis, which is caused by the genus as a whole; species other than L. pneumophila account for a minority of cases.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Legionella
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_445" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-30">NCBITaxon:445</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33843434" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33843434" target="_blank">PMID:33843434</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bacteria of the genus Legionella are natural pathogens of amoebae that can cause a severe pneumonia in humans called Legionnaires&#39; Disease."</div>
+
+
+                <div class="evidence-explanation">Attributes the severe human pneumonia to the genus Legionella.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-inhalation-of-aerosols-from-contaminated-water-systems">
+                <div class="item-name">Inhalation of aerosols from contaminated water systems</div>
+
+                <div class="item-desc">Infection follows inhalation of aerosolized water carrying Legionella from engineered water systems in which the organism has multiplied. There is no person-to-person spread.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33843434" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33843434" target="_blank">PMID:33843434</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Human disease results from inhalation of Legionella-contaminated aerosols and subsequent bacterial replication within alveolar macrophages."</div>
+
+
+                <div class="evidence-explanation">States the inhalational route and the intracellular step that follows it.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38565811" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38565811" target="_blank">PMID:38565811</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The main sources of contamination are water network systems, spas and cooling towers"</div>
+
+
+                <div class="evidence-explanation">Names the water systems that generate the infectious aerosol.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-cooling-tower-associated-outbreak-exposure">
+                <div class="item-name">Cooling-tower-associated outbreak exposure</div>
+
+                <div class="item-desc">Cooling towers disperse contaminated aerosol over a wide area and are a repeatedly documented source of community outbreaks.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12415472" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12415472" target="_blank">PMID:12415472</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The outbreak was environmental in origin, linked to cooling towers."</div>
+
+
+                <div class="evidence-explanation">Traces a 177-patient Legionnaires&#39; disease outbreak to cooling towers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Burden -->
@@ -6434,6 +6979,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6505,6 +7051,82 @@ disease_term:
   term:
     id: MONDO:0005824
     label: Legionnaires&#39; disease
+infectious_agent:
+- name: Legionella pneumophila
+  infectious_agent_term:
+    preferred_term: Legionella pneumophila
+    term:
+      id: NCBITaxon:446
+      label: Legionella pneumophila
+  description: &gt;-
+    L. pneumophila causes the large majority of Legionnaires&#39; disease, with
+    serogroup 1 predominating. The same species is bound in the sibling entry
+    Pontiac_Fever, the self-limited non-pneumonic syndrome caused by the same
+    organism.
+  evidence:
+  - reference: PMID:38565811
+    reference_title: &#34;Severe Legionnaires&#39; disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Legionella pneumophila (Lp) is the most frequent cause of disease&#34;
+    explanation: Names L. pneumophila as the species responsible for most disease.
+  - reference: PMID:27906087
+    reference_title: &#34;Legionella pneumonia in the Niagara Region, Ontario, Canada: a case series.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &#34;Legionella pneumophila, a major cause of Legionnaires&#39; disease, accounts for 2-15 % of all community-acquired pneumonia requiring hospitalization and up to 30 % of community-acquired pneumonia requiring intensive care unit admission.&#34;
+    explanation: &gt;-
+      Quantifies the share of hospitalized community-acquired pneumonia attributable to
+      L. pneumophila. The sentence is the background paragraph of this case series, not
+      its own 14-patient result.
+- name: Legionella species
+  infectious_agent_term:
+    preferred_term: Legionella
+    term:
+      id: NCBITaxon:445
+      label: Legionella
+  description: &gt;-
+    Legionnaires&#39; disease is the pneumonic form of legionellosis, which is caused
+    by the genus as a whole; species other than L. pneumophila account for a
+    minority of cases.
+  evidence:
+  - reference: PMID:33843434
+    reference_title: &#34;Pathogenicity and Virulence of Legionella: Intracellular replication and host response.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Bacteria of the genus Legionella are natural pathogens of amoebae that can cause a severe pneumonia in humans called Legionnaires&#39; Disease.&#34;
+    explanation: Attributes the severe human pneumonia to the genus Legionella.
+transmission:
+- name: Inhalation of aerosols from contaminated water systems
+  description: &gt;-
+    Infection follows inhalation of aerosolized water carrying Legionella from
+    engineered water systems in which the organism has multiplied. There is no
+    person-to-person spread.
+  evidence:
+  - reference: PMID:33843434
+    reference_title: &#34;Pathogenicity and Virulence of Legionella: Intracellular replication and host response.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Human disease results from inhalation of Legionella-contaminated aerosols and subsequent bacterial replication within alveolar macrophages.&#34;
+    explanation: States the inhalational route and the intracellular step that follows it.
+  - reference: PMID:38565811
+    reference_title: &#34;Severe Legionnaires&#39; disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The main sources of contamination are water network systems, spas and cooling towers&#34;
+    explanation: Names the water systems that generate the infectious aerosol.
+- name: Cooling-tower-associated outbreak exposure
+  description: &gt;-
+    Cooling towers disperse contaminated aerosol over a wide area and are a
+    repeatedly documented source of community outbreaks.
+  evidence:
+  - reference: PMID:12415472
+    reference_title: &#34;Clinical study of an outbreak of Legionnaire&#39;s disease in Alcoy, Southeastern Spain.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The outbreak was environmental in origin, linked to cooling towers.&#34;
+    explanation: Traces a 177-patient Legionnaires&#39; disease outbreak to cooling towers.
 pathophysiology:
 - name: Inhalation and Intracellular Replication in Alveolar Macrophages
   role: trigger
@@ -7207,7 +7829,7 @@ clinical_trials:
       Registered clinical study evaluating Legionella PCR for routine diagnosis of
       legionellosis in hospitalized pneumonia patients. Evidence source is
       HUMAN_CLINICAL as this is a human diagnostic study.
-notes: &gt;
+notes: &gt;-
   Created as part of the Respiratory Infections project. Severe pneumonic
   counterpart of the existing Pontiac_Fever entry (same organism, Legionella
   pneumophila; distinct pathomechanism). Conforms to the
@@ -7232,6 +7854,19 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Augment: Legionnaires Disease (Falcon deep research)</strong> · 2026-07-06T00:46:21Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Legionnaires_Disease/2026-07-06T004621Z-claude-code-fe2863.yaml">View source</a></p>
+                        <p class="research-review-text">Integrated verified findings from Falcon (Edison Scientific) deep research. NEC preflight PASS: report unambiguously Legionella pneumophila, Dot/Icm T4SS, alveolar macrophage LCV, macrolide/fluoroquinolone therapy; MONDO:0005824 matches. Added 9 new evidence items, every snippet verified as an exact substring of a fetched cache. 1) Dot/Icm T4BSS &gt;300-effector and phagolysosomal-evasion evidence added to the intracellular-replication node from Lockwood 2022 DOI:10.1099/mic.0.001187 OTHER; DOI kept because the PMID:35639581 cache lacks abstract text. 2) New pathophysiology node Flagellin-Triggered NAIP5/NLRC4 Inflammasome Restriction with MODEL_ORGANISM evidence PMID:38565811 Rello 2024 and GO:0042742 plus GO:0070269, with an explicit human-translational caveat. 3) beta-lactam/aminoglycoside cell-impermeability evidence added to the cell-penetrant node PMID:40463979 Zhang 2025. 4) New phenotypes Acute kidney injury HP:0001919 and Rhabdomyolysis HP:0003201 from PMID:38565811. 5) New alternative treatment Doxycycline CHEBI:50845 SMALL_MOLECULE targeting the cell-penetrant node, PMID:40463979. 6) Epidemiology block: case fatality 4-40 percent PMID:38565811 and GBD-2021 global age-standardized death rate 0.86/100000 plus DALY 24.74/100000 PMID:39833500. 7) Clinical trial NCT00452153 Legionella PCR diagnosis. All HP/GO/CHEBI terms verified with runoak. validate-schema PASS, validate-terms PASS, validate-references PASS, each PMID snippet independently confirmed with linkml-reference-validator validate text. Dropped Dyspnea (no clean abstract-level quote); Zhong burden placed in epidemiology not Prevalence because ASDR/DALY are burden not occurrence measures. Preserved creation_date; no updated_date.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7989,7 +8624,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Legionnaires Disease", "mondoId": "MONDO:0005824", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Legionnaires_Disease", "yamlRevision": "5797d7e3397d"};
+        const OS_CONFIG = {"diseaseName": "Legionnaires Disease", "mondoId": "MONDO:0005824", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Legionnaires_Disease", "yamlRevision": "fbb77851033e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4216,6 +4293,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4278,6 +4356,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4337,6 +4416,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4508,6 +4588,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4715,6 +4796,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4763,7 +4845,7 @@
                 <div class="item-desc" style="margin-top: 8px;">Altered GNAS-dependent signaling in bone and mesenchymal lineages drives brachydactyly, ectopic ossification, and related AHO structural phenotypes.</div>
 
 
-                <div class="mapping-notes">Retained as CANONICAL per the 2026 falcon hypothesis-search report (kb/hypotheses/Pseudohypoparathyroidism/aho_mesenchymal_model; openscientist timed out). The chondrocyte-specific (PMID:15765186) and osteoblast-specific (PMID:15797856) Gsα knockout mouse studies establish biallelic Gsα expression in bone/cartilage as the mechanistic basis for AHO features in both PHP1A and PPHP. α-SMA- expressing dermal sheath cells were recently identified as the cellular source of heterotopic subcutaneous ossifications (PMID:40256763). AHO-like brachydactyly also arises from mutations in other PTHrP→Gsα→cAMP→PKA pathway nodes (PRKAR1A, PDE4D, PTHLH, TRPS1), so the model is pathway-correct but not GNAS-exclusive.</div>
+                <div class="mapping-notes">Retained as CANONICAL per the 2026 falcon hypothesis-search report (kb/hypotheses/Pseudohypoparathyroidism/aho_mesenchymal_model; openscientist timed out). The chondrocyte-specific (PMID:15765186) and osteoblast-specific (PMID:15797856) Gsα knockout mouse studies establish biallelic Gsα expression in bone/cartilage as the mechanistic basis for AHO features in both PHP1A and PPHP. α-SMA-expressing dermal sheath cells were recently identified as the cellular source of heterotopic subcutaneous ossifications (PMID:40256763). AHO-like brachydactyly also arises from mutations in other PTHrP→Gsα→cAMP→PKA pathway nodes (PRKAR1A, PDE4D, PTHLH, TRPS1), so the model is pathway-correct but not GNAS-exclusive.</div>
 
 
                 <div class="crosslink-block">
@@ -4882,6 +4964,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5036,6 +5119,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5153,6 +5237,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5246,6 +5331,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5283,6 +5369,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gnas-imprinting-dependent-signaling-defect" data-dismech-node="GNAS Imprinting-Dependent Signaling Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">GNAS Imprinting-Dependent Signaling Defect</div>
+
 
                 <div class="item-desc">Pathogenic variants or epigenetic abnormalities at the GNAS locus reduce functional Gs alpha signaling. Because GNAS expression is parent-of-origin dependent in selected tissues, maternal defects disproportionately impair receptor signaling in renal proximal tubules and endocrine targets.</div>
 
@@ -5531,6 +5618,7 @@ This pathophysiological event involves adenylate cyclase-modulating G protein-co
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5552,6 +5640,7 @@ This pathophysiological event involves adenylate cyclase-modulating G protein-co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5577,6 +5666,7 @@ This pathophysiological event involves adenylate cyclase-modulating G protein-co
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-pth-resistance" data-dismech-node="Renal PTH Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal PTH Resistance</div>
+
 
                 <div class="item-desc">Kidney target tissues fail to mount a normal phosphaturic and calcium-preserving response to PTH. This produces biochemical findings of hypocalcemia and hyperphosphatemia despite elevated circulating PTH.</div>
 
@@ -5882,6 +5972,7 @@ This pathophysiological event occurs in proximal tubule (UBERON:0004134). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5903,6 +5994,7 @@ This pathophysiological event occurs in proximal tubule (UBERON:0004134). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5928,6 +6020,7 @@ This pathophysiological event occurs in proximal tubule (UBERON:0004134). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mineral-ion-imbalance-and-neuromuscular-excitability" data-dismech-node="Mineral Ion Imbalance and Neuromuscular Excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Mineral Ion Imbalance and Neuromuscular Excitability</div>
+
 
                 <div class="item-desc">Hypocalcemia increases neuronal and neuromuscular excitability, lowering seizure threshold and producing intermittent acute neurologic symptoms.</div>
 
@@ -6056,6 +6149,7 @@ This pathophysiological event involves calcium ion homeostasis (GO:0055074). GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6078,6 +6172,7 @@ This pathophysiological event involves calcium ion homeostasis (GO:0055074). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multihormone-resistance" data-dismech-node="Multihormone Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Multihormone Resistance</div>
+
 
                 <div class="item-desc">In affected subtypes, resistance extends beyond PTH to additional Gs alpha-coupled hormonal pathways, especially thyroid and growth axes.</div>
 
@@ -6220,6 +6315,7 @@ This pathophysiological event involves hormone-mediated signaling pathway (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6242,6 +6338,7 @@ This pathophysiological event involves hormone-mediated signaling pathway (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aho-developmental-tissue-effects" data-dismech-node="AHO Developmental Tissue Effects" data-dismech-type="pathophysiology">
                 <div class="item-name">AHO Developmental Tissue Effects</div>
+
 
                 <div class="item-desc">Albright hereditary osteodystrophy reflects altered developmental signaling in bone, adipose tissue, and other mesenchymal lineages, partially independent of biochemical severity.</div>
 
@@ -6537,6 +6634,7 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6558,6 +6656,7 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6627,17 +6726,17 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6682,6 +6781,9 @@ This clinical feature is Elevated circulating parathyroid hormone level (HP:0003
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6696,6 +6798,7 @@ This clinical feature is Elevated circulating parathyroid hormone level (HP:0003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6752,6 +6855,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6766,6 +6872,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6797,6 +6904,114 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-round-face" data-dismech-node="Round Face" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Round Face
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000311</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Round face (HP:0000311). HP:0000311 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29072892" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29072892" target="_blank">PMID:29072892</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The Albright hereditary osteodystrophy (AHO) phenotype (short stature, round facies, and subcutaneous ossifications) and brachydactyly type E"</div>
+
+
+                <div class="evidence-explanation">GeneReviews names round facies as a component of the AHO triad, alongside short stature and subcutaneous ossifications, supporting this phenotype directly rather than through a truncated fragment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29072892" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29072892" target="_blank">PMID:29072892</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although PHP-Ib is characterized principally by PTH resistance, some individuals also have partial TSH resistance and mild features of AHO (e.g., brachydactyly)."</div>
+
+
+                <div class="evidence-explanation">This supports the description&#39;s claim that AHO features are not uniformly absent in PHP1B - mild features, notably brachydactyly, are reported - which is why this phenotype is scoped to PHP1A rather than asserted to exclude PHP1B.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
                     <span class="cat-count">1</span>
                 </summary>
@@ -6817,15 +7032,18 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001156</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6845,6 +7063,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6873,7 +7092,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -6896,15 +7115,18 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002901</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002901</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6924,6 +7146,7 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6966,15 +7189,18 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002905</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002905</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperphosphatemia (HP:0002905). HP:0002905 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6994,6 +7220,7 @@ This clinical feature is Hyperphosphatemia (HP:0002905). HP:0002905 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7022,16 +7249,16 @@ This clinical feature is Hyperphosphatemia (HP:0002905). HP:0002905 is a phenoty
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tetany" data-dismech-node="Tetany" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-basal-ganglia-calcification" data-dismech-node="Basal Ganglia Calcification" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Tetany
+                        Basal Ganglia Calcification
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
@@ -7045,15 +7272,18 @@ This clinical feature is Hyperphosphatemia (HP:0002905). HP:0002905 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001281</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002135" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002135</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tetany (HP:0001281). HP:0001281 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Basal ganglia calcification (HP:0002135). HP:0002135 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7073,6 +7303,82 @@ This clinical feature is Tetany (HP:0001281). HP:0001281 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CT scanning of the brain revealed globus pallidus calcification"</div>
+
+
+                <div class="evidence-explanation">CT-confirmed globus pallidus calcification documented in a PHP1B patient, supporting basal ganglia calcification as a phenotype that develops in the setting of chronic mineral dysregulation.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tetany" data-dismech-node="Tetany" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tetany
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001281</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tetany (HP:0001281). HP:0001281 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35410271" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35410271" target="_blank">PMID:35410271</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7115,15 +7421,18 @@ This clinical feature is Tetany (HP:0001281). HP:0001281 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034282" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0034282</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034282" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0034282</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Subcutaneous ossification (HP:0034282). HP:0034282 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7143,6 +7452,7 @@ This clinical feature is Subcutaneous ossification (HP:0034282). HP:0034282 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7171,12 +7481,89 @@ This clinical feature is Subcutaneous ossification (HP:0034282). HP:0034282 is a
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chiari-malformation-type-1" data-dismech-node="Chiari Malformation Type 1" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chiari Malformation Type 1
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Chiari type I malformation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0007099</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36662765" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36662765" target="_blank">PMID:36662765</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"prevalence of CM1 is at least 10-fold higher"</div>
+
+
+                <div class="evidence-explanation">Krishnan et al. (2023) demonstrate that PHP1A patients have at least 10-fold higher CM1 prevalence than the general population (10.8% by imaging; 21.7% with LLCT), correlating with mouse-model evidence of aberrant cranial base development.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7194,15 +7581,18 @@ This clinical feature is Subcutaneous ossification (HP:0034282). HP:0034282 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7222,6 +7612,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7266,15 +7657,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7294,6 +7688,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7322,7 +7717,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -7345,15 +7740,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7373,6 +7771,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7415,15 +7814,18 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001513</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7446,6 +7848,7 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7454,253 +7857,6 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
                 <div class="evidence-explanation">Supports mechanistic and clinical linkage between GNAS defects and early-onset obesity.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chiari-malformation-type-1" data-dismech-node="Chiari Malformation Type 1" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chiari Malformation Type 1
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Chiari type I malformation</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0007099</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36662765" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36662765" target="_blank">PMID:36662765</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"prevalence of CM1 is at least 10-fold higher"</div>
-
-
-                <div class="evidence-explanation">Krishnan et al. (2023) demonstrate that PHP1A patients have at least 10-fold higher CM1 prevalence than the general population (10.8% by imaging; 21.7% with LLCT), correlating with mouse-model evidence of aberrant cranial base development.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-basal-ganglia-calcification" data-dismech-node="Basal Ganglia Calcification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Basal Ganglia Calcification
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002135" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002135</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Basal ganglia calcification (HP:0002135). HP:0002135 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35410271" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35410271" target="_blank">PMID:35410271</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"CT scanning of the brain revealed globus pallidus calcification"</div>
-
-
-                <div class="evidence-explanation">CT-confirmed globus pallidus calcification documented in a PHP1B patient, supporting basal ganglia calcification as a phenotype that develops in the setting of chronic mineral dysregulation.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-round-face" data-dismech-node="Round Face" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Round Face
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000311</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Round face (HP:0000311). HP:0000311 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29072892" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29072892" target="_blank">PMID:29072892</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The Albright hereditary osteodystrophy (AHO) phenotype (short stature, round facies, and subcutaneous ossifications) and brachydactyly type E"</div>
-
-
-                <div class="evidence-explanation">GeneReviews names round facies as a component of the AHO triad, alongside short stature and subcutaneous ossifications, supporting this phenotype directly rather than through a truncated fragment.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29072892" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29072892" target="_blank">PMID:29072892</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Although PHP-Ib is characterized principally by PTH resistance, some individuals also have partial TSH resistance and mild features of AHO (e.g., brachydactyly)."</div>
-
-
-                <div class="evidence-explanation">This supports the description&#39;s claim that AHO features are not uniformly absent in PHP1B - mild features, notably brachydactyly, are reported - which is why this phenotype is scoped to PHP1A rather than asserted to exclude PHP1B.</div>
 
 
 
@@ -7786,6 +7942,9 @@ This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7808,6 +7967,7 @@ This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7929,6 +8089,20 @@ This treatment uses calcitriol (CHEBI:17823). CHEBI:17823 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Calcium supplementation combined with active vitamin D (calcitriol or alfacalcidol) to correct hypocalcemia and hyperphosphatemia. Standard of care for PHP1A and PHP1B; correction of hypocalcemia resolves tetany, seizures, and dyskinesias.</div>
 
 
@@ -7972,6 +8146,7 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8058,6 +8233,20 @@ This treatment uses calcium gluconate (CHEBI:3309). CHEBI:3309 is a therapeutic 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intravenous calcium gluconate is the acute treatment for symptomatic hypocalcemic tetany, seizures, and laryngospasm in PHP. Used emergently before transition to oral calcium + active vitamin D maintenance therapy.</div>
 
 
@@ -8101,6 +8290,7 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8171,6 +8361,7 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8222,6 +8413,7 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8270,6 +8462,7 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8355,6 +8548,7 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8376,6 +8570,7 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8694,8 +8889,8 @@ mechanistic_hypotheses:
     openscientist timed out). The chondrocyte-specific (PMID:15765186)
     and osteoblast-specific (PMID:15797856) Gsα knockout mouse studies
     establish biallelic Gsα expression in bone/cartilage as the
-    mechanistic basis for AHO features in both PHP1A and PPHP. α-SMA-
-    expressing dermal sheath cells were recently identified as the
+    mechanistic basis for AHO features in both PHP1A and PPHP. α-SMA-expressing
+    dermal sheath cells were recently identified as the
     cellular source of heterotopic subcutaneous ossifications
     (PMID:40256763). AHO-like brachydactyly also arises from mutations
     in other PTHrP→Gsα→cAMP→PKA pathway nodes (PRKAR1A, PDE4D, PTHLH,
@@ -9084,8 +9279,8 @@ phenotypes:
     general population prevalence in PHP1A, with 10.8% prevalence in
     imaging-confirmed cohorts (21.7% when including low-lying cerebellar
     tonsils). Mouse Gnas E1+/-m models show smaller cranial vault,
-    increased cranial dome angle, hyperostosis, and premature spheno-
-    occipital synchondrosis closure, providing a developmental etiology.
+    increased cranial dome angle, hyperostosis, and premature spheno-occipital
+    synchondrosis closure, providing a developmental etiology.
     CM1 prevalence is independent of GH deficiency status, and clinical
     threshold for brain imaging should be low. Surfaced by the 2026
     falcon deep-research review of the AHO mesenchymal differentiation
@@ -9114,8 +9309,8 @@ phenotypes:
     cortex) develop in PHP patients and are frequent in PHP1B cohorts.
     Calcifications can develop independently of acute calcium status and
     may persist even after calcium normalization, reflecting chronic
-    calcium-phosphate dysregulation. Surfaced by the 2026 falcon deep-
-    research review of the neurohypocalcemia model
+    calcium-phosphate dysregulation. Surfaced by the 2026 falcon deep-research
+    review of the neurohypocalcemia model
     (kb/hypotheses/Pseudohypoparathyroidism/neurohypocalcemia_model).
   phenotype_term:
     preferred_term: Basal ganglia calcification
@@ -9605,7 +9800,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pseudohypoparathyroidism", "mondoId": "MONDO:0019992", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pseudohypoparathyroidism", "yamlRevision": "18253cc9b48c"};
+        const OS_CONFIG = {"diseaseName": "Pseudohypoparathyroidism", "mondoId": "MONDO:0019992", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pseudohypoparathyroidism", "yamlRevision": "4764dcedc7d5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

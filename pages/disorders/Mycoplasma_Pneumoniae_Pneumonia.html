@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4022,6 +4099,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airway-epithelial-adherence-and-atypical-pneumonia" data-dismech-node="Airway Epithelial Adherence and Atypical Pneumonia" data-dismech-type="pathophysiology">
                 <div class="item-name">Airway Epithelial Adherence and Atypical Pneumonia</div>
 
+
                 <div class="item-desc">M. pneumoniae attaches to the respiratory epithelium via specialized adhesins and damages the airway surface, producing an atypical pneumonia. It is a leading cause of community-acquired pneumonia in school-aged children and young adults, often with a protracted, relatively mild (&#34;walking&#34;) course.
 </div>
 
@@ -4206,6 +4284,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4228,6 +4307,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cell-wall-deficiency-and-intrinsic-beta-lactam-resistance" data-dismech-node="Cell-Wall Deficiency and Intrinsic Beta-Lactam Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell-Wall Deficiency and Intrinsic Beta-Lactam Resistance</div>
+
 
                 <div class="item-desc">M. pneumoniae has no peptidoglycan cell wall, so the penicillin-binding-protein target of beta-lactam antibiotics does not exist. The organism is therefore intrinsically resistant to beta-lactams, which is why cell-wall-active drugs are useless and treatment relies on agents that act on other targets.
 </div>
@@ -4301,6 +4381,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4322,6 +4403,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4347,6 +4429,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-ribosomal-translation-macrolide-target" data-dismech-node="Bacterial Ribosomal Translation (Macrolide Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial Ribosomal Translation (Macrolide Target)</div>
+
 
                 <div class="item-desc">Lacking a cell-wall target, M. pneumoniae is treated with antibiotics that act on its 70S ribosome. Macrolides (e.g., azithromycin) bind the 50S ribosomal subunit and block bacterial protein synthesis — the molecular target that makes a macrolide, rather than a beta-lactam, first-line therapy.
 </div>
@@ -4435,6 +4518,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4457,6 +4541,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acquired-macrolide-resistance" data-dismech-node="Acquired Macrolide Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquired Macrolide Resistance</div>
+
 
                 <div class="item-desc">Acquired macrolide resistance, driven by mutations in the 23S rRNA macrolide-binding site, is an increasing problem in M. pneumoniae and can necessitate switching to a tetracycline or fluoroquinolone.
 </div>
@@ -4527,6 +4612,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4639,6 +4725,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4653,6 +4742,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4720,6 +4810,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -4754,6 +4847,9 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4875,6 +4971,31 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Macrolide antibiotic that inhibits bacterial protein synthesis at the 50S ribosomal subunit; first-line therapy for M. pneumoniae because the organism has no cell wall for beta-lactams to target. Empiric choice should account for rising macrolide resistance.
 </div>
 
@@ -4946,8 +5067,233 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
         <!-- Infectious Agent -->
 
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-mycoplasma-pneumoniae">
+                <div class="item-name">Mycoplasma pneumoniae</div>
+
+                <div class="item-desc">The cell-wall-deficient bacterium that causes atypical (&#34;walking&#34;) pneumonia, chiefly in school-aged children and young adults. NCBITaxon carries the reassigned genus name Mycoplasmoides, so the canonical label differs from the clinical name kept in preferred_term.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Mycoplasma pneumoniae
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_2104" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-13">NCBITaxon:2104</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39475213" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39475213" target="_blank">PMID:39475213</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mycoplasma pneumoniae is a leading cause of community-acquired pneumonia among school-aged children and young adults."</div>
+
+
+                <div class="evidence-explanation">Identifies the organism as a leading cause of pneumonia in the age groups this entry describes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34750083" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34750083" target="_blank">PMID:34750083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common causative organisms of atypical pneumonia are Mycoplasma pneumoniae, Chlamydia pneumoniae, and Legionella species."</div>
+
+
+                <div class="evidence-explanation">Places M. pneumoniae first among the organisms causing atypical pneumonia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-person-to-person-spread-among-close-contacts">
+                <div class="item-name">Person-to-person spread among close contacts</div>
+
+                <div class="item-desc">M. pneumoniae passes between people in prolonged close contact. Household members of a case are infected at high rates, and outbreaks recur in other closed settings such as schools and military camps.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22052890" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22052890" target="_blank">PMID:22052890</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Results of diagnostic assays implicated the household transmission of M. pneumoniae among all 5 siblings and both parents."</div>
+
+
+                <div class="evidence-explanation">Documents laboratory-confirmed spread to every member of one household.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23624834" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23624834" target="_blank">PMID:23624834</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Outbreaks of Mycoplasma pneumoniae have occurred in closed surroundings, including among families, university students, in military camps, and in schools"</div>
+
+
+                <div class="evidence-explanation">Names the closed settings in which transmission is observed. The sentence frames this family-outbreak report rather than stating its own result.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23624834" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23624834" target="_blank">PMID:23624834</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We encountered a family outbreak of MR M. pneumoniae pneumonia in four sisters"</div>
+
+
+                <div class="evidence-explanation">Reports the paper&#39;s own observed instance of within-family transmission.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Burden -->
@@ -5004,6 +5350,59 @@ disease_term:
   term:
     id: MONDO:0005867
     label: Mycoplasma pneumoniae pneumonia
+infectious_agent:
+- name: Mycoplasma pneumoniae
+  infectious_agent_term:
+    preferred_term: Mycoplasma pneumoniae
+    term:
+      id: NCBITaxon:2104
+      label: Mycoplasmoides pneumoniae
+  description: &gt;-
+    The cell-wall-deficient bacterium that causes atypical (&#34;walking&#34;) pneumonia,
+    chiefly in school-aged children and young adults. NCBITaxon carries the
+    reassigned genus name Mycoplasmoides, so the canonical label differs from the
+    clinical name kept in preferred_term.
+  evidence:
+  - reference: PMID:39475213
+    reference_title: &#34;Mycoplasma pneumoniae: not a typical respiratory pathogen.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Mycoplasma pneumoniae is a leading cause of community-acquired pneumonia among school-aged children and young adults.&#34;
+    explanation: Identifies the organism as a leading cause of pneumonia in the age groups this entry describes.
+  - reference: PMID:34750083
+    reference_title: &#34;Atypical pneumonia: Pathophysiology, diagnosis, and treatment.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The most common causative organisms of atypical pneumonia are Mycoplasma pneumoniae, Chlamydia pneumoniae, and Legionella species.&#34;
+    explanation: Places M. pneumoniae first among the organisms causing atypical pneumonia.
+transmission:
+- name: Person-to-person spread among close contacts
+  description: &gt;-
+    M. pneumoniae passes between people in prolonged close contact. Household
+    members of a case are infected at high rates, and outbreaks recur in other
+    closed settings such as schools and military camps.
+  evidence:
+  - reference: PMID:22052890
+    reference_title: Fatal outcomes in family transmission of Mycoplasma pneumoniae.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Results of diagnostic assays implicated the household transmission of M. pneumoniae among all 5 siblings and both parents.&#34;
+    explanation: Documents laboratory-confirmed spread to every member of one household.
+  - reference: PMID:23624834
+    reference_title: Transmission of macrolide-resistant Mycoplasma pneumoniae within a family.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &#34;Outbreaks of Mycoplasma pneumoniae have occurred in closed surroundings, including among families, university students, in military camps, and in schools&#34;
+    explanation: &gt;-
+      Names the closed settings in which transmission is observed. The sentence frames
+      this family-outbreak report rather than stating its own result.
+  - reference: PMID:23624834
+    reference_title: Transmission of macrolide-resistant Mycoplasma pneumoniae within a family.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We encountered a family outbreak of MR M. pneumoniae pneumonia in four sisters&#34;
+    explanation: Reports the paper&#39;s own observed instance of within-family transmission.
 pathophysiology:
 - name: Airway Epithelial Adherence and Atypical Pneumonia
   role: trigger
@@ -5216,7 +5615,7 @@ treatments:
     description: &gt;-
       By halting protein synthesis, azithromycin clears the organism from the
       airway and resolves the atypical pneumonia.
-notes: &gt;
+notes: &gt;-
   Created as part of the Respiratory Infections project. Worked conformer for the
   bacterial_cell_wall_synthesis_inhibition module&#39;s intrinsic-resistance branch
   (cell-wall-deficient organism) and for the bacterial_protein_synthesis_inhibition
@@ -5283,7 +5682,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Mycoplasma Pneumoniae Pneumonia", "mondoId": "MONDO:0005867", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mycoplasma_Pneumoniae_Pneumonia", "yamlRevision": "f12e2e5206f1"};
+        const OS_CONFIG = {"diseaseName": "Mycoplasma Pneumoniae Pneumonia", "mondoId": "MONDO:0005867", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mycoplasma_Pneumoniae_Pneumonia", "yamlRevision": "3a20e94f6428"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

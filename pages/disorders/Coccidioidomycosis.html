@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3981,7 +4058,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -4291,6 +4368,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4312,6 +4390,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4413,6 +4492,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4434,6 +4514,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4500,6 +4581,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4521,6 +4603,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4587,6 +4670,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4639,7 +4723,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">5 support</span>
+                    <span class="evidence-support support-SUPPORT">8 support</span>
 
                 </div>
 
@@ -4714,7 +4798,7 @@ Two comparators already in the knowledge base bear on the same question through 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (5 references)
+            Show evidence (8 references)
         </summary>
         <div class="evidence-list">
 
@@ -4726,6 +4810,7 @@ Two comparators already in the knowledge base bear on the same question through 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4753,6 +4838,7 @@ Two comparators already in the knowledge base bear on the same question through 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4777,6 +4863,7 @@ Two comparators already in the knowledge base bear on the same question through 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4791,7 +4878,7 @@ Two comparators already in the knowledge base bear on the same question through 
             </div>
 
 
-            <div class="evidence-more">+ 2 more references</div>
+            <div class="evidence-more">+ 5 more references</div>
 
         </div>
     </details>
@@ -4889,6 +4976,7 @@ The two models are not mutually exclusive and share a trigger: both descend from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4913,6 +5001,7 @@ The two models are not mutually exclusive and share a trigger: both descend from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4934,6 +5023,7 @@ The two models are not mutually exclusive and share a trigger: both descend from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4968,7 +5058,7 @@ The two models are not mutually exclusive and share a trigger: both descend from
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="controversy_dust_storms_vs_incidence">
@@ -5080,6 +5170,7 @@ The disagreement is partly about measurement rather than biology: nobody dispute
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5101,6 +5192,7 @@ The disagreement is partly about measurement rather than biology: nobody dispute
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5128,6 +5220,7 @@ The disagreement is partly about measurement rather than biology: nobody dispute
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5136,6 +5229,494 @@ The disagreement is partly about measurement rather than biology: nobody dispute
 
 
                 <div class="evidence-explanation">Published reply contesting the refuting study on exposure-measurement grounds, which is why the controversy is recorded as open rather than settled in either direction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_epithelioid_transformation_edges_unmeasured">
+                <div class="item-name">Has anyone shown, in Coccidioides-infected tissue, that Th1/Th17 and TNF signalling drives macrophages into the epithelioid and multinucleated giant-cell program, and that this transformation is what organizes and maintains the granuloma rather than being a bystander marker of it?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_epithelioid_transformation_edges_unmeasured</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-epithelioid-transformation-and-multinucleated-giant-cell-formation">pathophysiology#Epithelioid transformation and multinucleated giant cell formation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-granuloma-formation-and-containment">pathophysiology#Granuloma formation and containment</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-granuloma-composition-containment-model">mechanistic_hypotheses#granuloma_composition_containment_model</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The two module-conforming edges at the centre of this entry are the ones with no Coccidioides measurement behind them. Both ends of the chain are documented in this disease: the spherule genuinely resists phagocytosis, the Th1/Th17 and TNF requirement is established by human genetic defects and by TNF blockade, and organized granulomas track with containment across mouse strains while the human cavity is neutrophilic and non-granulomatous. What is missing is the middle. The mechanistic cascade in which IFN-gamma primes macrophages to make TNF and IL-1 and thereby produces epithelioid and giant-cell differentiation was worked out in hypersensitivity pneumonitis and in antigen-bead granulomas, not in coccidioidomycosis, and no study has perturbed macrophage differentiation in a Coccidioides model to ask whether granuloma organization and containment are lost when fungal burden is held constant.
+This is a gap in evidence, not a suspected error: the entry&#39;s giant-cell node is anchored on human tissue histopathology showing spherules inside multinucleated giant cells, so the transformation demonstrably occurs. The open question is whether it is driven by the signals the model names and whether it does the containing. It matters because the entry&#39;s conformance to `granuloma_formation` rests on these two edges, and because the field&#39;s default move - reasoning from tuberculosis - is exactly what the hypothesis flags as unvalidated.
+Note what would not close this gap. Etiology-comparative granuloma transcriptomics is sometimes cited as already showing that granuloma programs diverge by cause; the study most often invoked here (PMID:33276795) compares tissue sites within sarcoidosis, includes only three coccidioidomycosis subjects, and makes no direct coccidioidomycosis-versus-tuberculosis comparison, so it motivates the caution without measuring the edges.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Spatial transcriptomic coupling of macrophage differentiation state to local Th1/Th17 cytokine fields in contained versus necrotic coccidioidal lesions</div>
+
+            </div>
+
+            <div class="experiment-id">exp_spatial_coupling_macrophage_state_to_cytokine_niche</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Apply spatially resolved transcriptomics and single-cell profiling to coccidioidal lesions stratified by architecture - organized granuloma versus neutrophilic or caseous lesion - and ask whether epithelioid and giant-cell macrophage signatures are spatially coupled to local IFN-gamma, IL-17, and TNF fields, and whether that coupling separates contained from progressive lesions. The mouse datasets already recorded in this entry (GSE274766 and GSE274767) are matched to the question but were generated in lethal acute infection, so contained lesions and human tissue would have to be added for the contrast to exist.</div>
+
+
+
+
+
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-epithelioid-transformation-and-multinucleated-giant-cell-formation">pathophysiology#Epithelioid transformation and multinucleated giant cell formation</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would refute</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-granuloma-composition-containment-model">mechanistic_hypotheses#granuloma_composition_containment_model</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Epithelioid and giant-cell macrophage signatures localize to Th1/Th17-cytokine-rich niches and are enriched in contained lesions relative to necrotic ones.</li>
+
+        </ul>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Macrophage differentiation state is unrelated to local cytokine fields, or lesion outcome tracks neutrophil and inflammasome signatures irrespective of macrophage state, which would favour the alternative neutrophil/inflammasome model over this one.</li>
+
+        </ul>
+    </div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Conditional blockade of macrophage fusion and epithelioid programming in a murine Coccidioides model</div>
+
+            </div>
+
+            <div class="experiment-id">exp_block_giant_cell_fusion_at_constant_burden</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Interrupt giant-cell fusion or epithelioid differentiation - for example by targeting the fusion machinery - during established murine coccidioidal infection, and measure granuloma architecture, containment, and dissemination while holding fungal burden constant. This is the perturbation that separates a driver from a marker, and it is the experiment no published Coccidioides study has performed.</div>
+
+
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">Loss of organized granuloma architecture and of containment at unchanged fungal burden distinguishes a causal maintenance role from an incidental morphological correlate.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-granuloma-formation-and-containment">pathophysiology#Granuloma formation and containment</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would refute</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-granuloma-composition-containment-model">mechanistic_hypotheses#granuloma_composition_containment_model</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Blocking the transformation disorganizes the granuloma and degrades containment without altering the organism load.</li>
+
+        </ul>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Granuloma organization and containment are preserved despite loss of epithelioid and giant-cell differentiation, making the transformation a marker rather than the maintaining mechanism.</li>
+
+        </ul>
+    </div>
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33262956" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33262956" target="_blank">PMID:33262956</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we do not know what cells are recruited to the granuloma, what signals form and maintain the granuloma structure, nor details on the immune microenvironment within the granuloma interior"</div>
+
+
+                <div class="evidence-explanation">The gap stated by the field in its own words: recruited cells, maintenance signals, and the interior microenvironment are all recorded as unknown for Coccidioides.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37367586" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37367586" target="_blank">PMID:37367586</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Granulomas are best defined in TB, providing clues that may be leveraged to understand Coccidioides infections."</div>
+
+
+                <div class="evidence-explanation">Documents that the working model for these edges is transferred from tuberculosis, which is what makes the transfer a gap rather than a conclusion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_regulatory_and_b_cell_granuloma_maintenance">
+                <div class="item-name">Do regulatory T cells and B-cell or ectopic-lymphoid structures govern whether a coccidioidal granuloma contains the organism or injures the lung, as they do in comparator granulomatous diseases?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_regulatory_and_b_cell_granuloma_maintenance</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-granuloma-formation-and-containment">pathophysiology#Granuloma formation and containment</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-granuloma-composition-containment-model">mechanistic_hypotheses#granuloma_composition_containment_model</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The curated model for this entry describes granuloma maintenance almost entirely as drive: Th1 and Th17 cytokines and TNF licensing a macrophage transformation. In the two granulomatous comparators this entry already names through the shared `granuloma_formation` module, the decisive variables include regulation as well as drive. In an HLA-DP2 transgenic model of chronic beryllium disease, depleting regulatory T cells worsened lung inflammation and increased granuloma formation, and depleting B cells dissolved the lymphoid aggregates and granulomas while increasing lung injury, with B cells found at the granuloma periphery in human disease too.
+No equivalent measurement exists for coccidioidomycosis. Neither cell type has been depleted, expanded, or systematically enumerated in a Coccidioides granuloma, so the entry cannot say whether the regulatory arm is absent from this disease or merely unstudied. That distinction is the gap.
+Deliberately not curated as pathophysiology nodes. Both supporting results come from a sterile particulate exposure in transgenic mice, and adding regulatory T cell or B cell nodes to this entry on that basis would assert a coccidioidal mechanism nobody has measured. The comparator evidence is recorded here, where its provenance stays visible, until Coccidioides-specific data exist.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Timed regulatory T cell and B cell depletion in murine pulmonary coccidioidomycosis</div>
+
+            </div>
+
+            <div class="experiment-id">exp_treg_and_b_cell_depletion_in_murine_coccidioidomycosis</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Deplete regulatory T cells, or B cells, at defined phases of established murine Coccidioides infection and read out granuloma architecture, lymphoid aggregate formation, fungal burden, lung injury, and dissemination. Running both arms against the same infection separates a regulatory contribution to containment from a regulatory contribution to tissue tolerance, and pairs the disease with the comparator results that motivate the question.</div>
+
+
+
+
+
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-granuloma-formation-and-containment">pathophysiology#Granuloma formation and containment</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Depletion changes lesion architecture or lung injury without a proportional change in fungal burden, establishing a regulatory arm in coccidioidal granuloma maintenance analogous to the comparator diseases.</li>
+
+        </ul>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Depletion leaves granuloma organization, injury, and burden unchanged, indicating that the comparator finding does not transfer and that this entry&#39;s drive-centred model is adequate.</li>
+
+        </ul>
+    </div>
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24912188" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24912188" target="_blank">PMID:24912188</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Depletion of Treg cells in BeO-exposed HLA-DP2 Tg mice exacerbated lung inflammation and enhanced granuloma formation."</div>
+
+
+                <div class="evidence-explanation">Comparator-disease evidence that regulatory T cells modulate the granulomatous response. Cited to establish that the question is live in granuloma biology generally; it says nothing about Coccidioides, which is the gap.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31094704" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31094704" target="_blank">PMID:31094704</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"B cell depletion was associated with a loss of lymphoid aggregates and granulomas as well as a significant increase in lung injury in BeO-exposed mice."</div>
+
+
+                <div class="evidence-explanation">Comparator-disease evidence that B cells are required for granuloma and lymphoid-aggregate formation and are protective against lung injury. Again chronic beryllium disease, not coccidioidomycosis; recorded to scope the gap rather than to assert the mechanism here.</div>
 
 
 
@@ -5162,6 +5743,7 @@ The disagreement is partly about measurement rather than biology: nobody dispute
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arthroconidia-inhalation-and-spherule-morphogenesis" data-dismech-node="Arthroconidia inhalation and spherule morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Arthroconidia inhalation and spherule morphogenesis</div>
+
 
                 <div class="item-desc">Coccidioides exists as a mycelial form in soil. When soil is disturbed, arthroconidia (barrel-shaped spores 2-5 micrometers in size) become airborne and are inhaled into the lungs, reaching terminal bronchioles. In host tissues at 37 degrees C, arthroconidia undergo a morphological transition to spherules, which are large round structures that undergo internal division to produce hundreds of endospores. Developing spherules secrete a metalloproteinase that contributes to immune masking. Rupture of mature spherules releases endospores that trigger rapid immune cell influx and can spread hematogenously.
 </div>
@@ -5456,6 +6038,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5477,6 +6060,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5502,6 +6086,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phagocytosis-resistant-spherule-persistence" data-dismech-node="Phagocytosis-resistant spherule persistence" data-dismech-type="pathophysiology">
                 <div class="item-name">Phagocytosis-resistant spherule persistence</div>
+
 
                 <div class="item-desc">The mature spherule is the disease-specific substitution for the generic persistent indigestible stimulus of the granuloma module. At 20-200 micrometers it exceeds the phagocytic capacity of macrophages and neutrophils, which engulf endospores readily but can only partially engulf spherules (&#34;frustrated phagocytosis&#34;). Because no individual phagocyte can eliminate it, the spherule sustains a chronic, organized macrophage response rather than a self-limited acute one - the entry condition for granuloma formation.</div>
 
@@ -5695,7 +6280,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -5707,6 +6292,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5734,6 +6320,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5747,6 +6334,33 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:6300253" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6300253" target="_blank">PMID:6300253</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arthroconidia possess an antiphagocytic surface derived from the original hyphal outer wall layer. Only 20%-30% of arthroconidia or endospores that are ingested by PMNs are killed."</div>
+
+
+                <div class="evidence-explanation">Primary-literature anchor for the two components of this node that the review evidence above asserts without quantifying: the fungal surface is actively antiphagocytic, and even the organisms that are successfully ingested are mostly not killed. Together these make phagocyte-mediated clearance insufficient in principle, which is the module&#39;s persistent-indigestible-stimulus criterion. Evidence source is IN_VITRO because the quoted killing fraction comes from phagocyte-fungus killing assays.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -5756,6 +6370,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spherule-rupture-triggered-inflammasome-activation-and-neutrophil-recruitment" data-dismech-node="Spherule rupture-triggered inflammasome activation and neutrophil recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">Spherule rupture-triggered inflammasome activation and neutrophil recruitment</div>
+
 
                 <div class="item-desc">The alternative, macrophage-independent axis of this entry. Rupture of the mature spherule - not the intact spherule - engages NLRP3 and pyrin inflammasomes with GSDMD/GSDME pore formation, releasing IL-1beta and recruiting neutrophils, which in human tissue congregate in and around rupturing spherules.
 Two loss-of-function results make this a genuine competitor to the macrophage/granuloma containment model rather than an elaboration of it, because in both the host does BETTER with less of this response: CXCR2 (IL-8R2)-deficient mice have fewer lung neutrophils and, unexpectedly, fewer organisms, with higher Ifng/Il17a - the authors&#39; interpretation being that neutrophils interfere with development of the protective Th1/Th17 response; and caspase-1-deficient mice show improved disease tolerance at equivalent fungal burden. Under this model, outcome is set by inflammasome-driven immunopathology rather than by the quality of the epithelioid/giant-cell program, and the neutrophil-and-caseous-necrosis lining of the human cavity is its destructive end point.
@@ -5970,6 +6585,7 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5991,6 +6607,7 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6018,6 +6635,7 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6042,6 +6660,7 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-cavitary-disease" data-dismech-node="Pulmonary cavitary disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary cavitary disease</div>
+
 
                 <div class="item-desc">The destructive arm of the module&#39;s double-edged consequence node, specialized to Coccidioides. Where the granulomatous response contains the organism the infection resolves or leaves a quiescent nodule; where it fails to contain it, the granulomatous focus necroses and cavitates, and the cavity can rupture into the pleural space or bleed. Cavitary disease may be detected incidentally or during evaluation of cough or hemoptysis.
 Important qualifier on this conformance: the established cavity is where containment has already been lost, and human surgical pathology shows the cavity wall itself is characteristically NOT granulomatous - it shows chronic inflammation and occasional giant cells but no granulomas, with the lining composed of neutrophils and caseous necrosis, while granulomas persist in the adjacent lung as satellite lesions. The node therefore conforms to the module&#39;s destruction arm as the outcome of granulomatous containment failing, not as a granulomatous lesion in its own right. That same lining of neutrophils and necrosis is what the `neutrophil_inflammasome_immunopathology_model` hypothesis group proposes is doing the damage.
@@ -6119,6 +6738,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6141,6 +6761,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6169,6 +6790,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6193,6 +6815,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-immune-recognition-via-pattern-recognition-receptors" data-dismech-node="Innate immune recognition via pattern recognition receptors" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate immune recognition via pattern recognition receptors</div>
+
 
                 <div class="item-desc">Initial recognition of Coccidioides involves pattern recognition receptors including Toll-like receptors and C-type lectin receptors. Dectin-1 (CLEC7A) is the primary receptor for fungal beta-1,3-glucan exposed on spherule surfaces. Dectin-1 signals through CARD9 via the Syk kinase pathway, activating NF-kB and promoting pro-inflammatory cytokine production. Deficiency in Dectin-1 or CARD9 leads to impaired Th17/Th1 responses and increased susceptibility to disseminated disease. Arthroconidia can initially bias macrophage differentiation toward a noninflammatory state and induce limited dendritic cell activation.
 </div>
@@ -6458,6 +7081,7 @@ This pathophysiological event involves cytokine production (GO:0001816). GO:0001
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6479,6 +7103,7 @@ This pathophysiological event involves cytokine production (GO:0001816). GO:0001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6504,6 +7129,7 @@ This pathophysiological event involves cytokine production (GO:0001816). GO:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th1-th17-cell-mediated-adaptive-immunity" data-dismech-node="Th1/Th17 cell-mediated adaptive immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Th1/Th17 cell-mediated adaptive immunity</div>
+
 
                 <div class="item-desc">Protective immunity against Coccidioides depends on robust Th1 and Th17 CD4+ T cell responses. IFN-gamma produced by Th1 cells activates macrophages to kill fungal organisms. IL-17 from Th17 cells recruits neutrophils and supports mucosal immunity. The IL-12/IFN-gamma signaling axis is critical; genetic defects in IL12RB1, STAT4, or STAT3 impair these responses and increase susceptibility to severe disseminated disease. TNF-alpha is essential for granuloma formation and maintenance. Th2 skewing or immunosuppression (particularly TNF-alpha blockade) predisposes to dissemination. This is the coccidioidomycosis-specific substitution for the module&#39;s Th1/TNF-driven macrophage recruitment and activation step: the cytokine-rich milieu that licenses the epithelioid and giant-cell transformations downstream.
 </div>
@@ -6942,6 +7568,7 @@ This pathophysiological event involves increased macrophage activation (GO:00421
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6963,6 +7590,7 @@ This pathophysiological event involves increased macrophage activation (GO:00421
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6988,6 +7616,7 @@ This pathophysiological event involves increased macrophage activation (GO:00421
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelioid-transformation-and-multinucleated-giant-cell-formation" data-dismech-node="Epithelioid transformation and multinucleated giant cell formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelioid transformation and multinucleated giant cell formation</div>
+
 
                 <div class="item-desc">In the activated milieu, lung macrophages undergo the module&#39;s defining transformations: they differentiate into interdigitated epithelioid cells and fuse into multinucleated giant cells. In coccidioidomycosis the giant cells are the compartment in which spherules are characteristically found on tissue histopathology, so this step is simultaneously the granuloma-forming transformation and the containment of the organism the host could not phagocytose as a single cell.</div>
 
@@ -7166,6 +7795,7 @@ This pathophysiological event involves increased syncytium formation by cell-cel
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7187,6 +7817,7 @@ This pathophysiological event involves increased syncytium formation by cell-cel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7212,6 +7843,7 @@ This pathophysiological event involves increased syncytium formation by cell-cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granuloma-formation-and-containment" data-dismech-node="Granuloma formation and containment" data-dismech-type="pathophysiology">
                 <div class="item-name">Granuloma formation and containment</div>
+
 
                 <div class="item-desc">The host attempts to contain Coccidioides infection through granuloma formation, a hallmark of the tissue response. Granulomas consist of epithelioid macrophages, multinucleated giant cells, and a surrounding cuff of lymphocytes. TNF-alpha is essential for granuloma formation and maintenance. CD14-positive macrophages localize to granuloma cores while CD206-positive macrophages are present internally and peripherally. Effective granuloma formation correlates with disease containment, while failure to form organized granulomas (as in immunocompromise or TNF-alpha blockade) is associated with dissemination and mortality.
 </div>
@@ -7329,7 +7961,7 @@ This pathophysiological event involves granuloma formation (GO:0002432). GO:0002
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (6 references)
         </summary>
         <div class="evidence-list">
 
@@ -7341,6 +7973,7 @@ This pathophysiological event involves granuloma formation (GO:0002432). GO:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7368,6 +8001,7 @@ This pathophysiological event involves granuloma formation (GO:0002432). GO:0002
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7392,6 +8026,7 @@ This pathophysiological event involves granuloma formation (GO:0002432). GO:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7405,6 +8040,8 @@ This pathophysiological event involves granuloma formation (GO:0002432). GO:0002
 
             </div>
 
+
+            <div class="evidence-more">+ 3 more references</div>
 
         </div>
     </details>
@@ -7437,7 +8074,7 @@ This pathophysiological event involves granuloma formation (GO:0002432). GO:0002
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arid and semi-arid soil exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Coccidioides is endemic to the southwestern United States (Arizona, California, New Mexico, Texas), northern Mexico, and parts of Central and South America. The fungus thrives in alkaline, sandy soils with hot summers and mild winters. Disturbance of soil by construction, earthquakes, or agricultural activities releases arthroconidia into the air; wind-driven disturbance is curated separately as \\\"Dust storm and windblown dust events\\\", because the population-level attribution of cases to discrete dust storms is contested in a way the general soil-exposure claim is not. Cases have been increasing, with reported incidence surging notably in California and Arizona.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Arthroconidia inhalation and spherule morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Coccidioides exists as a mycelial form in soil. When soil is disturbed, arthroconidia (barrel-shaped spores 2-5 micrometers in size) become airborne and are inhaled into the lungs, reaching terminal bronchioles. In host tissues at 37 degrees C, arthroconidia undergo a morphological transition to spherules, which are large round structures that undergo internal division to produce hundreds of endospores. Developing spherules secrete a metalloproteinase that contributes to immune masking. Rupture of mature spherules releases endospores that trigger rapid immune cell influx and can spread hematogenously.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\", \"neutrophil\", \"dendritic cell\"], \"biological_processes\": [\"innate immune response\"], \"locations\": [\"lung\"]}}, {\"id\": \"CARD9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CARD9\"], \"gene_terms\": [{\"label\": \"CARD9\", \"id\": \"hgnc:16391\"}], \"association\": \"Adaptor protein downstream of Dectin-1; essential for Th17 immunity\"}}, {\"id\": \"CLEC7A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CLEC7A\"], \"gene_terms\": [{\"label\": \"CLEC7A\", \"id\": \"hgnc:14558\"}], \"association\": \"Dectin-1 receptor for beta-glucan sensing; mutations associated with disseminated disease\"}}, {\"id\": \"Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012735\"}}, {\"id\": \"Dust storm and windblown dust events\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Haboobs and strong regional wind events lift large volumes of semi-desert subsoil, the reservoir in which Coccidioides grows as mycelium, and are the most visible route by which arthroconidia become airborne over populated areas. Dust storm frequency in the American Southwest has risen sharply (reported as a 240% increase from the 1990s to the 2000s), and is a prominent mechanism in climate-change projections of expanding Valley Fever incidence.\\nScope caveat - two claims must be kept apart here. That a dust event aerosolizes and transports arthroconidia is not in dispute, and is what the mechanism edge below asserts. Whether dust storms *specifically* drive measurable subsequent increases in coccidioidomycosis cases is actively disputed: a superposed-epoch analysis of all recorded 2006-2020 dust storms near Phoenix and Bakersfield found no difference in case patterns after dust storms versus non-dust-storm conditions, and arthroconidia are also transported in low-wind conditions. That disagreement is recorded as a CONTROVERSY discussion rather than being resolved in favour of either side.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002094\"}}, {\"id\": \"Epithelioid transformation and multinucleated giant cell formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the activated milieu, lung macrophages undergo the module\u0027s defining transformations: they differentiate into interdigitated epithelioid cells and fuse into multinucleated giant cells. In coccidioidomycosis the giant cells are the compartment in which spherules are characteristically found on tissue histopathology, so this step is simultaneously the granuloma-forming transformation and the containment of the organism the host could not phagocytose as a single cell.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelioid macrophage\", \"multinucleated giant cell\"], \"biological_processes\": [\"syncytium formation by cell-cell fusion\"], \"role\": \"central_effector\"}}, {\"id\": \"Erythema nodosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012219\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Fungal meningitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032159\"}}, {\"id\": \"Granuloma formation and containment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The host attempts to contain Coccidioides infection through granuloma formation, a hallmark of the tissue response. Granulomas consist of epithelioid macrophages, multinucleated giant cells, and a surrounding cuff of lymphocytes. TNF-alpha is essential for granuloma formation and maintenance. CD14-positive macrophages localize to granuloma cores while CD206-positive macrophages are present internally and peripherally. Effective granuloma formation correlates with disease containment, while failure to form organized granulomas (as in immunocompromise or TNF-alpha blockade) is associated with dissemination and mortality.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"granuloma formation\"], \"role\": \"effector\"}}, {\"id\": \"Granulomatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002955\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hemoptysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002105\"}}, {\"id\": \"IL12RB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL12RB1\"], \"gene_terms\": [{\"label\": \"IL12RB1\", \"id\": \"hgnc:5971\"}], \"association\": \"IL-12 receptor subunit; deficiency impairs IFN-gamma production\"}}, {\"id\": \"Innate immune recognition via pattern recognition receptors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Initial recognition of Coccidioides involves pattern recognition receptors including Toll-like receptors and C-type lectin receptors. Dectin-1 (CLEC7A) is the primary receptor for fungal beta-1,3-glucan exposed on spherule surfaces. Dectin-1 signals through CARD9 via the Syk kinase pathway, activating NF-kB and promoting pro-inflammatory cytokine production. Deficiency in Dectin-1 or CARD9 leads to impaired Th17/Th1 responses and increased susceptibility to disseminated disease. Arthroconidia can initially bias macrophage differentiation toward a noninflammatory state and induce limited dendritic cell activation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"dendritic cell\"], \"biological_processes\": [\"pattern recognition receptor signaling pathway\", \"cytokine production\"], \"genes\": [\"CLEC7A\", \"CARD9\"], \"gene_terms\": [{\"label\": \"CLEC7A\", \"id\": \"hgnc:14558\"}, {\"label\": \"CARD9\", \"id\": \"hgnc:16391\"}]}}, {\"id\": \"Night sweats\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030166\"}}, {\"id\": \"Osteomyelitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002754\"}}, {\"id\": \"Phagocytosis-resistant spherule persistence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mature spherule is the disease-specific substitution for the generic persistent indigestible stimulus of the granuloma module. At 20-200 micrometers it exceeds the phagocytic capacity of macrophages and neutrophils, which engulf endospores readily but can only partially engulf spherules (\\\"frustrated phagocytosis\\\"). Because no individual phagocyte can eliminate it, the spherule sustains a chronic, organized macrophage response rather than a self-limited acute one - the entry condition for granuloma formation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"neutrophil\"], \"biological_processes\": [\"chronic inflammatory response\"], \"role\": \"trigger\", \"locations\": [\"lung\"]}}, {\"id\": \"Pleuritic chest pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033771\"}}, {\"id\": \"Pulmonary cavitary disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The destructive arm of the module\u0027s double-edged consequence node, specialized to Coccidioides. Where the granulomatous response contains the organism the infection resolves or leaves a quiescent nodule; where it fails to contain it, the granulomatous focus necroses and cavitates, and the cavity can rupture into the pleural space or bleed. Cavitary disease may be detected incidentally or during evaluation of cough or hemoptysis.\\nImportant qualifier on this conformance: the established cavity is where containment has already been lost, and human surgical pathology shows the cavity wall itself is characteristically NOT granulomatous - it shows chronic inflammation and occasional giant cells but no granulomas, with the lining composed of neutrophils and caseous necrosis, while granulomas persist in the adjacent lung as satellite lesions. The node therefore conforms to the module\u0027s destruction arm as the outcome of granulomatous containment failing, not as a granulomatous lesion in its own right. That same lining of neutrophils and necrosis is what the `neutrophil_inflammasome_immunopathology_model` hypothesis group proposes is doing the damage.\\n\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\", \"locations\": [\"lung\"]}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"STAT3\"], \"gene_terms\": [{\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"association\": \"Transcription factor for Th17 differentiation; mutations linked to disseminated disease\"}}, {\"id\": \"STAT4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"STAT4\"], \"gene_terms\": [{\"label\": \"STAT4\", \"id\": \"hgnc:11365\"}], \"association\": \"Transcription factor for IL-12 signaling; E626G mutation increases susceptibility\"}}, {\"id\": \"Spherule rupture-triggered inflammasome activation and neutrophil recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alternative, macrophage-independent axis of this entry. Rupture of the mature spherule - not the intact spherule - engages NLRP3 and pyrin inflammasomes with GSDMD/GSDME pore formation, releasing IL-1beta and recruiting neutrophils, which in human tissue congregate in and around rupturing spherules.\\nTwo loss-of-function results make this a genuine competitor to the macrophage/granuloma containment model rather than an elaboration of it, because in both the host does BETTER with less of this response: CXCR2 (IL-8R2)-deficient mice have fewer lung neutrophils and, unexpectedly, fewer organisms, with higher Ifng/Il17a - the authors\u0027 interpretation being that neutrophils interfere with development of the protective Th1/Th17 response; and caspase-1-deficient mice show improved disease tolerance at equivalent fungal burden. Under this model, outcome is set by inflammasome-driven immunopathology rather than by the quality of the epithelioid/giant-cell program, and the neutrophil-and-caseous-necrosis lining of the human cavity is its destructive end point.\\nThis node deliberately carries no downstream edge to Th1/Th17: the claim there is that neutrophil influx *impairs* the protective response, and `CausalEdge` has no polarity slot, so an edge would misread as promotion.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"neutrophil\", \"macrophage\"], \"biological_processes\": [\"canonical inflammasome complex assembly\", \"NLRP3 inflammasome complex assembly\"]}}, {\"id\": \"TNF-alpha inhibitor therapy\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Iatrogenic exposure rather than a natural-environment one. TNF is non-redundantly required to initiate and maintain the granuloma, so pharmacological TNF neutralization for an unrelated inflammatory indication removes the cytokine arm on which coccidioidal containment depends. This is the coccidioidomycosis instance of the granuloma-module drug pattern read in reverse: what is therapeutic in sterile granulomatous disease is a dissemination risk when a live, contained fungus is present.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Th1/Th17 cell-mediated adaptive immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Protective immunity against Coccidioides depends on robust Th1 and Th17 CD4+ T cell responses. IFN-gamma produced by Th1 cells activates macrophages to kill fungal organisms. IL-17 from Th17 cells recruits neutrophils and supports mucosal immunity. The IL-12/IFN-gamma signaling axis is critical; genetic defects in IL12RB1, STAT4, or STAT3 impair these responses and increase susceptibility to severe disseminated disease. TNF-alpha is essential for granuloma formation and maintenance. Th2 skewing or immunosuppression (particularly TNF-alpha blockade) predisposes to dissemination. This is the coccidioidomycosis-specific substitution for the module\u0027s Th1/TNF-driven macrophage recruitment and activation step: the cytokine-rich milieu that licenses the epithelioid and giant-cell transformations downstream.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T-helper 1 cell\", \"T-helper 17 cell\", \"CD4-positive, alpha-beta T cell\", \"macrophage\"], \"biological_processes\": [\"T-helper 1 type immune response\", \"T-helper 17 type immune response\", \"macrophage activation\"], \"genes\": [\"STAT4\", \"STAT3\", \"IL12RB1\"], \"gene_terms\": [{\"label\": \"STAT4\", \"id\": \"hgnc:11365\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}, {\"label\": \"IL12RB1\", \"id\": \"hgnc:5971\"}], \"role\": \"amplifier\"}}, {\"id\": \"Weight loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Cough\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary Coccidioides infection after inhalation commonly presents with cough.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Pleuritic chest pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary coccidioidomycosis can involve pleuritic inflammation and chest pain.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developing Coccidioides infection produces flu-like systemic symptoms, including fever.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic coccidioidomycosis commonly includes fatigue during pulmonary infection.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary and pleural involvement can present with shortness of breath.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developing Coccidioides infection produces flu-like systemic symptoms, including headache.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Erythema nodosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coccidioidomycosis can trigger the desert-rheumatism symptom complex with erythema nodosum.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coccidioidomycosis can trigger the desert-rheumatism symptom complex with arthralgia.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Night sweats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Established Coccidioides infection produces the constitutional symptoms of a chronic pulmonary/disseminated mycosis, including night sweats.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Weight loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic and disseminated Coccidioides infection produces a wasting constitutional response with unintentional weight loss.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Phagocytosis-resistant spherule persistence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Morphogenesis from the small, readily phagocytosed arthroconidium into the large tissue-phase spherule is what converts the organism into a stimulus that an individual phagocyte cannot clear.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phagocytosis-resistant spherule persistence\", \"target\": \"Spherule rupture-triggered inflammasome activation and neutrophil recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same persistent spherule that cannot be phagocytosed eventually ruptures, and rupture is the specific trigger of the alternative inflammasome/neutrophil axis. This is the branch point at which the two curated models diverge from a shared trigger.\\n\", \"hypothesis_groups\": [\"neutrophil_inflammasome_immunopathology_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phagocytosis-resistant spherule persistence\", \"target\": \"Th1/Th17 cell-mediated adaptive immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A stimulus that cannot be cleared by innate phagocytosis obliges the host to mount the sustained Th1/Th17 and TNF-driven macrophage-activating response that organizes a granuloma.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Spherule rupture-triggered inflammasome activation and neutrophil recruitment\", \"target\": \"Pulmonary cavitary disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under this model the neutrophilic, inflammasome-driven response is what destroys tissue: the lining of the established human cavity is neutrophils and caseous necrosis rather than granulomatous tissue.\\n\", \"hypothesis_groups\": [\"neutrophil_inflammasome_immunopathology_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary cavitary disease\", \"target\": \"Hemoptysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cavitary lung disease in coccidioidomycosis can present when hemoptysis is investigated.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Innate immune recognition via pattern recognition receptors\", \"target\": \"Th1/Th17 cell-mediated adaptive immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CARD9-coupled C-type lectin receptor signaling on innate cells is the upstream requirement for polarizing the protective Th17 (and Th1) response.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Th1/Th17 cell-mediated adaptive immunity\", \"target\": \"Epithelioid transformation and multinucleated giant cell formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The IFN-gamma- and TNF-activated macrophage milieu is what licenses the defining epithelioid and multinucleated-giant-cell transformations of the granulomatous response to Coccidioides.\\n\", \"hypothesis_groups\": [\"granuloma_composition_containment_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Th1/Th17 cell-mediated adaptive immunity\", \"target\": \"Fungal meningitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of protective cell-mediated immunity can permit disseminated infection, including meningitis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Th1/Th17 cell-mediated adaptive immunity\", \"target\": \"Osteomyelitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminated coccidioidomycosis can involve skeletal infection, including osteomyelitis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Epithelioid transformation and multinucleated giant cell formation\", \"target\": \"Granuloma formation and containment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epithelioid and giant-cell transformation converts a diffuse macrophage infiltrate into the organized cellular core of a coccidioidal granuloma.\\n\", \"hypothesis_groups\": [\"granuloma_composition_containment_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Granuloma formation and containment\", \"target\": \"Pulmonary cavitary disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When the granulomatous focus fails to contain the organism, the assembled granuloma is also the lesion that necroses and cavitates, and the resulting cavity may rupture into the pleural space.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Granuloma formation and containment\", \"target\": \"Granulomatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granuloma formation is the tissue-response mechanism underlying the granulomatous phenotype.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arid and semi-arid soil exposure\", \"target\": \"Arthroconidia inhalation and spherule morphogenesis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Disturbing arid soil aerosolizes the arthroconidia that the fungus forms in it, and inhaling those spores is the initiating event of infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dust storm and windblown dust events\", \"target\": \"Arthroconidia inhalation and spherule morphogenesis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Windblown dust events are a route by which arthroconidia are lifted from subsoil and carried into the breathing zone, which is the initiating step of infection. This edge asserts the aerosolization and transport route only; it does not assert a quantified population-level attribution of cases to dust storms, which the refuting evidence below contests.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TNF-alpha inhibitor therapy\", \"target\": \"Th1/Th17 cell-mediated adaptive immunity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"TNF blockade acts directly on the Th1/TNF-driven macrophage-activation step that licenses granuloma formation, degrading containment of the organism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CLEC7A\", \"target\": \"Innate immune recognition via pattern recognition receptors\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CARD9\", \"target\": \"Innate immune recognition via pattern recognition receptors\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT4\", \"target\": \"Th1/Th17 cell-mediated adaptive immunity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"Th1/Th17 cell-mediated adaptive immunity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL12RB1\", \"target\": \"Th1/Th17 cell-mediated adaptive immunity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arid and semi-arid soil exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Coccidioides is endemic to the southwestern United States (Arizona, California, New Mexico, Texas), northern Mexico, and parts of Central and South America. The fungus thrives in alkaline, sandy soils with hot summers and mild winters. Disturbance of soil by construction, earthquakes, or agricultural activities releases arthroconidia into the air; wind-driven disturbance is curated separately as \\\"Dust storm and windblown dust events\\\", because the population-level attribution of cases to discrete dust storms is contested in a way the general soil-exposure claim is not. Cases have been increasing, with reported incidence surging notably in California and Arizona.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Arthroconidia inhalation and spherule morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Coccidioides exists as a mycelial form in soil. When soil is disturbed, arthroconidia (barrel-shaped spores 2-5 micrometers in size) become airborne and are inhaled into the lungs, reaching terminal bronchioles. In host tissues at 37 degrees C, arthroconidia undergo a morphological transition to spherules, which are large round structures that undergo internal division to produce hundreds of endospores. Developing spherules secrete a metalloproteinase that contributes to immune masking. Rupture of mature spherules releases endospores that trigger rapid immune cell influx and can spread hematogenously.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\", \"neutrophil\", \"dendritic cell\"], \"biological_processes\": [\"innate immune response\"], \"locations\": [\"lung\"]}}, {\"id\": \"CARD9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CARD9\"], \"gene_terms\": [{\"label\": \"CARD9\", \"id\": \"hgnc:16391\"}], \"association\": \"Adaptor protein downstream of Dectin-1; essential for Th17 immunity\"}}, {\"id\": \"CLEC7A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CLEC7A\"], \"gene_terms\": [{\"label\": \"CLEC7A\", \"id\": \"hgnc:14558\"}], \"association\": \"Dectin-1 receptor for beta-glucan sensing; mutations associated with disseminated disease\"}}, {\"id\": \"Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012735\"}}, {\"id\": \"Dust storm and windblown dust events\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Haboobs and strong regional wind events lift large volumes of semi-desert subsoil, the reservoir in which Coccidioides grows as mycelium, and are the most visible route by which arthroconidia become airborne over populated areas. Dust storm frequency in the American Southwest has risen sharply (reported as a 240% increase from the 1990s to the 2000s), and is a prominent mechanism in climate-change projections of expanding Valley Fever incidence.\\nScope caveat - two claims must be kept apart here. That a dust event aerosolizes and transports arthroconidia is not in dispute, and is what the mechanism edge below asserts. Whether dust storms *specifically* drive measurable subsequent increases in coccidioidomycosis cases is actively disputed: a superposed-epoch analysis of all recorded 2006-2020 dust storms near Phoenix and Bakersfield found no difference in case patterns after dust storms versus non-dust-storm conditions, and arthroconidia are also transported in low-wind conditions. That disagreement is recorded as a CONTROVERSY discussion rather than being resolved in favour of either side.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002094\"}}, {\"id\": \"Epithelioid transformation and multinucleated giant cell formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the activated milieu, lung macrophages undergo the module\u0027s defining transformations: they differentiate into interdigitated epithelioid cells and fuse into multinucleated giant cells. In coccidioidomycosis the giant cells are the compartment in which spherules are characteristically found on tissue histopathology, so this step is simultaneously the granuloma-forming transformation and the containment of the organism the host could not phagocytose as a single cell.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelioid macrophage\", \"multinucleated giant cell\"], \"biological_processes\": [\"syncytium formation by cell-cell fusion\"], \"role\": \"central_effector\"}}, {\"id\": \"Erythema nodosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012219\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Fungal meningitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032159\"}}, {\"id\": \"Granuloma formation and containment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The host attempts to contain Coccidioides infection through granuloma formation, a hallmark of the tissue response. Granulomas consist of epithelioid macrophages, multinucleated giant cells, and a surrounding cuff of lymphocytes. TNF-alpha is essential for granuloma formation and maintenance. CD14-positive macrophages localize to granuloma cores while CD206-positive macrophages are present internally and peripherally. Effective granuloma formation correlates with disease containment, while failure to form organized granulomas (as in immunocompromise or TNF-alpha blockade) is associated with dissemination and mortality.\\n\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"granuloma formation\"], \"role\": \"effector\"}}, {\"id\": \"Granulomatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002955\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hemoptysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002105\"}}, {\"id\": \"IL12RB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL12RB1\"], \"gene_terms\": [{\"label\": \"IL12RB1\", \"id\": \"hgnc:5971\"}], \"association\": \"IL-12 receptor subunit; deficiency impairs IFN-gamma production\"}}, {\"id\": \"Innate immune recognition via pattern recognition receptors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Initial recognition of Coccidioides involves pattern recognition receptors including Toll-like receptors and C-type lectin receptors. Dectin-1 (CLEC7A) is the primary receptor for fungal beta-1,3-glucan exposed on spherule surfaces. Dectin-1 signals through CARD9 via the Syk kinase pathway, activating NF-kB and promoting pro-inflammatory cytokine production. Deficiency in Dectin-1 or CARD9 leads to impaired Th17/Th1 responses and increased susceptibility to disseminated disease. Arthroconidia can initially bias macrophage differentiation toward a noninflammatory state and induce limited dendritic cell activation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"dendritic cell\"], \"biological_processes\": [\"pattern recognition receptor signaling pathway\", \"cytokine production\"], \"genes\": [\"CLEC7A\", \"CARD9\"], \"gene_terms\": [{\"label\": \"CLEC7A\", \"id\": \"hgnc:14558\"}, {\"label\": \"CARD9\", \"id\": \"hgnc:16391\"}]}}, {\"id\": \"Night sweats\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030166\"}}, {\"id\": \"Osteomyelitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002754\"}}, {\"id\": \"Phagocytosis-resistant spherule persistence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mature spherule is the disease-specific substitution for the generic persistent indigestible stimulus of the granuloma module. At 20-200 micrometers it exceeds the phagocytic capacity of macrophages and neutrophils, which engulf endospores readily but can only partially engulf spherules (\\\"frustrated phagocytosis\\\"). Because no individual phagocyte can eliminate it, the spherule sustains a chronic, organized macrophage response rather than a self-limited acute one - the entry condition for granuloma formation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"macrophage\", \"neutrophil\"], \"biological_processes\": [\"chronic inflammatory response\"], \"role\": \"trigger\", \"locations\": [\"lung\"]}}, {\"id\": \"Pleuritic chest pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033771\"}}, {\"id\": \"Pulmonary cavitary disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The destructive arm of the module\u0027s double-edged consequence node, specialized to Coccidioides. Where the granulomatous response contains the organism the infection resolves or leaves a quiescent nodule; where it fails to contain it, the granulomatous focus necroses and cavitates, and the cavity can rupture into the pleural space or bleed. Cavitary disease may be detected incidentally or during evaluation of cough or hemoptysis.\\nImportant qualifier on this conformance: the established cavity is where containment has already been lost, and human surgical pathology shows the cavity wall itself is characteristically NOT granulomatous - it shows chronic inflammation and occasional giant cells but no granulomas, with the lining composed of neutrophils and caseous necrosis, while granulomas persist in the adjacent lung as satellite lesions. The node therefore conforms to the module\u0027s destruction arm as the outcome of granulomatous containment failing, not as a granulomatous lesion in its own right. That same lining of neutrophils and necrosis is what the `neutrophil_inflammasome_immunopathology_model` hypothesis group proposes is doing the damage.\\n\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\", \"locations\": [\"lung\"]}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"STAT3\"], \"gene_terms\": [{\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"association\": \"Transcription factor for Th17 differentiation; mutations linked to disseminated disease\"}}, {\"id\": \"STAT4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"STAT4\"], \"gene_terms\": [{\"label\": \"STAT4\", \"id\": \"hgnc:11365\"}], \"association\": \"Transcription factor for IL-12 signaling; E626G mutation increases susceptibility\"}}, {\"id\": \"Spherule rupture-triggered inflammasome activation and neutrophil recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alternative, macrophage-independent axis of this entry. Rupture of the mature spherule - not the intact spherule - engages NLRP3 and pyrin inflammasomes with GSDMD/GSDME pore formation, releasing IL-1beta and recruiting neutrophils, which in human tissue congregate in and around rupturing spherules.\\nTwo loss-of-function results make this a genuine competitor to the macrophage/granuloma containment model rather than an elaboration of it, because in both the host does BETTER with less of this response: CXCR2 (IL-8R2)-deficient mice have fewer lung neutrophils and, unexpectedly, fewer organisms, with higher Ifng/Il17a - the authors\u0027 interpretation being that neutrophils interfere with development of the protective Th1/Th17 response; and caspase-1-deficient mice show improved disease tolerance at equivalent fungal burden. Under this model, outcome is set by inflammasome-driven immunopathology rather than by the quality of the epithelioid/giant-cell program, and the neutrophil-and-caseous-necrosis lining of the human cavity is its destructive end point.\\nThis node deliberately carries no downstream edge to Th1/Th17: the claim there is that neutrophil influx *impairs* the protective response, and `CausalEdge` has no polarity slot, so an edge would misread as promotion.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"neutrophil\", \"macrophage\"], \"biological_processes\": [\"canonical inflammasome complex assembly\", \"NLRP3 inflammasome complex assembly\"]}}, {\"id\": \"TNF-alpha inhibitor therapy\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Iatrogenic exposure rather than a natural-environment one. TNF is non-redundantly required to initiate and maintain the granuloma, so pharmacological TNF neutralization for an unrelated inflammatory indication removes the cytokine arm on which coccidioidal containment depends. This is the coccidioidomycosis instance of the granuloma-module drug pattern read in reverse: what is therapeutic in sterile granulomatous disease is a dissemination risk when a live, contained fungus is present.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Th1/Th17 cell-mediated adaptive immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Protective immunity against Coccidioides depends on robust Th1 and Th17 CD4+ T cell responses. IFN-gamma produced by Th1 cells activates macrophages to kill fungal organisms. IL-17 from Th17 cells recruits neutrophils and supports mucosal immunity. The IL-12/IFN-gamma signaling axis is critical; genetic defects in IL12RB1, STAT4, or STAT3 impair these responses and increase susceptibility to severe disseminated disease. TNF-alpha is essential for granuloma formation and maintenance. Th2 skewing or immunosuppression (particularly TNF-alpha blockade) predisposes to dissemination. This is the coccidioidomycosis-specific substitution for the module\u0027s Th1/TNF-driven macrophage recruitment and activation step: the cytokine-rich milieu that licenses the epithelioid and giant-cell transformations downstream.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T-helper 1 cell\", \"T-helper 17 cell\", \"CD4-positive, alpha-beta T cell\", \"macrophage\"], \"biological_processes\": [\"T-helper 1 type immune response\", \"T-helper 17 type immune response\", \"macrophage activation\"], \"genes\": [\"STAT4\", \"STAT3\", \"IL12RB1\"], \"gene_terms\": [{\"label\": \"STAT4\", \"id\": \"hgnc:11365\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}, {\"label\": \"IL12RB1\", \"id\": \"hgnc:5971\"}], \"role\": \"amplifier\"}}, {\"id\": \"Weight loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Cough\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary Coccidioides infection after inhalation commonly presents with cough.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Pleuritic chest pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary coccidioidomycosis can involve pleuritic inflammation and chest pain.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developing Coccidioides infection produces flu-like systemic symptoms, including fever.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic coccidioidomycosis commonly includes fatigue during pulmonary infection.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary and pleural involvement can present with shortness of breath.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developing Coccidioides infection produces flu-like systemic symptoms, including headache.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Erythema nodosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coccidioidomycosis can trigger the desert-rheumatism symptom complex with erythema nodosum.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coccidioidomycosis can trigger the desert-rheumatism symptom complex with arthralgia.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Night sweats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Established Coccidioides infection produces the constitutional symptoms of a chronic pulmonary/disseminated mycosis, including night sweats.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Weight loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic and disseminated Coccidioides infection produces a wasting constitutional response with unintentional weight loss.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthroconidia inhalation and spherule morphogenesis\", \"target\": \"Phagocytosis-resistant spherule persistence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Morphogenesis from the small, readily phagocytosed arthroconidium into the large tissue-phase spherule is what converts the organism into a stimulus that an individual phagocyte cannot clear.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phagocytosis-resistant spherule persistence\", \"target\": \"Spherule rupture-triggered inflammasome activation and neutrophil recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same persistent spherule that cannot be phagocytosed eventually ruptures, and rupture is the specific trigger of the alternative inflammasome/neutrophil axis. This is the branch point at which the two curated models diverge from a shared trigger.\\n\", \"hypothesis_groups\": [\"neutrophil_inflammasome_immunopathology_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phagocytosis-resistant spherule persistence\", \"target\": \"Th1/Th17 cell-mediated adaptive immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A stimulus that cannot be cleared by innate phagocytosis obliges the host to mount the sustained Th1/Th17 and TNF-driven macrophage-activating response that organizes a granuloma.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Spherule rupture-triggered inflammasome activation and neutrophil recruitment\", \"target\": \"Pulmonary cavitary disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under this model the neutrophilic, inflammasome-driven response is what destroys tissue: the lining of the established human cavity is neutrophils and caseous necrosis rather than granulomatous tissue.\\n\", \"hypothesis_groups\": [\"neutrophil_inflammasome_immunopathology_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary cavitary disease\", \"target\": \"Hemoptysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cavitary lung disease in coccidioidomycosis can present when hemoptysis is investigated.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Innate immune recognition via pattern recognition receptors\", \"target\": \"Th1/Th17 cell-mediated adaptive immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CARD9-coupled C-type lectin receptor signaling on innate cells is the upstream requirement for polarizing the protective Th17 (and Th1) response.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Th1/Th17 cell-mediated adaptive immunity\", \"target\": \"Epithelioid transformation and multinucleated giant cell formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The IFN-gamma- and TNF-activated macrophage milieu is what licenses the defining epithelioid and multinucleated-giant-cell transformations of the granulomatous response to Coccidioides.\\n\", \"hypothesis_groups\": [\"granuloma_composition_containment_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Th1/Th17 cell-mediated adaptive immunity\", \"target\": \"Fungal meningitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of protective cell-mediated immunity can permit disseminated infection, including meningitis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Th1/Th17 cell-mediated adaptive immunity\", \"target\": \"Osteomyelitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminated coccidioidomycosis can involve skeletal infection, including osteomyelitis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Epithelioid transformation and multinucleated giant cell formation\", \"target\": \"Granuloma formation and containment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epithelioid and giant-cell transformation converts a diffuse macrophage infiltrate into the organized cellular core of a coccidioidal granuloma.\\n\", \"hypothesis_groups\": [\"granuloma_composition_containment_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Granuloma formation and containment\", \"target\": \"Pulmonary cavitary disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When the granulomatous focus fails to contain the organism, the assembled granuloma is also the lesion that necroses and cavitates, and the resulting cavity may rupture into the pleural space.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Granuloma formation and containment\", \"target\": \"Granulomatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granuloma formation is the tissue-response mechanism underlying the granulomatous phenotype.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arid and semi-arid soil exposure\", \"target\": \"Arthroconidia inhalation and spherule morphogenesis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Disturbing arid soil aerosolizes the arthroconidia that the fungus forms in it, and inhaling those spores is the initiating event of infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dust storm and windblown dust events\", \"target\": \"Arthroconidia inhalation and spherule morphogenesis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Windblown dust events are a route by which arthroconidia are lifted from subsoil and carried into the breathing zone, which is the initiating step of infection. This edge asserts the aerosolization and transport route only; it does not assert a quantified population-level attribution of cases to dust storms, which the refuting evidence below contests.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TNF-alpha inhibitor therapy\", \"target\": \"Th1/Th17 cell-mediated adaptive immunity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"TNF blockade acts directly on the Th1/TNF-driven macrophage-activation step that licenses granuloma formation, degrading containment of the organism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CLEC7A\", \"target\": \"Innate immune recognition via pattern recognition receptors\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CARD9\", \"target\": \"Innate immune recognition via pattern recognition receptors\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT4\", \"target\": \"Th1/Th17 cell-mediated adaptive immunity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"Th1/Th17 cell-mediated adaptive immunity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL12RB1\", \"target\": \"Th1/Th17 cell-mediated adaptive immunity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7506,6 +8143,9 @@ This clinical feature is Granulomatosis (HP:0002955). HP:0002955 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Granuloma formation is a hallmark of the host tissue response to Coccidioides infection.</div>
 
 
@@ -7525,6 +8165,7 @@ This clinical feature is Granulomatosis (HP:0002955). HP:0002955 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7585,6 +8226,9 @@ This clinical feature is Erythema nodosum (HP:0012219). HP:0012219 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Occurs in a subset of patients, more frequently in women. Associated with a robust immune response and generally favorable prognosis. Part of the classic desert rheumatism triad.
 </div>
 
@@ -7605,6 +8249,7 @@ This clinical feature is Erythema nodosum (HP:0012219). HP:0012219 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7629,6 +8274,7 @@ This clinical feature is Erythema nodosum (HP:0012219). HP:0012219 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7680,6 +8326,9 @@ This clinical feature is Fungal meningitis (HP:0032159). HP:0032159 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">The most serious complication; requires lifelong antifungal therapy.</div>
 
 
@@ -7699,6 +8348,7 @@ This clinical feature is Fungal meningitis (HP:0032159). HP:0032159 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7750,6 +8400,9 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bones are a common site of dissemination, particularly vertebrae, ribs, and skull.</div>
 
 
@@ -7769,6 +8422,7 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7831,6 +8485,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Present in the majority of symptomatic infections as part of the classic desert rheumatism triad.</div>
 
 
@@ -7850,6 +8507,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7910,6 +8568,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Prominent symptom in coccidioidal meningitis; may present with hydrocephalus.</div>
 
 
@@ -7929,6 +8590,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7991,6 +8653,9 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Cough is a common symptom in symptomatic primary pulmonary coccidioidomycosis.</div>
 
 
@@ -8010,6 +8675,7 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8061,6 +8727,9 @@ This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">May occur with cavitary pulmonary disease.</div>
 
 
@@ -8080,6 +8749,7 @@ This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8131,6 +8801,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Present in patients with pneumonia or diffuse pulmonary involvement.</div>
 
 
@@ -8150,6 +8823,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8174,6 +8848,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8234,6 +8909,9 @@ This clinical feature is Pleuritic chest pain (HP:0033771). HP:0033771 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Pleuritic chest pain is common in acute pulmonary coccidioidomycosis.</div>
 
 
@@ -8253,6 +8931,7 @@ This clinical feature is Pleuritic chest pain (HP:0033771). HP:0033771 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8277,6 +8956,7 @@ This clinical feature is Pleuritic chest pain (HP:0033771). HP:0033771 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8333,6 +9013,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8347,6 +9030,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8371,6 +9055,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8425,6 +9110,9 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8439,6 +9127,7 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8463,6 +9152,7 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8514,6 +9204,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Desert rheumatism refers to the triad of fever, erythema nodosum, and arthralgias.</div>
 
 
@@ -8533,6 +9226,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8593,6 +9287,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Observed in chronic or disseminated forms of coccidioidomycosis.</div>
 
 
@@ -8612,6 +9309,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8636,6 +9334,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8734,6 +9433,9 @@ This disease-associated gene is CLEC7A (hgnc:14558). hgnc:14558 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8748,6 +9450,7 @@ This disease-associated gene is CLEC7A (hgnc:14558). hgnc:14558 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8772,6 +9475,7 @@ This disease-associated gene is CLEC7A (hgnc:14558). hgnc:14558 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8829,6 +9533,9 @@ This disease-associated gene is CARD9 (hgnc:16391). hgnc:16391 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8843,6 +9550,7 @@ This disease-associated gene is CARD9 (hgnc:16391). hgnc:16391 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8900,6 +9608,9 @@ This disease-associated gene is STAT4 (hgnc:11365). hgnc:11365 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8914,6 +9625,7 @@ This disease-associated gene is STAT4 (hgnc:11365). hgnc:11365 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8938,6 +9650,7 @@ This disease-associated gene is STAT4 (hgnc:11365). hgnc:11365 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8995,9 +9708,12 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -9009,6 +9725,7 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9036,6 +9753,7 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9044,6 +9762,31 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
                 <div class="evidence-explanation">Demonstrates that unvaccinated mice with STAT3 and other PID-associated mutations develop disseminated disease, and that vaccination can mitigate this susceptibility.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28098554" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28098554" target="_blank">PMID:28098554</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified 8 patients with disseminated coccidioidomycosis who had defects in the interleukin-12/interferon-γ and STAT3 axes, indicating that these are critical host defense pathways."</div>
+
+
+                <div class="evidence-explanation">The human evidence behind this record, which previously rested on mouse models alone. A systematic review of published disseminated cases found eight patients with proven primary immunodeficiency, whose defects fell in the IL-12/IFN-gamma and STAT3 pathways; several improved on exogenous IFN-gamma. Consistent with the subtype scope noted above, all eight had disseminated rather than contained infection.</div>
 
 
 
@@ -9090,6 +9833,9 @@ This disease-associated gene is IL12RB1 (hgnc:5971). hgnc:5971 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9104,6 +9850,7 @@ This disease-associated gene is IL12RB1 (hgnc:5971). hgnc:5971 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9209,6 +9956,31 @@ This treatment uses fluconazole (CHEBI:46081). CHEBI:46081 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line azole antifungal for most forms of coccidioidomycosis, including meningitis. Standard drug of choice for treatment of symptomatic disease.
 </div>
 
@@ -9231,6 +10003,7 @@ This treatment uses fluconazole (CHEBI:46081). CHEBI:46081 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9317,6 +10090,31 @@ This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Alternative azole antifungal used for non-meningeal disseminated disease and chronic pulmonary infection.</div>
 
 
@@ -9341,6 +10139,7 @@ This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9362,6 +10161,7 @@ This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9448,6 +10248,31 @@ This treatment uses amphotericin B (CHEBI:2682). CHEBI:2682 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Used for severe or rapidly progressive disease, including diffuse pneumonia and life-threatening dissemination. Often used as initial therapy before transitioning to azoles.
 </div>
 
@@ -9473,6 +10298,7 @@ This treatment uses amphotericin B (CHEBI:2682). CHEBI:2682 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9494,6 +10320,7 @@ This treatment uses amphotericin B (CHEBI:2682). CHEBI:2682 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9583,6 +10410,7 @@ This environmental factor is arid soil exposure, annotated with exposure to soil
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9607,6 +10435,7 @@ This environmental factor is arid soil exposure, annotated with exposure to soil
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9628,6 +10457,7 @@ This environmental factor is arid soil exposure, annotated with exposure to soil
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9679,6 +10509,7 @@ This environmental factor is arid soil exposure, annotated with exposure to soil
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9778,6 +10609,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9799,6 +10631,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9853,6 +10686,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9877,6 +10711,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9898,6 +10733,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9956,6 +10792,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10004,6 +10841,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10081,6 +10919,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10133,6 +10972,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10190,7 +11030,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
                     </span>
 
 
-                    <span class="tag">1–9 per 10,000</span>
+                    <span class="tag">1–9 per 10,000 per year</span>
 
                 </div>
 
@@ -10215,6 +11055,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10236,6 +11077,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10301,6 +11143,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10322,6 +11165,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10417,6 +11261,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10438,6 +11283,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10521,6 +11367,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10542,6 +11389,7 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10569,6 +11417,89 @@ Scope caveat - two claims must be kept apart here. That a dust event aerosolizes
 
 
         <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-inhalation-of-airborne-arthroconidia-from-disturbed-soil">
+                <div class="item-name">Inhalation of airborne arthroconidia from disturbed soil</div>
+
+                <div class="item-desc">Infection follows inhalation of arthroconidia released when the endemic arid soil in which Coccidioides grows as mycelium is disturbed, by wind, construction, agriculture, or earthquake. Inhaled spores convert to tissue-phase spherules in the lung. There is no person-to-person spread, so exposure is environmental and its intensity tracks soil disturbance.</div>
+
+
+
+                <div class="item-notes">The environmental exposures that generate the airborne arthroconidia are curated separately in this entry&#39;s environmental block (arid soil exposure, dust storms, and occupational soil disturbance).</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39452676" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39452676" target="_blank">PMID:39452676</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Coccidioidomycosis is transmitted through the inhalation of fungal spores, arthroconidia, which can cause disease in susceptible mammalian hosts, including humans."</div>
+
+
+                <div class="evidence-explanation">States the inhalational route and names arthroconidia as the infectious particle.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39710556" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39710556" target="_blank">PMID:39710556</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Following inhalation of Coccidioides spores, the course may range from asymptomatic exposure with resultant immunity, to a subacute pulmonary illness, to life-threatening disseminated infection."</div>
+
+
+                <div class="evidence-explanation">Confirms inhalation as the initiating exposure and spans the outcomes that follow it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Burden -->
@@ -10800,6 +11731,7 @@ This clinical trial targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10873,6 +11805,7 @@ This clinical trial targets Fungal meningitis (HP:0032159). HP:0032159 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10961,6 +11894,7 @@ This clinical trial targets Fungal meningitis (HP:0032159). HP:0032159 is a phen
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10982,6 +11916,7 @@ This clinical trial targets Fungal meningitis (HP:0032159). HP:0032159 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11192,6 +12127,31 @@ infectious_agent:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;While C. immitis mainly occurs in California and Washington, C. posadasii is widely distributed across North and South America.&#34;
     explanation: Confirms the geographic distribution of C. posadasii.
+transmission:
+- name: Inhalation of airborne arthroconidia from disturbed soil
+  description: &gt;-
+    Infection follows inhalation of arthroconidia released when the endemic arid
+    soil in which Coccidioides grows as mycelium is disturbed, by wind,
+    construction, agriculture, or earthquake. Inhaled spores convert to
+    tissue-phase spherules in the lung. There is no person-to-person spread, so
+    exposure is environmental and its intensity tracks soil disturbance.
+  evidence:
+  - reference: PMID:39452676
+    reference_title: &#34;Overview of the Current Challenges in Pulmonary Coccidioidomycosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Coccidioidomycosis is transmitted through the inhalation of fungal spores, arthroconidia, which can cause disease in susceptible mammalian hosts, including humans.&#34;
+    explanation: States the inhalational route and names arthroconidia as the infectious particle.
+  - reference: PMID:39710556
+    reference_title: &#34;Coccidioidomycosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Following inhalation of Coccidioides spores, the course may range from asymptomatic exposure with resultant immunity, to a subacute pulmonary illness, to life-threatening disseminated infection.&#34;
+    explanation: Confirms inhalation as the initiating exposure and spans the outcomes that follow it.
+  notes: &gt;-
+    The environmental exposures that generate the airborne arthroconidia are curated
+    separately in this entry&#39;s environmental block (arid soil exposure, dust storms,
+    and occupational soil disturbance).
 mechanistic_hypotheses:
 - hypothesis_group_id: granuloma_composition_containment_model
   hypothesis_label: Coccidioidal Granuloma Composition and Maintenance Model
@@ -11278,6 +12238,47 @@ mechanistic_hypotheses:
       coccidioidomycosis and tuberculosis, which is the specific analogy at
       issue. It
       motivates the EMERGING status without settling it.
+  - reference: PMID:39611685
+    reference_title: &#34;Spatiotemporal analysis of lung immune dynamics in lethal Coccidioides posadasii infection.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;We identified monocyte-derived Spp1-expressing macrophages as potential mediators of tissue remodeling and fibrosis, marked by high expression of profibrotic and proinflammatory transcripts.&#34;
+    explanation: &gt;-
+      The publication behind GSE274766 and GSE274767, the two datasets this
+      hypothesis names as the instruments most capable of resolving its
+      cell-identity component. It supplies a first answer: the dominant
+      macrophage state recovered from infected lung is a monocyte-derived,
+      Spp1-expressing profibrotic population rather than the epithelioid and
+      giant-cell program the hypothesis borrows from tuberculosis. This does not
+      settle the hypothesis - the model is lethal acute murine infection, not a
+      contained human granuloma, and a profibrotic remodeling state and an
+      epithelioid state are not mutually exclusive - but it moves the
+      cell-identity question from unaddressed to partially addressed.
+  - reference: PMID:39611685
+    reference_title: &#34;Spatiotemporal analysis of lung immune dynamics in lethal Coccidioides posadasii infection.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Additionally, we observed significant neutrophil infiltration and defective lymphocyte responses, indicating severe adaptive immunity dysregulation in lethal, acute infection.&#34;
+    explanation: &gt;-
+      Bears on which of this entry&#39;s two curated models describes the failing
+      lesion. In lethal infection the single-cell and spatial data show
+      neutrophil influx together with a failing lymphocyte response, which is
+      what the `neutrophil_inflammasome_immunopathology_model` predicts and what
+      the Th1/Th17-driven containment model requires to be intact. It is recorded
+      here because it bounds this hypothesis rather than supporting it.
+  - reference: PMID:40704794
+    reference_title: &#34;Early immune response to Coccidioides is characterized by robust neutrophil and fibrotic macrophage recruitment and differentiation.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;At 24 h post-infection, robust immune infiltration is detected in the lung, marked by high levels of inflammatory PD-L1+ neutrophils and fungal-contact-dependent pro-fibrotic Spp1+ macrophages.&#34;
+    explanation: &gt;-
+      An independent single-cell run recovering the same two populations at the
+      earliest timepoint, and adding that the Spp1-expressing macrophage state is
+      induced by contact with the fungus. Relevant to this hypothesis because the
+      cellular program the infection actually induces is being characterized
+      directly now, so the borrowed tuberculosis chain is testable rather than
+      merely unproven. Scope: attenuated high-dose murine challenge at 24 hours,
+      which is upstream of granuloma assembly.
 - hypothesis_group_id: neutrophil_inflammasome_immunopathology_model
   hypothesis_label: Neutrophil and Inflammasome Immunopathology Model
   status: ALTERNATIVE
@@ -11596,6 +12597,37 @@ pathophysiology:
       engulf spherules, the cellular basis of spherule persistence. Evidence
       source is IN_VITRO because the underlying observation is a neutrophil-fungus
       co-incubation assay.
+  - reference: PMID:6300253
+    reference_title: &#34;Coccidioidomycosis: factors affecting the host-parasite interaction.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Arthroconidia possess an antiphagocytic surface derived from the original hyphal outer wall layer. Only 20%-30% of arthroconidia or endospores that are ingested by PMNs are killed.&#34;
+    explanation: &gt;-
+      Primary-literature anchor for the two components of this node that the
+      review evidence above asserts without quantifying: the fungal surface is
+      actively antiphagocytic, and even the organisms that are successfully
+      ingested are mostly not killed. Together these make phagocyte-mediated
+      clearance insufficient in principle, which is the module&#39;s
+      persistent-indigestible-stimulus criterion. Evidence source is IN_VITRO
+      because the quoted killing fraction comes from phagocyte-fungus killing
+      assays.
+  - reference: PMID:21129481
+    reference_title: &#34;Coccidioides releases a soluble factor that suppresses nitric oxide production by murine primary macrophages.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;These live, first-generation parasitic cells of Coccidioides, referred to as spherule initials, suppressed NO production as well as iNOS mRNA expression by activated macrophages.&#34;
+    explanation: &gt;-
+      Adds an active-suppression arm to the persistence of the spherule: the
+      parasitic-phase organism does not merely resist ingestion, it releases a
+      soluble factor that shuts down nitric oxide and iNOS output in
+      IFN-gamma/LPS-activated macrophages, and phagocytosis is not required for
+      the effect. This is the one direct Coccidioides measurement bearing on the
+      granuloma interior microenvironment that the
+      `granuloma_composition_containment_model` hypothesis names as unresolved.
+      Scope caveat: the same study found macrophages from iNOS-deficient mice
+      killed Coccidioides as efficiently as wild-type ones, so the suppression is
+      documented but its contribution to containment is not established, and the
+      fungal factor is unidentified.
   downstream:
   - target: Spherule rupture-triggered inflammasome activation and neutrophil recruitment
     description: &gt;
@@ -12129,6 +13161,46 @@ pathophysiology:
       Surgical-pathology series confirming that the organized granulomatous
       tissue response is the invariable histology of coccidioidal disease at
       this site.
+  - reference: PMID:18852250
+    reference_title: &#34;Vaccine-induced cellular immune responses differ from innate responses in susceptible and resistant strains of mice infected with Coccidioides posadasii.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Resistant Swiss-Webster mice developed prominent perivascular/peribronchiolar lymphocytic cuffing and well-formed granulomas with few fungal elements and debris in the necrotic center, surrounded by a mantle of macrophages, lymphocytes, and fibrocytes.&#34;
+    explanation: &gt;-
+      The containment arm of the strain-comparison histopathology, and the most
+      direct evidence in this entry that an organized granuloma accompanies
+      control of the organism. It also supplies the cellular composition this
+      node&#39;s description asserts - a macrophage and lymphocyte mantle - which the
+      review evidence above states without documenting.
+  - reference: PMID:18852250
+    reference_title: &#34;Vaccine-induced cellular immune responses differ from innate responses in susceptible and resistant strains of mice infected with Coccidioides posadasii.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Susceptible C57BL/6 mice became moribund between 14 and 18 days postinfection, with overwhelming numbers of neutrophils and spherules and very few T cells, the drastic reduction of which was associated with failure and death&#34;
+    explanation: &gt;-
+      The failure arm of the same comparison: where the organized granuloma is
+      not formed, the lesion is neutrophilic, the organism is abundant, T cells
+      collapse, and the animal dies. This is the model-organism counterpart of
+      the human containment-versus-cavitation dichotomy, and it is the observation
+      that makes granuloma organization a candidate determinant of outcome rather
+      than an incidental morphology. It remains correlational - no architecture
+      was perturbed - so it does not establish that the organized structure is
+      what causes containment.
+  - reference: PMID:20930107
+    reference_title: &#34;T-lymphocyte predominance in lesions of canine coccidioidomycosis.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;In nearly all lesions, T lymphocytes were more numerous than B lymphocytes and were distributed throughout the lesion with concentration in the periphery of granulomas, whereas B lymphocytes were mostly confined to the periphery of granulomas.&#34;
+    explanation: &gt;-
+      Immunohistochemistry of naturally acquired coccidioidomycosis, addressing
+      the &#34;which cells are recruited&#34; component of the
+      `granuloma_composition_containment_model` hypothesis directly rather than by
+      analogy. Species scope matters here and the source insists on it: the same
+      paper reports that human coccidioidal pulmonary granulomas carried roughly
+      equivalent numbers of T and B lymphocytes, and describes its own canine
+      result as distinct from both human and mouse lesions. Cited as
+      MODEL_ORGANISM evidence for the peripheral T-cell organization of the
+      lesion, not as a statement of human granuloma composition.
   downstream:
   - target: Pulmonary cavitary disease
     description: &gt;
@@ -12506,6 +13578,18 @@ genetic:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Splenic dissemination was prevented in most vaccinated immunodeficient mice while all unvaccinated B6 mice and the Rag-1 KO mice displayed disseminated disease.&#34;
     explanation: Demonstrates that unvaccinated mice with STAT3 and other PID-associated mutations develop disseminated disease, and that vaccination can mitigate this susceptibility.
+  - reference: PMID:28098554
+    reference_title: &#34;Risk Factors for Disseminated Coccidioidomycosis, United States.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We identified 8 patients with disseminated coccidioidomycosis who had defects in the interleukin-12/interferon-γ and STAT3 axes, indicating that these are critical host defense pathways.&#34;
+    explanation: &gt;-
+      The human evidence behind this record, which previously rested on mouse
+      models alone. A systematic review of published disseminated cases found
+      eight patients with proven primary immunodeficiency, whose defects fell in
+      the IL-12/IFN-gamma and STAT3 pathways; several improved on exogenous
+      IFN-gamma. Consistent with the subtype scope noted above, all eight had
+      disseminated rather than contained infection.
 - name: IL12RB1
   gene_term:
     preferred_term: IL12RB1
@@ -13061,6 +14145,203 @@ discussions:
       Published reply contesting the refuting study on exposure-measurement
       grounds, which is why the controversy is recorded as open rather than
       settled in either direction.
+- discussion_id: gap_epithelioid_transformation_edges_unmeasured
+  prompt: &gt;-
+    Has anyone shown, in Coccidioides-infected tissue, that Th1/Th17 and TNF
+    signalling drives macrophages into the epithelioid and multinucleated
+    giant-cell program, and that this transformation is what organizes and
+    maintains the granuloma rather than being a bystander marker of it?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Epithelioid transformation and multinucleated giant cell formation
+  - pathophysiology#Granuloma formation and containment
+  - mechanistic_hypotheses#granuloma_composition_containment_model
+  rationale: &gt;-
+    The two module-conforming edges at the centre of this entry are the ones with
+    no Coccidioides measurement behind them. Both ends of the chain are
+    documented in this disease: the spherule genuinely resists phagocytosis, the
+    Th1/Th17 and TNF requirement is established by human genetic defects and by
+    TNF blockade, and organized granulomas track with containment across mouse
+    strains while the human cavity is neutrophilic and non-granulomatous. What is
+    missing is the middle. The mechanistic cascade in which IFN-gamma primes
+    macrophages to make TNF and IL-1 and thereby produces epithelioid and
+    giant-cell differentiation was worked out in hypersensitivity pneumonitis and
+    in antigen-bead granulomas, not in coccidioidomycosis, and no study has
+    perturbed macrophage differentiation in a Coccidioides model to ask whether
+    granuloma organization and containment are lost when fungal burden is held
+    constant.
+
+    This is a gap in evidence, not a suspected error: the entry&#39;s giant-cell node
+    is anchored on human tissue histopathology showing spherules inside
+    multinucleated giant cells, so the transformation demonstrably occurs. The
+    open question is whether it is driven by the signals the model names and
+    whether it does the containing. It matters because the entry&#39;s conformance to
+    `granuloma_formation` rests on these two edges, and because the field&#39;s
+    default move - reasoning from tuberculosis - is exactly what the hypothesis
+    flags as unvalidated.
+
+    Note what would not close this gap. Etiology-comparative granuloma
+    transcriptomics is sometimes cited as already showing that granuloma programs
+    diverge by cause; the study most often invoked here (PMID:33276795) compares
+    tissue sites within sarcoidosis, includes only three coccidioidomycosis
+    subjects, and makes no direct coccidioidomycosis-versus-tuberculosis
+    comparison, so it motivates the caution without measuring the edges.
+  proposed_experiments:
+  - experiment_id: exp_spatial_coupling_macrophage_state_to_cytokine_niche
+    name: &gt;-
+      Spatial transcriptomic coupling of macrophage differentiation state to
+      local Th1/Th17 cytokine fields in contained versus necrotic coccidioidal
+      lesions
+    description: &gt;-
+      Apply spatially resolved transcriptomics and single-cell profiling to
+      coccidioidal lesions stratified by architecture - organized granuloma
+      versus neutrophilic or caseous lesion - and ask whether epithelioid and
+      giant-cell macrophage signatures are spatially coupled to local IFN-gamma,
+      IL-17, and TNF fields, and whether that coupling separates contained from
+      progressive lesions. The mouse datasets already recorded in this entry
+      (GSE274766 and GSE274767) are matched to the question but were generated in
+      lethal acute infection, so contained lesions and human tissue would have to
+      be added for the contrast to exist.
+    would_support:
+    - pathophysiology#Epithelioid transformation and multinucleated giant cell formation
+    would_refute:
+    - mechanistic_hypotheses#granuloma_composition_containment_model
+    supporting_outcome:
+    - &gt;-
+      Epithelioid and giant-cell macrophage signatures localize to
+      Th1/Th17-cytokine-rich niches and are enriched in contained lesions
+      relative to necrotic ones.
+    refuting_outcome:
+    - &gt;-
+      Macrophage differentiation state is unrelated to local cytokine fields, or
+      lesion outcome tracks neutrophil and inflammasome signatures irrespective
+      of macrophage state, which would favour the alternative
+      neutrophil/inflammasome model over this one.
+  - experiment_id: exp_block_giant_cell_fusion_at_constant_burden
+    name: &gt;-
+      Conditional blockade of macrophage fusion and epithelioid programming in a
+      murine Coccidioides model
+    description: &gt;-
+      Interrupt giant-cell fusion or epithelioid differentiation - for example by
+      targeting the fusion machinery - during established murine coccidioidal
+      infection, and measure granuloma architecture, containment, and
+      dissemination while holding fungal burden constant. This is the perturbation
+      that separates a driver from a marker, and it is the experiment no published
+      Coccidioides study has performed.
+    would_support:
+    - pathophysiology#Granuloma formation and containment
+    would_refute:
+    - mechanistic_hypotheses#granuloma_composition_containment_model
+    decision_criterion: &gt;-
+      Loss of organized granuloma architecture and of containment at unchanged
+      fungal burden distinguishes a causal maintenance role from an incidental
+      morphological correlate.
+    supporting_outcome:
+    - &gt;-
+      Blocking the transformation disorganizes the granuloma and degrades
+      containment without altering the organism load.
+    refuting_outcome:
+    - &gt;-
+      Granuloma organization and containment are preserved despite loss of
+      epithelioid and giant-cell differentiation, making the transformation a
+      marker rather than the maintaining mechanism.
+  evidence:
+  - reference: PMID:33262956
+    reference_title: &#34;Host Response to Coccidioides Infection: Fungal Immunity.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;we do not know what cells are recruited to the granuloma, what signals form and maintain the granuloma structure, nor details on the immune microenvironment within the granuloma interior&#34;
+    explanation: &gt;-
+      The gap stated by the field in its own words: recruited cells, maintenance
+      signals, and the interior microenvironment are all recorded as unknown for
+      Coccidioides.
+  - reference: PMID:37367586
+    reference_title: &#34;Coccidioidomycosis Granulomas Informed by Other Diseases: Advancements, Gaps, and Challenges.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Granulomas are best defined in TB, providing clues that may be leveraged to understand Coccidioides infections.&#34;
+    explanation: &gt;-
+      Documents that the working model for these edges is transferred from
+      tuberculosis, which is what makes the transfer a gap rather than a
+      conclusion.
+- discussion_id: gap_regulatory_and_b_cell_granuloma_maintenance
+  prompt: &gt;-
+    Do regulatory T cells and B-cell or ectopic-lymphoid structures govern
+    whether a coccidioidal granuloma contains the organism or injures the lung,
+    as they do in comparator granulomatous diseases?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Granuloma formation and containment
+  - mechanistic_hypotheses#granuloma_composition_containment_model
+  rationale: &gt;-
+    The curated model for this entry describes granuloma maintenance almost
+    entirely as drive: Th1 and Th17 cytokines and TNF licensing a macrophage
+    transformation. In the two granulomatous comparators this entry already names
+    through the shared `granuloma_formation` module, the decisive variables
+    include regulation as well as drive. In an HLA-DP2 transgenic model of
+    chronic beryllium disease, depleting regulatory T cells worsened lung
+    inflammation and increased granuloma formation, and depleting B cells
+    dissolved the lymphoid aggregates and granulomas while increasing lung
+    injury, with B cells found at the granuloma periphery in human disease too.
+
+    No equivalent measurement exists for coccidioidomycosis. Neither cell type
+    has been depleted, expanded, or systematically enumerated in a Coccidioides
+    granuloma, so the entry cannot say whether the regulatory arm is absent from
+    this disease or merely unstudied. That distinction is the gap.
+
+    Deliberately not curated as pathophysiology nodes. Both supporting results
+    come from a sterile particulate exposure in transgenic mice, and adding
+    regulatory T cell or B cell nodes to this entry on that basis would assert a
+    coccidioidal mechanism nobody has measured. The comparator evidence is
+    recorded here, where its provenance stays visible, until Coccidioides-specific
+    data exist.
+  proposed_experiments:
+  - experiment_id: exp_treg_and_b_cell_depletion_in_murine_coccidioidomycosis
+    name: &gt;-
+      Timed regulatory T cell and B cell depletion in murine pulmonary
+      coccidioidomycosis
+    description: &gt;-
+      Deplete regulatory T cells, or B cells, at defined phases of established
+      murine Coccidioides infection and read out granuloma architecture, lymphoid
+      aggregate formation, fungal burden, lung injury, and dissemination. Running
+      both arms against the same infection separates a regulatory contribution to
+      containment from a regulatory contribution to tissue tolerance, and pairs
+      the disease with the comparator results that motivate the question.
+    would_support:
+    - pathophysiology#Granuloma formation and containment
+    supporting_outcome:
+    - &gt;-
+      Depletion changes lesion architecture or lung injury without a proportional
+      change in fungal burden, establishing a regulatory arm in coccidioidal
+      granuloma maintenance analogous to the comparator diseases.
+    refuting_outcome:
+    - &gt;-
+      Depletion leaves granuloma organization, injury, and burden unchanged,
+      indicating that the comparator finding does not transfer and that this
+      entry&#39;s drive-centred model is adequate.
+  evidence:
+  - reference: PMID:24912188
+    reference_title: &#34;Regulatory T cells modulate granulomatous inflammation in an HLA-DP2 transgenic murine model of beryllium-induced disease.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Depletion of Treg cells in BeO-exposed HLA-DP2 Tg mice exacerbated lung inflammation and enhanced granuloma formation.&#34;
+    explanation: &gt;-
+      Comparator-disease evidence that regulatory T cells modulate the
+      granulomatous response. Cited to establish that the question is live in
+      granuloma biology generally; it says nothing about Coccidioides, which is
+      the gap.
+  - reference: PMID:31094704
+    reference_title: &#34;Protective role of B cells in sterile particulate-induced lung injury.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;B cell depletion was associated with a loss of lymphoid aggregates and granulomas as well as a significant increase in lung injury in BeO-exposed mice.&#34;
+    explanation: &gt;-
+      Comparator-disease evidence that B cells are required for granuloma and
+      lymphoid-aggregate formation and are protective against lung injury. Again
+      chronic beryllium disease, not coccidioidomycosis; recorded to scope the
+      gap rather than to assert the mechanism here.
 </pre>
             </div>
         </div>
@@ -13079,6 +14360,8 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13665,7 +14948,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Coccidioidomycosis", "mondoId": "MONDO:0005706", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Coccidioidomycosis", "yamlRevision": "50a2d3f507da"};
+        const OS_CONFIG = {"diseaseName": "Coccidioidomycosis", "mondoId": "MONDO:0005706", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Coccidioidomycosis", "yamlRevision": "2665ad3b6eb9"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

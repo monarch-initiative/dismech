@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4103,6 +4180,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4227,6 +4305,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4330,6 +4409,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4655,6 +4735,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-cyfip2-missense-variant-at-a-structural-hotspot" data-dismech-node="De Novo CYFIP2 Missense Variant at a Structural Hotspot" data-dismech-type="pathophysiology">
                 <div class="item-name">De Novo CYFIP2 Missense Variant at a Structural Hotspot</div>
 
+
                 <div class="item-desc">The initiating lesion. Variants cluster at two hotspots, p.Arg87 and p.Asp724. Arg87 is buried at the interface between CYFIP2 and WAVE1 inside the assembled complex, which is why substituting it destabilises the interface rather than simply removing a surface contact. Variants scattered elsewhere in the primary sequence converge on the same interface in three dimensions.</div>
 
 
@@ -4737,6 +4818,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4758,6 +4840,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4783,6 +4866,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-weakened-cyfip2-wave1-interface-binding" data-dismech-node="Weakened CYFIP2-WAVE1 Interface Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Weakened CYFIP2-WAVE1 Interface Binding</div>
+
 
                 <div class="item-desc">Mutant CYFIP2 binds the VCA domain more weakly than wild type. Because the complex works by sequestering VCA, weaker binding means less effective autoinhibition. This node is the measured binding change, kept separate from the downstream actin readout.</div>
 
@@ -4913,6 +4997,7 @@ This pathophysiological event involves WAVE regulatory complex, annotated with S
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4935,6 +5020,7 @@ This pathophysiological event involves WAVE regulatory complex, annotated with S
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-cyfip2-ubiquitination-and-proteasomal-degradation" data-dismech-node="Enhanced CYFIP2 Ubiquitination and Proteasomal Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced CYFIP2 Ubiquitination and Proteasomal Degradation</div>
+
 
                 <div class="item-desc">A second consequence of p.Arg87Cys: the variant protein is ubiquitinated and degraded more readily, lowering steady-state CYFIP2 abundance in the brain. This is the observation that sits in tension with a pure gain-of-function reading, and it is curated as its own node rather than folded into the interface account.</div>
 
@@ -5068,6 +5154,7 @@ This pathophysiological event involves increased proteasomal protein catabolic p
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5089,6 +5176,7 @@ This pathophysiological event involves increased proteasomal protein catabolic p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5114,6 +5202,7 @@ This pathophysiological event involves increased proteasomal protein catabolic p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-wave-regulatory-complex-activation" data-dismech-node="Aberrant WAVE Regulatory Complex Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant WAVE Regulatory Complex Activation</div>
+
 
                 <div class="item-desc">Release of the WAVE VCA domain from autoinhibition, activating the complex outside normal RAC1 control. This is the node the gain-of-function account turns on.</div>
 
@@ -5248,6 +5337,7 @@ This pathophysiological event involves WAVE regulatory complex, annotated with S
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5270,6 +5360,7 @@ This pathophysiological event involves WAVE regulatory complex, annotated with S
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-actin-cytoskeleton-dynamics" data-dismech-node="Dysregulated Actin Cytoskeleton Dynamics" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Actin Cytoskeleton Dynamics</div>
+
 
                 <div class="item-desc">The cellular convergence point of both proposed molecular routes. Abnormal actin accumulation was shown first in transfected cells and subsequently substantiated in patient-derived fibroblasts, which matters because it moves the finding out of an overexpression system into primary patient cells.</div>
 
@@ -5361,6 +5452,7 @@ This pathophysiological event involves dysregulated actin cytoskeleton organizat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5382,6 +5474,7 @@ This pathophysiological event involves dysregulated actin cytoskeleton organizat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5407,6 +5500,7 @@ This pathophysiological event involves dysregulated actin cytoskeleton organizat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-synaptic-and-dendritic-spine-remodeling" data-dismech-node="Disrupted Synaptic and Dendritic Spine Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Synaptic and Dendritic Spine Remodeling</div>
+
 
                 <div class="item-desc">In neurons the WAVE complex drives actin remodeling at dendritic spines and growth cones, so dysregulated actin dynamics translate into abnormal synaptic architecture. The knock-in mouse shows age-progressive cytoarchitectural disorganization and gliosis in the hippocampus, and longitudinal work shows the synaptic remodeling is itself time-dependent rather than a fixed lesion.</div>
 
@@ -5523,6 +5617,7 @@ This pathophysiological event involves dendritic spine (GO:0043197). GO:0043197 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5544,6 +5639,7 @@ This pathophysiological event involves dendritic spine (GO:0043197). GO:0043197 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5569,6 +5665,7 @@ This pathophysiological event involves dendritic spine (GO:0043197). GO:0043197 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reactive-gliosis" data-dismech-node="Reactive Gliosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Reactive Gliosis</div>
+
 
                 <div class="item-desc">Sequential activation of different glial populations over the disease course in the mouse model, accompanied by lipid droplet accumulation in astrocytes. Curated as its own node because it is a distinct tissue-level process with its own time course, not a restatement of the synaptic finding.</div>
 
@@ -5641,6 +5738,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5663,6 +5761,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-network-hyperexcitability" data-dismech-node="Neuronal Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Network Hyperexcitability</div>
+
 
                 <div class="item-desc">The circuit-level state that produces seizures. In the mouse model this is not a fixed property but evolves through distinct stages, which is what makes the model&#39;s temporal structure informative rather than incidental.</div>
 
@@ -5736,6 +5835,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5758,6 +5858,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-drug-resistant-epilepsy" data-dismech-node="Drug-Resistant Epilepsy" data-dismech-type="pathophysiology">
                 <div class="item-name">Drug-Resistant Epilepsy</div>
+
 
                 <div class="item-desc">Early-onset seizures that characteristically resist antiseizure medication, frequently presenting as epileptic spasms in a West syndrome pattern.</div>
 
@@ -5829,6 +5930,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5895,11 +5997,13 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5940,6 +6044,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5954,6 +6061,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5985,6 +6093,114 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-drug-resistant-epilepsy" data-dismech-node="Drug-Resistant Epilepsy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Drug-Resistant Epilepsy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Refractory drug response</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0020174</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36968925" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36968925" target="_blank">PMID:36968925</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The seizures were of different types, frequent and refractory to treatment, including different anticonvulsant drugs"</div>
+
+
+                <div class="evidence-explanation">Documents refractoriness across multiple anticonvulsant classes in a genotype-confirmed patient.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36968925" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36968925" target="_blank">PMID:36968925</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He maintained refractory epilepsy despite being medicated with vigabatrin, phenobarbital, valproic acid, and a ketogenic diet"</div>
+
+
+                <div class="evidence-explanation">Names the specific agents that failed, which is stronger than a general statement of drug resistance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
@@ -6003,15 +6219,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6031,6 +6250,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6059,7 +6279,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6082,15 +6302,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6110,6 +6333,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6134,6 +6358,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6176,15 +6401,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0011097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0011097</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6204,6 +6432,7 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6228,6 +6457,7 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6270,15 +6500,18 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6298,6 +6531,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6322,6 +6556,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6350,106 +6585,12 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">2</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-drug-resistant-epilepsy" data-dismech-node="Drug-Resistant Epilepsy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Drug-Resistant Epilepsy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Refractory drug response</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0020174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0020174</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36968925" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36968925" target="_blank">PMID:36968925</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The seizures were of different types, frequent and refractory to treatment, including different anticonvulsant drugs"</div>
-
-
-                <div class="evidence-explanation">Documents refractoriness across multiple anticonvulsant classes in a genotype-confirmed patient.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36968925" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36968925" target="_blank">PMID:36968925</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He maintained refractory epilepsy despite being medicated with vigabatrin, phenobarbital, valproic acid, and a ketogenic diet"</div>
-
-
-                <div class="evidence-explanation">Names the specific agents that failed, which is stronger than a general statement of drug resistance.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-social-communication" data-dismech-node="Impaired Social Communication" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6457,6 +6598,9 @@ This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a 
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately left unbound - needs term / NTR. HP:0000735 &#34;Impaired social interactions&#34; is obsolete, and the available alternatives do not fit: HP:0008763 &#34;No social interaction&#34; is absolute where the source says impaired, and HP:5200026 &#34;Impaired social imitation&#34; is narrower than the claim. Binding HP:0000729 &#34;Autistic behavior&#34; would be an interpretive leap beyond what the quoted source states. A precise unbound descriptor is preferred here over a term that would misstate the finding.</div>
@@ -6478,6 +6622,7 @@ This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6515,6 +6660,9 @@ This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6529,6 +6677,7 @@ This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6629,6 +6778,9 @@ This disease-associated gene is CYFIP2 (hgnc:13760). hgnc:13760 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6643,6 +6795,7 @@ This disease-associated gene is CYFIP2 (hgnc:13760). hgnc:13760 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6670,6 +6823,7 @@ This disease-associated gene is CYFIP2 (hgnc:13760). hgnc:13760 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6691,6 +6845,7 @@ This disease-associated gene is CYFIP2 (hgnc:13760). hgnc:13760 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6775,6 +6930,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Seizures are characteristically drug-resistant and typically require multiple agents. No agent is established as preferred in this disorder.</div>
 
 
@@ -6796,6 +6976,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6904,6 +7085,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6991,6 +7173,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7065,6 +7248,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7086,6 +7270,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7248,6 +7433,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7287,6 +7473,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7366,6 +7553,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7405,6 +7593,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7544,6 +7733,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7587,6 +7777,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7668,6 +7859,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7709,6 +7901,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8843,6 +9036,30 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Two items raised in review are deliberately not curated, with the checks recorded so a later curator does not repeat them. First, hyperkinetic or dyskinetic movements at 17%: this figure comes from the deep-research report citing Squire et al. 2025, but the retrievable abstract of that paper contains no mention of hyperkinetic, dyskinetic or choreiform movements at all, so the percentage cannot be quoted from its stated source. The paper is cited here for the frequency data it does contain. The second declined item has been reversed: the Xenopus tadpole gain-of-function model is now curated. An earlier revision of this entry declined it on the stated ground that it had no identifier resolving through the reference cache. That was wrong and was asserted without testing - DOI:10.1101/2022.12.07.519540 resolves and caches normally, as bioRxiv DOIs cited elsewhere in this knowledge base already do. The correct caveat is preprint status, which is recorded on the model&#39;s limitations rather than used as a reason to omit it. Note also that evidence items citing a DOI rather than a PMID are not snippet-checked by the validators, since DOI sits in skip_prefixes; the five DOI-sourced snippets in this entry were verified by hand against the cached record. Scope: this entry curates DEE65 only. CYFIP2 has a paralog, CYFIP1, at the same cytogenetic band; CYFIP1 lies within the 15q11.2 microdeletion region and is associated with a different neurodevelopmental phenotype. The NEC preflight for the deep-research report used to build this entry recorded CYFIP1 at 3 mentions against CYFIP2 at 75, so the report is about the intended entity, but the two should not be conflated in any future extension of this entry.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address review on PR 9046</strong> · 2026-08-20T04:59:38Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CYFIP2-Related_Developmental_and_Epileptic_Encephalopathy/2026-08-20T045938Z-claude-code-c03e85.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the review on PR 9046. Fetched Squire et al. 2025 (DOI 10.1002/cns3.70036) as the reviewer asked. The paper turned out to supply better material than the request implied: a 42-patient literature review with real denominators, which let three phenotypes gain evidence-backed frequency bands where they previously had none - global developmental delay OBLIGATE at 42 of 42, epilepsy FREQUENT at 32 of 42 or 76 percent, and epileptic spasms FREQUENT at 16 of 32 or 50 percent of those with seizures. That epilepsy is not universal in this disorder is a finding the earlier twelve-patient series could not have shown. A prevalence record was added with measure_type CASES_IN_LITERATURE and prevalence_class ULTRA_RARE, citing both the 42-patient count and the earlier 18-patient count so the trajectory of ascertainment is visible. The Arg87Cys share of cases, 12 of 42, was added to the genetic section. Two review items are declined with the checks recorded in notes. The hyperkinetic movement phenotype at 17 percent could not be curated: that figure comes from the deep-research report citing Squire 2025, but the retrievable abstract of that paper contains no mention of hyperkinetic, dyskinetic or choreiform movements at all, so the percentage cannot be quoted from its stated source. The Xenopus tadpole model is available only as a bioRxiv preprint with no identifier that resolves through the reference cache, so it cannot carry a verifiable snippet. Note that DOI-prefixed references are not snippet-checked by the validators because DOI sits in skip_prefixes; the five DOI-sourced snippets here were verified by hand against the cached record, and this is stated in the entry notes. Validation after fixes: 36 of 41 snippets verified with 5 skipped by prefix; schema, terms, folded-hyphen, title-snippet and snippet-length checks pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: CYFIP2-Related DEE (DEE65)</strong> · 2026-08-20T04:24:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CYFIP2-Related_Developmental_and_Epileptic_Encephalopathy/2026-08-20T042455Z-claude-code-3602d8.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for DEE65 (MONDO:0033374, OMIM 618008, CYFIP2 hgnc:13760), curated from a claude_code deep-research run. NEC preflight PASS with the cleanest report of the batch: CYFIP2 at 75 mentions against the paralog CYFIP1 at 3, OMIM 618008 matching the MONDO xref, and no needs_review flag. Two ontology bindings proposed by the report were wrong and were corrected against OAK: GO:0071203 is the WASH complex, not the WAVE regulatory complex, which is a different protein complex entirely and would have mis-assigned CYFIP2 - GO:0031209 SCAR complex is the correct term, SCAR and WAVE being synonyms; and HP:0031375 is the bare modifier Refractory, not drug-resistant epilepsy, so the KB convention HP:0020174 Refractory drug response was used. A third term, HP:0000735 Impaired social interactions, is obsolete in HPO with no adequate replacement, so that descriptor is deliberately left unbound with an NTR note rather than forced onto HP:0000729 Autistic behavior, which would overstate the quoted source. No GeneReviews chapter exists for CYFIP2. Eight references cited, four with full text. The entry curates the published disagreement over mechanism as two competing mechanistic_hypotheses - WRC gain of function CANONICAL versus reduced CYFIP2 protein stability ALTERNATIVE - with the causal edges tagged to hypothesis groups rather than one account being asserted over the other. Validation: just validate passed with 35 of 35 snippets verified; validate-terms, check-duplicate-keys, check_folded_hyphens, check_environmental_evidence, check-title-snippets and check_snippet_length all pass. The snippet-length gate caught a genuine four-word fragment that had been split by an abbreviation period; it was replaced with the full contiguous sentence.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4127,6 +4204,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4191,6 +4269,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4216,6 +4295,33 @@
 
 
         <!-- Comorbidities -->
+
+        <div class="card" id="comorbidities">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">C</div>
+                <h2 class="card-title">Comorbidities</h2>
+            </div>
+            <div class="mapping-section">
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease__Coronary_Artery_Disease.html">Metabolic Dysfunction-Associated Steatotic Liver Disease &lt;-&gt; Coronary Artery Disease</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease A</span>
+
+
+                        <span class="tag tag-classification">A_BEFORE_B</span>
+
+
+                        <span class="tag tag-mechanistic">CURATED</span>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
 
 
         <!-- Mechanistic Hypotheses -->
@@ -4269,6 +4375,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4397,6 +4504,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4418,6 +4526,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4561,6 +4670,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4582,6 +4692,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4727,6 +4838,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4748,6 +4860,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4857,6 +4970,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4878,6 +4992,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4905,6 +5020,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5205,6 +5321,7 @@ This experiment is of type pair-fed intermittent-hypoxia exposure with condition
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5228,6 +5345,7 @@ This experiment is of type pair-fed intermittent-hypoxia exposure with condition
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5779,6 +5897,7 @@ This readout reports on lipid storage (GO:0019915). GO:0019915 is a biological p
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5803,6 +5922,7 @@ This readout reports on lipid storage (GO:0019915). GO:0019915 is a biological p
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5824,6 +5944,7 @@ This readout reports on lipid storage (GO:0019915). GO:0019915 is a biological p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5861,6 +5982,7 @@ This readout reports on lipid storage (GO:0019915). GO:0019915 is a biological p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiometabolic-dysfunction-and-adipose-insulin-resistance" data-dismech-node="Cardiometabolic Dysfunction and Adipose Insulin Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiometabolic Dysfunction and Adipose Insulin Resistance</div>
+
 
                 <div class="item-desc">MASLD is defined by hepatic steatosis in the presence of at least one cardiometabolic risk factor (overweight/obesity, dysglycaemia or type 2 diabetes, hypertension, hypertriglyceridaemia, or low HDL cholesterol). Adipose-tissue insulin resistance fails to restrain lipolysis, so non-esterified fatty acids flood the portal circulation, while hyperinsulinaemia and carbohydrate surplus drive hepatic de novo lipogenesis. This cardiometabolic state is the initiating context that distinguishes MASLD from other steatotic liver diseases.</div>
 
@@ -6119,6 +6241,7 @@ This pathophysiological event involves decreased cellular response to insulin st
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6140,6 +6263,7 @@ This pathophysiological event involves decreased cellular response to insulin st
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6165,6 +6289,7 @@ This pathophysiological event involves decreased cellular response to insulin st
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-transporter-mediated-hepatic-fatty-acid-uptake" data-dismech-node="Transporter-Mediated Hepatic Fatty Acid Uptake" data-dismech-type="pathophysiology">
                 <div class="item-name">Transporter-Mediated Hepatic Fatty Acid Uptake</div>
+
 
                 <div class="item-desc">Long-chain fatty acids delivered to the liver do not enter hepatocytes by passive diffusion alone. Uptake is largely protein-mediated, through fatty acid transport proteins at the basal plasma membrane of the hepatocyte. FATP5 (SLC27A5) is expressed exclusively by liver and localizes to that membrane; FATP2 (SLC27A2) accounts for a further large share of hepatic long-chain fatty acid uptake while also serving as a peroxisomal very-long-chain acyl-CoA synthetase. This node is deliberately kept separate from Hepatocyte Lipid Overload because it is the step at which the circulating non-esterified fatty acid load is gated, and because it is where the two rodent interventions that reverse established steatosis act. What is increased in the high-fat state is the flux through this step rather than, on the curated evidence, transporter expression: the murine experiments show that continued transporter activity is required to sustain fatty acid entry, not that the transporters are upregulated by disease. The node carries the emerging hepatic-uptake hypothesis and is not asserted as a required step in human disease.</div>
 
@@ -6512,6 +6637,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6533,6 +6659,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6558,6 +6685,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-lipid-overload" data-dismech-node="Hepatocyte Lipid Overload" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocyte Lipid Overload</div>
+
 
                 <div class="item-desc">Hepatocyte triglyceride accumulates when fatty acid inflow from adipose lipolysis and diet, plus de novo lipogenesis, exceeds fatty acid oxidation and very-low-density lipoprotein export. In MASLD the disorder-specific inflow is metabolic (adipose insulin resistance and carbohydrate surplus) rather than ethanol-driven, but the resulting lipid-droplet overload is the conserved module state.</div>
 
@@ -6831,6 +6959,7 @@ This pathophysiological event involves decreased fatty acid beta-oxidation (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6853,6 +6982,7 @@ This pathophysiological event involves decreased fatty acid beta-oxidation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatocyte-mitophagy" data-dismech-node="Impaired Hepatocyte Mitophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hepatocyte Mitophagy</div>
+
 
                 <div class="item-desc">Mitophagy is the selective autophagic clearance of damaged mitochondria, executed through ubiquitin-dependent (PINK1/Parkin) and ubiquitin-independent receptor pathways. In steatotic hepatocytes this quality-control step is suppressed, so depolarized, reactive-oxygen-species-producing mitochondria persist and NLRP3 inflammasome activation and pyroptotic hepatocyte death are licensed. This node carries the emerging mitophagy hypothesis and is not asserted as a required step in every case.</div>
 
@@ -7019,6 +7149,7 @@ This pathophysiological event involves decreased mitophagy (GO:0000423). GO:0000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7040,6 +7171,7 @@ This pathophysiological event involves decreased mitophagy (GO:0000423). GO:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7065,6 +7197,7 @@ This pathophysiological event involves decreased mitophagy (GO:0000423). GO:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lipotoxic-stress-and-organelle-dysfunction" data-dismech-node="Lipotoxic Stress and Organelle Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Lipotoxic Stress and Organelle Dysfunction</div>
+
 
                 <div class="item-desc">Toxic non-triglyceride lipid species (diacylglycerols, ceramides, free fatty acid metabolites) accumulate alongside stored triglyceride and induce endoplasmic reticulum stress, mitochondrial dysfunction, and reactive oxygen species accumulation. This is the amplification step that converts bland steatosis (MASL) toward steatohepatitis (MASH).</div>
 
@@ -7224,6 +7357,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7245,6 +7379,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7270,6 +7405,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-injury-and-inflammatory-activation" data-dismech-node="Hepatocyte Injury and Inflammatory Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocyte Injury and Inflammatory Activation</div>
+
 
                 <div class="item-desc">Stressed hepatocytes undergo apoptosis and pyroptosis, releasing damage signals that activate Kupffer cells and recruited macrophages, with inflammasome activation and pro-inflammatory cytokine release. Steatosis with lobular inflammation and hepatocellular ballooning defines MASH, the inflammatory subtype from which progressive disease arises.</div>
 
@@ -7489,6 +7625,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7511,6 +7648,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-liver-sinusoidal-endothelial-cell-dysfunction-and-capillarization" data-dismech-node="Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization</div>
+
 
                 <div class="item-desc">Liver sinusoidal endothelial cells (LSECs) are the fenestrated gatekeepers between portal blood and the hepatocyte, and in health they hold Kupffer cells and hepatic stellate cells quiescent. In MASLD they capillarize — losing their fenestrae and their shear-responsive vasodilator output — and lose autophagic capacity, converting them from a restraining influence into a source of inflammatory and fibrogenic mediators. This node is the hepatic limb of the endothelial arm; it is not on the canonical lipotoxic backbone and is grouped under the emerging sinusoidal_endothelial_dysfunction_masld hypothesis.</div>
 
@@ -7764,6 +7902,7 @@ This pathophysiological event involves decreased nitric oxide biosynthetic proce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7785,6 +7924,7 @@ This pathophysiological event involves decreased nitric oxide biosynthetic proce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7810,6 +7950,7 @@ This pathophysiological event involves decreased nitric oxide biosynthetic proce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-stellate-cell-activation-and-fibrosis" data-dismech-node="Hepatic Stellate Cell Activation and Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Stellate Cell Activation and Fibrosis</div>
+
 
                 <div class="item-desc">Hepatic stellate cells transdifferentiate into myofibroblast-like cells and deposit excessive extracellular matrix. Fibrosis stage is the histologic feature that determines long-term outcome in MASLD, independent of steatohepatitis activity, which makes this node the principal prognostic and therapeutic target.</div>
 
@@ -7965,6 +8106,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7987,6 +8129,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-steatosis-progressing-to-steatohepatitis-and-fibrosis" data-dismech-node="Hepatic Steatosis Progressing to Steatohepatitis and Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Steatosis Progressing to Steatohepatitis and Fibrosis</div>
+
 
                 <div class="item-desc">The convergent clinical outcome: bland steatosis advancing through steatohepatitis to bridging fibrosis, cirrhosis, hepatic decompensation, and hepatocellular carcinoma. Most people with MASLD never reach this end of the spectrum, but fibrosis stage stratifies who will.</div>
 
@@ -8059,6 +8202,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8081,6 +8225,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pnpla3-rs738409-genetic-susceptibility" data-dismech-node="PNPLA3 rs738409 Genetic Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">PNPLA3 rs738409 Genetic Susceptibility</div>
+
 
                 <div class="item-desc">The PNPLA3 rs738409 (I148M) allele increases hepatic triglyceride content and hepatic inflammation, and accounts for much of the ancestry-related variation in susceptibility to fatty liver. It is a susceptibility modifier of lipid retention rather than a necessary or sufficient cause of MASLD.</div>
 
@@ -8177,6 +8322,7 @@ This pathophysiological event involves PNPLA3 (hgnc:18590). hgnc:18590 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8199,6 +8345,7 @@ This pathophysiological event involves PNPLA3 (hgnc:18590). hgnc:18590 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tm6sf2-p-glu167lys-genetic-susceptibility" data-dismech-node="TM6SF2 p.Glu167Lys Genetic Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">TM6SF2 p.Glu167Lys Genetic Susceptibility</div>
+
 
                 <div class="item-desc">The TM6SF2 p.Glu167Lys variant reduces TM6SF2 protein levels and impairs hepatic very-low-density lipoprotein export, raising liver triglyceride while lowering circulating LDL cholesterol and triglycerides. It is the prototypical example of the discordance between hepatic fat accumulation and cardiovascular lipid risk in MASLD.</div>
 
@@ -8295,6 +8442,7 @@ This pathophysiological event involves TM6SF2 (hgnc:11861). hgnc:11861 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8317,6 +8465,7 @@ This pathophysiological event involves TM6SF2 (hgnc:11861). hgnc:11861 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obstructive-sleep-apnea-associated-chronic-intermittent-hypoxia" data-dismech-node="Obstructive Sleep Apnea-Associated Chronic Intermittent Hypoxia" data-dismech-type="pathophysiology">
                 <div class="item-name">Obstructive Sleep Apnea-Associated Chronic Intermittent Hypoxia</div>
+
 
                 <div class="item-desc">Obstructive sleep apnea imposes repeated nocturnal desaturation-reoxygenation cycles on the liver. The exposure is quantified clinically by the apnea-hypopnea index, the oxygen desaturation index, and the proportion of sleep time spent below 90% saturation, and it is these hypoxia metrics rather than the arousal burden that track hepatic severity. The node is curated as a comorbid, potentially modifiable initiating context that sits alongside — not inside — the cardiometabolic trigger, because the two are strongly correlated through obesity and the curated evidence disagrees about how much survives adjustment for it. Sleep fragmentation is deliberately not modeled here: the studies that separate the two attribute the hepatic signal to the hypoxic component.</div>
 
@@ -8432,6 +8581,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8453,6 +8603,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8478,6 +8629,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoxia-driven-hepatic-lipogenesis-and-oxidative-stress" data-dismech-node="Hypoxia-Driven Hepatic Lipogenesis and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypoxia-Driven Hepatic Lipogenesis and Oxidative Stress</div>
+
 
                 <div class="item-desc">Intermittent hypoxia raises hepatic SREBP-1 and its target stearoyl-CoA desaturase 1, increasing triglyceride and phospholipid biosynthesis, and the reoxygenation half of each cycle generates reactive oxygen species so that the hepatocyte experiences a repeated ischemia-reperfusion-like insult. The lipogenic limb is HIF-1-dependent in mice; the oxidative limb is the one measured directly in human liver, as in-situ 4-hydroxynonenal staining and urinary F2-isoprostanes that scale with the nocturnal hypoxia metrics. The node therefore feeds both the lipid-overload state and the injury state of the canonical backbone rather than substituting for either.</div>
 
@@ -8731,6 +8883,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8752,6 +8905,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8814,6 +8968,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8835,6 +8990,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8885,6 +9041,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8932,6 +9089,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8953,6 +9111,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9003,6 +9162,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9024,6 +9184,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9090,11 +9251,9 @@ This pathophysiological event involves increased response to oxidative stress (G
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -9135,6 +9294,9 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9149,6 +9311,7 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9221,6 +9384,9 @@ This clinical feature is Hepatic fibrosis (HP:0001395), qualified as course prog
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9235,6 +9401,7 @@ This clinical feature is Hepatic fibrosis (HP:0001395), qualified as course prog
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9289,6 +9456,9 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9303,6 +9473,7 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9357,6 +9528,9 @@ This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9371,6 +9545,7 @@ This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9403,8 +9578,82 @@ This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-serum-alanine-aminotransferase" data-dismech-node="Elevated serum alanine aminotransferase" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated serum alanine aminotransferase
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating alanine aminotransferase concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0031964</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating alanine aminotransferase concentration (HP:0031964). HP:0031964 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24531328" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24531328" target="_blank">PMID:24531328</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"higher circulating levels of alanine transaminase, a marker of liver injury"</div>
+
+
+                <div class="evidence-explanation">Links raised circulating alanine transaminase to liver injury in fatty liver disease cohorts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-insulin-resistance" data-dismech-node="Insulin resistance" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -9420,15 +9669,18 @@ This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000855</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000855</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9448,6 +9700,7 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9497,15 +9750,18 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001513</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9528,6 +9784,7 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9536,85 +9793,6 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
                 <div class="evidence-explanation">A biopsy-proven steatohepatitis cohort recruited on the basis of severe obesity documents the association.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-serum-alanine-aminotransferase" data-dismech-node="Elevated serum alanine aminotransferase" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Elevated serum alanine aminotransferase
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Elevated circulating alanine aminotransferase concentration</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0031964</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating alanine aminotransferase concentration (HP:0031964). HP:0031964 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24531328" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24531328" target="_blank">PMID:24531328</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"higher circulating levels of alanine transaminase, a marker of liver injury"</div>
-
-
-                <div class="evidence-explanation">Links raised circulating alanine transaminase to liver injury in fatty liver disease cohorts.</div>
 
 
 
@@ -9706,6 +9884,9 @@ This disease-associated gene is PNPLA3 (hgnc:18590). hgnc:18590 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9720,6 +9901,7 @@ This disease-associated gene is PNPLA3 (hgnc:18590). hgnc:18590 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9781,6 +9963,9 @@ This disease-associated gene is TM6SF2 (hgnc:11861). hgnc:11861 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9795,6 +9980,7 @@ This disease-associated gene is TM6SF2 (hgnc:11861). hgnc:11861 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9856,6 +10042,9 @@ This disease-associated gene is GCKR (hgnc:4196). hgnc:4196 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9870,6 +10059,7 @@ This disease-associated gene is GCKR (hgnc:4196). hgnc:4196 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9931,6 +10121,9 @@ This disease-associated gene is MBOAT7 (hgnc:15505). hgnc:15505 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9945,6 +10138,7 @@ This disease-associated gene is MBOAT7 (hgnc:15505). hgnc:15505 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10006,6 +10200,9 @@ This disease-associated gene is HSD17B13 (hgnc:18685). hgnc:18685 is a gene from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10020,6 +10217,7 @@ This disease-associated gene is HSD17B13 (hgnc:18685). hgnc:18685 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10052,6 +10250,12 @@ This disease-associated gene is HSD17B13 (hgnc:18685). hgnc:18685 is a gene from
         rs72613567:TA
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Protein-truncating splice variant associated with reduced steatohepatitis risk.</div>
@@ -10134,6 +10338,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Hypocaloric diet and increased physical activity, targeting sustained weight loss. The histologic benefit is dose-dependent: 7-10% loss improves steatohepatitis and 10% or more is associated with the highest rates of MASH resolution and fibrosis regression. This remains the foundational intervention for all disease stages.</div>
 
 
@@ -10164,6 +10393,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10207,6 +10437,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10294,6 +10525,31 @@ This treatment uses resmetirom (NCIT:C170368). NCIT:C170368 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An oral, liver-directed, thyroid hormone receptor beta-selective agonist that increases hepatic fatty acid oxidation. In the MAESTRO-NASH phase 3 trial it was superior to placebo for both MASH resolution and fibrosis improvement in patients with F1B-F3 fibrosis, and it is the first agent approved specifically for this indication.</div>
 
 
@@ -10324,6 +10580,7 @@ This treatment uses resmetirom (NCIT:C170368). NCIT:C170368 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10367,6 +10624,7 @@ This treatment uses resmetirom (NCIT:C170368). NCIT:C170368 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10454,6 +10712,31 @@ This treatment uses semaglutide (NCIT:C152328). NCIT:C152328 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Peptide</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A glucagon-like peptide-1 receptor agonist that produces substantial weight loss and improves glycaemia. A 72-week phase 2 trial increased MASH resolution relative to placebo but found no significant fibrosis-stage benefit; that null result has since been superseded by the phase 3 ESSENCE trial, whose week-72 interim analysis in 800 patients with MASH and F2-F3 fibrosis met both primary endpoints, including reduction in liver fibrosis. Its modeled effect therefore runs through both the upstream cardiometabolic driver and the fibrogenic arm.</div>
 
 
@@ -10487,6 +10770,7 @@ This treatment uses semaglutide (NCIT:C152328). NCIT:C152328 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10511,6 +10795,7 @@ This treatment uses semaglutide (NCIT:C152328). NCIT:C152328 is a therapeutic ag
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10560,6 +10845,7 @@ This treatment uses semaglutide (NCIT:C152328). NCIT:C152328 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10603,6 +10889,7 @@ This treatment uses semaglutide (NCIT:C152328). NCIT:C152328 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10627,6 +10914,7 @@ This treatment uses semaglutide (NCIT:C152328). NCIT:C152328 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10648,6 +10936,7 @@ This treatment uses semaglutide (NCIT:C152328). NCIT:C152328 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10737,6 +11026,31 @@ This treatment uses vitamin E (CHEBI:33234). CHEBI:33234 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">High-dose alpha-tocopherol improved steatohepatitis histology relative to placebo in the PIVENS trial in adults with MASH without diabetes, but did not improve fibrosis scores. Its modeled action is on the oxidative-stress amplifier node.</div>
 
 
@@ -10767,6 +11081,7 @@ This treatment uses vitamin E (CHEBI:33234). CHEBI:33234 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10810,6 +11125,7 @@ This treatment uses vitamin E (CHEBI:33234). CHEBI:33234 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10897,6 +11213,31 @@ This treatment uses pioglitazone (CHEBI:8228). CHEBI:8228 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A PPAR-gamma agonist insulin sensitizer. In PIVENS it reduced steatosis, inflammation, and aminotransferases but did not meet the primary histologic endpoint in adults without diabetes, and caused weight gain. Modeled as acting on the cardiometabolic trigger.</div>
 
 
@@ -10927,6 +11268,7 @@ This treatment uses pioglitazone (CHEBI:8228). CHEBI:8228 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10970,6 +11312,7 @@ This treatment uses pioglitazone (CHEBI:8228). CHEBI:8228 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11036,6 +11379,31 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Metabolic (bariatric) surgery in people with severe obesity and biopsy-proven MASH produced resolution of steatohepatitis in most patients at five years, with progressive fibrosis regression. Evidence is from a prospective cohort with paired biopsies rather than a randomized trial.</div>
 
 
@@ -11066,6 +11434,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11109,6 +11478,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11219,6 +11589,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11240,6 +11611,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11332,6 +11704,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11418,6 +11791,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11510,6 +11884,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11596,6 +11971,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11688,6 +12064,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11777,6 +12154,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11798,6 +12176,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11881,6 +12260,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11915,7 +12295,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
                     </span>
 
 
-                    <span class="tag">&gt;1 in 1,000</span>
+                    <span class="tag">&gt;1 in 1,000 per year</span>
 
                 </div>
 
@@ -11937,6 +12317,7 @@ This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12254,6 +12635,7 @@ This readout reports on cellular response to insulin stimulus (GO:0032869). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12356,6 +12738,7 @@ This readout reports on gluconeogenesis (GO:0006094). GO:0006094 is a biological
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12395,6 +12778,7 @@ This readout reports on gluconeogenesis (GO:0006094). GO:0006094 is a biological
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12517,6 +12901,7 @@ This readout reports on lipid storage (GO:0019915). GO:0019915 is a biological p
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12556,6 +12941,7 @@ This readout reports on lipid storage (GO:0019915). GO:0019915 is a biological p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12678,6 +13064,7 @@ This readout reports on long-chain fatty acid import into hepatocytes, annotated
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12717,6 +13104,7 @@ This readout reports on long-chain fatty acid import into hepatocytes, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12956,6 +13344,7 @@ This experimental model uses white adipose tissue (UBERON:0001347). UBERON:00013
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13058,6 +13447,7 @@ This readout reports on triglyceride catabolic process (GO:0019433). GO:0019433 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13097,6 +13487,7 @@ This readout reports on triglyceride catabolic process (GO:0019433). GO:0019433 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13357,6 +13748,7 @@ This readout reports on cellular response to insulin stimulus (GO:0032869). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13396,6 +13788,7 @@ This readout reports on cellular response to insulin stimulus (GO:0032869). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13629,6 +14022,7 @@ This experimental model uses liver (UBERON:0002107). UBERON:0002107 is an anatom
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13668,6 +14062,7 @@ This experimental model uses liver (UBERON:0002107). UBERON:0002107 is an anatom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13919,6 +14314,7 @@ This readout reports on long-chain fatty acid import into hepatocytes, annotated
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13958,6 +14354,7 @@ This readout reports on long-chain fatty acid import into hepatocytes, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14080,6 +14477,7 @@ This readout reports on lipid storage (GO:0019915). GO:0019915 is a biological p
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -14119,6 +14517,7 @@ This readout reports on lipid storage (GO:0019915). GO:0019915 is a biological p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14354,6 +14753,7 @@ This readout reports on long-chain fatty acid import into hepatocytes, annotated
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -14393,6 +14793,7 @@ This readout reports on long-chain fatty acid import into hepatocytes, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14628,6 +15029,7 @@ This readout reports on long-chain fatty acid import into hepatocytes, annotated
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -14667,6 +15069,7 @@ This readout reports on long-chain fatty acid import into hepatocytes, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14789,6 +15192,7 @@ This readout reports on lipid storage (GO:0019915). GO:0019915 is a biological p
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -14828,6 +15232,7 @@ This readout reports on lipid storage (GO:0019915). GO:0019915 is a biological p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

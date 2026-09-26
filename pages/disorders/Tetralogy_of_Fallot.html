@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4204,6 +4281,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4357,6 +4435,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4494,6 +4573,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-second-heart-field-and-cardiac-neural-crest-program-disruption" data-dismech-node="Second heart field and cardiac neural crest program disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Second heart field and cardiac neural crest program disruption</div>
+
 
                 <div class="item-desc">A genetic lesion or teratogenic insult perturbs addition of second heart field progenitors to the developing outflow tract and migration of cardiac neural crest cells into it, during weeks three to eight of gestation. This is the same developmental program whose failure produces persistent truncus arteriosus, and the two diseases are best read as different severities and positions of failure in one process rather than as unrelated malformations.
 </div>
@@ -4742,6 +4822,7 @@ This pathophysiological event occurs in outflow tract septum (UBERON:0004142). U
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4763,6 +4844,7 @@ This pathophysiological event occurs in outflow tract septum (UBERON:0004142). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4788,6 +4870,7 @@ This pathophysiological event occurs in outflow tract septum (UBERON:0004142). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anterocephalad-deviation-of-the-outlet-septum" data-dismech-node="Anterocephalad deviation of the outlet septum" data-dismech-type="pathophysiology">
                 <div class="item-name">Anterocephalad deviation of the outlet septum</div>
+
 
                 <div class="item-desc">The single anatomical lesion of this disease. The muscular outlet septum deviates anterocephalad relative to the muscular ventricular septum. Every one of the four cardinal features is a geometric consequence of that one deviation, which is why they occur together with essentially no exceptions and why the eponymous tetralogy is better understood as a monad.
 </div>
@@ -4912,11 +4995,74 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30657877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30657877" target="_blank">PMID:30657877</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The anterocephalad deviation of the outlet septum, with associated abnormal septoparietal trabeculations, is now accepted as the hallmark of tetralogy"</div>
+
+
+                <div class="evidence-explanation">Establishes that the deviation, and not the enumeration of four features, is the accepted defining lesion of this disease, which is what makes this node the single upstream anatomical event. Marked BACKGROUND because the sentence sits in the introduction and attributes the point to earlier papers rather than to this study&#39;s own archive review.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20734579" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20734579" target="_blank">PMID:20734579</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"which are the direct result of the antero-cephalad deviation of the ventricular septal outlet and hypertrophy of the septoparietal trabeculations"</div>
+
+
+                <div class="evidence-explanation">States that the four cardinal morphologic abnormalities are the direct result of this one deviation, which is the single-lesion reading this entry models and the open question it curates.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malalignment-ventricular-septal-defect-with-overriding-aorta" data-dismech-node="Malalignment ventricular septal defect with overriding aorta" data-dismech-type="pathophysiology">
                 <div class="item-name">Malalignment ventricular septal defect with overriding aorta</div>
+
 
                 <div class="item-desc">A large non-restrictive perimembranous defect, with the aortic valve annulus straddling it. Because the defect is non-restrictive, the two ventricles function as a single pumping chamber at systemic pressure, which is why the direction of shunting is decided entirely by the relative resistance of the two outflows rather than by the defect itself.
 </div>
@@ -4994,11 +5140,72 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30657877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30657877" target="_blank">PMID:30657877</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ventricular septal defect was most often perimembranous (139, 84.8%), but we also found muscular (14, 8.5%), atrioventricular (7, 4.3%) and doubly committed juxta-arterial (2, 1.2%) variants."</div>
+
+
+                <div class="evidence-explanation">Establishes the perimembranous defect as the usual anatomy in a counted archive of 164 hearts, and shows that the node describes the majority rather than the only form.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30657877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30657877" target="_blank">PMID:30657877</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The extent of aortic override ranged from 31.0% to 100% (median of 59.5%)."</div>
+
+
+                <div class="evidence-explanation">Quantifies the override component of this node across the same archive, and shows it is a continuum rather than a fixed finding, which is why the boundary with double outlet right ventricle is conventional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-ventricular-outflow-tract-obstruction" data-dismech-node="Right ventricular outflow tract obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Right ventricular outflow tract obstruction</div>
+
 
                 <div class="item-desc">Obstruction at infundibular, valvar, supravalvar, or branch pulmonary artery level, singly or in combination. The infundibular component is muscular and therefore dynamic, which is the mechanistic basis of the hypercyanotic spell and the reason severity can change from minute to minute in a way that fixed obstructions cannot.
 </div>
@@ -5067,11 +5274,47 @@ This pathophysiological event occurs in pulmonary valve (UBERON:0002146). UBERON
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30657877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30657877" target="_blank">PMID:30657877</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Tetralogy of Fallot is characterized by anterocephalad deviation of the outlet septum, along with abnormal septoparietal trabeculations, which lead to subpulmonary infundibular stenosis."</div>
+
+
+                <div class="evidence-explanation">Names the subpulmonary infundibular level as the seat of the obstruction, which is the component this node describes as muscular and therefore dynamic.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shunt-direction-determined-by-outflow-resistance" data-dismech-node="Shunt direction determined by outflow resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Shunt direction determined by outflow resistance</div>
+
 
                 <div class="item-desc">The pivot of the whole disease. With a non-restrictive ventricular septal defect, flow goes wherever resistance is lower. Mild outflow obstruction leaves pulmonary resistance below systemic and the shunt is left to right, producing the acyanotic or pink presentation. Severe obstruction reverses that and produces right to left shunting with cyanosis. This is also why raising systemic vascular resistance, which squatting does mechanically and phenylephrine does pharmacologically, terminates a hypercyanotic spell.
 </div>
@@ -5119,11 +5362,47 @@ This pathophysiological event occurs in pulmonary valve (UBERON:0002146). UBERON
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20734579" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20734579" target="_blank">PMID:20734579</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The main determinants of pulmonary blood flow are the source of the blood flow to the lungs, the severity and functional behaviour of the subpulmonary obstruction, the right ventricular and arterial systemic pressures and the ductus arteriosus."</div>
+
+
+                <div class="evidence-explanation">Names the determinants of pulmonary blood flow as the severity and dynamic behaviour of the subpulmonary obstruction set against right ventricular and systemic arterial pressures, which is the resistance balance this node makes the pivot of the disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-ventricular-hypertrophy" data-dismech-node="Right ventricular hypertrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Right ventricular hypertrophy</div>
+
 
                 <div class="item-desc">Secondary and largely postnatal, developing as the right ventricle ejects against systemic level pressure. It is the one cardinal feature that is a response rather than a malformation, which is why it is not present at the same severity from birth.
 </div>
@@ -5218,11 +5497,78 @@ This pathophysiological event involves increased cardiac muscle hypertrophy (GO:
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21321470" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21321470" target="_blank">PMID:21321470</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In our model, pressure-overload to the right ventricle caused the right ventricular disorder, hypertrophy, and fibrosis."</div>
+
+
+                <div class="evidence-explanation">INDIRECT, from pulmonary artery banding in infant rabbits rather than from this disease. It is cited because it isolates the causal step this node asserts, that right ventricular pressure loading alone produces hypertrophy, which cannot be separated from the malformation in a human tetralogy heart.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21321470" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21321470" target="_blank">PMID:21321470</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although pressure-overload right ventricular hypertrophy is a long-term risk in some congenital heart diseases such as tetralogy of Fallot, how it develops is unclear."</div>
+
+
+                <div class="evidence-explanation">Quoted from the rabbit study&#39;s own framing sentence rather than from its results, which is why it is marked BACKGROUND. What the sentence states is the human clinical picture restated from elsewhere, that pressure-overload hypertrophy is a long-term risk in patients with tetralogy, so evidence_source grades the quoted text rather than the citing study&#39;s design. It also states that the developmental mechanism is unresolved.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyanosis-and-chronic-hypoxaemia" data-dismech-node="Cyanosis and chronic hypoxaemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Cyanosis and chronic hypoxaemia</div>
+
 
                 <div class="item-desc">Chronic arterial desaturation, with compensatory polycythaemia and, over years, digital clubbing. In the modern era of early repair these late consequences are increasingly historical in high-income settings and remain common where surgery is delayed.
 </div>
@@ -5297,11 +5643,47 @@ This pathophysiological event involves increased cardiac muscle hypertrophy (GO:
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20734579" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20734579" target="_blank">PMID:20734579</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These anatomic abnormalities result in decreased pulmonary blood flow, leading to hypoxia and cyanosis."</div>
+
+
+                <div class="evidence-explanation">States the step from the anatomical lesion through reduced pulmonary blood flow to hypoxia and cyanosis, which is what this node stands for in the pathograph.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postoperative-pulmonary-regurgitation-and-right-ventricular-remodelling" data-dismech-node="Postoperative pulmonary regurgitation and right ventricular remodelling" data-dismech-type="pathophysiology">
                 <div class="item-name">Postoperative pulmonary regurgitation and right ventricular remodelling</div>
+
 
                 <div class="item-desc">The defining problem of the adult with repaired tetralogy, and an iatrogenic one. Relieving the outflow obstruction, especially with a transannular patch, leaves the pulmonary valve incompetent. Decades of free pulmonary regurgitation then dilate the right ventricle, drive fibrosis, and build an arrhythmogenic substrate. The disease of the survivor is therefore not the disease that was repaired, which is the central fact of lifelong follow-up in this population.
 </div>
@@ -5395,6 +5777,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5417,6 +5800,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-arrhythmia-and-sudden-death-risk" data-dismech-node="Ventricular arrhythmia and sudden death risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular arrhythmia and sudden death risk</div>
+
 
                 <div class="item-desc">The principal late cause of death after successful repair. It is deliberately not curated as conforming to cardiac_ion_channel_repolarization, because the substrate here is structural, consisting of surgical scar and fibrosis in a dilated ventricle, rather than a primary channelopathy in a structurally normal heart.
 </div>
@@ -5453,6 +5837,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5501,7 +5886,7 @@ This pathophysiological event involves increased extracellular matrix organizati
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anomalous coronary artery crossing the outflow tract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Uncommon but surgically decisive. A left anterior descending artery arising from the right coronary and crossing the right ventricular outflow tract can be transected by the very incision used to relieve the obstruction, which is why coronary anatomy is defined before operation rather than discovered during it.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025503\"}}, {\"id\": \"Anterocephalad deviation of the outlet septum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single anatomical lesion of this disease. The muscular outlet septum deviates anterocephalad relative to the muscular ventricular septum. Every one of the four cardinal features is a geometric consequence of that one deviation, which is why they occur together with essentially no exceptions and why the eponymous tetralogy is better understood as a monad.\\n\", \"meta\": {\"biological_processes\": [\"outflow tract septum morphogenesis\"], \"locations\": [\"interventricular septum\"], \"experimental_models\": [{\"name\": \"Hey2 mutant mouse\", \"model_type\": \"OTHER\", \"description\": \"The mutant reproduces the malformation itself rather than an unrelated cardiac defect.\\n\"}]}}, {\"id\": \"Beta-blockade for hypercyanotic spells\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Propranolol reduces dynamic infundibular constriction, used acutely during a spell and as prophylaxis in infants awaiting repair. It is the one pharmacotherapy in this disease that acts on the actual mechanism of the acute event rather than on its consequences.\\n\", \"meta\": {\"therapeutic_agents\": [\"propranolol\"]}}, {\"id\": \"Complete surgical repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The definitive treatment, consisting of patch closure of the ventricular septal defect and relief of outflow obstruction by infundibular resection, with a transannular patch where the pulmonary annulus is too small to preserve. The trade-off embedded in that last decision is the central surgical judgement of this disease. A transannular patch relieves the obstruction most completely and guarantees pulmonary regurgitation for life, so valve-sparing techniques are preferred wherever annulus size permits.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable, and its timing is diagnostic of severity. Present from birth with severe outflow obstruction, emerging over weeks to months as dynamic infundibular obstruction progresses, or absent altogether in the acyanotic pink presentation.\\n\", \"meta\": {\"term_id\": \"HP:0000961\"}}, {\"id\": \"Cyanosis and chronic hypoxaemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic arterial desaturation, with compensatory polycythaemia and, over years, digital clubbing. In the modern era of early repair these late consequences are increasingly historical in high-income settings and remain common where surgery is delayed.\\n\"}, {\"id\": \"Digital clubbing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A late consequence of chronic hypoxaemia, now largely historical where early repair is available.\\n\", \"meta\": {\"term_id\": \"HP:0100759\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seen with significant cyanosis or heart failure.\\n\", \"meta\": {\"term_id\": \"HP:0001508\"}}, {\"id\": \"Heart murmur\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A harsh systolic ejection murmur at the left upper sternal border, arising from the outflow obstruction rather than from the septal defect. Its intensity falls during a hypercyanotic spell, because less blood is crossing the obstruction, which is a counterintuitive and clinically vital sign.\\n\", \"meta\": {\"reports_on\": [{\"target\": \"Right ventricular outflow tract obstruction\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"description\": \"The murmur is generated by turbulent flow across the obstruction, so it is an auscultatory readout of that node rather than a consequence of it. Its intensity tracks the volume of blood crossing the obstruction, which is why it softens during a spell.\\n\"}], \"term_id\": \"HP:0030148\"}}, {\"id\": \"Hey2 mutant mouse\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A mouse null for the Notch effector Hey2 develops tetralogy of Fallot along with other congenital heart defects, which is one of the few models that reproduces the specific malformation rather than a general outflow tract abnormality. It is mechanistically informative because it places a Notch pathway effector upstream of this precise anatomy, at a time when the human evidence for Notch involvement was limited to JAG1 in Alagille syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:12372254\"}}, {\"id\": \"Hypercyanotic spells\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paroxysmal deep cyanosis with hyperpnoea and irritability, typically in infants of two to four months, caused by acute dynamic infundibular constriction abruptly increasing right to left shunting. No precise HPO term exists for the episodic entity, so this phenotype is bound to Cyanosis with a recurrent temporality qualifier rather than to an invented or approximate term. The spell is the reason this disease is an emergency rather than merely a malformation.\\n\", \"meta\": {\"term_id\": \"HP:0000961\"}}, {\"id\": \"Implantable cardioverter defibrillator and catheter ablation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Device therapy and ablation for the late ventricular arrhythmia of repaired disease. They are curated here so the arrhythmia node is not a dead end in the pathograph, and because they act on the arrhythmia itself rather than on the substrate that produces it. That distinction is the point of the timing discussion in this entry: valve replacement is the only intervention that could plausibly address the substrate, and it has not been shown to reduce arrhythmia risk.\\n\"}, {\"id\": \"Malalignment ventricular septal defect with overriding aorta\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A large non-restrictive perimembranous defect, with the aortic valve annulus straddling it. Because the defect is non-restrictive, the two ventricles function as a single pumping chamber at systemic pressure, which is why the direction of shunting is decided entirely by the relative resistance of the two outflows rather than by the defect itself.\\n\", \"meta\": {\"locations\": [\"interventricular septum\"]}}, {\"id\": \"Maternal pregestational diabetes\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The best-characterised teratogenic exposure for this malformation and the only readily modifiable one. First-trimester hyperglycaemia acts during the same three to eight week window in which the outflow tract septates, which is why the exposure has to precede recognition of the pregnancy to matter. A meta-analysis of population-based studies covering over 80 million births gives a disease-specific relative risk of 1.41 for gestational diabetes, and reports that the risks for pre-gestational diabetes are higher still. The pre-gestational disease-specific estimate is not quoted here because it appears in the paper only as a forest plot figure rather than in quotable text, so what is asserted is the direction and the gestational figure rather than a pre-gestational number this entry cannot cite.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Overriding aorta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obligate. The aortic valve annulus straddles the septal defect.\\n\", \"meta\": {\"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002623\"}}, {\"id\": \"Polycythaemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Compensatory erythrocytosis driven by chronic arterial desaturation.\\n\", \"meta\": {\"term_id\": \"HP:0001901\"}}, {\"id\": \"Postoperative pulmonary regurgitation and right ventricular remodelling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining problem of the adult with repaired tetralogy, and an iatrogenic one. Relieving the outflow obstruction, especially with a transannular patch, leaves the pulmonary valve incompetent. Decades of free pulmonary regurgitation then dilate the right ventricle, drive fibrosis, and build an arrhythmogenic substrate. The disease of the survivor is therefore not the disease that was repaired, which is the central fact of lifelong follow-up in this population.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Prostaglandin E1 for ductal-dependent pulmonary blood flow\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alprostadil maintains ductal patency in neonates whose pulmonary blood flow depends on the duct, buying time to intervention. It treats neither the septal defect nor the obstruction, and is purely a holding measure.\\n\", \"meta\": {\"therapeutic_agents\": [\"alprostadil\"]}}, {\"id\": \"Pulmonary valve replacement after repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The principal late reintervention, for symptomatic or haemodynamically significant chronic pulmonary regurgitation. It improves symptoms and is associated with a fall in ventricular tachycardia incidence, but current guidance does not accept arrhythmia risk alone as an indication, because the evidence that valve replacement reduces subsequent arrhythmia risk is not robust. That reservation is curated deliberately, since the intuitive inference from the remodelling mechanism is that restoring valve competence should reverse the substrate, and that inference is not established.\\n\"}, {\"id\": \"Right aortic arch\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in roughly a quarter of cases overall and considerably more often in the 22q11.2 deleted subgroup. It is a patterning anomaly of the same pharyngeal arch program, not a consequence of the septal deviation.\\n\", \"meta\": {\"term_id\": \"HP:0002627\"}}, {\"id\": \"Right ventricular hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obligate but secondary, developing in response to pressure loading rather than being present as a malformation from the outset.\\n\", \"meta\": {\"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001667\"}}, {\"id\": \"Right ventricular outflow tract obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obligate in presence though highly variable in severity, ranging from mild infundibular narrowing to complete pulmonary atresia. That variability is what generates the entire clinical spectrum of this disease.\\n\", \"meta\": {\"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001642\"}}, {\"id\": \"Second heart field and cardiac neural crest program disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A genetic lesion or teratogenic insult perturbs addition of second heart field progenitors to the developing outflow tract and migration of cardiac neural crest cells into it, during weeks three to eight of gestation. This is the same developmental program whose failure produces persistent truncus arteriosus, and the two diseases are best read as different severities and positions of failure in one process rather than as unrelated malformations.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"migratory cardiac neural crest cell\", \"outflow tract myogenic progenitor\"], \"biological_processes\": [\"outflow tract morphogenesis\", \"cardiac neural crest cell development\"], \"locations\": [\"outflow tract septum\"], \"experimental_models\": [{\"name\": \"Hey2 mutant mouse\", \"model_type\": \"OTHER\", \"description\": \"Loss of a Notch pathway effector perturbs the developmental program of the outflow tract.\\n\"}]}}, {\"id\": \"Shunt direction determined by outflow resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pivot of the whole disease. With a non-restrictive ventricular septal defect, flow goes wherever resistance is lower. Mild outflow obstruction leaves pulmonary resistance below systemic and the shunt is left to right, producing the acyanotic or pink presentation. Severe obstruction reverses that and produces right to left shunting with cyanosis. This is also why raising systemic vascular resistance, which squatting does mechanically and phenylephrine does pharmacologically, terminates a hypercyanotic spell.\\n\"}, {\"id\": \"Systemic to pulmonary shunt palliation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A modified Blalock-Taussig-Thomas shunt, or increasingly a transcatheter alternative such as outflow tract or ductal stenting, provides pulmonary blood flow in neonates too small or too high-risk for primary repair, and allows the pulmonary arteries to grow so that a transannular incision may later be avoided.\\n\"}, {\"id\": \"Systemic vasoconstriction for hypercyanotic spells\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phenylephrine raises systemic vascular resistance and so reverses the resistance gradient that is driving right to left shunting. It is the pharmacological version of what a squatting child does mechanically, and it is a direct clinical application of the shunt-direction node in this entry.\\n\", \"meta\": {\"therapeutic_agents\": [\"phenylephrine\"]}}, {\"id\": \"Ventricular arrhythmia and sudden death risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The principal late cause of death after successful repair. It is deliberately not curated as conforming to cardiac_ion_channel_repolarization, because the substrate here is structural, consisting of surgical scar and fibrosis in a dilated ventricle, rather than a primary channelopathy in a structurally normal heart.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ventricular septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obligate. A large malalignment perimembranous defect, present in every case by definition.\\n\", \"meta\": {\"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001629\"}}], \"edges\": [{\"source\": \"Second heart field and cardiac neural crest program disruption\", \"target\": \"Anterocephalad deviation of the outlet septum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A disrupted progenitor and neural crest program produces a septum that forms in the wrong position rather than failing to form at all.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Second heart field and cardiac neural crest program disruption\", \"target\": \"Right aortic arch\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same pharyngeal arch patterning program that the neural crest serves also selects which fourth arch persists, so a right-sided arch arises in parallel with the outflow lesion rather than as a consequence of the septal deviation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Second heart field and cardiac neural crest program disruption\", \"target\": \"Anomalous coronary artery crossing the outflow tract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coronary ostial connection and proximal course are set during neural-crest-dependent outflow tract remodelling, so a disrupted program can leave a major coronary branch running across the right ventricular outflow tract.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anterocephalad deviation of the outlet septum\", \"target\": \"Malalignment ventricular septal defect with overriding aorta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A deviated septum cannot close the interventricular communication, and leaves the aortic root straddling it.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anterocephalad deviation of the outlet septum\", \"target\": \"Right ventricular outflow tract obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same deviation narrows the subpulmonary infundibulum.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malalignment ventricular septal defect with overriding aorta\", \"target\": \"Shunt direction determined by outflow resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A non-restrictive communication allows flow to follow the path of least resistance.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malalignment ventricular septal defect with overriding aorta\", \"target\": \"Ventricular septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The malalignment defect is itself the obligate interventricular communication recorded as the clinical phenotype.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malalignment ventricular septal defect with overriding aorta\", \"target\": \"Overriding aorta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the outlet septum is deviated away from the aortic annulus, the aortic valve straddles the defect and sits over both ventricles.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Right ventricular outflow tract obstruction\", \"target\": \"Shunt direction determined by outflow resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Obstruction to pulmonary outflow raises the resistance against which the right ventricle must eject, relative to the systemic circuit.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Right ventricular outflow tract obstruction\", \"target\": \"Right ventricular hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic pressure loading of the right ventricle drives compensatory hypertrophy.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shunt direction determined by outflow resistance\", \"target\": \"Cyanosis and chronic hypoxaemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Right to left shunting delivers systemic venous blood to the aorta without pulmonary gas exchange.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shunt direction determined by outflow resistance\", \"target\": \"Hypercyanotic spells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An acute fall in systemic vascular resistance or an acute rise in dynamic infundibular tone swings the same resistance balance abruptly to the right, producing the paroxysmal deep cyanosis of the spell.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cyanosis and chronic hypoxaemia\", \"target\": \"Postoperative pulmonary regurgitation and right ventricular remodelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cyanosis is what forces early operation, and the operation itself creates the late lesion.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cyanosis and chronic hypoxaemia\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arterial desaturation below the threshold at which deoxygenated haemoglobin becomes visible is the clinical sign of this node.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cyanosis and chronic hypoxaemia\", \"target\": \"Polycythaemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained arterial desaturation drives erythropoietin release and a compensatory rise in red cell mass.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cyanosis and chronic hypoxaemia\", \"target\": \"Digital clubbing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Years of chronic hypoxaemia remodel the nail bed soft tissue; the intervening steps are not established, so the edge is kept indirect.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cyanosis and chronic hypoxaemia\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Poor weight gain follows the hypoxaemic and heart-failure burden rather than the anatomy directly.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increased resting metabolic demand and feeding difficulty in a chronically desaturated infant.\\n\"]}, {\"source\": \"Postoperative pulmonary regurgitation and right ventricular remodelling\", \"target\": \"Ventricular arrhythmia and sudden death risk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Right ventricular dilation and fibrosis create the substrate for reentrant ventricular tachycardia.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maternal pregestational diabetes\", \"target\": \"Second heart field and cardiac neural crest program disruption\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Maternal hyperglycaemia during outflow tract septation is proposed to perturb the progenitor and neural crest program, though the teratogenic mechanism is not established.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Complete surgical repair\", \"target\": \"Malalignment ventricular septal defect with overriding aorta\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Complete surgical repair\", \"target\": \"Right ventricular outflow tract obstruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Beta-blockade for hypercyanotic spells\", \"target\": \"Right ventricular outflow tract obstruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Systemic vasoconstriction for hypercyanotic spells\", \"target\": \"Shunt direction determined by outflow resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prostaglandin E1 for ductal-dependent pulmonary blood flow\", \"target\": \"Cyanosis and chronic hypoxaemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Systemic to pulmonary shunt palliation\", \"target\": \"Cyanosis and chronic hypoxaemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pulmonary valve replacement after repair\", \"target\": \"Postoperative pulmonary regurgitation and right ventricular remodelling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Implantable cardioverter defibrillator and catheter ablation\", \"target\": \"Ventricular arrhythmia and sudden death risk\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hey2 mutant mouse\", \"target\": \"Second heart field and cardiac neural crest program disruption\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of a Notch pathway effector perturbs the developmental program of the outflow tract.\\n\"}, {\"source\": \"Hey2 mutant mouse\", \"target\": \"Anterocephalad deviation of the outlet septum\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mutant reproduces the malformation itself rather than an unrelated cardiac defect.\\n\"}, {\"source\": \"Right ventricular outflow tract obstruction\", \"target\": \"Heart murmur\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The murmur is generated by turbulent flow across the obstruction, so it is an auscultatory readout of that node rather than a consequence of it. Its intensity tracks the volume of blood crossing the obstruction, which is why it softens during a spell.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anomalous coronary artery crossing the outflow tract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Uncommon but surgically decisive. A left anterior descending artery arising from the right coronary and crossing the right ventricular outflow tract can be transected by the very incision used to relieve the obstruction, which is why coronary anatomy is defined before operation rather than discovered during it.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025503\"}}, {\"id\": \"Anterocephalad deviation of the outlet septum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single anatomical lesion of this disease. The muscular outlet septum deviates anterocephalad relative to the muscular ventricular septum. Every one of the four cardinal features is a geometric consequence of that one deviation, which is why they occur together with essentially no exceptions and why the eponymous tetralogy is better understood as a monad.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"outflow tract septum morphogenesis\"], \"locations\": [\"interventricular septum\"], \"experimental_models\": [{\"name\": \"Hey2 mutant mouse\", \"model_type\": \"OTHER\", \"description\": \"The mutant reproduces the malformation itself rather than an unrelated cardiac defect.\\n\"}]}}, {\"id\": \"Beta-blockade for hypercyanotic spells\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Propranolol reduces dynamic infundibular constriction, used acutely during a spell and as prophylaxis in infants awaiting repair. It is the one pharmacotherapy in this disease that acts on the actual mechanism of the acute event rather than on its consequences.\\n\", \"meta\": {\"therapeutic_agents\": [\"propranolol\"]}}, {\"id\": \"Complete surgical repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The definitive treatment, consisting of patch closure of the ventricular septal defect and relief of outflow obstruction by infundibular resection, with a transannular patch where the pulmonary annulus is too small to preserve. The trade-off embedded in that last decision is the central surgical judgement of this disease. A transannular patch relieves the obstruction most completely and guarantees pulmonary regurgitation for life, so valve-sparing techniques are preferred wherever annulus size permits.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable, and its timing is diagnostic of severity. Present from birth with severe outflow obstruction, emerging over weeks to months as dynamic infundibular obstruction progresses, or absent altogether in the acyanotic pink presentation.\\n\", \"meta\": {\"term_id\": \"HP:0000961\"}}, {\"id\": \"Cyanosis and chronic hypoxaemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic arterial desaturation, with compensatory polycythaemia and, over years, digital clubbing. In the modern era of early repair these late consequences are increasingly historical in high-income settings and remain common where surgery is delayed.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Digital clubbing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A late consequence of chronic hypoxaemia, now largely historical where early repair is available.\\n\", \"meta\": {\"term_id\": \"HP:0100759\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seen with significant cyanosis or heart failure.\\n\", \"meta\": {\"term_id\": \"HP:0001508\"}}, {\"id\": \"Heart murmur\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A harsh systolic ejection murmur at the left upper sternal border, arising from the outflow obstruction rather than from the septal defect. Its intensity falls during a hypercyanotic spell, because less blood is crossing the obstruction, which is a counterintuitive and clinically vital sign.\\n\", \"meta\": {\"reports_on\": [{\"target\": \"Right ventricular outflow tract obstruction\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"description\": \"The murmur is generated by turbulent flow across the obstruction, so it is an auscultatory readout of that node rather than a consequence of it. Its intensity tracks the volume of blood crossing the obstruction, which is why it softens during a spell.\\n\"}], \"term_id\": \"HP:0030148\"}}, {\"id\": \"Hey2 mutant mouse\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A mouse null for the Notch effector Hey2 develops tetralogy of Fallot along with other congenital heart defects, which is one of the few models that reproduces the specific malformation rather than a general outflow tract abnormality. It is mechanistically informative because it places a Notch pathway effector upstream of this precise anatomy, at a time when the human evidence for Notch involvement was limited to JAG1 in Alagille syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:12372254\"}}, {\"id\": \"Hypercyanotic spells\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paroxysmal deep cyanosis with hyperpnoea and irritability, typically in infants of two to four months, conventionally attributed to acute dynamic infundibular constriction abruptly increasing right to left shunting. That attribution is the standard teaching rather than a settled finding: the physiological review cited here states that the mechanism of the spell is not clear, and lists increased infundibular contractility alongside peripheral vasodilatation and right ventricular mechanoreceptor stimulation as proposals. No precise HPO term exists for the episodic entity, so this phenotype is bound to Cyanosis with a recurrent temporality qualifier rather than to an invented or approximate term. The spell is the reason this disease is an emergency rather than merely a malformation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000961\"}}, {\"id\": \"Implantable cardioverter defibrillator and catheter ablation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Device therapy and ablation for the late ventricular arrhythmia of repaired disease. They are curated here so the arrhythmia node is not a dead end in the pathograph, and because they act on the arrhythmia itself rather than on the substrate that produces it. That distinction is the point of the timing discussion in this entry: valve replacement is the only intervention that could plausibly address the substrate, and it has not been shown to reduce arrhythmia risk.\\n\"}, {\"id\": \"Malalignment ventricular septal defect with overriding aorta\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A large non-restrictive perimembranous defect, with the aortic valve annulus straddling it. Because the defect is non-restrictive, the two ventricles function as a single pumping chamber at systemic pressure, which is why the direction of shunting is decided entirely by the relative resistance of the two outflows rather than by the defect itself.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"interventricular septum\"]}}, {\"id\": \"Maternal pregestational diabetes\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The best-characterised teratogenic exposure for this malformation and the only readily modifiable one. First-trimester hyperglycaemia acts during the same three to eight week window in which the outflow tract septates, which is why the exposure has to precede recognition of the pregnancy to matter. A meta-analysis of population-based studies covering over 80 million births gives a disease-specific relative risk of 1.41 for gestational diabetes, and reports that the risks for pre-gestational diabetes are higher still. The pre-gestational disease-specific estimate is not quoted here because it appears in the paper only as a forest plot figure rather than in quotable text, so what is asserted is the direction and the gestational figure rather than a pre-gestational number this entry cannot cite.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Overriding aorta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obligate. The aortic valve annulus straddles the septal defect.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002623\"}}, {\"id\": \"Polycythaemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Compensatory erythrocytosis driven by chronic arterial desaturation.\\n\", \"meta\": {\"term_id\": \"HP:0001901\"}}, {\"id\": \"Postoperative pulmonary regurgitation and right ventricular remodelling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining problem of the adult with repaired tetralogy, and an iatrogenic one. Relieving the outflow obstruction, especially with a transannular patch, leaves the pulmonary valve incompetent. Decades of free pulmonary regurgitation then dilate the right ventricle, drive fibrosis, and build an arrhythmogenic substrate. The disease of the survivor is therefore not the disease that was repaired, which is the central fact of lifelong follow-up in this population.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Prostaglandin E1 for ductal-dependent pulmonary blood flow\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alprostadil maintains ductal patency in neonates whose pulmonary blood flow depends on the duct, buying time to intervention. It treats neither the septal defect nor the obstruction, and is purely a holding measure.\\n\", \"meta\": {\"therapeutic_agents\": [\"alprostadil\"]}}, {\"id\": \"Pulmonary valve replacement after repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The principal late reintervention, for symptomatic or haemodynamically significant chronic pulmonary regurgitation. It improves symptoms and is associated with a fall in ventricular tachycardia incidence, but current guidance does not accept arrhythmia risk alone as an indication, because the evidence that valve replacement reduces subsequent arrhythmia risk is not robust. That reservation is curated deliberately, since the intuitive inference from the remodelling mechanism is that restoring valve competence should reverse the substrate, and that inference is not established.\\n\"}, {\"id\": \"Right aortic arch\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in roughly a quarter of cases overall and considerably more often in the 22q11.2 deleted subgroup. It is a patterning anomaly of the same pharyngeal arch program, not a consequence of the septal deviation.\\n\", \"meta\": {\"term_id\": \"HP:0002627\"}}, {\"id\": \"Right ventricular hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obligate but secondary, developing in response to pressure loading rather than being present as a malformation from the outset.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001667\"}}, {\"id\": \"Right ventricular outflow tract obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obligate in presence though highly variable in severity, ranging from mild infundibular narrowing to complete pulmonary atresia. That variability is what generates the entire clinical spectrum of this disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001642\"}}, {\"id\": \"Second heart field and cardiac neural crest program disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A genetic lesion or teratogenic insult perturbs addition of second heart field progenitors to the developing outflow tract and migration of cardiac neural crest cells into it, during weeks three to eight of gestation. This is the same developmental program whose failure produces persistent truncus arteriosus, and the two diseases are best read as different severities and positions of failure in one process rather than as unrelated malformations.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"migratory cardiac neural crest cell\", \"outflow tract myogenic progenitor\"], \"biological_processes\": [\"outflow tract morphogenesis\", \"cardiac neural crest cell development\"], \"locations\": [\"outflow tract septum\"], \"experimental_models\": [{\"name\": \"Hey2 mutant mouse\", \"model_type\": \"OTHER\", \"description\": \"Loss of a Notch pathway effector perturbs the developmental program of the outflow tract.\\n\"}]}}, {\"id\": \"Shunt direction determined by outflow resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pivot of the whole disease. With a non-restrictive ventricular septal defect, flow goes wherever resistance is lower. Mild outflow obstruction leaves pulmonary resistance below systemic and the shunt is left to right, producing the acyanotic or pink presentation. Severe obstruction reverses that and produces right to left shunting with cyanosis. This is also why raising systemic vascular resistance, which squatting does mechanically and phenylephrine does pharmacologically, terminates a hypercyanotic spell.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic to pulmonary shunt palliation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A modified Blalock-Taussig-Thomas shunt, or increasingly a transcatheter alternative such as outflow tract or ductal stenting, provides pulmonary blood flow in neonates too small or too high-risk for primary repair, and allows the pulmonary arteries to grow so that a transannular incision may later be avoided.\\n\"}, {\"id\": \"Systemic vasoconstriction for hypercyanotic spells\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phenylephrine raises systemic vascular resistance and so reverses the resistance gradient that is driving right to left shunting. It is the pharmacological version of what a squatting child does mechanically, and it is a direct clinical application of the shunt-direction node in this entry.\\n\", \"meta\": {\"therapeutic_agents\": [\"phenylephrine\"]}}, {\"id\": \"Ventricular arrhythmia and sudden death risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The principal late cause of death after successful repair. It is deliberately not curated as conforming to cardiac_ion_channel_repolarization, because the substrate here is structural, consisting of surgical scar and fibrosis in a dilated ventricle, rather than a primary channelopathy in a structurally normal heart.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ventricular septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obligate. A large malalignment perimembranous defect, present in every case by definition.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001629\"}}], \"edges\": [{\"source\": \"Second heart field and cardiac neural crest program disruption\", \"target\": \"Anterocephalad deviation of the outlet septum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A disrupted progenitor and neural crest program produces a septum that forms in the wrong position rather than failing to form at all.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Second heart field and cardiac neural crest program disruption\", \"target\": \"Right aortic arch\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same pharyngeal arch patterning program that the neural crest serves also selects which fourth arch persists, so a right-sided arch arises in parallel with the outflow lesion rather than as a consequence of the septal deviation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Second heart field and cardiac neural crest program disruption\", \"target\": \"Anomalous coronary artery crossing the outflow tract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coronary ostial connection and proximal course are set during neural-crest-dependent outflow tract remodelling, so a disrupted program can leave a major coronary branch running across the right ventricular outflow tract.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anterocephalad deviation of the outlet septum\", \"target\": \"Malalignment ventricular septal defect with overriding aorta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A deviated septum cannot close the interventricular communication, and leaves the aortic root straddling it.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anterocephalad deviation of the outlet septum\", \"target\": \"Right ventricular outflow tract obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same deviation narrows the subpulmonary infundibulum.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malalignment ventricular septal defect with overriding aorta\", \"target\": \"Shunt direction determined by outflow resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A non-restrictive communication allows flow to follow the path of least resistance.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malalignment ventricular septal defect with overriding aorta\", \"target\": \"Ventricular septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The malalignment defect is itself the obligate interventricular communication recorded as the clinical phenotype.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Malalignment ventricular septal defect with overriding aorta\", \"target\": \"Overriding aorta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the outlet septum is deviated away from the aortic annulus, the aortic valve straddles the defect and sits over both ventricles.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Right ventricular outflow tract obstruction\", \"target\": \"Shunt direction determined by outflow resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Obstruction to pulmonary outflow raises the resistance against which the right ventricle must eject, relative to the systemic circuit.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Right ventricular outflow tract obstruction\", \"target\": \"Right ventricular hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic pressure loading of the right ventricle drives compensatory hypertrophy.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shunt direction determined by outflow resistance\", \"target\": \"Cyanosis and chronic hypoxaemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Right to left shunting delivers systemic venous blood to the aorta without pulmonary gas exchange.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shunt direction determined by outflow resistance\", \"target\": \"Hypercyanotic spells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An acute fall in systemic vascular resistance or an acute rise in dynamic infundibular tone swings the same resistance balance abruptly to the right, producing the paroxysmal deep cyanosis of the spell.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cyanosis and chronic hypoxaemia\", \"target\": \"Postoperative pulmonary regurgitation and right ventricular remodelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cyanosis is what forces early operation, and the operation itself creates the late lesion.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cyanosis and chronic hypoxaemia\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arterial desaturation below the threshold at which deoxygenated haemoglobin becomes visible is the clinical sign of this node.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cyanosis and chronic hypoxaemia\", \"target\": \"Polycythaemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained arterial desaturation drives erythropoietin release and a compensatory rise in red cell mass.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cyanosis and chronic hypoxaemia\", \"target\": \"Digital clubbing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Years of chronic hypoxaemia remodel the nail bed soft tissue; the intervening steps are not established, so the edge is kept indirect.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cyanosis and chronic hypoxaemia\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Poor weight gain follows the hypoxaemic and heart-failure burden rather than the anatomy directly.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increased resting metabolic demand and feeding difficulty in a chronically desaturated infant.\\n\"]}, {\"source\": \"Postoperative pulmonary regurgitation and right ventricular remodelling\", \"target\": \"Ventricular arrhythmia and sudden death risk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Right ventricular dilation and fibrosis create the substrate for reentrant ventricular tachycardia.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maternal pregestational diabetes\", \"target\": \"Second heart field and cardiac neural crest program disruption\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Maternal hyperglycaemia during outflow tract septation is proposed to perturb the progenitor and neural crest program, though the teratogenic mechanism is not established.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Complete surgical repair\", \"target\": \"Malalignment ventricular septal defect with overriding aorta\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Complete surgical repair\", \"target\": \"Right ventricular outflow tract obstruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Beta-blockade for hypercyanotic spells\", \"target\": \"Right ventricular outflow tract obstruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Systemic vasoconstriction for hypercyanotic spells\", \"target\": \"Shunt direction determined by outflow resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prostaglandin E1 for ductal-dependent pulmonary blood flow\", \"target\": \"Cyanosis and chronic hypoxaemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Systemic to pulmonary shunt palliation\", \"target\": \"Cyanosis and chronic hypoxaemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pulmonary valve replacement after repair\", \"target\": \"Postoperative pulmonary regurgitation and right ventricular remodelling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Implantable cardioverter defibrillator and catheter ablation\", \"target\": \"Ventricular arrhythmia and sudden death risk\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hey2 mutant mouse\", \"target\": \"Second heart field and cardiac neural crest program disruption\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of a Notch pathway effector perturbs the developmental program of the outflow tract.\\n\"}, {\"source\": \"Hey2 mutant mouse\", \"target\": \"Anterocephalad deviation of the outlet septum\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mutant reproduces the malformation itself rather than an unrelated cardiac defect.\\n\"}, {\"source\": \"Right ventricular outflow tract obstruction\", \"target\": \"Heart murmur\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The murmur is generated by turbulent flow across the obstruction, so it is an auscultatory readout of that node rather than a consequence of it. Its intensity tracks the volume of blood crossing the obstruction, which is why it softens during a spell.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5522,13 +5907,13 @@ This pathophysiological event involves increased extracellular matrix organizati
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5575,6 +5960,9 @@ This clinical feature is Polycythemia (HP:0001901). HP:0001901 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5583,7 +5971,7 @@ This clinical feature is Polycythemia (HP:0001901). HP:0001901 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-septal-defect" data-dismech-node="Ventricular septal defect" data-dismech-type="phenotype">
@@ -5619,6 +6007,118 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30657877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30657877" target="_blank">PMID:30657877</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ventricular septal defect was most often perimembranous (139, 84.8%), but we also found muscular (14, 8.5%), atrioventricular (7, 4.3%) and doubly committed juxta-arterial (2, 1.2%) variants."</div>
+
+
+                <div class="evidence-explanation">Every one of the 164 archived hearts carried a defect, which is what supports the obligate frequency, and the counts give the distribution of its anatomical types.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-overriding-aorta" data-dismech-node="Overriding aorta" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Overriding aorta
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002623" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002623</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Overriding aorta (HP:0002623). HP:0002623 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30657877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30657877" target="_blank">PMID:30657877</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The extent of aortic override ranged from 31.0% to 100% (median of 59.5%)."</div>
+
+
+                <div class="evidence-explanation">Override was present in every heart in the archive, supporting the obligate frequency, and the range shows that the degree varies continuously, which is what makes the boundary with double outlet right ventricle conventional rather than natural.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
 
                 </div>
 
@@ -5640,10 +6140,10 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001642" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001642</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001642" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001642</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonic stenosis (HP:0001642). HP:0001642 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5653,6 +6153,270 @@ This clinical feature is Pulmonic stenosis (HP:0001642). HP:0001642 is a phenoty
 
 
 
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30657877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30657877" target="_blank">PMID:30657877</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Tetralogy of Fallot is characterized by anterocephalad deviation of the outlet septum, along with abnormal septoparietal trabeculations, which lead to subpulmonary infundibular stenosis."</div>
+
+
+                <div class="evidence-explanation">Places the obstruction at the subpulmonary infundibular level and treats it as definitional for the disease, which is what the obligate frequency records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-hypertrophy" data-dismech-node="Right ventricular hypertrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Right ventricular hypertrophy
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001667" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001667</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Right ventricular hypertrophy (HP:0001667). HP:0001667 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30657877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30657877" target="_blank">PMID:30657877</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the complex of pulmonary infundibular stenosis, an interventricular communication, biventricular connection of the aorta and right ventricular hypertrophy"</div>
+
+
+                <div class="evidence-explanation">The historical enumeration of the four cardinal features, quoted from the paper&#39;s introduction rather than from its own morphological results, which is why it is marked BACKGROUND. It supports hypertrophy being one of the defining features but says nothing about when it develops.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-heart-murmur" data-dismech-node="Heart murmur" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Heart murmur
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0030148</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Heart murmur (HP:0030148). HP:0030148 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-right-aortic-arch" data-dismech-node="Right aortic arch" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Right aortic arch
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Right aortic arch with mirror image branching</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002627</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Right aortic arch with mirror image branching (HP:0002627). HP:0002627 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anomalous-coronary-artery-crossing-the-outflow-tract" data-dismech-node="Anomalous coronary artery crossing the outflow tract" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anomalous coronary artery crossing the outflow tract
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Anomalous coronary artery arising from the opposite sinus</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025503" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0025503</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anomalous coronary artery arising from the opposite sinus (HP:0025503). HP:0025503 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32156463" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32156463" target="_blank">PMID:32156463</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An anomalous coronary artery is reported in 2% to 23% of patients with tetralogy of Fallot (TOF). Knowledge of coronary anatomy prior to corrective surgery is vital to avoid damage to vessels crossing the right ventricular outflow tract (RVOT)."</div>
+
+
+                <div class="evidence-explanation">Gives the reported prevalence range and states the surgical consequence, which is the reason this phenotype is curated at all. No frequency band is assigned because a range spanning 2 to 23 percent crosses the OCCASIONAL and FREQUENT boundaries and the meta-analysis is reporting heterogeneity rather than a point estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5683,15 +6447,18 @@ This clinical feature is Pulmonic stenosis (HP:0001642). HP:0001642 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000961</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000961</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5719,10 +6486,10 @@ This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000961</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000961</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypercyanotic spell, annotated with Cyanosis (HP:0000961), qualified as temporality recurrent. HP:0000961 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5754,12 +6521,100 @@ This clinical feature is Hypercyanotic spell, annotated with Cyanosis (HP:000096
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20734579" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20734579" target="_blank">PMID:20734579</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The mechanism of cyanotic spells is not clear. Increases in infundibular contractility, peripheral vasodilatation and right ventricular mechanoreceptor stimulation are some of the proposed mechanisms."</div>
+
+
+                <div class="evidence-explanation">INDIRECT, and cited because it contradicts the confident textbook account. The description of this phenotype attributes the spell to acute dynamic infundibular constriction, and this review records that as one proposed mechanism among several rather than as established.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
 
                 </div>
 
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-digital-clubbing" data-dismech-node="Digital clubbing" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Digital clubbing
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Clubbing of fingers</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100759</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Clubbing of fingers (HP:0100759). HP:0100759 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -5780,10 +6635,10 @@ This clinical feature is Hypercyanotic spell, annotated with Cyanosis (HP:000096
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5796,260 +6651,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-overriding-aorta" data-dismech-node="Overriding aorta" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Overriding aorta
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002623" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002623</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Overriding aorta (HP:0002623). HP:0002623 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-hypertrophy" data-dismech-node="Right ventricular hypertrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Right ventricular hypertrophy
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001667" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001667</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Right ventricular hypertrophy (HP:0001667). HP:0001667 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-heart-murmur" data-dismech-node="Heart murmur" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Heart murmur
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030148</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Heart murmur (HP:0030148). HP:0030148 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-digital-clubbing" data-dismech-node="Digital clubbing" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Digital clubbing
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Clubbing of fingers</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100759</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Clubbing of fingers (HP:0100759). HP:0100759 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-right-aortic-arch" data-dismech-node="Right aortic arch" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Right aortic arch
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Right aortic arch with mirror image branching</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002627</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Right aortic arch with mirror image branching (HP:0002627). HP:0002627 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anomalous-coronary-artery-crossing-the-outflow-tract" data-dismech-node="Anomalous coronary artery crossing the outflow tract" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anomalous coronary artery crossing the outflow tract
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Anomalous coronary artery arising from the opposite sinus</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025503" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0025503</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anomalous coronary artery arising from the opposite sinus (HP:0025503). HP:0025503 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32156463" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32156463" target="_blank">PMID:32156463</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"An anomalous coronary artery is reported in 2% to 23% of patients with tetralogy of Fallot (TOF). Knowledge of coronary anatomy prior to corrective surgery is vital to avoid damage to vessels crossing the right ventricular outflow tract (RVOT)."</div>
-
-
-                <div class="evidence-explanation">Gives the reported prevalence range and states the surgical consequence, which is the reason this phenotype is curated at all. No frequency band is assigned because a range spanning 2 to 23 percent crosses the OCCASIONAL and FREQUENT boundaries and the meta-analysis is reporting heterogeneity rather than a point estimate.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
 
 
 
@@ -6131,6 +6732,9 @@ This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6145,6 +6749,7 @@ This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6204,6 +6809,9 @@ This disease-associated gene is JAG1 (hgnc:6188). hgnc:6188 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6218,6 +6826,7 @@ This disease-associated gene is JAG1 (hgnc:6188). hgnc:6188 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6277,6 +6886,9 @@ This disease-associated gene is NKX2-5 (hgnc:2488). hgnc:2488 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6291,6 +6903,7 @@ This disease-associated gene is NKX2-5 (hgnc:2488). hgnc:2488 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6350,6 +6963,9 @@ This disease-associated gene is FLT4 (hgnc:3767). hgnc:3767 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6364,6 +6980,7 @@ This disease-associated gene is FLT4 (hgnc:3767). hgnc:3767 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6423,6 +7040,9 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6437,6 +7057,7 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6461,6 +7082,7 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6543,6 +7165,31 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The definitive treatment, consisting of patch closure of the ventricular septal defect and relief of outflow obstruction by infundibular resection, with a transannular patch where the pulmonary annulus is too small to preserve. The trade-off embedded in that last decision is the central surgical judgement of this disease. A transannular patch relieves the obstruction most completely and guarantees pulmonary regurgitation for life, so valve-sparing techniques are preferred wherever annulus size permits.
 </div>
 
@@ -6598,6 +7245,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6680,6 +7328,31 @@ This treatment uses propranolol (CHEBI:8499). CHEBI:8499 is a therapeutic agent 
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -6775,6 +7448,31 @@ This treatment uses phenylephrine (CHEBI:8093). CHEBI:8093 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Phenylephrine raises systemic vascular resistance and so reverses the resistance gradient that is driving right to left shunting. It is the pharmacological version of what a squatting child does mechanically, and it is a direct clinical application of the shunt-direction node in this entry.
 </div>
 
@@ -6867,6 +7565,31 @@ This treatment uses alprostadil, annotated with prostaglandin E1 (CHEBI:15544). 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Alprostadil maintains ductal patency in neonates whose pulmonary blood flow depends on the duct, buying time to intervention. It treats neither the septal defect nor the obstruction, and is purely a holding measure.
 </div>
 
@@ -6932,6 +7655,31 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7007,6 +7755,31 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The principal late reintervention, for symptomatic or haemodynamically significant chronic pulmonary regurgitation. It improves symptoms and is associated with a fall in ventricular tachycardia incidence, but current guidance does not accept arrhythmia risk alone as an indication, because the evidence that valve replacement reduces subsequent arrhythmia risk is not robust. That reservation is curated deliberately, since the intuitive inference from the remodelling mechanism is that restoring valve competence should reverse the substrate, and that inference is not established.
 </div>
 
@@ -7039,6 +7812,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7111,6 +7885,31 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Device therapy and ablation for the late ventricular arrhythmia of repaired disease. They are curated here so the arrhythmia node is not a dead end in the pathograph, and because they act on the arrhythmia itself rather than on the substrate that produces it. That distinction is the point of the timing discussion in this entry: valve replacement is the only intervention that could plausibly address the substrate, and it has not been shown to reduce arrhythmia risk.
 </div>
 
@@ -7143,6 +7942,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7221,6 +8021,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7245,6 +8046,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7266,6 +8068,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7318,6 +8121,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7395,6 +8199,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7447,6 +8252,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7576,7 +8382,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
-                    <span class="tag">1–9 per 10,000</span>
+                    <span class="tag">1–9 per 10,000 (births)</span>
 
                 </div>
 
@@ -7599,6 +8405,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7851,6 +8658,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7872,6 +8680,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8036,10 +8845,39 @@ pathophysiology:
     description: &gt;
       A deviated septum cannot close the interventricular communication, and leaves the aortic
       root straddling it.
+    evidence:
+    - reference: PMID:30657877
+      reference_title: &#34;Tetralogy of Fallot: morphological variations and implications for surgical repair.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: BACKGROUND
+      snippet: &#34;This outlet septal deviation also results in varying degrees of aortic override and can be associated with several types of ventricular septal defect&#34;
+      explanation: Names the septal deviation as the cause of both the aortic override and the interventricular communication, which is precisely the edge asserted here. Marked BACKGROUND because the sentence sits in the introduction and attributes the point to an earlier paper rather than to this study&#39;s own archive review.
   - target: Right ventricular outflow tract obstruction
     causal_link_type: DIRECT
     description: &gt;
       The same deviation narrows the subpulmonary infundibulum.
+    evidence:
+    - reference: PMID:30657877
+      reference_title: &#34;Tetralogy of Fallot: morphological variations and implications for surgical repair.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Tetralogy of Fallot is characterized by anterocephalad deviation of the outlet septum, along with abnormal septoparietal trabeculations, which lead to subpulmonary infundibular stenosis.&#34;
+      explanation: States the deviation-to-obstruction step directly, and attributes it to the deviation together with the associated abnormal trabeculations rather than to the deviation alone.
+  evidence:
+  - reference: PMID:30657877
+    reference_title: &#34;Tetralogy of Fallot: morphological variations and implications for surgical repair.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &#34;The anterocephalad deviation of the outlet septum, with associated abnormal septoparietal trabeculations, is now accepted as the hallmark of tetralogy&#34;
+    explanation: Establishes that the deviation, and not the enumeration of four features, is the accepted defining lesion of this disease, which is what makes this node the single upstream anatomical event. Marked BACKGROUND because the sentence sits in the introduction and attributes the point to earlier papers rather than to this study&#39;s own archive review.
+  - reference: PMID:20734579
+    reference_title: Anatomophysiologic basis of tetralogy of Fallot and its clinical implications.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;which are the direct result of the antero-cephalad deviation of the ventricular septal outlet and hypertrophy of the septoparietal trabeculations&#34;
+    explanation: States that the four cardinal morphologic abnormalities are the direct result of this one deviation, which is the single-lesion reading this entry models and the open question it curates.
 
 - name: Malalignment ventricular septal defect with overriding aorta
   biological_scale: TISSUE
@@ -8068,6 +8906,19 @@ pathophysiology:
     description: &gt;
       Because the outlet septum is deviated away from the aortic annulus, the aortic valve
       straddles the defect and sits over both ventricles.
+  evidence:
+  - reference: PMID:30657877
+    reference_title: &#34;Tetralogy of Fallot: morphological variations and implications for surgical repair.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The ventricular septal defect was most often perimembranous (139, 84.8%), but we also found muscular (14, 8.5%), atrioventricular (7, 4.3%) and doubly committed juxta-arterial (2, 1.2%) variants.&#34;
+    explanation: Establishes the perimembranous defect as the usual anatomy in a counted archive of 164 hearts, and shows that the node describes the majority rather than the only form.
+  - reference: PMID:30657877
+    reference_title: &#34;Tetralogy of Fallot: morphological variations and implications for surgical repair.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The extent of aortic override ranged from 31.0% to 100% (median of 59.5%).&#34;
+    explanation: Quantifies the override component of this node across the same archive, and shows it is a continuum rather than a fixed finding, which is why the boundary with double outlet right ventricle is conventional.
 
 - name: Right ventricular outflow tract obstruction
   biological_scale: TISSUE
@@ -8091,6 +8942,13 @@ pathophysiology:
     causal_link_type: DIRECT
     description: &gt;
       Chronic pressure loading of the right ventricle drives compensatory hypertrophy.
+  evidence:
+  - reference: PMID:30657877
+    reference_title: &#34;Tetralogy of Fallot: morphological variations and implications for surgical repair.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Tetralogy of Fallot is characterized by anterocephalad deviation of the outlet septum, along with abnormal septoparietal trabeculations, which lead to subpulmonary infundibular stenosis.&#34;
+    explanation: Names the subpulmonary infundibular level as the seat of the obstruction, which is the component this node describes as muscular and therefore dynamic.
 
 - name: Shunt direction determined by outflow resistance
   biological_scale: ORGANISM
@@ -8113,6 +8971,21 @@ pathophysiology:
       An acute fall in systemic vascular resistance or an acute rise in dynamic infundibular tone
       swings the same resistance balance abruptly to the right, producing the paroxysmal deep
       cyanosis of the spell.
+    evidence:
+    - reference: PMID:20734579
+      reference_title: Anatomophysiologic basis of tetralogy of Fallot and its clinical implications.
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The mechanism of cyanotic spells is not clear. Increases in infundibular contractility, peripheral vasodilatation and right ventricular mechanoreceptor stimulation are some of the proposed mechanisms.&#34;
+      explanation: INDIRECT, and quoted because it states the limitation. The two mechanisms this edge names, a fall in systemic resistance and a rise in infundibular tone, are among the proposed mechanisms rather than established ones, and the review says so explicitly.
+  evidence:
+  - reference: PMID:20734579
+    reference_title: Anatomophysiologic basis of tetralogy of Fallot and its clinical implications.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The main determinants of pulmonary blood flow are the source of the blood flow to the lungs, the severity and functional behaviour of the subpulmonary obstruction, the right ventricular and arterial systemic pressures and the ductus arteriosus.&#34;
+    explanation: Names the determinants of pulmonary blood flow as the severity and dynamic behaviour of the subpulmonary obstruction set against right ventricular and systemic arterial pressures, which is the resistance balance this node makes the pivot of the disease.
 
 - name: Right ventricular hypertrophy
   biological_scale: TISSUE
@@ -8131,6 +9004,22 @@ pathophysiology:
     term:
       id: CL:0000746
       label: cardiac muscle cell
+  evidence:
+  - reference: PMID:21321470
+    reference_title: Mechanism of pressure-overload right ventricular hypertrophy in infant rabbits.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;In our model, pressure-overload to the right ventricle caused the right ventricular disorder, hypertrophy, and fibrosis.&#34;
+    explanation: INDIRECT, from pulmonary artery banding in infant rabbits rather than from this disease. It is cited because it isolates the causal step this node asserts, that right ventricular pressure loading alone produces hypertrophy, which cannot be separated from the malformation in a human tetralogy heart.
+  - reference: PMID:21321470
+    reference_title: Mechanism of pressure-overload right ventricular hypertrophy in infant rabbits.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &#34;Although pressure-overload right ventricular hypertrophy is a long-term risk in some congenital heart diseases such as tetralogy of Fallot, how it develops is unclear.&#34;
+    explanation: Quoted from the rabbit study&#39;s own framing sentence rather than from its results, which is why it is marked BACKGROUND. What the sentence states is the human clinical picture restated from elsewhere, that pressure-overload hypertrophy is a long-term risk in patients with tetralogy, so evidence_source grades the quoted text rather than the citing study&#39;s design. It also states that the developmental mechanism is unresolved.
 
 - name: Cyanosis and chronic hypoxaemia
   biological_scale: ORGANISM
@@ -8167,6 +9056,13 @@ pathophysiology:
     description: &gt;
       Poor weight gain follows the hypoxaemic and heart-failure burden rather than the anatomy
       directly.
+  evidence:
+  - reference: PMID:20734579
+    reference_title: Anatomophysiologic basis of tetralogy of Fallot and its clinical implications.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;These anatomic abnormalities result in decreased pulmonary blood flow, leading to hypoxia and cyanosis.&#34;
+    explanation: States the step from the anatomical lesion through reduced pulmonary blood flow to hypoxia and cyanosis, which is what this node stands for in the pathograph.
 
 - name: Postoperative pulmonary regurgitation and right ventricular remodelling
   biological_scale: ORGANISM
@@ -8223,6 +9119,13 @@ phenotypes:
       id: HP:0001629
       label: Ventricular septal defect
   frequency: OBLIGATE
+  evidence:
+  - reference: PMID:30657877
+    reference_title: &#34;Tetralogy of Fallot: morphological variations and implications for surgical repair.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The ventricular septal defect was most often perimembranous (139, 84.8%), but we also found muscular (14, 8.5%), atrioventricular (7, 4.3%) and doubly committed juxta-arterial (2, 1.2%) variants.&#34;
+    explanation: Every one of the 164 archived hearts carried a defect, which is what supports the obligate frequency, and the counts give the distribution of its anatomical types.
 
 - category: Clinical
   name: Overriding aorta
@@ -8234,6 +9137,13 @@ phenotypes:
       id: HP:0002623
       label: Overriding aorta
   frequency: OBLIGATE
+  evidence:
+  - reference: PMID:30657877
+    reference_title: &#34;Tetralogy of Fallot: morphological variations and implications for surgical repair.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The extent of aortic override ranged from 31.0% to 100% (median of 59.5%).&#34;
+    explanation: Override was present in every heart in the archive, supporting the obligate frequency, and the range shows that the degree varies continuously, which is what makes the boundary with double outlet right ventricle conventional rather than natural.
 
 - category: Clinical
   name: Right ventricular outflow tract obstruction
@@ -8247,6 +9157,13 @@ phenotypes:
       id: HP:0001642
       label: Pulmonic stenosis
   frequency: OBLIGATE
+  evidence:
+  - reference: PMID:30657877
+    reference_title: &#34;Tetralogy of Fallot: morphological variations and implications for surgical repair.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Tetralogy of Fallot is characterized by anterocephalad deviation of the outlet septum, along with abnormal septoparietal trabeculations, which lead to subpulmonary infundibular stenosis.&#34;
+    explanation: Places the obstruction at the subpulmonary infundibular level and treats it as definitional for the disease, which is what the obligate frequency records.
 
 - category: Clinical
   name: Right ventricular hypertrophy
@@ -8259,6 +9176,14 @@ phenotypes:
       id: HP:0001667
       label: Right ventricular hypertrophy
   frequency: OBLIGATE
+  evidence:
+  - reference: PMID:30657877
+    reference_title: &#34;Tetralogy of Fallot: morphological variations and implications for surgical repair.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &#34;the complex of pulmonary infundibular stenosis, an interventricular communication, biventricular connection of the aorta and right ventricular hypertrophy&#34;
+    explanation: The historical enumeration of the four cardinal features, quoted from the paper&#39;s introduction rather than from its own morphological results, which is why it is marked BACKGROUND. It supports hypertrophy being one of the defining features but says nothing about when it develops.
 
 - category: Clinical
   name: Cyanosis
@@ -8276,8 +9201,12 @@ phenotypes:
   name: Hypercyanotic spells
   description: &gt;
     Paroxysmal deep cyanosis with hyperpnoea and irritability, typically in infants of two to four
-    months, caused by acute dynamic infundibular constriction abruptly increasing right to left
-    shunting. No precise HPO term exists for the episodic entity, so this phenotype is bound to
+    months, conventionally attributed to acute dynamic infundibular constriction abruptly
+    increasing right to left shunting. That attribution is the standard teaching rather than a
+    settled finding: the physiological review cited here states that the mechanism of the spell is
+    not clear, and lists increased infundibular contractility alongside peripheral vasodilatation
+    and right ventricular mechanoreceptor stimulation as proposals.
+    No precise HPO term exists for the episodic entity, so this phenotype is bound to
     Cyanosis with a recurrent temporality qualifier rather than to an invented or approximate term.
     The spell is the reason this disease is an emergency rather than merely a malformation.
   phenotype_term:
@@ -8286,6 +9215,14 @@ phenotypes:
       id: HP:0000961
       label: Cyanosis
     temporality: RECURRENT
+  evidence:
+  - reference: PMID:20734579
+    reference_title: Anatomophysiologic basis of tetralogy of Fallot and its clinical implications.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The mechanism of cyanotic spells is not clear. Increases in infundibular contractility, peripheral vasodilatation and right ventricular mechanoreceptor stimulation are some of the proposed mechanisms.&#34;
+    explanation: INDIRECT, and cited because it contradicts the confident textbook account. The description of this phenotype attributes the spell to acute dynamic infundibular constriction, and this review records that as one proposed mechanism among several rather than as established.
 
 - category: Clinical
   name: Heart murmur
@@ -8982,6 +9919,127 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Deep-research provenance. Curated from a claude_code deep-research report treated as leads only. The report was detailed and explicitly asked that its ontology identifiers be verified before use, which was warranted.
+Deep-research provider ontology errors corrected. Three of the report&#39;s suggested identifiers were real CURIEs pointing at unrelated concepts, and three more had labels that did not match the identifier.
+CL:0002079 was suggested for cardiac neural crest cell and is actually pancreatic ductal cell. HP:0031264 was suggested for heart murmur and is actually Abnormal Bowman capsule morphology, a kidney term. HP:0004943 was suggested for the boot-shaped heart radiographic sign and is actually Accelerated atherosclerosis. HP:0001714 was suggested for right ventricular hypertrophy and is the generic Ventricular hypertrophy, so the specific HP:0001667 is used instead. HP:0004415 is real but is Pulmonary artery stenosis rather than the infundibular pulmonic stenosis the report labelled it. GO:0061308 is real but its canonical label is cardiac neural crest cell development involved in heart development, not involved in outflow tract morphogenesis as suggested.
+Absent bindings. HPO has no term for the boot-shaped heart radiographic sign, so that finding is not curated as a phenotype. HPO has no term for the hypercyanotic spell as an episodic entity, so it is bound to Cyanosis with a recurrent temporality qualifier rather than to an approximate term.
+Corrected term claims. An earlier revision of this entry asserted that CL has no cardiac neural crest cell term. That was wrong: CL:2000073 migratory cardiac neural crest cell exists and is used here, as it is in the sibling double outlet right ventricle and transposition entries. The outflow tract myogenic progenitor is likewise now bound to CL:0000513 cardiac muscle myoblast rather than to the generic cardiac muscle cell.
+Corrected provenance claims. An earlier revision of this entry asserted in three places that cached abstracts were truncated, and in one place that PMID:30582441 had no abstract body. All four claims were false. The caches are complete, and the apparent truncation was an artefact of a fixed-width extraction window used during curation rather than anything in the cache. Every affected snippet has been re-quoted at sentence boundaries from the full cached text.
+Module conformance. The late ventricular arrhythmia is deliberately not conformed to cardiac_ion_channel_repolarization, because its substrate is surgical scar and fibrosis in a dilated ventricle rather than a primary channelopathy in a structurally normal heart. This is the same judgement made for the atrial fibrillation of rheumatic heart disease.
+NEC preflight returned SKIP, since MONDO records no causal gene for this multifactorial disease. The manual fallback was run and passed. The OMIM identifier in the report, 187500, matches the OMIM cross-reference on MONDO:0008542 exactly, and the genes the report discusses most frequently, SHF, FLT4, NOTCH1, NKX2-5, and TBX1, are all genuine loci for this disease.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response and provenance retraction: Tetralogy of Fallot</strong> · 2026-08-10T02:31:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Tetralogy_of_Fallot/2026-08-10T023130Z-claude-code-f857fe.yaml">View source</a></p>
+                        <p class="research-review-text">Review-response session on PR 8277.
+
+RETRACTION. The creation record for this entry, timestamped 2026-08-10T013603Z,
+states that the cached record for PMID 30582441 contains the author block where
+an abstract body would be. That is false and is retracted here. The cache holds
+the full structured abstract. The same session also labelled four snippets as
+ending mid-word because the cached abstracts were truncated; those claims are
+false as well. The cuts fell on MEDLINE 75-column wrap boundaries and were
+produced by a fixed-width extraction window in the curation script, not by
+anything in the cache. History records are append-only, so the earlier record is
+left in place and this record supersedes its provenance claims.
+
+All four snippets are re-quoted at sentence boundaries. The consequences were not
+cosmetic. The PMID 27329296 cut had dropped the phrase symptomatic arrhythmias,
+which was the only support for the ventricular arrhythmia node, leaving that node
+with a claim-evidence mismatch. The PMID 30582441 title-only snippet is replaced
+with real results, which also allowed NOTCH1 and NKX2-5 to gain evidence blocks
+they previously lacked.
+
+A second false claim is also retracted. The entry stated that the Cell Ontology
+has no cardiac neural crest cell term. CL 2000073 migratory cardiac neural crest
+cell exists, is present in the committed cache, and is already used by sibling
+entries. It is now used here, and the outflow tract myogenic progenitor is bound
+to CL 0000513 cardiac muscle myoblast rather than the generic cardiac muscle cell.
+
+Added: an environmental section for maternal pregestational diabetes linked to
+the trigger node, and implantable cardioverter defibrillator and catheter
+ablation treatments so the ventricular arrhythmia node is no longer a pathograph
+dead end. Those treatments are described as acting on the arrhythmia rather than
+on the substrate, which is the distinction the valve-replacement timing
+discussion turns on.
+
+In a follow-up within the same session, and on a suggestion from the user, PMID
+35104296 was fetched. Its full text supplies a disease-specific relative risk of
+1.41 for gestational diabetes with a confidence interval clear of one, and states
+that pre-gestational risks are higher. The pre-gestational disease-specific
+figure appears only as a forest plot and is still not asserted. The deep-research
+narrative&#39;s odds ratio of 3 to 5 remains uncited, and is notably higher than the
+figure the meta-analysis actually supports.
+
+Validation: schema, ontology terms, and references all pass. Snippets checked 25
+of 25 verified against cached references, up from 17 of 17.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Tetralogy of Fallot</strong> · 2026-08-10T01:36:03Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Tetralogy_of_Fallot/2026-08-10T013603Z-claude-code-898c53.yaml">View source</a></p>
+                        <p class="research-review-text">Created the Tetralogy of Fallot entry from a claude_code deep-research report
+treated as leads only.
+
+Mechanism model. Nine pathophysiology nodes built around the claim that the four
+cardinal features are not four defects but four geometric consequences of one,
+namely anterocephalad deviation of the outlet septum. The chain runs from second
+heart field and cardiac neural crest disruption, through that deviation, to the
+malalignment septal defect with overriding aorta and the outflow tract
+obstruction in parallel, then to a shunt-direction node that determines whether
+the child is pink or cyanotic, and finally to the postoperative arm of pulmonary
+regurgitation, right ventricular remodelling, and late arrhythmia.
+
+The shunt-direction node is the pivot and earns its place: it explains the pink
+versus cyanotic spectrum, the hypercyanotic spell, why squatting works, and why
+phenylephrine is a treatment. Three treatments attach to it or to the dynamic
+obstruction that feeds it.
+
+Deep-research provider ontology errors corrected. Three suggested identifiers
+were real CURIEs pointing at unrelated concepts and three more had labels that
+did not match the identifier. CL:0002079, suggested for cardiac neural crest
+cell, is pancreatic ductal cell. HP:0031264, suggested for heart murmur, is
+Abnormal Bowman capsule morphology, a kidney term. HP:0004943, suggested for the
+boot-shaped heart sign, is Accelerated atherosclerosis. HP:0001714 is the generic
+Ventricular hypertrophy rather than the right-sided term. HP:0004415 is Pulmonary
+artery stenosis, not infundibular pulmonic stenosis. GO:0061308 has a different
+canonical label than the one suggested. The report had explicitly asked that its
+identifiers be verified, which was warranted.
+
+Absent bindings documented rather than approximated. CL has no cardiac neural
+crest cell term. HPO has no term for the boot-shaped heart sign, so that finding
+is not curated as a phenotype at all. HPO has no term for the hypercyanotic spell
+as an episodic entity, so it is bound to Cyanosis with a recurrent temporality
+qualifier.
+
+Eleven references fetched and verified. Three were added in a second pass
+specifically because the first draft left several nodes and phenotypes
+unevidenced and compliance sat at 52 percent: the AHA scientific statement, a
+coronary anomaly meta-analysis, and a review of residual pulmonary valve
+dysfunction. One snippet is an article title rather than a body sentence, on the
+FLT4 entry, because the cached record for that reference contains the author
+block where an abstract body would be; the limitation is stated in the
+explanation rather than concealed.
+
+Module conformance. The late ventricular arrhythmia is deliberately not conformed
+to cardiac_ion_channel_repolarization, because the substrate is surgical scar and
+fibrosis rather than a primary channelopathy.
+
+Validation: schema, ontology terms, and references all pass. Snippets checked 17
+of 17 verified against cached references.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9734,7 +10792,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Tetralogy of Fallot", "mondoId": "MONDO:0008542", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tetralogy_of_Fallot", "yamlRevision": "c0f39c5db582"};
+        const OS_CONFIG = {"diseaseName": "Tetralogy of Fallot", "mondoId": "MONDO:0008542", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tetralogy_of_Fallot", "yamlRevision": "330b258a8462"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

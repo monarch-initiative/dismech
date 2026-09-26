@@ -1,12 +1,28 @@
 # Configuration for linkml-reference-validator
 # See: https://linkml.github.io/linkml-reference-validator/
 #
-# unknown_prefix_severity: WARNING means that when a reference cannot be
-# fetched (e.g., due to transient network errors, DNS failures, or NCBI
-# rate limiting), it will be reported as a WARNING instead of an ERROR.
-# This prevents CI failures caused by flaky NCBI connectivity while still
-# catching real validation errors (snippet mismatches, wrong PMIDs, etc.).
-unknown_prefix_severity: WARNING
+# A reference that cannot be fetched is unverified and must fail validation.
+# The wrapper permits advisory warnings, so WARNING here would turn a missing
+# literature source into a successful check. Cached references work offline;
+# retry a failed fetch or provide verifiable evidence instead of weakening this
+# constraint (issues #7514 and #11921).
+unknown_prefix_severity: ERROR
+
+# trust_cached_entries: use a references_cache/ entry as it is on disk, and never
+# re-fetch it because an extractor stamp is missing or old.
+#
+# This cache is committed and reviewed, which inverts the usual trade: a re-fetch
+# is not an improvement, it is a risk. Three separate failures were the same
+# re-fetch seen from different angles -- an unstamped full_text_html entry
+# withheld (#12672), PMC's bot-check page cached and its <title> compared against
+# a curated title (#12867), and 64 bodies shortened so that snippets which had
+# verified began failing in a PR about something else (#12879). None of them can
+# happen if the fetch does not happen.
+#
+# The trade is deliberate: an imperfect cached entry stays imperfect. Fixing one
+# is a content change made on purpose -- `just fetch-reference <ID>` still
+# rebuilds it -- not something re-decided on every validation run.
+trust_cached_entries: true
 
 # literal_bracket_patterns: regexes matched against the text *inside* square
 # brackets. Content matching any of them is kept as literal source text; content
@@ -52,9 +68,19 @@ unknown_prefix_severity: WARNING
 literal_bracket_patterns:
   - "^[A-Z]{2,}$"
   - "%"
+  # A bracketed definition of a clinical threshold, quoted verbatim from
+  # PMID:34114613 ("macrocephaly [head circumference > +2 standard deviations
+  # (SD) above the mean, or >98th percentile for age] was common") -- the
+  # abbreviation-definition failure mode issue #8597 describes. Narrow on
+  # purpose: keeps only bracket spans that are themselves the source's own
+  # head-circumference definition.
+  - "^head circumference"
 
 # skip_prefixes: reference prefixes the validator has no fetcher for, and should
 # silently skip.
+# Literature identifiers (including DOI and PMID) must never be listed here.
+# DOI fetching was already supported when DOI was incorrectly exempted in #543;
+# changing the citation identifier must not change whether its quote is checked.
 #
 # These are dataset accession identifiers. `Dataset.accession` declares
 # `implements: linkml:authoritative_reference`, so the validator would otherwise
@@ -108,7 +134,6 @@ skip_prefixes:
   - SCEA
   - proteomexchange
   - MONDO
-  - DOI
   - morphic
   - MORPHIC
   - osdr

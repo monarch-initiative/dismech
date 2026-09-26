@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1854,11 +1906,13 @@ This mechanism module involves Response to Xenobiotic Stimulus (FCY2/FCY1/FUR1 L
             
             <div class="item-box anchor-target" id="module-pathophysiology-flucytosine-uptake-by-fungal-cytosine-permease" data-dismech-node="Flucytosine Uptake by Fungal Cytosine Permease" data-dismech-type="pathophysiology">
                 <div class="item-name">Flucytosine Uptake by Fungal Cytosine Permease</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The antimetabolite cascade begins when flucytosine (5-fluorocytosine, 5-FC), a synthetic cytosine analogue with no intrinsic antifungal capacity, is imported across the fungal plasma membrane by the cytosine (purine-cytosine) permease Fcy2. This permease-mediated entry is the committed first step of the pathway: the drug cannot be activated unless it first enters the fungal cell, which is why loss of the permease is one of the routes to acquired resistance. The drug class acting on this pathway is the pyrimidine antimetabolite antifungal flucytosine.</div>
                 
@@ -1920,11 +1974,13 @@ This pathophysiological event involves Cytosine Transport (Fcy2 Permease Import 
             
             <div class="item-box anchor-target" id="module-pathophysiology-deamination-to-5-fluorouracil-by-fungal-cytosine-deaminase" data-dismech-node="Deamination to 5-Fluorouracil by Fungal Cytosine Deaminase" data-dismech-type="pathophysiology">
                 <div class="item-name">Deamination to 5-Fluorouracil by Fungal Cytosine Deaminase</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Inside the fungal cell, cytosine deaminase (Fcy1) deaminates 5-FC to 5-fluorouracil (5-FU), the committed activation step that turns an inert prodrug into an active antimetabolite. This step is the structural basis of flucytosine&#39;s selective toxicity: mammalian cells lack cytosine deaminase and therefore never carry out this conversion, so the fungal-specific deaminase is both the molecular drug target and the source of the therapeutic index. This is the canonical conformance / treatment target of the module — a conforming fungal-disease entry&#39;s flucytosine treatment links here via target_mechanisms. Because activation depends entirely on this enzyme, loss of the deaminase is also a principal route of acquired resistance.</div>
                 
@@ -1993,11 +2049,13 @@ This pathophysiological event involves Pyrimidine Nucleobase Catabolic Process (
             
             <div class="item-box anchor-target" id="module-pathophysiology-conversion-to-fluorinated-nucleotides-5-futp-and-5-fdump" data-dismech-node="Conversion to Fluorinated Nucleotides (5-FUTP and 5-FdUMP)" data-dismech-type="pathophysiology">
                 <div class="item-name">Conversion to Fluorinated Nucleotides (5-FUTP and 5-FdUMP)</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Activated 5-fluorouracil is channelled into the fungal nucleotide pool by uracil phosphoribosyltransferase (Fur1) and downstream kinases, generating two fluorinated nucleotide effectors. One arm produces 5-fluorouridine triphosphate (5-FUTP), the ribonucleotide that will be mis-incorporated into RNA. The other arm produces 5-fluorodeoxyuridine monophosphate (5-FdUMP), the deoxynucleotide that will inhibit thymidylate synthase. This anabolic step converts the activated antimetabolite into the actual nucleotide poisons; because the phosphoribosyltransferase (FUR1) is required here, its loss is a further route to resistance.</div>
                 
@@ -2059,11 +2117,13 @@ This pathophysiological event involves Pyrimidine Nucleobase Metabolic Process (
             
             <div class="item-box anchor-target" id="module-pathophysiology-disruption-of-fungal-rna-and-dna-synthesis" data-dismech-node="Disruption of Fungal RNA and DNA Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disruption of Fungal RNA and DNA Synthesis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The two fluorinated nucleotide effectors converge to poison fungal nucleic-acid metabolism. 5-Fluorouridine triphosphate (5-FUTP) — unlike normal uridylate — is incorporated into fungal RNA in place of uracil, corrupting the transcript and inhibiting protein synthesis. In parallel, 5-fluorodeoxyuridine monophosphate (5-FdUMP) inhibits thymidylate synthase, the enzyme that supplies thymidine for DNA biosynthesis, thereby blocking DNA synthesis. This dual antimetabolite effect on both RNA and DNA is the antifungal consequence of engaging the upstream activation and anabolism steps — the fungistatic/ fungicidal endpoint of the module.</div>
                 
@@ -2137,11 +2197,13 @@ This pathophysiological event involves DNA Biosynthetic Process (Thymidylate Syn
             
             <div class="item-box anchor-target" id="module-pathophysiology-flucytosine-monotherapy-resistance" data-dismech-node="Flucytosine Monotherapy Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Flucytosine Monotherapy Resistance</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Flucytosine is notorious for the rapid emergence of resistance when used alone, because the entire antimetabolite cascade depends on an intact activation and incorporation pathway that a single mutation can disable. Clinically relevant resistance arises through loss-of-function alterations in FCY2 (the cytosine permease that imports the drug), FCY1 (the cytosine deaminase that converts 5-FC to 5-FU), or FUR1 (uracil phosphoribosyltransferase, required to channel 5-FU into the nucleotide pool). Any of these breaks the chain between drug entry and nucleic-acid poisoning, so monotherapy selects resistant subpopulations quickly. This node encodes the gating knowledge that distinguishes &#34;flucytosine is used&#34; from durable efficacy and is the mechanistic reason flucytosine is given in combination — classically with amphotericin B for severe systemic mycoses such as cryptococcal meningitis. Conforming entries can attach a flucytosine combination rationale to this node.</div>
                 
@@ -2188,6 +2250,9 @@ This pathophysiological event involves Response to Xenobiotic Stimulus (FCY2/FCY
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">
