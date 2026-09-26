@@ -141,9 +141,15 @@ homologous multi-species condition, a conservation score plus
 almost exactly the required shape.
 
 **Bgee's species coverage is not the constraint — the orthology step is.** Bgee's
-52 species include every animal-model species used in `kb/` today: mouse (391
-links), zebrafish (39), rat (17), dog (14), and the long tail down to
-*Nothobranchius furzeri* and naked mole rat.
+52 species cover the common animal-model species in `kb/`: mouse (391 links),
+zebrafish (39), rat (17) and dog (14). Two different claims should be kept apart
+here. Bgee covering a species is one; the prototype being able to map a `kb/`
+species string to an Ensembl species is another, and only that one is under our
+control. The script's mapping table does not yet cover several strings used in
+`kb/` — Horse, Cynomolgus macaque, Japanese medaka, Syrian hamster and the
+*Xiphophorus* entries among them — which are counted as `SPECIES_UNMAPPED`. The
+naked mole rat and *Nothobranchius furzeri* models live in `kb/modules/`, which
+`--all` now includes alongside `kb/disorders/`.
 
 The mismatch is upstream of Bgee. *Xenopus laevis* is in Bgee (taxon 8355) but is
 **not** in the Ensembl vertebrates division — only *X. tropicalis* is — so Compara
@@ -173,7 +179,9 @@ Verdicts, of which only the first two are findings:
 | `ORTHOLOG_LOOKUP_EMPTY` | Ensembl returned no ortholog — **not** a finding, see below |
 | `CONSERVED` | both expressed — the necessary condition holds |
 | `MODEL_NO_DATA` / `HUMAN_NO_DATA` | Bgee has no call there |
-| `ANATOMY_UNMATCHED` | the node's anatomy has no multi-species condition |
+| `ANATOMY_UNMATCHED_CL` | the node is bound only to cell types, and none has a multi-species condition |
+| `ANATOMY_UNMATCHED_TISSUE` | the node is bound only to UBERON tissues, and none has a condition |
+| `ANATOMY_UNMATCHED_BOTH` | the node carries both, and neither found a condition |
 
 `CONSERVED` is deliberately **not** treated as validating a fidelity grade. Shared
 expression is a precondition, not evidence that the model reproduces the mechanism.
@@ -225,6 +233,17 @@ concordant with its `PARTIALLY_RECAPITULATES` grade.
 A complete sweep over 260 of the 548 addressable links (capped for runtime; the
 run is cached and resumable):
 
+> **Caveat: these figures predate two fixes to the prototype and need a re-run.**
+> When this table was measured, the script checked the first gene in each entry's
+> `genetic:` section rather than the gene the model carries, so some rows —
+> including some of the 17 `ORTHOLOG_NOT_1TO1` findings — may concern a gene the
+> model does not carry. (The canine ALS model, whose genotype is *SOD1* E40K, was
+> checked as *ATXN2*.) The script now matches the gene symbol against the model's
+> `genotype` and `name`, and reports `gene_source = FILE_FIRST_GENE` when it has to
+> fall back. Second, `ANATOMY_UNMATCHED_CL` then also absorbed nodes whose UBERON
+> terms missed too; those are now reported separately as `ANATOMY_UNMATCHED_BOTH`,
+> so the cell-type share of the unevaluable bucket below is an upper bound.
+
 | Verdict | Count | |
 |---|---|---|
 | `ANATOMY_UNMATCHED_CL` | 158 | not evaluable |
@@ -239,8 +258,11 @@ run is cached and resumable):
 
 **Two things in this table are the honest headline, and neither is comfortable.**
 
-First, **79% of links are not evaluable at all** (205 of 260), overwhelmingly
-because the node's cell type has no Bgee multi-species condition. The check works;
+First, **79% of links are not evaluable at all** (205 of 260), most of them
+because the node's anatomy has no Bgee multi-species condition. The 158-link
+`ANATOMY_UNMATCHED_CL` bucket includes nodes whose UBERON terms also missed (see
+the caveat above), so how much of this is cell-type coverage specifically is still
+to be re-measured. The check works;
 its yield is bounded by cell-type coverage rather than by anything in dismech.
 That is question 1 below, quantified.
 

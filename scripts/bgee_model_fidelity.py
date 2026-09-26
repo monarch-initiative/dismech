@@ -44,6 +44,7 @@ Verdicts
 ``HUMAN_NO_DATA``      Bgee has no call for the human gene there
 ``ANATOMY_UNMATCHED_CL``      node is bound only to cell types Bgee has no condition for
 ``ANATOMY_UNMATCHED_TISSUE``  node's UBERON tissues have no multi-species condition
+``ANATOMY_UNMATCHED_BOTH``    node has CL and UBERON terms and neither has a condition
 
 Only ``ORTHOLOG_NOT_1TO1`` and ``DIVERGENT_ABSENT`` are findings. ``CONSERVED`` is
 not a validation of the fidelity grade -- shared expression is a precondition, not
@@ -84,7 +85,7 @@ be read down onto a specific cell type.
 
 Usage
 -----
-    uv run python scripts/bgee_model_fidelity.py --limit 20
+    uv run python scripts/bgee_model_fidelity.py --all --limit 20
     uv run python scripts/bgee_model_fidelity.py --file kb/disorders/Duchenne_Muscular_Dystrophy.yaml
     uv run python scripts/bgee_model_fidelity.py --all --tsv /tmp/bgee_fidelity.tsv
     uv run python scripts/bgee_model_fidelity.py --all --findings-only --tissue-fallback
@@ -99,6 +100,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -114,7 +116,9 @@ UA = (
 )
 
 # dismech free-text species -> (Ensembl Compara species name, Bgee/NCBI taxon id).
-# Bgee covers 52 species; every animal model species used in kb/ today is present.
+# Bgee covers 52 species, but this table only maps the species strings listed here.
+# Other kb/ species strings (e.g. Horse, Cynomolgus macaque, Japanese medaka, Syrian
+# hamster, Xiphophorus) are not mapped and are counted as SPECIES_UNMAPPED.
 SPECIES = {
     "mouse": ("mus_musculus", 10090),
     "mus musculus": ("mus_musculus", 10090),
@@ -122,10 +126,13 @@ SPECIES = {
     "zebrafish": ("danio_rerio", 7955),
     "danio rerio": ("danio_rerio", 7955),
     "zebrafish (danio rerio)": ("danio_rerio", 7955),
+    "danio rerio (zebrafish)": ("danio_rerio", 7955),
     "rat": ("rattus_norvegicus", 10116),
     "rattus norvegicus": ("rattus_norvegicus", 10116),
+    "rat (rattus norvegicus)": ("rattus_norvegicus", 10116),
     "dog": ("canis_lupus_familiaris", 9615),
     "canine": ("canis_lupus_familiaris", 9615),
+    "dog (canis lupus familiaris)": ("canis_lupus_familiaris", 9615),
     "cat": ("felis_catus", 9685),
     "pig": ("sus_scrofa", 9823),
     "cattle": ("bos_taurus", 9913),
@@ -198,7 +205,7 @@ def fetch_json(url: str, accept: str = "application/json", retries: int = 3):
             req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": accept})
             with urllib.request.urlopen(req, timeout=60) as fh:
                 return json.loads(fh.read())
-        except Exception as exc:  # noqa: BLE001 - retried, then re-raised
+        except Exception as exc:  # retried, then re-raised
             last = exc
             time.sleep(1.5 * (attempt + 1))
     raise RuntimeError(f"fetch failed after {retries} attempts: {url}: {last}")
@@ -318,9 +325,14 @@ def classify(
     wanted = set(node_anat)
     matched = [c for c in comps if wanted & set(c["anat"])]
     if matched:
+        # Stamp CELL_TYPE only when the verdict itself comes from cell-type
+        # conditions; a verdict reduced over tissue conditions is TISSUE.
+        cell_matched = [c for c in matched if cell_terms & set(c["anat"])]
+        if cell_matched:
+            verdict, detail = _verdict_over(cell_matched, ensg, orth)
+            return (verdict, detail, "CELL_TYPE")
         verdict, detail = _verdict_over(matched, ensg, orth)
-        hit = set().union(*(set(c["anat"]) for c in matched)) & wanted
-        return (verdict, detail, "CELL_TYPE" if hit & cell_terms else "TISSUE")
+        return (verdict, detail, "TISSUE")
 
     # Nothing matched. Distinguish "Bgee has no condition for these cell types"
     # from "no condition for these tissues" -- they are different problems.
@@ -343,7 +355,14 @@ def classify(
             verdict, detail = _verdict_over(matched, ensg, orth)
             return (verdict, f"[tissue-level] {detail}", "TISSUE")
 
-    label = "ANATOMY_UNMATCHED_CL" if cell_terms else "ANATOMY_UNMATCHED_TISSUE"
+    # A node carrying both CL and UBERON terms where neither matched is not a
+    # cell-type coverage gap alone: its tissues found no condition either.
+    if cell_terms and tissue_terms:
+        label = "ANATOMY_UNMATCHED_BOTH"
+    elif cell_terms:
+        label = "ANATOMY_UNMATCHED_CL"
+    else:
+        label = "ANATOMY_UNMATCHED_TISSUE"
     return (label, f"no Bgee multi-species condition for {sorted(wanted)}", "NONE")
 
 
@@ -393,6 +412,7 @@ def candidates_from(path: str) -> list[dict]:
             target = link.get("target")
             if target not in nodes:
                 continue
+            gene, gene_source = model_gene(model, genes)
             out.append(
                 {
                     "file": os.path.basename(path)[:-5],
@@ -402,10 +422,27 @@ def candidates_from(path: str) -> list[dict]:
                     "fidelity": link.get("fidelity"),
                     "target": target,
                     "anat": nodes[target],
-                    "genes": genes[:4],
+                    "gene": gene,
+                    "gene_source": gene_source,
                 }
             )
     return out
+
+
+def model_gene(model: dict, genes: list[tuple[str, str]]) -> tuple[tuple[str, str], str]:
+    """Pick the disease gene this model actually carries.
+
+    A gene whose symbol appears as a whole word in the model's ``genotype`` or
+    ``name`` wins (``MODEL_GENOTYPE``). Otherwise fall back to the entry's first
+    ``genetic:`` gene (``FILE_FIRST_GENE``), which is not established to be the
+    model's gene -- treat such rows with caution.
+    """
+    text = " ".join(str(model.get(k) or "") for k in ("genotype", "name"))
+    tokens = {t.upper() for t in re.split(r"[^A-Za-z0-9-]+", text) if t}
+    for gid, symbol in genes:
+        if symbol and str(symbol).upper() in tokens:
+            return (gid, symbol), "MODEL_GENOTYPE"
+    return genes[0], "FILE_FIRST_GENE"
 
 
 # ---------------------------------------------------------------------- driver
@@ -413,8 +450,8 @@ def candidates_from(path: str) -> list[dict]:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--file", action="append", help="specific kb/disorders/*.yaml (repeatable)")
-    ap.add_argument("--all", action="store_true", help="every disorder with animal models")
+    ap.add_argument("--file", action="append", help="specific kb/disorders/ or kb/modules/ YAML (repeatable)")
+    ap.add_argument("--all", action="store_true", help="every disorder and module with animal models")
     ap.add_argument("--limit", type=int, default=0, help="stop after N checked links")
     ap.add_argument("--tsv", help="write results to this TSV")
     ap.add_argument("--findings-only", action="store_true", help="print only actionable verdicts")
@@ -431,7 +468,7 @@ def main() -> None:
     if args.file:
         paths = args.file
     elif args.all:
-        paths = sorted(glob.glob("kb/disorders/*.yaml"))
+        paths = sorted(glob.glob("kb/disorders/*.yaml")) + sorted(glob.glob("kb/modules/*.yaml"))
     else:
         ap.error("pass --file or --all")
 
@@ -460,7 +497,7 @@ def main() -> None:
             continue
         ens_species, _taxon = mapping
 
-        hgnc_id, symbol = cand["genes"][0]
+        hgnc_id, symbol = cand["gene"]
         try:
             ensg = hgnc_to_ensembl(hgnc_id, cache)
         except RuntimeError:
@@ -503,6 +540,7 @@ def main() -> None:
                 "file": cand["file"],
                 "species": cand["species"],
                 "gene": symbol,
+                "gene_source": cand["gene_source"],
                 "ensg": ensg,
                 "ortholog": orth or "",
                 "orthology": orth_type or "",
@@ -536,8 +574,7 @@ def main() -> None:
         os.makedirs(os.path.dirname(args.tsv) or ".", exist_ok=True)
         with open(args.tsv, "w", encoding="utf-8") as fh:
             fh.write("\t".join(cols) + "\n")
-            for row in rows:
-                fh.write("\t".join(str(row[c]).replace("\t", " ") for c in cols) + "\n")
+            fh.writelines("\t".join(str(row[c]).replace("\t", " ") for c in cols) + "\n" for row in rows)
         print(f"# wrote {len(rows)} rows to {args.tsv}", file=sys.stderr)
 
 
