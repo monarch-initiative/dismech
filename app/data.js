@@ -70160,6 +70160,89 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Chancroid",
+    "disease_id": "MONDO:0001797",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection",
+      "Sexually transmitted infection"
+    ],
+    "creation_date": "2026-09-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chancroid is a sexually acquired bacterial genital-ulcer disease caused by Haemophilus ducreyi. Local inoculation of the fastidious Gram-negative coccobacillus produces one or more soft, painful, nonindurated genital ulcers and can extend through regional lymphatics to tender inguinal lymph nodes that suppurate into buboes. The genital ulcer is an important cofactor for HIV-1 transmission and acquisition. Single-dose azithromycin or ceftriaxone and multi-day erythromycin or ciprofloxacin regimens are effective antimicrobial therapies, with needle aspiration or incision and drainage for tense fluctuant buboes.",
+    "pathophysiology": [
+      "H. ducreyi Genital Inoculation",
+      "HgbA-Dependent Heme Acquisition",
+      "LspA-Dependent Phagocyte Evasion",
+      "CdtB-Mediated Host DNA Damage",
+      "Dysregulated Cutaneous Inflammatory Pustule",
+      "Enhanced HIV Transmission and Acquisition",
+      "Bacterial mRNA Translation by the Ribosome (Macrolide Target)",
+      "H. ducreyi Peptidoglycan Cross-Linking (Ceftriaxone Target)"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "macrophage",
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000235",
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "phagocytosis",
+      "DNA damage response",
+      "regulation of cell cycle",
+      "inflammatory response",
+      "translation",
+      "Peptidoglycan-Based Cell Wall Biogenesis"
+    ],
+    "phenotypes": [
+      "Painful genital ulcer",
+      "Inguinal lymphadenopathy"
+    ],
+    "phenotype_categories": [
+      "Genitourinary",
+      "Lymphatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Immune"
+    ],
+    "phenotype_ids": [
+      "HP:0003249",
+      "HP:0034751"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Azithromycin Therapy",
+      "Ceftriaxone Therapy",
+      "Erythromycin Therapy",
+      "Ciprofloxacin Therapy",
+      "Fluctuant Bubo Drainage"
+    ],
+    "environmental": [
+      "Male circumcision"
+    ],
+    "biochemical": [],
+    "source_file": "Chancroid.yaml",
+    "page_url": "../pages/disorders/Chancroid.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Charcot-Marie-Tooth Disease-Hearing Loss-Intellectual Disability Syndrome",
     "disease_id": "MONDO:0008960",
     "category": "Genetic",
@@ -142370,6 +142453,78 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Granuloma Inguinale",
+    "disease_id": "MONDO:0005777",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection",
+      "Sexually transmitted infection"
+    ],
+    "creation_date": "2026-09-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Extragenital"
+    ],
+    "description": "Granuloma inguinale, also called donovanosis, is a sexually transmitted bacterial genital-ulcer disease caused by Klebsiella granulomatis, formerly Calymmatobacterium granulomatis. K. granulomatis persists within macrophage-lineage cells as Donovan bodies, driving chronic plasma-cell-rich granulomatous inflammation with progressively enlarging genital ulcers. Diagnosis is usually confirmed by cytologic detection of Donovan bodies, and treatment uses prolonged ribosome-targeting antibiotics, with azithromycin recommended weekly until all lesions have healed.",
+    "pathophysiology": [
+      "K. granulomatis Intramacrophage Persistence",
+      "Plasma-Cell-Rich Granulomatous Inflammation",
+      "Chronic Friable Genital Ulceration",
+      "Lymphatic Obstruction",
+      "Enhanced HIV Transmission and Acquisition",
+      "Bacterial mRNA Translation by the Ribosome (Macrolide and Tetracycline Target)"
+    ],
+    "cell_types": [
+      "macrophage",
+      "plasma cell",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000786",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "translation"
+    ],
+    "phenotypes": [
+      "Genital ulcers",
+      "Lymphedema",
+      "Squamous cell carcinoma"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Integument",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0003249",
+      "HP:0001004",
+      "HP:0002860"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Azithromycin Therapy",
+      "Doxycycline Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Granuloma_Inguinale.yaml",
+    "page_url": "../pages/disorders/Granuloma_Inguinale.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Granulomatosis with Polyangiitis",
     "disease_id": "MONDO:0012105",
     "category": "Autoimmune",
@@ -197671,6 +197826,86 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Lymphogranuloma Venereum",
+    "disease_id": "MONDO:0005834",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection",
+      "Sexually transmitted infection"
+    ],
+    "creation_date": "2026-09-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Lymphogranuloma venereum is a sexually transmitted invasive chlamydial infection caused by Chlamydia trachomatis serovars L1, L2, and L3. The organism enters mucosal epithelial cells, can replicate in macrophages, and causes genital ulceration, regional lymphadenopathy, and anorectal proctitis. Untreated disease can progress to a tertiary stage of lymphatic obstruction and fibrosis, with genital elephantiasis and anorectal strictures and fistulae. Doxycycline is the standard prolonged oral antibiotic therapy.",
+    "pathophysiology": [
+      "C. trachomatis T3SS-Dependent Epithelial Entry",
+      "L2 Macrophage Replication and Cytokine Skewing",
+      "Regional Lymphadenitis",
+      "Ulcerative Proctitis",
+      "Lymphatic Fibrosis and Obstruction",
+      "Chlamydial Ribosomal Translation (Tetracycline Target)"
+    ],
+    "cell_types": [
+      "epithelial cell",
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000066",
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "symbiont entry into host cell",
+      "inflammatory response",
+      "translation"
+    ],
+    "phenotypes": [
+      "Genital ulcers",
+      "Lymphadenopathy",
+      "Tenesmus",
+      "Hematochezia",
+      "Constipation",
+      "Lymphedema",
+      "Anorectal stricture",
+      "Anal fistula"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0003249",
+      "HP:0002716",
+      "HP:0012702",
+      "HP:0002573",
+      "HP:0002019",
+      "HP:0001004",
+      "HP:0002025",
+      "HP:0010447"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Doxycycline"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lymphogranuloma_Venereum.yaml",
+    "page_url": "../pages/disorders/Lymphogranuloma_Venereum.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Lymphoma",
     "disease_id": "MONDO:0005062",
     "category": "Cancer",
@@ -234464,6 +234699,108 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Nocardiosis",
+    "disease_id": "MONDO:0017776",
+    "category": "Infectious Disease",
+    "parents": [
+      "primary bacterial infectious disease"
+    ],
+    "creation_date": "2026-09-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Pulmonary Nocardiosis",
+      "Cutaneous Nocardiosis",
+      "Disseminated or CNS Nocardiosis"
+    ],
+    "description": "Nocardiosis is an opportunistic bacterial infection caused by environmental Nocardia species acquired through inhalation or traumatic skin inoculation. Disease most often begins in the lung, where weakly acid-fast actinomycetes survive as intracellular pathogens in phagocytes, but can disseminate hematogenously to the brain, skin, and other organs. Impaired cell-mediated immunity - most often iatrogenic, from corticosteroids and other immunosuppression - is the pivotal host factor separating containment from dissemination. Clinical disease ranges from cutaneous actinomycetoma to pulmonary nodular, consolidative, or cavitary infection and central nervous system abscesses. Management is species- and susceptibility-guided and typically relies on prolonged trimethoprim-sulfamethoxazole-based therapy, with linezolid, amikacin, carbapenems, and surgical drainage used in severe or central nervous system disease.",
+    "pathophysiology": [
+      "Environmental Nocardia Inhalation or Skin Inoculation",
+      "Impaired Cell-Mediated Immunity",
+      "Intraphagocytic Nocardia Survival",
+      "Pulmonary Suppurative Inflammation",
+      "Cutaneous Actinomycetoma Lesion",
+      "Hematogenous Dissemination",
+      "CNS Abscess Formation",
+      "Nocardia Tetrahydrofolate Synthesis (TMP-SMX Target)",
+      "Nocardia Ribosomal Translation (Linezolid and Amikacin Target)"
+    ],
+    "cell_types": [
+      "T cell",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "defense response to bacterium",
+      "inflammatory response",
+      "tetrahydrofolate biosynthetic process",
+      "translation"
+    ],
+    "phenotypes": [
+      "Pneumonia",
+      "Pulmonary nodule",
+      "Cough",
+      "Abnormal sputum",
+      "Fever",
+      "Brain Abscess",
+      "Cutaneous Abscess",
+      "Pulmonary cavity",
+      "Mediastinal lymphadenopathy",
+      "Ground-glass opacification",
+      "Pleural effusion",
+      "Headache",
+      "Reduced consciousness",
+      "Seizure"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory",
+      "Thoracic Cavity"
+    ],
+    "phenotype_ids": [
+      "HP:0002090",
+      "HP:0033608",
+      "HP:0012735",
+      "HP:0032016",
+      "HP:0001945",
+      "HP:0030049",
+      "HP:0031292",
+      "HP:0033655",
+      "HP:0100721",
+      "HP:0025179",
+      "HP:0002202",
+      "HP:0002315",
+      "HP:0004372",
+      "HP:0001250"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Trimethoprim-Sulfamethoxazole Therapy or Prophylaxis",
+      "Linezolid and Amikacin-Containing Therapy",
+      "Abscess Drainage or Resection"
+    ],
+    "environmental": [
+      "Iatrogenic immunosuppression"
+    ],
+    "biochemical": [],
+    "source_file": "Nocardiosis.yaml",
+    "page_url": "../pages/disorders/Nocardiosis.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Noise Induced Hearing Loss",
@@ -318015,6 +318352,88 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Trench Fever",
+    "disease_id": "MONDO:0005991",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection",
+      "Vector-borne disease"
+    ],
+    "creation_date": "2026-09-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Trench fever is a louse-borne Bartonella quintana infection transmitted when feces from infected human body lice contaminate broken skin. B. quintana colonizes erythrocytes to produce persistent bacteremia and a spectrum that includes endocarditis, chronic lymphadenopathy, and, especially in immunocompromised hosts, vasoproliferative bacillary angiomatosis.",
+    "pathophysiology": [
+      "Body-Louse Fecal Bartonella Inoculation",
+      "Trw-Associated Erythrocyte Colonization",
+      "Acute Febrile Bacteremic Illness",
+      "Chronic Bacteremia and Endocarditis",
+      "Vomp-Mediated Endothelial Adherence",
+      "BafA-Driven Endothelial VEGF Signaling",
+      "Bartonella Intracellular Persistence",
+      "Bartonella Ribosomal Translation"
+    ],
+    "cell_types": [
+      "erythrocyte",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000232",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "symbiont entry into host cell",
+      "biological process involved in interaction with host",
+      "positive regulation of angiogenesis",
+      "Biological Process Involved in Interaction with Host",
+      "translation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Bone pain",
+      "Chronic Bacteremia",
+      "Bacterial Endocarditis",
+      "Chronic Lymphadenopathy",
+      "Bacillary Angiomatosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0002653",
+      "HP:0031864",
+      "HP:0006689",
+      "HP:0002716"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Doxycycline Plus Gentamicin"
+    ],
+    "environmental": [
+      "Body louse infestation and homelessness"
+    ],
+    "biochemical": [],
+    "source_file": "Trench_Fever.yaml",
+    "page_url": "../pages/disorders/Trench_Fever.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Trichohepatoenteric Syndrome",
     "disease_id": "MONDO:0009105",
     "category": "Mendelian",
@@ -335820,17 +336239,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3179,
-  "total_subtypes": 4184,
-  "total_disorders_and_subtypes": 7363,
-  "total_unique_evidence_sources": 46183,
-  "total_unique_publications": 43396,
+  "total_disorder_pages": 3184,
+  "total_subtypes": 4188,
+  "total_disorders_and_subtypes": 7372,
+  "total_unique_evidence_sources": 46241,
+  "total_unique_publications": 43454,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 286,
-  "total_pathographs": 3174,
-  "total_unique_pathological_events": 20036,
+  "total_pathographs": 3179,
+  "total_unique_pathological_events": 20069,
   "total_modules": 178,
-  "total_research_reports": 3291,
+  "total_research_reports": 3296,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 105
