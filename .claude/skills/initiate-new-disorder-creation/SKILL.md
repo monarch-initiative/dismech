@@ -321,7 +321,15 @@ it catches Named Entity Confusion — run `just preflight-dr` as usual. **The
 relevance check is not a substitute for that**: references are scored against
 *the report's own* vocabulary, so a report built around the wrong disease has
 wrong-disease vocabulary too and scores all of its wrong-disease citations as
-on topic. See
+on topic. Term validation cannot see it either, because a wrong-disease
+report's identifiers are correct *for the disease it is actually about*. So a
+clean validation table does not tell you the report is about your disease.
+The first openscientist report for CMD2H (GET3/ASNA1) was about CMD2D
+(RPL3L). It mentioned RPL3L 44 times and GET3 never, yet it came back with
+19/19 references resolved and 0 off topic. One failed quote match was the only
+warning ([#10495](https://github.com/monarch-initiative/dismech/issues/10495)).
+Run `just preflight-dr`; do not assume it would pass because the table is
+clean. See
 [`docs/deep-research-reference-validation.md`](../../../docs/deep-research-reference-validation.md).
 
 #### Term validation
