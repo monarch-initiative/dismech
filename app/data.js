@@ -23947,6 +23947,109 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Anthrax",
+    "disease_id": "MONDO:0005119",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection",
+      "Zoonotic Disease"
+    ],
+    "creation_date": "2026-09-25T02:51:11Z",
+    "updated_date": null,
+    "subtypes": [
+      "Cutaneous",
+      "Inhalational",
+      "Gastrointestinal",
+      "Oropharyngeal",
+      "Injection"
+    ],
+    "description": "Anthrax is a zoonotic bacterial infection caused by the spore-forming Gram-positive bacillus Bacillus anthracis. Humans acquire disease from environmentally persistent spores through cutaneous inoculation, inhalation, ingestion, or injection of contaminated material. After macrophage uptake and pXO1-dependent intracellular escape, vegetative bacilli evade phagocytosis with the pXO2 capsule and secrete protective-antigen-delivered lethal and edema toxins that disable MAPK signaling, raise intracellular cAMP, injure vascular endothelium, and can drive edema, bacteremia, sepsis, hemorrhagic meningitis, and shock.",
+    "pathophysiology": [
+      "Spore Uptake and Germination",
+      "pXO1-Dependent Macrophage Escape",
+      "Capsule-Mediated Immune Evasion",
+      "Protective Antigen-Mediated Toxin Entry",
+      "Lethal Toxin MAPKK Cleavage",
+      "Edema Toxin Activity",
+      "Lethal Toxin-Mediated Endothelial Apoptosis",
+      "Systemic Toxemia"
+    ],
+    "cell_types": [
+      "macrophage",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "phagocytosis",
+      "defense response to Gram-positive bacterium",
+      "receptor-mediated endocytosis",
+      "MAPK cascade",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Eschar",
+      "Edema",
+      "Dyspnea",
+      "Respiratory Failure",
+      "Sepsis",
+      "Meningitis",
+      "Abdominal Pain",
+      "Vomiting",
+      "Fever",
+      "Pleural Effusion",
+      "Ascites",
+      "Lymphadenopathy",
+      "Shock"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:6000793",
+      "HP:0000969",
+      "HP:0002094",
+      "HP:0002878",
+      "HP:0100806",
+      "HP:0001287",
+      "HP:0002027",
+      "HP:0002013",
+      "HP:0001945",
+      "HP:0002202",
+      "HP:0001541",
+      "HP:0002716",
+      "HP:0031273"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antimicrobial Therapy",
+      "Pleural Fluid Drainage",
+      "Anthrax Antitoxin",
+      "Postexposure Anthrax Vaccination"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Anthrax.yaml",
+    "page_url": "../pages/disorders/Anthrax.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Anti-Glomerular Basement Membrane Disease",
     "disease_id": "MONDO:0009303",
     "category": "Complex",
@@ -53175,7 +53278,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "6"
   },
   {
@@ -168737,6 +168840,102 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Immunodeficiency 35",
+    "disease_id": "MONDO:0012682",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian susceptibility to mycobacterial disease",
+      "Inborn error of immunity"
+    ],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Immunodeficiency 35 is an ultra-rare autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in TYK2, the gene encoding tyrosine kinase 2. TYK2 is one of the four human Janus kinases and sits on the receptors for type I interferons, interleukin-12, interleukin-23 and interleukin-10. Losing it therefore removes one shared component from four otherwise independent cytokine circuits at once, and the clinical picture is the sum of the two circuits that matter for host defence: poor responses to IL-12 and IL-23 leave interferon-gamma induction in lymphocytes too weak to arm macrophages against intramacrophagic pathogens, giving mycobacterial disease, and poor responses to type I interferon leave cells unable to mount an intrinsic antiviral programme, giving severe viral disease. Impaired IL-10 responses appear to be clinically silent.\nThis entry covers complete TYK2 deficiency only. That boundary is the main curation decision here, because the same gene carries a common hypomorphic missense allele, P1104A, which is homozygous in roughly one in six hundred Europeans, impairs IL-23 signalling alone, and is a common monogenic aetiology of tuberculosis rather than a Mendelian immunodeficiency. The IUIS nosology lists the two as separate entities, and the mechanistic literature separates them cleanly: complete deficiency compromises type I interferon, IL-12, IL-23 and IL-10 responses together, whereas P1104A homozygosity spares IFN-alpha, IL-10 and IL-12. The large pharmacological TYK2-inhibitor literature is likewise about deliberate partial inhibition of this kinase in autoimmune disease and says nothing about congenital complete loss.\nThe first patient, reported in 2006, was diagnosed clinically with hyper-IgE syndrome, and TYK2 deficiency was for several years described as a form of autosomal recessive hyper-IgE syndrome. A 2015 series of seven further patients overturned that: none had hyper-IgE syndrome, their cells responded normally to IL-6, and the phenotype was redefined as mycobacterial and/or viral infection. Twenty-five patients with complete deficiency have been reported. Penetrance is incomplete - mycobacterial disease occurs in about half and viral disease in about three-fifths - and asymptomatic homozygotes are on record, in some cases siblings of severely affected probands who were simply never given BCG.",
+    "pathophysiology": [
+      "Biallelic TYK2 Loss-of-Function Variants",
+      "Loss of TYK2 Kinase Activity",
+      "Destabilised Cytokine Receptor Surface Expression",
+      "Impaired Type I Interferon Signaling",
+      "Impaired IL-12 and IL-23 Signaling",
+      "Impaired IL-10 Signaling",
+      "Deficient Interferon-Gamma Induction in Lymphocytes",
+      "Inadequate Macrophage Control of Intramacrophagic Pathogens",
+      "Failure of Cell-Intrinsic Antiviral Defence"
+    ],
+    "cell_types": [
+      "mature alpha-beta T cell",
+      "natural killer cell",
+      "mucosal-associated invariant T cell",
+      "gamma-delta T cell",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000791",
+      "CL:0000623",
+      "CL:0000940",
+      "CL:0000798",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "type I interferon-mediated signaling pathway",
+      "interleukin-12-mediated signaling pathway",
+      "interleukin-23-mediated signaling pathway",
+      "interleukin-10-mediated signaling pathway",
+      "positive regulation of interferon-gamma production",
+      "macrophage activation involved in immune response",
+      "defense response to virus"
+    ],
+    "phenotypes": [
+      "Mycobacterial disease",
+      "BCG disease",
+      "Severe or recurrent viral infection",
+      "Normal peripheral blood immunophenotype",
+      "Elevated serum IgE with eczema",
+      "Mucocutaneous candidiasis"
+    ],
+    "phenotype_categories": [
+      "Immunologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0011274",
+      "HP:0020087",
+      "HP:0004429",
+      "HP:0003212",
+      "HP:0002728"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "TYK2"
+    ],
+    "treatments": [
+      "Antimycobacterial therapy",
+      "Allogeneic haematopoietic stem cell transplantation",
+      "Mepolizumab for virus-triggered hypereosinophilia"
+    ],
+    "environmental": [
+      "Bacille Calmette-Guerin vaccination"
+    ],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_35.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_35.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Immunodeficiency 37",
     "disease_id": "MONDO:0014491",
     "category": "Mendelian",
@@ -219061,7 +219260,8 @@ window.searchData = [
       "Increased circulating lactate concentration",
       "Lactic acidosis",
       "Elevated circulating creatine kinase concentration",
-      "Feeding difficulties"
+      "Feeding difficulties",
+      "Constipation"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -219089,7 +219289,8 @@ window.searchData = [
       "HP:0002151",
       "HP:0003128",
       "HP:0003236",
-      "HP:0011968"
+      "HP:0011968",
+      "HP:0002019"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -219118,11 +219319,11 @@ window.searchData = [
     ],
     "source_file": "Multiple_Mitochondrial_Dysfunctions_Syndrome_5.yaml",
     "page_url": "../pages/disorders/Multiple_Mitochondrial_Dysfunctions_Syndrome_5.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 13,
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 9,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "6"
   },
   {
@@ -235951,6 +236152,100 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "30",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Oculopharyngeal Muscular Dystrophy",
+    "disease_id": "MONDO:0008116",
+    "category": "Mendelian",
+    "parents": [
+      "progressive muscular dystrophy",
+      "myopathy of extraocular muscle"
+    ],
+    "creation_date": "2026-09-21T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Oculopharyngeal muscular dystrophy (OPMD) is an adult-onset, usually autosomal dominant myopathy caused by a short GCN (GCG) trinucleotide repeat expansion in the first exon of PABPN1, which lengthens the N-terminal polyalanine tract of the nuclear poly(A)-binding protein. The expanded protein misfolds and self-associates into tubulofilamentous intranuclear inclusions in skeletal muscle fibres - the pathological hallmark of the disease - which also sequester poly(A) RNA, ubiquitin and proteasome subunits. Clinically OPMD presents in the fifth to sixth decade with progressive bilateral ptosis and dysphagia from selective involvement of eyelid and pharyngeal muscles, followed by proximal limb girdle weakness; dysphagia determines prognosis through aspiration and malnutrition. A rarer allelic autosomal recessive form arises from homozygosity for the common (GCG)7 allele or for other biallelic expansions. OPMD must be distinguished from oculopharyngodistal myopathy (OPDM), a clinicopathologically similar but genetically distinct disease caused by non-coding CGG repeat expansions in LRP12, GIPC1, NOTCH2NLC or RILPL1.",
+    "pathophysiology": [
+      "PABPN1 Polyalanine Tract Expansion",
+      "PABPN1 Misfolding and Intranuclear Aggregation",
+      "Sequestration of Poly(A) RNA and Proteostasis Machinery",
+      "Skeletal Muscle Fibre Degeneration"
+    ],
+    "cell_types": [
+      "skeletal muscle fibre"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "mRNA 3'-end processing",
+      "inclusion body assembly"
+    ],
+    "phenotypes": [
+      "Ptosis",
+      "Dysphagia",
+      "Proximal limb girdle weakness",
+      "Ophthalmoplegia",
+      "Tongue atrophy",
+      "Aspiration pneumonia",
+      "Axial muscle weakness",
+      "Weakness of facial musculature",
+      "Dysphonia",
+      "Nocturnal hypoventilation",
+      "Muscle fibre intranuclear inclusions",
+      "Rimmed vacuoles"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Cellular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0000508",
+      "HP:0002015",
+      "HP:0003701",
+      "HP:0000602",
+      "HP:0012473",
+      "HP:0011951",
+      "HP:0003327",
+      "HP:0030319",
+      "HP:0001618",
+      "HP:0002877",
+      "HP:0100299",
+      "HP:0003805"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PABPN1"
+    ],
+    "treatments": [
+      "Cricopharyngeal myotomy",
+      "Ptosis surgery",
+      "Dietary modification for dysphagia",
+      "Physical and occupational therapy",
+      "Respiratory and nutritional surveillance",
+      "Genetic counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Oculopharyngeal_Muscular_Dystrophy.yaml",
+    "page_url": "../pages/disorders/Oculopharyngeal_Muscular_Dystrophy.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Oculopharyngodistal Myopathy",
@@ -285907,7 +286202,8 @@ window.searchData = [
       "Adult worm residence in mesenteric or pelvic veins",
       "Egg trapping triggers granulomatous inflammation",
       "Periportal fibrosis with portal hypertension",
-      "Urogenital inflammation and scarring"
+      "Urogenital inflammation and scarring",
+      "Chronic bladder mucosal injury"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -285917,7 +286213,8 @@ window.searchData = [
       "Hepatosplenomegaly",
       "Hematuria",
       "Growth Stunting",
-      "Impaired Cognition"
+      "Impaired Cognition",
+      "Bladder Carcinoma"
     ],
     "phenotype_categories": [
       "Hematologic",
@@ -285934,6 +286231,7 @@ window.searchData = [
       "Growth",
       "Immune",
       "Metabolism",
+      "Neoplasm",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -285941,7 +286239,8 @@ window.searchData = [
       "HP:0001433",
       "HP:0000790",
       "HP:0001510",
-      "HP:0100543"
+      "HP:0100543",
+      "HP:0002862"
     ],
     "frequencies": [],
     "genes": [],
@@ -285952,12 +286251,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Schistosomiasis.yaml",
     "page_url": "../pages/disorders/Schistosomiasis.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Schizophrenia",
@@ -302230,6 +302529,91 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "31",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Stickler Syndrome Type 1 Nonsyndromic Ocular",
+    "disease_id": "MONDO:0012287",
+    "category": "Mendelian",
+    "parents": [
+      "Stickler Syndrome Type 1",
+      "Type 2 Collagenopathy",
+      "Stickler Syndrome"
+    ],
+    "creation_date": "2026-09-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "The ocular-only form of Stickler syndrome type 1 (OSTL1, OMIM 609508) is the presentation in which a COL2A1 null allele produces the full type 1 Stickler eye - a congenitally abnormal membranous vitreous, high myopia, radial perivascular retinal degeneration, and a childhood-onset risk of rhegmatogenous retinal detachment - with minimal or no hearing loss, cleft palate, midfacial hypoplasia, or arthropathy.\nIt is a real mechanistic entity rather than a mild tail of the syndrome, because there is a known reason for the restriction. COL2A1 pre-mRNA is alternatively spliced into two isoforms. The long form retains exon 2 and encodes type IIA procollagen; the short form skips exon 2 and encodes type IIB. Adult differentiated chondrocytes make almost entirely IIB, and the vitreous is the only adult tissue that contains procollagen IIA. A premature termination codon inside exon 2 therefore removes an allele's product from the IIA-expressing tissues while leaving the cartilage isoform, transcribed from the same allele with exon 2 spliced out, intact. The lesion is isoform-restricted rather than merely mild, which is why the eye carries the whole phenotype.\nTwo things stop that from being a clean rule, and this entry curates both rather than tidying them away. First, the restriction is not absolute at the patient level: reported \"ocular-only\" individuals have had scoliosis or mild hearing loss, and the largest pedigree found some extraocular manifestation in 4 of 100 affected individuals. The label means minimal systemic involvement, not none. Second, the mechanism is not the only route to the phenotype - predominantly ocular Stickler syndrome has been reported with a helical-domain nonsense allele, a splice-site allele in intron 51, and a frameshift in exon 50, none of which the exon 2 model explains.\nClinically the consequence is sharp and is the reason the distinction is worth carrying: these families need lifelong vitreoretinal surveillance and detachment prophylaxis, and do not need the audiological, craniofacial and orthopaedic surveillance that classic type 1 Stickler syndrome requires - while carrying the same 50 percent transmission risk and the same childhood blindness risk from giant retinal tear.",
+    "pathophysiology": [
+      "COL2A1 Null Allele in the Alternatively Spliced Exon 2",
+      "Isoform-Restricted Loss of Type IIA Procollagen",
+      "Preserved Type IIB Procollagen in Adult Cartilage",
+      "Depletion of Type IIA Procollagen in the Vitreous",
+      "Congenitally Abnormal Membranous Vitreous",
+      "Acquired Radial Perivascular Retinal Degeneration",
+      "Retinal Tear and Rhegmatogenous Detachment"
+    ],
+    "cell_types": [
+      "differentiated chondrocyte in adult cartilage"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "nonsense-mediated mRNA decay of the exon 2 containing COL2A1 transcript",
+      "alternative splicing of COL2A1 exon 2",
+      "collagen fibril organization in the vitreous"
+    ],
+    "phenotypes": [
+      "Abnormal Vitreous",
+      "Radial Perivascular Retinal Degeneration",
+      "High Myopia",
+      "Rhegmatogenous Retinal Detachment",
+      "Retinal Tear",
+      "Lattice Retinal Degeneration",
+      "Presenile Cataract",
+      "Glaucoma"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0004327",
+      "HP:0000546",
+      "HP:0011003",
+      "HP:0012230",
+      "HP:0011958",
+      "HP:0007992",
+      "HP:0000518",
+      "HP:0000501"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "COL2A1"
+    ],
+    "treatments": [
+      "Prophylactic Retinal Laser Therapy",
+      "Lifelong Vitreoretinal Surveillance",
+      "Vitreoretinal Surgery for Established Detachment",
+      "Avoidance of Contact Sports",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Stickler_Syndrome_Type_1_Nonsyndromic_Ocular.yaml",
+    "page_url": "../pages/disorders/Stickler_Syndrome_Type_1_Nonsyndromic_Ocular.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Stickler Syndrome Type 2",
@@ -332072,17 +332456,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3148,
-  "total_subtypes": 4030,
-  "total_disorders_and_subtypes": 7178,
-  "total_unique_evidence_sources": 45672,
-  "total_unique_publications": 42925,
+  "total_disorder_pages": 3152,
+  "total_subtypes": 4035,
+  "total_disorders_and_subtypes": 7187,
+  "total_unique_evidence_sources": 45713,
+  "total_unique_publications": 42965,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 284,
-  "total_pathographs": 3143,
-  "total_unique_pathological_events": 19790,
+  "total_pathographs": 3147,
+  "total_unique_pathological_events": 19818,
   "total_modules": 178,
-  "total_research_reports": 3256,
+  "total_research_reports": 3260,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 104
