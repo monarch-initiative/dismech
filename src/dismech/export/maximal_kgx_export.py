@@ -10,8 +10,9 @@ node using the SEPIO id scheme (``dismech:<entry_stem>#<node_slug>``, minted by
 :func:`dismech.export.sepio_export.pathophysiology_node_id` with the entry's
 file stem as the base) and emit one graph covering:
 
-- entry nodes: disorders (MONDO CURIE when bound, else ``dismech:<stem>``),
-  modules and groupings (``dismech:<stem>`` / ``dismech:<name slug>``)
+- entry nodes: disorders (MONDO CURIE when bound by that entry alone, else
+  ``dismech:<stem>`` plus a ``dismech:grounded_to`` edge to the shared MONDO
+  node), modules and groupings (``dismech:<stem>`` / ``dismech:<name slug>``)
 - ``dismech:has_graph_node`` membership edges (entry -> each causal-graph node)
 - the causal layer itself: every :func:`dismech.graph.build_causal_graph` edge,
   with predicate ``dismech:<pathograph predicate>`` (causes, leads_to,
@@ -22,7 +23,8 @@ file stem as the base) and emit one graph covering:
   per-slot predicates such as ``dismech:involves_cell_type`` for
   pathophysiology constituents)
 - ``dismech:conforms_to`` edges into module graph nodes
-- subtype nodes with ``dismech:subtype_of`` and grounding edges
+- subtype nodes (``dismech:<stem>#subtype_<slug>``, a namespace distinct from
+  causal-graph nodes) with ``dismech:subtype_of`` and grounding edges
 - disease-level gene / inheritance / infectious-agent / MONDO-mapping edges
 - comorbidity pair edges (``dismech:comorbid_with``) and grouping membership
   edges (``dismech:has_member``)
@@ -32,8 +34,8 @@ entry-local nodes (each exists in exactly one entry), ``biolink:*`` categories
 are shared ontology term nodes — the only vertices through which two entries
 can connect (besides comorbidity/grouping/mapping edges).
 
-``kb/hypotheses`` and ``kb/surrogate_endpoints`` use different schemas and are
-out of scope. Not wired into CI; run locally:
+``kb/hypotheses``, ``kb/surrogate_endpoints`` and ``kb/module_collections`` use
+different schemas and are out of scope. Not wired into CI; run locally:
 
     uv run python -m dismech.export.maximal_kgx_export -o output/maximal_kgx
     uv run koza join -n "output/maximal_kgx/maximal_nodes.jsonl" \\
@@ -46,6 +48,8 @@ out of scope. Not wired into CI; run locally:
 
 import argparse
 import json
+import uuid
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +58,9 @@ from dismech.export.sepio_export import _slug, pathophysiology_node_id
 from dismech.graph import build_causal_graph
 
 KNOWLEDGE_SOURCE = "infores:dismech"
+
+# One-line summary for the CLI, kept independent of the module docstring layout.
+CLI_DESCRIPTION = "Maximal KGX export: the whole KB as one knowledge graph."
 
 # Pathophysiology constituent slots: slot -> (predicate, term-node category).
 PATHO_TERM_SLOTS = {
@@ -121,9 +128,13 @@ class GraphAccumulator:
     ) -> None:
         existing = self.nodes.get(node_id)
         if existing is not None:
-            # Keep the first record; fill a missing name if a later one has it.
+            # Keep the first record; fill a missing name if a later one has it,
+            # and widen the category rather than discarding a second type (a
+            # CURIE can be both a biomarker and a gene, for example).
             if not existing.get("name") and name:
                 existing["name"] = name
+            if category not in existing["category"]:
+                existing["category"].append(category)
             return
         record: dict[str, Any] = {
             "id": node_id,
@@ -144,15 +155,18 @@ class GraphAccumulator:
         **extra: Any,
     ) -> None:
         key = (subject, predicate, obj)
+        # Dedup policy: the first record for a (subject, predicate, object)
+        # triple wins; a later identical triple's attributes are not merged.
         if key in self.edges:
             return
         record: dict[str, Any] = {
-            "id": f"{_slug(entry)}:{len(self.edges)}",
+            # Stable across exports (not insertion-order dependent) and a valid CURIE.
+            "id": f"urn:uuid:{uuid.uuid5(uuid.NAMESPACE_URL, '|'.join(key))}",
             "subject": subject,
             "predicate": predicate,
             "object": obj,
             "category": ["biolink:Association"],
-            "knowledge_source": KNOWLEDGE_SOURCE,
+            "primary_knowledge_source": KNOWLEDGE_SOURCE,
             "dismech_entry": entry,
             "dismech_section": section,
         }
@@ -160,13 +174,32 @@ class GraphAccumulator:
         self.edges[key] = record
 
 
-def _entry_id(stem: str, record: dict[str, Any], kind: str) -> str:
-    """Entry node id: the bound MONDO CURIE for disorders, else dismech:<stem>."""
+def _entry_id(
+    stem: str,
+    record: dict[str, Any],
+    kind: str,
+    shared_curies: frozenset[str] = frozenset(),
+) -> str:
+    """Entry node id: the bound MONDO CURIE for disorders, else dismech:<stem>.
+
+    A CURIE in ``shared_curies`` is bound by more than one disorder entry (for
+    example promoted biomarker strata that reuse the parent term); those
+    entries keep ``dismech:<stem>`` so they stay distinct vertices.
+    """
     if kind == "disorder":
         got = _term(record.get("disease_term") or {})
-        if got:
+        if got and got[0] not in shared_curies:
             return got[0]
     return f"dismech:{_slug(stem)}"
+
+
+def subtype_node_id(stem: str, subtype_name: str) -> str:
+    """Subtype node id, in a namespace distinct from causal-graph node ids.
+
+    Subtype names often equal a ``genetic:`` entry name (both the gene symbol),
+    so sharing the causal-graph namespace would merge the two nodes.
+    """
+    return f"dismech:{_slug(stem)}#subtype_{_slug(subtype_name)}"
 
 
 def _grounding_edges(
@@ -198,7 +231,18 @@ def _grounding_edges(
         # queryable — the variant origin and impact ride along as properties.
         context = item.get("genetic_context")
         if isinstance(context, dict):
-            descriptors = [context.get("gene"), *(context.get("genes") or [])]
+            # The origin/impact are properties of the mechanism node itself: a
+            # somatic variant_origin marks the neoplasm's origin node whether or
+            # not a gene descriptor is bound (fusions often have none).
+            node = acc.nodes.get(node_id)
+            if node is not None:
+                for key in ("variant_origin", "functional_impact_category"):
+                    if context.get(key) and key not in node:
+                        node[key] = context[key]
+            genes = context.get("genes") or []
+            if isinstance(genes, dict):
+                genes = [genes]
+            descriptors = [context.get("gene"), *genes]
             for descriptor in descriptors:
                 got = _term(descriptor)
                 if not got:
@@ -263,27 +307,40 @@ def _grounding_edges(
     acc.add_edge(node_id, "dismech:grounded_to", curie, f"{section}.{slot}", stem)
 
 
-# Sections whose named items can be causal-graph nodes, walked for groundings.
-GROUNDABLE_SECTIONS = (
-    "pathophysiology",
-    "phenotypes",
-    "environmental",
-    "genetic",
-    "treatments",
-    "biochemical",
-    "histopathology",
-)
+# Sections whose named items can be causal-graph nodes, walked for groundings,
+# mapped to the node type used when an item never entered the causal graph.
+SECTION_NODE_TYPES = {
+    "pathophysiology": "pathophysiology",
+    "phenotypes": "phenotype",
+    "environmental": "environmental",
+    "genetic": "genetic",
+    "treatments": "treatment",
+    "biochemical": "biochemical",
+    "histopathology": "histopathology",
+}
+GROUNDABLE_SECTIONS = tuple(SECTION_NODE_TYPES)
 
 
 def process_entry(
-    acc: GraphAccumulator, stem: str, record: dict[str, Any], kind: str
+    acc: GraphAccumulator,
+    stem: str,
+    record: dict[str, Any],
+    kind: str,
+    shared_curies: frozenset[str] = frozenset(),
 ) -> str:
     """Emit nodes/edges for one disorder or module entry. Returns the entry id."""
-    entry_id = _entry_id(stem, record, kind)
+    entry_id = _entry_id(stem, record, kind, shared_curies)
     entry_category = (
         "biolink:Disease" if kind == "disorder" else "dismech:MechanismModule"
     )
     acc.add_node(entry_id, record.get("name"), entry_category, dismech_entry_kind=kind)
+    if kind == "disorder":
+        got = _term(record.get("disease_term") or {})
+        if got and got[0] != entry_id:
+            # Shared term: keep the entry distinct, but meet at the MONDO node.
+            curie, label = got
+            acc.add_node(curie, label, "biolink:Disease")
+            acc.add_edge(entry_id, "dismech:grounded_to", curie, "disease_term", stem)
 
     graph = build_causal_graph(record)
 
@@ -323,15 +380,7 @@ def process_entry(
             if node_id not in acc.nodes:
                 # Named item that never entered the causal graph: emit it
                 # anyway (maximal), typed by its section.
-                section_type = {
-                    "phenotypes": "phenotype",
-                    "treatments": "treatment",
-                }.get(
-                    section,
-                    section.rstrip("s")
-                    if section != "pathophysiology"
-                    else "pathophysiology",
-                )
+                section_type = SECTION_NODE_TYPES[section]
                 acc.add_node(node_id, name, _local_category(section_type))
                 acc.add_edge(entry_id, "dismech:has_graph_node", node_id, section, stem)
             _grounding_edges(acc, stem, section, item, node_id)
@@ -349,7 +398,7 @@ def process_entry(
     for subtype in record.get("has_subtypes") or []:
         if not isinstance(subtype, dict) or not subtype.get("name"):
             continue
-        subtype_id = pathophysiology_node_id(stem, subtype["name"])
+        subtype_id = subtype_node_id(stem, subtype["name"])
         acc.add_node(
             subtype_id,
             subtype.get("display_name") or subtype["name"],
@@ -419,25 +468,59 @@ def process_entry(
     return entry_id
 
 
-def process_comorbidity(
-    acc: GraphAccumulator, stem: str, record: dict[str, Any]
-) -> None:
-    """Emit the disease-disease pair edge for one comorbidity entry."""
-    got_a = _term(record.get("disease_a"))
-    got_b = _term(record.get("disease_b"))
-    if not got_a or not got_b:
-        return
-    for curie, label in (got_a, got_b):
+def _comorbidity_endpoint(
+    acc: GraphAccumulator,
+    descriptor: Any,
+    disease_ids_by_stem: dict[str, str],
+) -> str | None:
+    """Resolve one comorbidity endpoint: its bound term, else its entry slug."""
+    got = _term(descriptor)
+    if got:
+        curie, label = got
         acc.add_node(curie, label, "biolink:Disease")
-    acc.add_edge(
-        got_a[0],
-        "dismech:comorbid_with",
-        got_b[0],
-        "comorbidity",
-        stem,
-        directionality=record.get("directionality"),
-        effect_direction=record.get("effect_direction"),
-    )
+        return curie
+    slug = descriptor.get("slug") if isinstance(descriptor, dict) else None
+    if not slug:
+        return None
+    entry_id = disease_ids_by_stem.get(slug)
+    if entry_id is None:
+        entry_id = f"dismech:{_slug(slug)}"
+        acc.add_node(entry_id, slug.replace("_", " "), "dismech:UnresolvedMember")
+    return entry_id
+
+
+def process_comorbidity(
+    acc: GraphAccumulator,
+    stem: str,
+    record: dict[str, Any],
+    disease_ids_by_stem: dict[str, str] | None = None,
+) -> None:
+    """Emit the disease-disease pair edge(s) for one comorbidity entry.
+
+    A composite side (``components``, e.g. a UNION of two diseases) yields one
+    edge per component.
+    """
+    by_stem = disease_ids_by_stem or {}
+
+    def endpoints(descriptor: Any) -> list[str]:
+        if isinstance(descriptor, dict) and descriptor.get("components"):
+            parts = descriptor["components"]
+        else:
+            parts = [descriptor]
+        ids = (_comorbidity_endpoint(acc, part, by_stem) for part in parts)
+        return [i for i in ids if i]
+
+    for id_a in endpoints(record.get("disease_a")):
+        for id_b in endpoints(record.get("disease_b")):
+            acc.add_edge(
+                id_a,
+                "dismech:comorbid_with",
+                id_b,
+                "comorbidity",
+                stem,
+                directionality=record.get("directionality"),
+                effect_direction=record.get("effect_direction"),
+            )
 
 
 def process_grouping(
@@ -462,9 +545,7 @@ def process_grouping(
         if not name:
             continue
         member_type = member.get("member_type") or "DISEASE"
-        if member_type == "MODULE":
-            member_id = f"dismech:{_slug(name)}"
-        elif member_type == "GROUPING":
+        if member_type == "GROUPING":
             member_id = grouping_ids_by_name.get(name) or f"dismech:{_slug(name)}"
         else:
             member_id = disease_ids_by_name.get(name)
@@ -491,10 +572,22 @@ def export_kb(kb_dir: Path, out_dir: Path) -> tuple[int, int]:
     """Walk the KB and write maximal_nodes.jsonl / maximal_edges.jsonl."""
     acc = GraphAccumulator()
     disease_ids_by_name: dict[str, str] = {}
+    disease_ids_by_stem: dict[str, str] = {}
 
-    for path in sorted((kb_dir / "disorders").glob("*.yaml")):
-        record = kb_cache.load_document(path)
-        entry_id = process_entry(acc, path.stem, record, "disorder")
+    disorder_records = [
+        (path.stem, kb_cache.load_document(path))
+        for path in sorted((kb_dir / "disorders").glob("*.yaml"))
+    ]
+    curie_counts = Counter(
+        got[0]
+        for _, record in disorder_records
+        if (got := _term(record.get("disease_term") or {}))
+    )
+    shared_curies = frozenset(c for c, n in curie_counts.items() if n > 1)
+
+    for stem, record in disorder_records:
+        entry_id = process_entry(acc, stem, record, "disorder", shared_curies)
+        disease_ids_by_stem[stem] = entry_id
         if record.get("name"):
             disease_ids_by_name[record["name"]] = entry_id
 
@@ -502,7 +595,9 @@ def export_kb(kb_dir: Path, out_dir: Path) -> tuple[int, int]:
         process_entry(acc, path.stem, kb_cache.load_document(path), "module")
 
     for path in sorted((kb_dir / "comorbidities").glob("*.yaml")):
-        process_comorbidity(acc, path.stem, kb_cache.load_document(path))
+        process_comorbidity(
+            acc, path.stem, kb_cache.load_document(path), disease_ids_by_stem
+        )
 
     grouping_paths = sorted((kb_dir / "groupings").glob("*.yaml"))
     grouping_records = [(p.stem, kb_cache.load_document(p)) for p in grouping_paths]
@@ -540,7 +635,7 @@ def export_kb(kb_dir: Path, out_dir: Path) -> tuple[int, int]:
 def main() -> None:
     # Single corpus walk: the parsed-KB cache would be pure cost (see kb_cache).
     kb_cache.default_off()
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[1])
+    parser = argparse.ArgumentParser(description=CLI_DESCRIPTION)
     parser.add_argument("--kb-dir", type=Path, default=Path("kb"))
     parser.add_argument(
         "-o", "--out-dir", type=Path, default=Path("output/maximal_kgx")
