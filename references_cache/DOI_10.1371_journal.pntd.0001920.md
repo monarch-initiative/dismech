@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1371/journal.pntd.0001920
+extractor_version: 1
 title: In-Hospital Safety in Field Conditions of Nifurtimox Eflornithine Combination Therapy (NECT) for T. b. gambiense Sleeping Sickness
 authors:
 - Caecilia Schmid
@@ -28,6 +29,7 @@ full_text_url: "https://journals.plos.org/plosntds/article/file?id=10.1371/journ
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1371_journal.pntd.0001920.pdf
+full_text_access_type: open
 ---
 
 # In-Hospital Safety in Field Conditions of Nifurtimox Eflornithine Combination Therapy (NECT) for T. b. gambiense Sleeping Sickness

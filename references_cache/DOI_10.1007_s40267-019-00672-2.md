@@ -1,5 +1,7 @@
 ---
 reference_id: DOI:10.1007/s40267-019-00672-2
+extractor_version: 1
+absent_content_version: 1
 title: "Fexinidazole in human African trypanosomiasis: a profile of its use"
 authors:
 - Emma D. Deeks
