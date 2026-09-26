@@ -421,15 +421,16 @@ The KGX exporter emits typed, directed edges with the knowledge source identifie
 | Predicate | Edge (subject → object) |
 |---|---|
 | `biolink:has_phenotype` | Disease → PhenotypicFeature |
-| `biolink:associated_with` | Disease → Disease |
+| `biolink:associated_with` | Disease → Disease; ExposureEvent → Disease (`disease_effect: MODULATES`, or `causal_role: ASSOCIATED_ONLY`) |
 | `biolink:has_participant` | Disease → Cell / CellularComponent / ChemicalEntity / MacromolecularComplex |
 | `biolink:disease_has_location` | Disease → AnatomicalEntity |
 | `biolink:affects` | Disease → BiologicalProcess / MolecularActivity / Pathway (with INCREASED/DECREASED direction qualifiers) |
 | `biolink:treats_or_applied_or_studied_to_treat` | Treatment → Disease |
-| `biolink:contributes_to` | Gene → Disease; ExposureEvent → Disease |
+| `biolink:contributes_to` | Gene → Disease; ExposureEvent → Disease (no declared `disease_effect`) |
 | `biolink:associated_with_decreased_likelihood_of` | ExposureEvent → Disease (protective) |
+| `biolink:exacerbates_condition` / `biolink:predisposes_to_condition` | ExposureEvent → Disease (`disease_effect: EXACERBATES` / `PREDISPOSES`) |
 | `biolink:has_mode_of_inheritance` | Disease → GeneticInheritance |
-| `biolink:causes` | OrganismTaxon → Disease |
+| `biolink:causes` | OrganismTaxon → Disease; ExposureEvent → Disease (`disease_effect: TRIGGERS`) |
 | `biolink:has_biomarker` | Disease → MolecularEntity |
 
 **Known gap:** `differential_diagnoses` and `diagnosis` sections are not yet exported. See *Gaps* below.

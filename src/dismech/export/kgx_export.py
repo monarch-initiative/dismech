@@ -485,14 +485,26 @@ _PROTECTIVE_EFFECT_PATTERNS = (
 )
 
 
-#: Disease-level `disease_effect` values that make the exposure protective.
-_PROTECTIVE_DISEASE_EFFECTS = frozenset({"PROTECTS_AGAINST"})
+#: Biolink predicate for each declared disease-level `disease_effect`. Every
+#: value has its own counterpart; MODULATES is explicitly non-directional, so it
+#: maps to the non-causal `associated_with` rather than to a causal predicate.
+_DISEASE_EFFECT_PREDICATES = {
+    "TRIGGERS": "biolink:causes",
+    "EXACERBATES": "biolink:exacerbates_condition",
+    "PREDISPOSES": "biolink:predisposes_to_condition",
+    "PROTECTS_AGAINST": "biolink:associated_with_decreased_likelihood_of",
+    "MODULATES": "biolink:associated_with",
+}
+
+#: `causal_role` values that disclaim a causal reading of the exposure.
+_NON_CAUSAL_ROLES = frozenset({"ASSOCIATED_ONLY"})
 
 
 def _exposure_predicate(
     effect: str | None,
     links: list[dict[str, Any]] | None = None,
     disease_effect: str | None = None,
+    causal_role: str | None = None,
 ) -> str:
     """Map an environmental entry to a Biolink predicate.
 
@@ -500,7 +512,10 @@ def _exposure_predicate(
 
     `disease_effect` wins outright when set. It is the curator's own statement
     about the disease, which is exactly what this edge asserts, so nothing
-    downstream of it needs to be consulted or reconciled.
+    downstream of it needs to be consulted or reconciled. Each value maps to its
+    own predicate (`_DISEASE_EFFECT_PREDICATES`), except that a `causal_role` of
+    `ASSOCIATED_ONLY` downgrades any direction other than protective to
+    `biolink:associated_with`, because that role explicitly disclaims causation.
 
     Failing that, the `influences_mechanisms[].environmental_effect` enum: if the
     entry declares mechanism links and *every* one is `PROTECTS_AGAINST`, the
@@ -526,10 +541,11 @@ def _exposure_predicate(
     entries should set `environmental_effect: PROTECTS_AGAINST` on the mechanism
     link, or failing that phrase the `effect` text to match one of the patterns
     above; see #2098 and #8033 for context."""
-    if disease_effect:
-        if disease_effect in _PROTECTIVE_DISEASE_EFFECTS:
-            return "biolink:associated_with_decreased_likelihood_of"
-        return "biolink:contributes_to"
+    if disease_effect in _DISEASE_EFFECT_PREDICATES:
+        predicate = _DISEASE_EFFECT_PREDICATES[disease_effect]
+        if causal_role in _NON_CAUSAL_ROLES and disease_effect != "PROTECTS_AGAINST":
+            return "biolink:associated_with"
+        return predicate
 
     declared_effects = [
         link.get("environmental_effect")
@@ -571,6 +587,7 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
         environmental.get("effect"),
         environmental.get("influences_mechanisms"),
         environmental.get("disease_effect"),
+        environmental.get("causal_role"),
     )
     return ExposureEventToOutcomeAssociation(
         id=_make_edge_id(),

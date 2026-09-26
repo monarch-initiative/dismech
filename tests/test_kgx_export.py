@@ -449,7 +449,6 @@ class TestExposureToEdge:
         edge = exposure_to_edge("MONDO:0004979", environmental)
         assert edge.predicate == "biolink:contributes_to"
 
-
     def test_disease_effect_outranks_mechanism_links(self):
         """A declared disease_effect wins over the mechanism-link reading (#11112).
 
@@ -475,7 +474,7 @@ class TestExposureToEdge:
             "disease_effect": "PREDISPOSES",
         }
         edge = exposure_to_edge("MONDO:0004979", environmental)
-        assert edge.predicate == "biolink:contributes_to"
+        assert edge.predicate == "biolink:predisposes_to_condition"
 
     def test_disease_effect_alone_needs_no_mechanism_link(self):
         """The shape this slot exists for: a risk claim that names no node (#11112)."""
@@ -486,7 +485,45 @@ class TestExposureToEdge:
             "causal_role": "RISK_FACTOR",
         }
         edge = exposure_to_edge("MONDO:0007254", environmental)
-        assert edge.predicate == "biolink:contributes_to"
+        assert edge.predicate == "biolink:predisposes_to_condition"
+
+    @pytest.mark.parametrize(
+        ("disease_effect", "predicate"),
+        [
+            ("TRIGGERS", "biolink:causes"),
+            ("EXACERBATES", "biolink:exacerbates_condition"),
+            ("PREDISPOSES", "biolink:predisposes_to_condition"),
+            ("PROTECTS_AGAINST", "biolink:associated_with_decreased_likelihood_of"),
+            ("MODULATES", "biolink:associated_with"),
+        ],
+    )
+    def test_each_disease_effect_has_its_own_predicate(self, disease_effect, predicate):
+        """Declared direction is exported at full resolution, not collapsed (#11112)."""
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "disease_effect": disease_effect,
+        }
+        assert exposure_to_edge("MONDO:0004979", environmental).predicate == predicate
+
+    @pytest.mark.parametrize("disease_effect", ["TRIGGERS", "EXACERBATES", "PREDISPOSES", "MODULATES"])
+    def test_associated_only_causal_role_emits_no_causal_predicate(self, disease_effect):
+        """ASSOCIATED_ONLY disclaims causation, so the edge must not assert it (#11112)."""
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "disease_effect": disease_effect,
+            "causal_role": "ASSOCIATED_ONLY",
+        }
+        assert exposure_to_edge("MONDO:0004979", environmental).predicate == "biolink:associated_with"
+
+    def test_associated_only_keeps_protective_direction(self):
+        """A protective association is already non-causal and keeps its direction."""
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "disease_effect": "PROTECTS_AGAINST",
+            "causal_role": "ASSOCIATED_ONLY",
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
 
     def test_absent_disease_effect_preserves_legacy_behaviour(self):
         """Entries without the new slot must read exactly as before (#11112)."""
