@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4297,6 +4365,7 @@ Expressivity is recorded as VARIABLE. Severity of the intellectual disability ra
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4321,6 +4390,7 @@ Expressivity is recorded as VARIABLE. Severity of the intellectual disability ra
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4342,6 +4412,7 @@ Expressivity is recorded as VARIABLE. Severity of the intellectual disability ra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4460,6 +4531,7 @@ What this entry does about it: it scopes itself to the biallelic genotype, which
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4484,6 +4556,7 @@ What this entry does about it: it scopes itself to the biallelic genotype, which
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4505,6 +4578,7 @@ What this entry does about it: it scopes itself to the biallelic genotype, which
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4679,6 +4753,7 @@ Resolving it needs population-scale data rather than more case reports: a genoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4700,6 +4775,7 @@ Resolving it needs population-scale data rather than more case reports: a genoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4793,6 +4869,7 @@ Two readings survive. Either the mouse models the monoallelic end of the human d
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4814,6 +4891,7 @@ Two readings survive. Either the mouse models the monoallelic end of the human d
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4898,6 +4976,7 @@ Two readings survive. Either the mouse models the monoallelic end of the human d
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4979,6 +5058,7 @@ Two readings survive. Either the mouse models the monoallelic end of the human d
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5013,6 +5093,13 @@ Two readings survive. Either the mouse models the monoallelic end of the human d
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-kdm5b-loss-of-function" data-dismech-node="Biallelic KDM5B Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic KDM5B Loss of Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The initiating lesion. Two disruptive KDM5B alleles - nonsense, frameshift, canonical splice-site, or a catalytic-domain missense in trans with a null - leave the cell without functional KDM5B. A single such allele does not produce this disorder, which is the whole content of calling the entity recessive.</div>
 
@@ -5108,6 +5195,8 @@ This genetic context concerns KDM5B (lysine demethylase 5B), annotated with KDM5
 
 
 
+
+
         <span class="tag tag-classification">allele_type: nonsense, frameshift, canonical splice-site, or catalytic-domain missense in trans with a null allele</span>
 
 
@@ -5125,6 +5214,9 @@ This genetic context concerns KDM5B (lysine demethylase 5B), annotated with KDM5
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
     <div class="context-notes">Zygosity is recorded as HOMOZYGOUS because that is the single value the slot takes and homozygous nonsense alleles are the reported archetype; compound heterozygous genotypes are equally common in the case literature and are described in the genetic section.</div>
@@ -5172,6 +5264,7 @@ This genetic context concerns KDM5B (lysine demethylase 5B), annotated with KDM5
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5193,6 +5286,7 @@ This genetic context concerns KDM5B (lysine demethylase 5B), annotated with KDM5
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5218,6 +5312,13 @@ This genetic context concerns KDM5B (lysine demethylase 5B), annotated with KDM5
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-kdm5b-h3k4-demethylase-activity" data-dismech-node="Loss of KDM5B H3K4 Demethylase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of KDM5B H3K4 Demethylase Activity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">KDM5B is an Fe(II)/2-oxoglutarate-dependent JmjC-domain demethylase whose substrate is methylated lysine 4 of histone H3. Without it, the cell loses the enzyme that erases that mark. Note the direction of travel here: unlike most chromatinopathies, where a writer is lost and a permissive mark falls, the lesion in MRT65 removes an eraser, so the permissive mark accumulates.</div>
 
@@ -5341,6 +5442,7 @@ This pathophysiological event involves decreased histone H3K4 demethylase activi
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5363,6 +5465,13 @@ This pathophysiological event involves decreased histone H3K4 demethylase activi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-h3k4-trimethylation-at-developmental-gene-promoters" data-dismech-node="Elevated H3K4 Trimethylation at Developmental Gene Promoters" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated H3K4 Trimethylation at Developmental Gene Promoters</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">H3K4me3 is a promoter-proximal permissive mark. With the eraser gone it accumulates at the promoters of developmentally regulated and activity-dependent genes, shifting the permissive-repressive balance toward permissive - the same imbalance the chromatinopathy module describes, reached from the opposite direction. Recorded as PROVISIONAL for human disease: the accumulation is directly measured in mouse neocortex and has not been shown in tissue from an individual with MRT65.</div>
 
@@ -5493,6 +5602,7 @@ This pathophysiological event involves chromatin (GO:0000785). GO:0000785 is a c
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5515,6 +5625,13 @@ This pathophysiological event involves chromatin (GO:0000785). GO:0000785 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-neurodevelopmental-transcriptional-program" data-dismech-node="Dysregulated Neurodevelopmental Transcriptional Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Neurodevelopmental Transcriptional Program</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The transcriptional consequence, and it is bidirectional rather than a simple upward shift. Neurodevelopmental genes are expressed at higher levels in the developing mutant neocortex, while activity-dependent immediate-early genes sit lower at baseline and then overshoot on stimulation. What the mark change costs the neuron is regulated, appropriately timed transcription, not transcription as such.</div>
 
@@ -5650,6 +5767,7 @@ This pathophysiological event involves decreased nervous system development (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5672,6 +5790,13 @@ This pathophysiological event involves decreased nervous system development (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-grin2d-and-nmda-receptor-subunit-2d-expression" data-dismech-node="Increased Grin2d and NMDA Receptor Subunit 2D Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Grin2d and NMDA Receptor Subunit 2D Expression</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">One specific downstream target has been traced end to end in the mouse: raised H3K4me3 at the Grin2d promoter, raised Grin2d expression, and more NMDAR2D protein in synaptosomes from early postnatal neocortex. Recorded as HYPOTHETICAL for MRT65 because it is entirely a mouse result and because the behavioural readout it was traced to - socio-communication deficit - is the feature that biallelic human individuals conspicuously do not have. It is kept in the graph because it is the only mechanistically complete chromatin-to-synapse link anyone has for this gene, and because it names a druggable node.</div>
 
@@ -5743,6 +5868,7 @@ This pathophysiological event involves decreased nervous system development (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5765,6 +5891,13 @@ This pathophysiological event involves decreased nervous system development (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-activity-dependent-gene-expression-and-synaptic-plasticity" data-dismech-node="Impaired Activity-Dependent Gene Expression and Synaptic Plasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Activity-Dependent Gene Expression and Synaptic Plasticity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Where the chromatin defect becomes a neuronal one. Demethylase-inactive mice lose hippocampal long-term potentiation and long-term memory while short-term memory is spared, and knocking KDM5B down in the adult hippocampus alone reproduces that, which places part of the requirement for the enzyme after development rather than during it.</div>
 
@@ -6025,6 +6158,7 @@ This pathophysiological event involves decreased learning or memory (GO:0007611)
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6046,6 +6180,7 @@ This pathophysiological event involves decreased learning or memory (GO:0007611)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6071,6 +6206,13 @@ This pathophysiological event involves decreased learning or memory (GO:0007611)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-cortical-neurodevelopment-and-brain-overgrowth" data-dismech-node="Altered Cortical Neurodevelopment and Brain Overgrowth" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Cortical Neurodevelopment and Brain Overgrowth</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">A second branch, and a much weaker one. Mice without KDM5B demethylase activity have larger brains, and macrocephaly is recorded in biallelic human individuals, so a growth arm to the phenotype is plausible. Whether the same process accounts for the structural malformations seen in a subset - agenesis of the corpus callosum in particular - is not established, and the route from chromatin dysregulation to the craniofacial and hand features of the syndrome has not been worked out at all for this gene. Recorded as HYPOTHETICAL for that reason.</div>
 
@@ -6186,6 +6328,7 @@ This pathophysiological event involves decreased cerebral cortex neuron differen
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6231,7 +6374,7 @@ This pathophysiological event involves decreased cerebral cortex neuron differen
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adult hippocampal Kdm5b knockdown mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Knockdown restricted to the adult hippocampus of an otherwise wild-type mouse. The point of the experiment is timing: it removes KDM5B after development is over.\"}, {\"id\": \"Agenesis of the Corpus Callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in a sibling pair compound heterozygous for a JmjC-domain missense allele and a frameshift null, one liveborn and one a terminated pregnancy, and previously in one further biallelic individual with severe intellectual disability. On that basis the authors argued the KDM5B gene belongs on diagnostic panels for corpus callosum agenesis, including prenatally.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001274\"}}, {\"id\": \"Altered Cortical Neurodevelopment and Brain Overgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second branch, and a much weaker one. Mice without KDM5B demethylase activity have larger brains, and macrocephaly is recorded in biallelic human individuals, so a growth arm to the phenotype is plausible. Whether the same process accounts for the structural malformations seen in a subset - agenesis of the corpus callosum in particular - is not established, and the route from chromatin dysregulation to the craniofacial and hand features of the syndrome has not been worked out at all for this gene. Recorded as HYPOTHETICAL for that reason.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cerebral cortex neuron differentiation\"], \"animal_models\": [{\"name\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"species\": \"Mus musculus\", \"genotype\": \"Kdm5b demethylase-deficient homozygous\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Increased brain size, which is the mouse counterpart of the macrocephaly recorded in biallelic human individuals.\"}]}}, {\"id\": \"Biallelic KDM5B Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Two disruptive KDM5B alleles - nonsense, frameshift, canonical splice-site, or a catalytic-domain missense in trans with a null - leave the cell without functional KDM5B. A single such allele does not produce this disorder, which is the whole content of calling the entity recessive.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"KDM5B (lysine demethylase 5B)\"], \"gene_terms\": [{\"label\": \"KDM5B (lysine demethylase 5B)\", \"id\": \"hgnc:18039\"}], \"genetic_context\": {\"allele_type\": \"nonsense, frameshift, canonical splice-site, or catalytic-domain missense in trans with a null allele\", \"variant_origin\": \"GERMLINE\", \"allelic_hit_role\": \"BIALLELIC_INACTIVATION\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"KDM5B (lysine demethylase 5B)\", \"id\": \"hgnc:18039\"}]}}}, {\"id\": \"Developmental, Educational and Communication Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early intervention, speech and language therapy, occupational therapy and physical therapy, directed at the developmental delay and the hand function that camptodactyly may limit. This is standard care for syndromic intellectual disability rather than anything established for MRT65.\"}, {\"id\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The transcriptional consequence, and it is bidirectional rather than a simple upward shift. Neurodevelopmental genes are expressed at higher levels in the developing mutant neocortex, while activity-dependent immediate-early genes sit lower at baseline and then overshoot on stimulation. What the mark change costs the neuron is regulated, appropriately timed transcription, not transcription as such.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of DNA-templated transcription\", \"nervous system development\"]}}, {\"id\": \"Elevated H3K4 Trimethylation at Developmental Gene Promoters\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"H3K4me3 is a promoter-proximal permissive mark. With the eraser gone it accumulates at the promoters of developmentally regulated and activity-dependent genes, shifting the permissive-repressive balance toward permissive - the same imbalance the chromatinopathy module describes, reached from the opposite direction. Recorded as PROVISIONAL for human disease: the accumulation is directly measured in mouse neocortex and has not been shown in tissue from an individual with MRT65.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chromatin organization\"], \"animal_models\": [{\"name\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"species\": \"Mus musculus\", \"genotype\": \"Kdm5b demethylase-deficient homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"H3K4me3 and neurodevelopmental gene expression are both raised in the developing mutant neocortex, which is the predicted consequence of losing the eraser.\"}]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delay across motor, language and adaptive domains, recognised in infancy. Present in every reported biallelic individual, which is the one feature of this disorder that the small case literature agrees on without qualification.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Where the chromatin defect becomes a neuronal one. Demethylase-inactive mice lose hippocampal long-term potentiation and long-term memory while short-term memory is spared, and knocking KDM5B down in the adult hippocampus alone reproduces that, which places part of the requirement for the enzyme after development rather than during it.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hippocampal neuron\", \"neuron\"], \"biological_processes\": [\"regulation of synaptic plasticity\", \"long-term synaptic potentiation\", \"learning or memory\"], \"animal_models\": [{\"name\": \"Kdm5b demethylase-inactive (delta-ARID) mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Kdm5b delta-ARID homozygous (demethylase-inactive)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Hyperactivity and hippocampus-dependent long-term memory deficits, with immediate-early gene expression low at baseline and overshooting on a learning stimulus.\"}, {\"name\": \"Adult hippocampal Kdm5b knockdown mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Wild-type mouse with shRNA-mediated Kdm5b knockdown in adult hippocampus\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Acute adult knockdown produces spontaneous seizures, hyperactivity, and long-term memory and long-term potentiation deficits, so part of the requirement for KDM5B is postnatal and ongoing rather than developmental.\"}]}}, {\"id\": \"Impaired Intellectual Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability, reported as moderate to severe in the earlier literature and as mild in the two biallelic individuals of the 2024 cohort. The entry binds the unqualified HPO term rather than a severity-specific one because the reported range spans mild to severe.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Increased Grin2d and NMDA Receptor Subunit 2D Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"One specific downstream target has been traced end to end in the mouse: raised H3K4me3 at the Grin2d promoter, raised Grin2d expression, and more NMDAR2D protein in synaptosomes from early postnatal neocortex. Recorded as HYPOTHETICAL for MRT65 because it is entirely a mouse result and because the behavioural readout it was traced to - socio-communication deficit - is the feature that biallelic human individuals conspicuously do not have. It is kept in the graph because it is the only mechanistically complete chromatin-to-synapse link anyone has for this gene, and because it names a druggable node.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"species\": \"Mus musculus\", \"genotype\": \"Kdm5b demethylase-deficient homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Raised H3K4me3 at the Grin2d promoter, raised Grin2d expression, and more NMDAR2D protein in synaptosomes from early postnatal neocortex.\"}]}}, {\"id\": \"KDM5B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"KDM5B (lysine demethylase 5B)\"], \"gene_terms\": [{\"label\": \"KDM5B (lysine demethylase 5B)\", \"id\": \"hgnc:18039\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Mice without KDM5B demethylase activity, studied at the level of the developing neocortex rather than adult behaviour. This is the model that supplies the chromatin arm of the mechanism.\"}, {\"id\": \"Kdm5b demethylase-inactive (delta-ARID) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Mice homozygous for a Kdm5b allele that removes demethylase activity while leaving the rest of the protein. Viable into adulthood, which the constitutive null largely is not, so this is the model in which adult cognition can be studied at all.\"}, {\"id\": \"Loss of KDM5B H3K4 Demethylase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KDM5B is an Fe(II)/2-oxoglutarate-dependent JmjC-domain demethylase whose substrate is methylated lysine 4 of histone H3. Without it, the cell loses the enzyme that erases that mark. Note the direction of travel here: unlike most chromatinopathies, where a writer is lost and a permissive mark falls, the lesion in MRT65 removes an eraser, so the permissive mark accumulates.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"histone H3K4me3/me2/me1 demethylase activity\", \"histone H3K4 demethylase activity\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Occipitofrontal circumference above two standard deviations. Present in both biallelic individuals of the 2024 cohort, which is a small denominator but a clean one, since the same cohort reports macrocephaly in only a minority of its much larger monoallelic group.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000256\"}}], \"edges\": [{\"source\": \"Biallelic KDM5B Loss of Function\", \"target\": \"Loss of KDM5B H3K4 Demethylase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of KDM5B H3K4 Demethylase Activity\", \"target\": \"Elevated H3K4 Trimethylation at Developmental Gene Promoters\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated H3K4 Trimethylation at Developmental Gene Promoters\", \"target\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Increased Grin2d and NMDA Receptor Subunit 2D Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Altered Cortical Neurodevelopment and Brain Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Increased Grin2d and NMDA Receptor Subunit 2D Expression\", \"target\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"target\": \"Impaired Intellectual Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Cortical Neurodevelopment and Brain Overgrowth\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Cortical Neurodevelopment and Brain Overgrowth\", \"target\": \"Agenesis of the Corpus Callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Developmental, Educational and Communication Therapy\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Kdm5b demethylase-inactive (delta-ARID) mouse\", \"target\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Hyperactivity and hippocampus-dependent long-term memory deficits, with immediate-early gene expression low at baseline and overshooting on a learning stimulus.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The allele is demethylase-inactive rather than protein-null, so it models the catalytic arm of the human lesion and not the loss of KDM5B\u0027s demethylase-independent functions, which the same group notes exist. The readouts are behavioural and electrophysiological in a whole animal, one scale above the cellular node they are cited for, so the plasticity claim is inferred from what the animal does rather than measured in the human neuron. And it is a mouse: no biallelic human individual has had hippocampal plasticity measured.\"}, {\"source\": \"Adult hippocampal Kdm5b knockdown mouse\", \"target\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Acute adult knockdown produces spontaneous seizures, hyperactivity, and long-term memory and long-term potentiation deficits, so part of the requirement for KDM5B is postnatal and ongoing rather than developmental.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"An acute, regionally restricted, partial knockdown in an adult animal is not the human lesion, which is constitutive, whole-body and complete from conception. It shows that adult KDM5B loss is sufficient for these deficits; it does not show that the human deficits are caused that way. The seizures it produces have no counterpart in the reported biallelic human individuals, in whom the 2024 cohort found no seizures. Readouts are whole-animal, one scale above the cellular node.\"}, {\"source\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"target\": \"Elevated H3K4 Trimethylation at Developmental Gene Promoters\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"H3K4me3 and neurodevelopmental gene expression are both raised in the developing mutant neocortex, which is the predicted consequence of losing the eraser.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Measured in mouse neocortex. The equivalent measurement has never been made in tissue from an individual with MRT65, so the human node rests on the enzyme\u0027s known specificity plus this mouse result.\"}, {\"source\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"target\": \"Increased Grin2d and NMDA Receptor Subunit 2D Expression\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Raised H3K4me3 at the Grin2d promoter, raised Grin2d expression, and more NMDAR2D protein in synaptosomes from early postnatal neocortex.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Entirely a mouse finding, and the behavioural endpoint it was traced to - socio-communication deficit - is the one feature the reported biallelic human individuals do not have. Its relevance to MRT65 specifically is therefore unestablished, which is why the corresponding node is marked HYPOTHETICAL.\"}, {\"source\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"target\": \"Altered Cortical Neurodevelopment and Brain Overgrowth\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Increased brain size, which is the mouse counterpart of the macrocephaly recorded in biallelic human individuals.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Brain size in a mouse and occipitofrontal circumference in a child are not the same measurement, and the human observation rests on two individuals. The model does not reproduce the structural malformations - corpus callosum agenesis in particular - or the craniofacial and hand features, so it covers only the growth part of this node. Whole-animal readout cited for a tissue-level node.\"}, {\"source\": \"KDM5B\", \"target\": \"Biallelic KDM5B Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adult hippocampal Kdm5b knockdown mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Knockdown restricted to the adult hippocampus of an otherwise wild-type mouse. The point of the experiment is timing: it removes KDM5B after development is over.\"}, {\"id\": \"Agenesis of the Corpus Callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in a sibling pair compound heterozygous for a JmjC-domain missense allele and a frameshift null, one liveborn and one a terminated pregnancy, and previously in one further biallelic individual with severe intellectual disability. On that basis the authors argued the KDM5B gene belongs on diagnostic panels for corpus callosum agenesis, including prenatally.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001274\"}}, {\"id\": \"Altered Cortical Neurodevelopment and Brain Overgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second branch, and a much weaker one. Mice without KDM5B demethylase activity have larger brains, and macrocephaly is recorded in biallelic human individuals, so a growth arm to the phenotype is plausible. Whether the same process accounts for the structural malformations seen in a subset - agenesis of the corpus callosum in particular - is not established, and the route from chromatin dysregulation to the craniofacial and hand features of the syndrome has not been worked out at all for this gene. Recorded as HYPOTHETICAL for that reason.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cerebral cortex neuron differentiation\"], \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"species\": \"Mus musculus\", \"genotype\": \"Kdm5b demethylase-deficient homozygous\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Increased brain size, which is the mouse counterpart of the macrocephaly recorded in biallelic human individuals.\"}]}}, {\"id\": \"Biallelic KDM5B Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Two disruptive KDM5B alleles - nonsense, frameshift, canonical splice-site, or a catalytic-domain missense in trans with a null - leave the cell without functional KDM5B. A single such allele does not produce this disorder, which is the whole content of calling the entity recessive.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"KDM5B (lysine demethylase 5B)\"], \"gene_terms\": [{\"label\": \"KDM5B (lysine demethylase 5B)\", \"id\": \"hgnc:18039\"}], \"genetic_context\": {\"allele_type\": \"nonsense, frameshift, canonical splice-site, or catalytic-domain missense in trans with a null allele\", \"variant_origin\": \"GERMLINE\", \"allelic_hit_role\": \"BIALLELIC_INACTIVATION\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"KDM5B (lysine demethylase 5B)\", \"id\": \"hgnc:18039\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Developmental, Educational and Communication Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early intervention, speech and language therapy, occupational therapy and physical therapy, directed at the developmental delay and the hand function that camptodactyly may limit. This is standard care for syndromic intellectual disability rather than anything established for MRT65.\"}, {\"id\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The transcriptional consequence, and it is bidirectional rather than a simple upward shift. Neurodevelopmental genes are expressed at higher levels in the developing mutant neocortex, while activity-dependent immediate-early genes sit lower at baseline and then overshoot on stimulation. What the mark change costs the neuron is regulated, appropriately timed transcription, not transcription as such.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of DNA-templated transcription\", \"nervous system development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Elevated H3K4 Trimethylation at Developmental Gene Promoters\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"H3K4me3 is a promoter-proximal permissive mark. With the eraser gone it accumulates at the promoters of developmentally regulated and activity-dependent genes, shifting the permissive-repressive balance toward permissive - the same imbalance the chromatinopathy module describes, reached from the opposite direction. Recorded as PROVISIONAL for human disease: the accumulation is directly measured in mouse neocortex and has not been shown in tissue from an individual with MRT65.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chromatin organization\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"species\": \"Mus musculus\", \"genotype\": \"Kdm5b demethylase-deficient homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"H3K4me3 and neurodevelopmental gene expression are both raised in the developing mutant neocortex, which is the predicted consequence of losing the eraser.\"}]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delay across motor, language and adaptive domains, recognised in infancy. Present in every reported biallelic individual, which is the one feature of this disorder that the small case literature agrees on without qualification.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Where the chromatin defect becomes a neuronal one. Demethylase-inactive mice lose hippocampal long-term potentiation and long-term memory while short-term memory is spared, and knocking KDM5B down in the adult hippocampus alone reproduces that, which places part of the requirement for the enzyme after development rather than during it.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hippocampal neuron\", \"neuron\"], \"biological_processes\": [\"regulation of synaptic plasticity\", \"long-term synaptic potentiation\", \"learning or memory\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Kdm5b demethylase-inactive (delta-ARID) mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Kdm5b delta-ARID homozygous (demethylase-inactive)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Hyperactivity and hippocampus-dependent long-term memory deficits, with immediate-early gene expression low at baseline and overshooting on a learning stimulus.\"}, {\"name\": \"Adult hippocampal Kdm5b knockdown mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Wild-type mouse with shRNA-mediated Kdm5b knockdown in adult hippocampus\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Acute adult knockdown produces spontaneous seizures, hyperactivity, and long-term memory and long-term potentiation deficits, so part of the requirement for KDM5B is postnatal and ongoing rather than developmental.\"}]}}, {\"id\": \"Impaired Intellectual Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability, reported as moderate to severe in the earlier literature and as mild in the two biallelic individuals of the 2024 cohort. The entry binds the unqualified HPO term rather than a severity-specific one because the reported range spans mild to severe.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Increased Grin2d and NMDA Receptor Subunit 2D Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"One specific downstream target has been traced end to end in the mouse: raised H3K4me3 at the Grin2d promoter, raised Grin2d expression, and more NMDAR2D protein in synaptosomes from early postnatal neocortex. Recorded as HYPOTHETICAL for MRT65 because it is entirely a mouse result and because the behavioural readout it was traced to - socio-communication deficit - is the feature that biallelic human individuals conspicuously do not have. It is kept in the graph because it is the only mechanistically complete chromatin-to-synapse link anyone has for this gene, and because it names a druggable node.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"species\": \"Mus musculus\", \"genotype\": \"Kdm5b demethylase-deficient homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Raised H3K4me3 at the Grin2d promoter, raised Grin2d expression, and more NMDAR2D protein in synaptosomes from early postnatal neocortex.\"}]}}, {\"id\": \"KDM5B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"KDM5B (lysine demethylase 5B)\"], \"gene_terms\": [{\"label\": \"KDM5B (lysine demethylase 5B)\", \"id\": \"hgnc:18039\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Mice without KDM5B demethylase activity, studied at the level of the developing neocortex rather than adult behaviour. This is the model that supplies the chromatin arm of the mechanism.\"}, {\"id\": \"Kdm5b demethylase-inactive (delta-ARID) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Mice homozygous for a Kdm5b allele that removes demethylase activity while leaving the rest of the protein. Viable into adulthood, which the constitutive null largely is not, so this is the model in which adult cognition can be studied at all.\"}, {\"id\": \"Loss of KDM5B H3K4 Demethylase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KDM5B is an Fe(II)/2-oxoglutarate-dependent JmjC-domain demethylase whose substrate is methylated lysine 4 of histone H3. Without it, the cell loses the enzyme that erases that mark. Note the direction of travel here: unlike most chromatinopathies, where a writer is lost and a permissive mark falls, the lesion in MRT65 removes an eraser, so the permissive mark accumulates.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"histone H3K4me3/me2/me1 demethylase activity\", \"histone H3K4 demethylase activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Occipitofrontal circumference above two standard deviations. Present in both biallelic individuals of the 2024 cohort, which is a small denominator but a clean one, since the same cohort reports macrocephaly in only a minority of its much larger monoallelic group.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000256\"}}], \"edges\": [{\"source\": \"Biallelic KDM5B Loss of Function\", \"target\": \"Loss of KDM5B H3K4 Demethylase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of KDM5B H3K4 Demethylase Activity\", \"target\": \"Elevated H3K4 Trimethylation at Developmental Gene Promoters\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated H3K4 Trimethylation at Developmental Gene Promoters\", \"target\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Increased Grin2d and NMDA Receptor Subunit 2D Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Neurodevelopmental Transcriptional Program\", \"target\": \"Altered Cortical Neurodevelopment and Brain Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Increased Grin2d and NMDA Receptor Subunit 2D Expression\", \"target\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"target\": \"Impaired Intellectual Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Cortical Neurodevelopment and Brain Overgrowth\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Cortical Neurodevelopment and Brain Overgrowth\", \"target\": \"Agenesis of the Corpus Callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Developmental, Educational and Communication Therapy\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Kdm5b demethylase-inactive (delta-ARID) mouse\", \"target\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Hyperactivity and hippocampus-dependent long-term memory deficits, with immediate-early gene expression low at baseline and overshooting on a learning stimulus.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The allele is demethylase-inactive rather than protein-null, so it models the catalytic arm of the human lesion and not the loss of KDM5B\u0027s demethylase-independent functions, which the same group notes exist. The readouts are behavioural and electrophysiological in a whole animal, one scale above the cellular node they are cited for, so the plasticity claim is inferred from what the animal does rather than measured in the human neuron. And it is a mouse: no biallelic human individual has had hippocampal plasticity measured.\"}, {\"source\": \"Adult hippocampal Kdm5b knockdown mouse\", \"target\": \"Impaired Activity-Dependent Gene Expression and Synaptic Plasticity\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Acute adult knockdown produces spontaneous seizures, hyperactivity, and long-term memory and long-term potentiation deficits, so part of the requirement for KDM5B is postnatal and ongoing rather than developmental.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"An acute, regionally restricted, partial knockdown in an adult animal is not the human lesion, which is constitutive, whole-body and complete from conception. It shows that adult KDM5B loss is sufficient for these deficits; it does not show that the human deficits are caused that way. The seizures it produces have no counterpart in the reported biallelic human individuals, in whom the 2024 cohort found no seizures. Readouts are whole-animal, one scale above the cellular node.\"}, {\"source\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"target\": \"Elevated H3K4 Trimethylation at Developmental Gene Promoters\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"H3K4me3 and neurodevelopmental gene expression are both raised in the developing mutant neocortex, which is the predicted consequence of losing the eraser.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Measured in mouse neocortex. The equivalent measurement has never been made in tissue from an individual with MRT65, so the human node rests on the enzyme\u0027s known specificity plus this mouse result.\"}, {\"source\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"target\": \"Increased Grin2d and NMDA Receptor Subunit 2D Expression\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Raised H3K4me3 at the Grin2d promoter, raised Grin2d expression, and more NMDAR2D protein in synaptosomes from early postnatal neocortex.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Entirely a mouse finding, and the behavioural endpoint it was traced to - socio-communication deficit - is the one feature the reported biallelic human individuals do not have. Its relevance to MRT65 specifically is therefore unestablished, which is why the corresponding node is marked HYPOTHETICAL.\"}, {\"source\": \"Kdm5b demethylase-deficient mouse (neocortical H3K4me3 study)\", \"target\": \"Altered Cortical Neurodevelopment and Brain Overgrowth\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Increased brain size, which is the mouse counterpart of the macrocephaly recorded in biallelic human individuals.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Brain size in a mouse and occipitofrontal circumference in a child are not the same measurement, and the human observation rests on two individuals. The model does not reproduce the structural malformations - corpus callosum agenesis in particular - or the craniofacial and hand features, so it covers only the growth part of this node. Whole-animal readout cited for a tissue-level node.\"}, {\"source\": \"KDM5B\", \"target\": \"Biallelic KDM5B Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6301,6 +6444,9 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6315,6 +6461,7 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6339,6 +6486,7 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6393,6 +6541,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6407,6 +6558,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6467,6 +6619,9 @@ This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band is asserted. The founding description treats camptodactyly as characteristic, but no source reviewed here gives a count for it among biallelic individuals, and the 2024 cohort tabulates finger anomalies under a broader heading.</div>
 
 
@@ -6486,6 +6641,7 @@ This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6510,6 +6666,7 @@ This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6564,6 +6721,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6578,6 +6738,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6643,6 +6804,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6657,6 +6821,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6681,6 +6846,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6739,6 +6905,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6753,6 +6922,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6777,6 +6947,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6833,6 +7004,9 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6847,6 +7021,7 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6905,6 +7080,9 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6919,6 +7097,7 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6946,6 +7125,7 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6967,6 +7147,7 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7021,6 +7202,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7035,6 +7219,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7095,6 +7280,9 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Sleep disorders and autistic behaviours also appear in this quoted list, but the same paper states that sleep issues were not noted in the biallelic individuals and that they displayed no autistic behaviours, so neither is curated as a phenotype of this entity.</div>
 
 
@@ -7114,6 +7302,7 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7216,6 +7405,9 @@ This disease-associated gene is KDM5B (lysine demethylase 5B), annotated with KD
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7230,6 +7422,7 @@ This disease-associated gene is KDM5B (lysine demethylase 5B), annotated with KD
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7257,6 +7450,7 @@ This disease-associated gene is KDM5B (lysine demethylase 5B), annotated with KD
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7278,6 +7472,7 @@ This disease-associated gene is KDM5B (lysine demethylase 5B), annotated with KD
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7367,6 +7562,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7377,6 +7575,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7404,6 +7605,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7473,6 +7675,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7483,6 +7688,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
     </div>
+
+
+
 
 
 
@@ -7571,6 +7779,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Recurrence risk for the siblings of an affected child of two carrier parents is one in four on the standard recessive expectation, and prenatal or preimplantation testing is possible once the familial alleles are known - a sibling pair with corpus callosum agenesis was in fact ascertained partly prenatally. The counselling is harder than that arithmetic suggests, though, because carrier relatives of an affected child may themselves carry a heterozygous loss-of-function allele whose consequences are contested, and the 2024 cohort says plainly that variant interpretation in this gene is difficult in the light of reduced penetrance.</div>
 
 
@@ -7592,6 +7806,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7702,6 +7917,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7723,6 +7939,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7813,6 +8030,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7834,6 +8052,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7908,6 +8127,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8122,6 +8342,7 @@ This experimental model concerns KDM5B (lysine demethylase 5B), annotated with K
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8181,6 +8402,7 @@ This experimental model concerns KDM5B (lysine demethylase 5B), annotated with K
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8220,6 +8442,7 @@ This experimental model concerns KDM5B (lysine demethylase 5B), annotated with K
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8266,6 +8489,7 @@ This experimental model concerns KDM5B (lysine demethylase 5B), annotated with K
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8421,6 +8645,7 @@ This experimental model concerns KDM5B (lysine demethylase 5B), annotated with K
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8462,6 +8687,7 @@ This experimental model concerns KDM5B (lysine demethylase 5B), annotated with K
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8617,6 +8843,7 @@ This experimental model concerns KDM5B (lysine demethylase 5B), annotated with K
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8668,6 +8895,7 @@ This experimental model concerns KDM5B (lysine demethylase 5B), annotated with K
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8725,6 +8953,7 @@ This experimental model concerns KDM5B (lysine demethylase 5B), annotated with K
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8766,6 +8995,7 @@ This experimental model concerns KDM5B (lysine demethylase 5B), annotated with K
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10562,6 +10792,66 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation scope and sourcing. This entry covers the biallelic KDM5B genotype named by MONDO:0020850 and OMIM 618109. It draws on eight primary sources plus one review, and on two deep-research reports committed alongside it. The requested falcon provider returned HTTP 402; the recorded fallback produced an openscientist report, and a claude_code report was run in parallel while that one was outstanding. Both are committed. They agree on the disease definition, the causal gene, the mechanism and the absence of any disease-modifying therapy, and both were read before the entry was finalised.
+
+Where the two reports disagree with this entry, and with each other. Penetrance: the openscientist report calls the biallelic genotype fully or highly penetrant, qualified as &#34;based on limited cohorts&#34;. This entry records UNKNOWN instead, for the reason set out in the inheritance block - every reported biallelic individual was ascertained through an affected proband, so a case series of about ten cannot separate complete penetrance from ascertainment, and no source reviewed states a penetrance estimate for the biallelic genotype. gnomAD constraint: the 2024 cohort quoted in this entry reports a loss-of-function observed-to-expected ratio of about 0.57 from gnomAD non-neuro v2.1.2, while the openscientist report gives 0.74 with LOEUF 0.855 from a current gnomAD query. Both readings support the same conclusion - that heterozygous KDM5B loss of function is tolerated - and the entry quotes only the figure that has a citable source behind it. Incidence: the openscientist report offers a carrier frequency near 1 in 570 and a birth incidence near 1 in 1.3 million, and flags both as theoretical calculations assuming random mating and complete penetrance. Neither is curated, because neither is an observation and the second is derived from the penetrance assumption this entry declines to make.
+
+Claims present in the deep-research report but deliberately not curated here, because they could not be verified against a cached source: the specific variant list from the founding cohort, the 96.89-fold enrichment of homozygous protein-truncating variants, the absence of homozygous KDM5B knockouts among 3,222 consanguineous reference individuals, and the constitutive Kdm5b-null mouse phenotype including perinatal lethality and exencephaly. All of those sit in the full text of PMID:29276005, which is cached as abstract only, so no exact quote is available for them. They are recorded here as unverified leads, not as entry content. The report also gave hgnc:29332 for KDM5B and HP:0002510 for moderate intellectual disability; both are wrong - the gene is hgnc:18039 and HP:0002510 is Spastic tetraplegia - and neither was used.
+
+Not curated for lack of a quotable biallelic-specific source: feeding difficulties, dolichocephaly, cardiac septal defect, genitourinary anomalies, hernias, supernumerary nipple, optic nerve hypoplasia and pectus excavatum. Speech and language delay was on this list in an earlier revision and should not have been: PMID:34573379 describes its Case 1, a compound heterozygote, with poor speech at four years, which is a quotable biallelic-specific sentence, and the HPO annotation for OMIM:618109 lists HP:0000750 as frequent. It is now curated, as is the hypotonia in the same sentence. What remains correct is the exclusion of the 7-of-13 speech figure in PMID:39202393, which is explicitly a count over that paper&#39;s dominant cohort. Each appears in the deep-research report, usually as a single-patient observation traceable to the full text of a source that is cached as abstract only. Sleep disturbance and autistic behaviour are omitted for the opposite reason: the 2024 cohort, which is the best source for both, reports them absent in its biallelic individuals while common in its monoallelic ones.
+
+The pathophysiology chain leaves facial dysmorphism and camptodactyly unconnected. That is not an oversight. No source reviewed here traces a route from KDM5B loss through chromatin to the craniofacial or hand phenotype, and drawing an edge to fill the gap would assert a mechanism nobody has shown.
+
+Module conformance. Three nodes conform to the epigenetic machinery neurodevelopmental dysregulation module. The initiating node deliberately does not: that module&#39;s first node is haploinsufficiency of a dosage-sensitive chromatin component, and this disorder is biallelic complete loss. The direction of the chromatin change is also inverted relative to the module&#39;s worked conformers - most of them lose a writer and lose a permissive mark, whereas losing KDM5B removes an eraser and the permissive H3K4me3 mark accumulates. The conserved middle of the module, chromatin imbalance to dysregulated neurodevelopmental transcription to impaired neuronal maturation, holds either way, which is why conformance is declared from the second node on.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Intellectual_Disability_Autosomal_Recessive_65</strong> · 2026-09-07T22:25:22Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Intellectual_Disability_Autosomal_Recessive_65/2026-09-07T222522Z-claude-code-2c5a2e.yaml">View source</a></p>
+                        <p class="research-review-text">Created the MRT65 (biallelic KDM5B, MONDO:0020850) entry from the stub, and deleted the stub. Lump/split: DISEASE. The stub carried one causal gene (hgnc:18039 KDM5B), no MONDO descendants, and a single MONDO parent (MONDO:0019502), which is the leaf signature; the literature treats MRT65 as one entity keyed to the biallelic genotype (OMIM 618109), so no grouping or subtype call was warranted.
+
+Deep research provider chain: falcon was requested and returned HTTP
+402 (Edison account out of credits); the recorded --fallback run fell back to
+openscientist, which completed in 1283s and produced
+research/Intellectual_Disability_Autosomal_Recessive_65-deep-research-openscientist.md
+(reference_validation 9/9 resolved, 3/3 quotes valid, 8/9 on topic;
+term_validation 26/29 verified, 0 not found, needs_review true;
+just preflight-dr PASS). Because a sibling agent&#39;s openscientist run had been
+cancelled server-side after 3600s, a claude_code run was launched in parallel
+while the fallback was outstanding and completed first in 290s, producing
+research/Intellectual_Disability_Autosomal_Recessive_65-deep-research-claude_code.md
+(reference_validation 8/8 resolved, 0 unresolved, 7/8 on topic;
+term_validation needs_review true with 12 mislabelled terms, mostly frequency
+strings written into the label slot; just preflight-dr WARN, whose flagged
+rival gene was the HP ontology prefix, a false positive, and whose second OMIM
+id 617773 belongs to RUSC2-related Alwadei syndrome, which that report names
+explicitly as a differential rather than confusing with MRT65). Both reports
+are committed and both were read. They agree on disease definition, causal
+gene, mechanism and the absence of disease-modifying therapy. Where they
+disagree with the entry - the openscientist report calls biallelic penetrance
+full or high, and offers a theoretical 1-in-1.3-million birth incidence - the
+entry declines both and says so in its notes.
+
+Two errors in the claude_code report were caught and not used: hgnc:29332 for KDM5B (correct is hgnc:18039, verified against the HGNC REST API) and HP:0002510 offered as moderate intellectual disability (that CURIE is Spastic tetraplegia; the entry binds the unqualified HP:0001249 because the reported severity spans mild to severe). That report also attributes PMID:39202393 to Chong et al.; it is Borroto et al. The openscientist report gives the gene CURIE correctly as HGNC:18039.
+
+Penetrance was the substantive curation question and the answer went against the working assumption in the task prompt. The reduced penetrance repeatedly documented in the KDM5B literature is a property of the HETEROZYGOUS state - unaffected relatives and controls carrying single loss-of-function alleles, non-segregation of dominant variants within families, and a gnomAD loss-of-function observed/expected ratio of about 0.57 that Borroto et al. read as partial penetrance. No source reviewed reports an unaffected homozygous or compound heterozygous individual; every reported biallelic individual was affected, and all were ascertained through affected probands. Inheritance.penetrance is therefore set to UNKNOWN (not INCOMPLETE, which would import a finding about a different genotype; not COMPLETE, which a ~10-case ascertained series cannot support), with expressivity VARIABLE (mild ID in the 2024 biallelic pair versus moderate-to-severe in the earlier literature). The reasoning is in the inheritance description, and the gap is recorded as a KNOWLEDGE_GAP discussion with a genotype-first ascertainment experiment.
+
+Evidence: nine references, all PMIDs, 63/63 snippets verified. Snippets were extracted programmatically from references_cache rather than retyped. Discussions cover the contested dominant/monoallelic KDM5B entity (CONTROVERSY), unmeasured biallelic penetrance (KNOWLEDGE_GAP), the mouse autism-like phenotype against its absence in biallelic humans (HUMAN_MODEL_MISMATCH), memantine/NMDAR antagonism as a preclinical lead (EMERGING_HYPOTHESIS), and the developmental-versus-ongoing requirement for KDM5B (OPEN_QUESTION).
+
+Three pathophysiology nodes conform to epigenetic_machinery_neurodevelopmental_dysregulation. The initiating node deliberately does not: that module node is haploinsufficiency of a dosage-sensitive component, whereas this disorder is biallelic complete loss, and the direction of the chromatin change is inverted (an eraser is lost, so the permissive H3K4me3 mark accumulates).
+
+Validation run to completion: just validate (pass), just count-verified-snippets (63/63), just validate-terms (pass), just check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-reference-titles, check-term-cache-integrity, just normalize-cache, and finally just validate-disorders (pass, 63/63). just qc as an aggregate was not run; it exceeds the session tool timeout.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

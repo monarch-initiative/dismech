@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4578,6 +4646,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4602,6 +4671,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4623,6 +4693,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4721,6 +4792,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4783,6 +4855,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4842,6 +4915,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4926,6 +5000,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4947,6 +5022,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5075,6 +5151,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5099,6 +5176,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5120,6 +5198,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5314,6 +5393,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5338,6 +5418,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5359,6 +5440,7 @@ Two points shape how the entry should be read. First, the mechanism of the strok
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5498,6 +5580,7 @@ Public data now let both arms be interrogated in isogenic human cells, which is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5519,6 +5602,7 @@ Public data now let both arms be interrogated in isogenic human cells, which is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5690,6 +5774,7 @@ A survey of public repositories found no dataset that addresses the timing quest
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5814,6 +5899,7 @@ Four public datasets attached here attack the gap from different angles and are 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5835,6 +5921,7 @@ Four public datasets attached here attack the gap from different angles and are 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5955,6 +6042,7 @@ The attached datasets are the accessible-tissue starting points, and their limit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5976,6 +6064,7 @@ The attached datasets are the accessible-tissue starting points, and their limit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6068,6 +6157,7 @@ One public dataset speaks to the rationale rather than the efficacy question, an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6089,6 +6179,7 @@ One public dataset speaks to the rationale rather than the efficacy question, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6202,6 +6293,7 @@ The public model datasets attached here show the workaround maturing rather than
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6226,6 +6318,7 @@ The public model datasets attached here show the workaround maturing rather than
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6247,6 +6340,7 @@ The public model datasets attached here show the workaround maturing rather than
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6352,6 +6446,7 @@ The public model datasets attached here show the workaround maturing rather than
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6373,6 +6468,7 @@ The public model datasets attached here show the workaround maturing rather than
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6527,6 +6623,7 @@ The public model datasets attached here show the workaround maturing rather than
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6551,6 +6648,7 @@ The public model datasets attached here show the workaround maturing rather than
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6572,6 +6670,7 @@ The public model datasets attached here show the workaround maturing rather than
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6686,6 +6785,7 @@ The public model datasets attached here show the workaround maturing rather than
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6710,6 +6810,7 @@ The public model datasets attached here show the workaround maturing rather than
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6731,6 +6832,7 @@ The public model datasets attached here show the workaround maturing rather than
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6770,6 +6872,7 @@ The public model datasets attached here show the workaround maturing rather than
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-taurine-wobble-modification-deficiency-of-trna-leu-uur" data-dismech-node="Taurine wobble-modification deficiency of tRNA-Leu(UUR)" data-dismech-type="pathophysiology">
                 <div class="item-name">Taurine wobble-modification deficiency of tRNA-Leu(UUR)</div>
+
 
                 <div class="item-desc">The pathogenic MT-TL1 variants abolish the normal taurine-containing modification (5-taurinomethyluridine) at the anticodon wobble position of mitochondrial tRNA-Leu(UUR). This is the proximal molecular lesion: the unmodified anticodon can no longer form a correct codon-anticodon pair, and the resulting decoding failure is codon-specific rather than a uniform loss of leucine incorporation. The same defect is the rationale for taurine supplementation.</div>
 
@@ -6904,6 +7007,7 @@ This pathophysiological event involves decreased tRNA wobble uridine modificatio
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6925,6 +7029,7 @@ This pathophysiological event involves decreased tRNA wobble uridine modificatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6950,6 +7055,7 @@ This pathophysiological event involves decreased tRNA wobble uridine modificatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-trna-leu-uur-translation-defect" data-dismech-node="Mitochondrial tRNA-Leu(UUR) translation defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial tRNA-Leu(UUR) translation defect</div>
+
 
                 <div class="item-desc">The m.3243A&gt;G variant in MT-TL1 disrupts the structure and aminoacylation of mitochondrial tRNA-Leu(UUR), impairing mitochondrial protein synthesis (translation) of the mtDNA-encoded respiratory chain subunits.</div>
 
@@ -7118,6 +7224,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7139,6 +7246,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7164,6 +7272,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-phosphorylation-deficiency" data-dismech-node="Oxidative phosphorylation deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative phosphorylation deficiency</div>
+
 
                 <div class="item-desc">Impaired mitochondrial translation reduces the abundance and activity of respiratory chain complexes, lowering ATP synthesis through oxidative phosphorylation. The defect becomes clinically apparent above a heteroplasmy threshold of mutant mtDNA.</div>
 
@@ -7305,6 +7414,7 @@ This pathophysiological event involves decreased aerobic respiration (GO:0009060
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7327,6 +7437,13 @@ This pathophysiological event involves decreased aerobic respiration (GO:0009060
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complex-i-predominant-deficiency-and-neuronal-mitophagy" data-dismech-node="Complex I-predominant deficiency and neuronal mitophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">Complex I-predominant deficiency and neuronal mitophagy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The respiratory-chain deficit produced by defective mitochondrial translation is not uniform. Complex I, whose subunits are the most dependent on mtDNA-encoded synthesis, is disproportionately affected, and the pattern of deficiency differs between cell types derived from the same patient. In differentiated neurons, complex I specifically is sequestered into PINK1/Parkin-positive autophagosomes, so active mitophagy - not only failed assembly - contributes to the neuronal deficit. This is the mechanistic reason why one heteroplasmic variant produces a neuron-weighted, rather than uniformly systemic, disease.</div>
 
@@ -7507,6 +7624,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7528,6 +7646,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7553,6 +7672,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cellular-energy-failure-and-lactic-acidosis" data-dismech-node="Cellular energy failure and lactic acidosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cellular energy failure and lactic acidosis</div>
+
 
                 <div class="item-desc">OXPHOS deficiency drives a compensatory increase in anaerobic glycolysis, producing elevated blood and CSF lactate. Energy failure preferentially affects metabolically demanding tissues, underlying encephalopathy, myopathy, and endocrine dysfunction.</div>
 
@@ -7836,6 +7956,7 @@ This pathophysiological event involves decreased generation of precursor metabol
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7858,6 +7979,7 @@ This pathophysiological event involves decreased generation of precursor metabol
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-angiopathy-and-no-deficiency" data-dismech-node="Mitochondrial angiopathy and NO deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial angiopathy and NO deficiency</div>
+
 
                 <div class="item-desc">Mitochondrial proliferation in the smooth muscle and endothelial cells of cerebral small vessels (mitochondrial angiopathy) and impaired nitric oxide availability produce endothelial dysfunction and impaired microvascular perfusion. This NO-deficient endothelial dysfunction is the target of L-arginine therapy.</div>
 
@@ -8068,6 +8190,7 @@ This pathophysiological event involves decreased nitric oxide biosynthetic proce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8089,6 +8212,7 @@ This pathophysiological event involves decreased nitric oxide biosynthetic proce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8114,6 +8238,13 @@ This pathophysiological event involves decreased nitric oxide biosynthetic proce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-hyperexcitability-and-propagating-epileptic-activity" data-dismech-node="Neuronal hyperexcitability and propagating epileptic activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal hyperexcitability and propagating epileptic activity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In the non-ischemic model of the stroke-like episode, focal neuronal hyperexcitability arises in a cortical region where mitochondrial dysfunction - in neurons, astrocytes, or capillary endothelium - has left energy supply unable to meet demand. The resulting epileptic activity depolarizes adjacent neurons, which is how a stroke-like lesion spreads into contiguous cortex over days to weeks instead of appearing at once in a fixed arterial territory. Focal epileptiform discharges and focal cortical hyperperfusion, not hypoperfusion, are recorded over the acute lesion.</div>
 
@@ -8348,6 +8479,7 @@ This pathophysiological event involves increased membrane depolarization (GO:005
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8369,6 +8501,7 @@ This pathophysiological event involves increased membrane depolarization (GO:005
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8396,6 +8529,7 @@ This pathophysiological event involves increased membrane depolarization (GO:005
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8418,6 +8552,13 @@ This pathophysiological event involves increased membrane depolarization (GO:005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-cerebral-capillary-permeability-and-vasogenic-edema" data-dismech-node="Increased cerebral capillary permeability and vasogenic edema" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased cerebral capillary permeability and vasogenic edema</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Cortical stroke-like lesions in MELAS are characteristically edematous with elevated apparent diffusion coefficient and focal hyperperfusion, the signature of vasogenic rather than purely cytotoxic edema. The picture is not clean: diffusion restriction consistent with a cytotoxic component is also reported within the same lesions, so both processes appear to coexist.</div>
 
@@ -8505,6 +8646,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8526,6 +8668,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8551,6 +8694,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-laminar-necrosis-and-progressive-lesion-spread" data-dismech-node="Cortical laminar necrosis and progressive lesion spread" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical laminar necrosis and progressive lesion spread</div>
+
 
                 <div class="item-desc">The lesion of a stroke-like episode preferentially involves cerebral cortex with variable subcortical edema, spreads into surrounding cortex over weeks, and leaves neuronal loss in a laminar or pseudo-laminar distribution. Cortical laminar necrosis is visible as subacute T1 hyperintense cortical signal, and intracortical gyral microhemorrhage has been confirmed pathologically.</div>
 
@@ -8655,6 +8799,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8676,6 +8821,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8703,6 +8849,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8725,6 +8872,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stroke-like-episodes" data-dismech-node="Stroke-like episodes" data-dismech-type="pathophysiology">
                 <div class="item-name">Stroke-like episodes</div>
+
 
                 <div class="item-desc">Acute neurological deficits with neuroimaging lesions that do not conform to classic vascular territories are the defining clinical manifestation of MELAS. Proposed contributors include neuronal energy failure and hyperexcitability, mitochondrial angiopathy, and nitric oxide deficiency; their relative causal roles remain contested.</div>
 
@@ -8810,6 +8958,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8831,6 +8980,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8856,6 +9006,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-brain-atrophy-and-dementia" data-dismech-node="Progressive brain atrophy and dementia" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive brain atrophy and dementia</div>
+
 
                 <div class="item-desc">Beyond any single episode, MELAS is slowly progressive: brain dysfunction and atrophy advance between episodes, and recurrent stroke-like episodes leave progressive brain atrophy and dementia as their long-term sequel.</div>
 
@@ -8938,6 +9089,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8959,6 +9111,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8984,6 +9137,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-mitochondrial-proliferation" data-dismech-node="Skeletal muscle mitochondrial proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal muscle mitochondrial proliferation</div>
+
 
                 <div class="item-desc">Accumulation of mitochondria within skeletal muscle fibers produces the characteristic histological pattern of mitochondrial myopathy.</div>
 
@@ -9022,6 +9176,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9044,6 +9199,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enteric-neuromuscular-dysfunction" data-dismech-node="Enteric neuromuscular dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Enteric neuromuscular dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Mitochondrial dysfunction may impair intestinal propulsion through visceral smooth-muscle disease and/or myenteric neuropathy. The relative contributions remain unresolved in MELAS.</div>
 
@@ -9097,6 +9259,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9118,6 +9281,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9143,6 +9307,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-and-auditory-neural-energy-dysfunction" data-dismech-node="Cochlear and auditory neural energy dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear and auditory neural energy dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Mitochondrial dysfunction may impair energy-dependent cochlear and auditory neural processes, producing sensorineural hearing loss.</div>
 
@@ -9196,6 +9367,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9218,6 +9390,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pancreatic-beta-cell-insulin-secretion" data-dismech-node="Impaired pancreatic beta-cell insulin secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired pancreatic beta-cell insulin secretion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Mitochondrial dysfunction in pancreatic beta cells impairs insulin secretion and contributes to diabetes mellitus.</div>
 
@@ -9271,6 +9450,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9293,6 +9473,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-energy-deficit-and-hypertrophic-remodeling" data-dismech-node="Myocardial energy deficit and hypertrophic remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial energy deficit and hypertrophic remodeling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Myocardial energy deficits may stimulate compensatory hypertrophy, providing a proposed route to hypertrophic cardiomyopathy.</div>
 
@@ -9362,6 +9549,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9384,6 +9572,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glomerular-mitochondrial-dysfunction" data-dismech-node="Glomerular mitochondrial dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Glomerular mitochondrial dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Glomerular mitochondrial dysfunction can impair renal protein retention and produce proteinuria. The cell-specific injury sequence is unresolved in the reviewed clinical synthesis.</div>
 
@@ -9437,6 +9632,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9459,6 +9655,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-nerve-mitochondrial-dysfunction" data-dismech-node="Peripheral nerve mitochondrial dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral nerve mitochondrial dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Mitochondrial dysfunction compromises energy-dependent peripheral nerve function and contributes to chronic sensory and motor neuropathy.</div>
 
@@ -9512,6 +9715,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9534,6 +9738,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-pigment-epithelium-metabolic-dysfunction" data-dismech-node="Retinal pigment epithelium metabolic dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal pigment epithelium metabolic dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Oxidative phosphorylation failure in retinal pigment epithelium may disrupt metabolic cooperation with photoreceptors and contribute to retinal dystrophy. Human donor-eye observations support this proposed sequence but do not prove causal order.</div>
 
@@ -9584,6 +9795,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9648,6 +9860,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9697,6 +9910,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9718,6 +9932,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9768,6 +9983,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9810,7 +10026,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive antiseizure therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Under the neuronal-hyperexcitability model, seizure control is not merely symptomatic management but treatment aimed at the mechanism that initiates and propagates the stroke-like lesion. Epilepsy in MELAS is typically drug resistant, yet most patients achieve substantial seizure reduction with combinations of two or more antiseizure medications. Valproic acid is specifically avoided as a mitochondrial toxin.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Aphasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aphasia can accompany a stroke-like episode involving language cortex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002381\"}}, {\"id\": \"Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac arrhythmias occur in MELAS. A clinically and genetically confirmed case had non-sustained atrial tachycardia with left ventricular hypertrophy; a clinical review also describes atrial fibrillation and ventricular tachycardia. This broad rhythm category accommodates different reported arrhythmias and has no syndrome-wide frequency assignment. It does not establish sudden cardiac death in the reported patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomyopathy may be hypertrophic or dilated.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"\u003c25%\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Cellular energy failure and lactic acidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"OXPHOS deficiency drives a compensatory increase in anaerobic glycolysis, producing elevated blood and CSF lactate. Energy failure preferentially affects metabolically demanding tissues, underlying encephalopathy, myopathy, and endocrine dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\", \"skeletal muscle fiber\"], \"biological_processes\": [\"generation of precursor metabolites and energy\"]}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral volume loss progresses over the disease course and can accumulate after recurrent stroke-like lesions. Slowly progressive brain dysfunction and atrophy extend beyond the acute evolution of an individual lesion.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002059\"}}, {\"id\": \"Citrulline supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral citrulline, a nitric oxide precursor, increases arginine availability and nitric oxide production. Stable-isotope studies suggest citrulline may be a more effective NO precursor than arginine in MELAS.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"L-citrulline\"]}}, {\"id\": \"Cochlear and auditory neural energy dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction may impair energy-dependent cochlear and auditory neural processes, producing sensorineural hearing loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Complex I-predominant deficiency and neuronal mitophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The respiratory-chain deficit produced by defective mitochondrial translation is not uniform. Complex I, whose subunits are the most dependent on mtDNA-encoded synthesis, is disproportionately affected, and the pattern of deficiency differs between cell types derived from the same patient. In differentiated neurons, complex I specifically is sequestered into PINK1/Parkin-positive autophagosomes, so active mitophagy - not only failed assembly - contributes to the neuronal deficit. This is the mechanistic reason why one heteroplasmic variant produces a neuron-weighted, rather than uniformly systemic, disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"autophagy of mitochondrion\"], \"molecular_functions\": [\"NADH dehydrogenase (ubiquinone) activity\"], \"experimental_models\": [{\"name\": \"m.3243A\u003eG patient iPSC-derived neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the complex I-predominant respiratory-chain defect seen in MELAS patient tissue and adds the neuron-specific mitophagic clearance step.\"}]}}, {\"id\": \"Cortical (cerebral) visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Occipital cortex is the predilection site for stroke-like lesions, so visual field loss and cortical blindness are among the most characteristic deficits. Cortical blindness is significantly more frequent in the adult-onset form than in the juvenile form.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100704\"}}, {\"id\": \"Cortical laminar necrosis and progressive lesion spread\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lesion of a stroke-like episode preferentially involves cerebral cortex with variable subcortical edema, spreads into surrounding cortex over weeks, and leaves neuronal loss in a laminar or pseudo-laminar distribution. Cortical laminar necrosis is visible as subacute T1 hyperintense cortical signal, and intracortical gyral microhemorrhage has been confirmed pathologically.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Dementia and progressive cognitive decline\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive decline combines accumulated deficits after stroke-like episodes with a diffuse, slowly progressive neurological component. Dementia can affect language, perception, attention, executive function, and memory; it is not explained solely by a single cortical lesion.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0000726\"}}, {\"id\": \"Diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diabetes mellitus occurs in clinically defined MELAS as well as in the MIDD phenotype associated with m.3243A\u003eG.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"25%-49%\", \"term_id\": \"HP:0000819\"}}, {\"id\": \"Elevated blood lactate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated blood lactate reflects increased reliance on anaerobic glycolysis. Hyperlactatemia alone does not establish acidemia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Cellular energy failure and lactic acidosis\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Blood lactate is a biochemical readout of the glycolytic response to respiratory-chain dysfunction.\"}], \"term_id\": \"HP:0002151\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Encephalopathy with cognitive decline, sometimes progressing to dementia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Enteric neuromuscular dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction may impair intestinal propulsion through visceral smooth-muscle disease and/or myenteric neuropathy. The relative contributions remain unresolved in MELAS.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced exercise capacity due to impaired mitochondrial energy production.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Focal epileptiform EEG discharges\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal epileptiform discharges can be recorded over an acute stroke-like lesion.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"EEG records focal epileptic activity; this observation alone does not prove which process initiated the stroke-like episode.\"}], \"term_id\": \"HP:0011185\"}}, {\"id\": \"Focal-onset seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal seizures predominated in a cohort of 22 children and adolescents with MELAS and epilepsy: 21 had focal seizures and seven had generalized seizures. Earlier seizure onset was associated with more drug-resistant epilepsy. Seizure semiology and EEG abnormalities were not syndrome-specific, so these findings alone do not identify MELAS.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007359\"}}, {\"id\": \"Glomerular mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glomerular mitochondrial dysfunction can impair renal protein retention and produce proteinuria. The cell-specific injury sequence is unresolved in the reviewed clinical synthesis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hemianopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemianopia can accompany a posterior cortical stroke-like lesion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012377\"}}, {\"id\": \"Hemiparesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemiparesis may occur as a transient or persistent focal deficit during stroke-like episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001269\"}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic cardiomyopathy, often concentric and non-obstructive, is one form of myocardial involvement in MELAS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001639\"}}, {\"id\": \"Impaired pancreatic beta-cell insulin secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction in pancreatic beta cells impairs insulin secretion and contributes to diabetes mellitus.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Increased cerebral capillary permeability and vasogenic edema\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cortical stroke-like lesions in MELAS are characteristically edematous with elevated apparent diffusion coefficient and focal hyperperfusion, the signature of vasogenic rather than purely cytotoxic edema. The picture is not clean: diffusion restriction consistent with a cytotoxic component is also reported within the same lesions, so both processes appear to coexist.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"]}}, {\"id\": \"Intestinal pseudo-obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intestinal pseudo-obstruction produces abdominal distension, nausea, vomiting, and pain through impaired intestinal propulsion, mimicking mechanical obstruction. It is under-recognized in MELAS and can prompt the diagnosis. Bowel dysfunction and stroke-like episodes may aggravate each other, but the cited case review explicitly leaves the direction of causation unresolved. Concomitant pseudo-obstruction requires treatment during stroke-like-episode management.\", \"meta\": {\"evidence_count\": 5, \"term_id\": \"HP:0004389\"}}, {\"id\": \"L-arginine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous L-arginine in the acute phase and oral supplementation for prophylaxis aims to restore nitric oxide availability and improve endothelial function, reducing the frequency and severity of stroke-like episodes.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"L-arginine\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lactic acidosis can accompany respiratory-chain failure; an elevated lactate concentration alone does not establish an acid-base disturbance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003128\"}}, {\"id\": \"MT-TL1 m.3243A\u003eG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"MT-TL1\"], \"gene_terms\": [{\"label\": \"MT-TL1\", \"id\": \"hgnc:7490\"}], \"subtypes\": [\"MT-TL1 m.3243A\u003eG\"], \"association\": \"The m.3243A\u003eG point mutation in MT-TL1 (mitochondrial tRNA-Leu(UUR)) is the most common cause of MELAS, found in roughly 80% of patients. Disease expression depends on the heteroplasmy level of mutant mtDNA.\"}}, {\"id\": \"Migraine-like headaches\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent severe pulsatile migraine-like headaches, often with vomiting, can precipitate stroke-like episodes and may become more severe during them. This trigger relation does not establish that cortical injury causes the migraine phenotype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002076\"}}, {\"id\": \"Mitochondrial angiopathy and NO deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial proliferation in the smooth muscle and endothelial cells of cerebral small vessels (mitochondrial angiopathy) and impaired nitric oxide availability produce endothelial dysfunction and impaired microvascular perfusion. This NO-deficient endothelial dysfunction is the target of L-arginine therapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"smooth muscle cell\", \"endothelial cell\"], \"biological_processes\": [\"nitric oxide biosynthetic process\"]}}, {\"id\": \"Mitochondrial myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mitochondrial muscle disease manifests as muscle weakness and exercise intolerance; muscle biopsy may show ragged-red fibers.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003737\"}}, {\"id\": \"Mitochondrial retinal dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinal dystrophy is an ocular source of visual loss distinct from cortical visual impairment. In a 29-person m.3243A\u003eG carrier cohort, four grades ranged from fine pigment changes visible on autofluorescence, through macular pigment deposits, to extrafoveal chorioretinal atrophy and finally foveal atrophy with marked visual-acuity loss. Retinal abnormalities affected 25 carriers; this is not a MELAS-specific prevalence estimate. Grade correlated with age and visual acuity, without an observed correlation with heteroplasmy or overall disease involvement. Variable or absent systemic features can obscure recognition of the mitochondrial retinal disorder.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0000556\"}}, {\"id\": \"Mitochondrial tRNA-Leu(UUR) translation defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The m.3243A\u003eG variant in MT-TL1 disrupts the structure and aminoacylation of mitochondrial tRNA-Leu(UUR), impairing mitochondrial protein synthesis (translation) of the mtDNA-encoded respiratory chain subunits.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tRNA aminoacylation for protein translation\", \"mitochondrial translation\"], \"genes\": [\"MT-TL1\"], \"gene_terms\": [{\"label\": \"MT-TL1\", \"id\": \"hgnc:7490\"}]}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle weakness is a clinical manifestation of mitochondrial myopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myocardial energy deficit and hypertrophic remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myocardial energy deficits may stimulate compensatory hypertrophy, providing a proposed route to hypertrophic cardiomyopathy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the non-ischemic model of the stroke-like episode, focal neuronal hyperexcitability arises in a cortical region where mitochondrial dysfunction - in neurons, astrocytes, or capillary endothelium - has left energy supply unable to meet demand. The resulting epileptic activity depolarizes adjacent neurons, which is how a stroke-like lesion spreads into contiguous cortex over days to weeks instead of appearing at once in a fixed arterial territory. Focal epileptiform discharges and focal cortical hyperperfusion, not hypoperfusion, are recorded over the acute lesion.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\", \"astrocyte\"], \"biological_processes\": [\"membrane depolarization\"]}}, {\"id\": \"Oxidative phosphorylation deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial translation reduces the abundance and activity of respiratory chain complexes, lowering ATP synthesis through oxidative phosphorylation. The defect becomes clinically apparent above a heteroplasmy threshold of mutant mtDNA.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\", \"aerobic respiration\"]}}, {\"id\": \"Peripheral nerve mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction compromises energy-dependent peripheral nerve function and contributes to chronic sensory and motor neuropathy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is a common manifestation of MELAS.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Progressive brain atrophy and dementia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond any single episode, MELAS is slowly progressive: brain dysfunction and atrophy advance between episodes, and recurrent stroke-like episodes leave progressive brain atrophy and dementia as their long-term sequel.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proteinuria is a renal manifestation of MELAS. In the broader m.3243A\u003eG renal-disease literature, subnephrotic proteinuria may accompany progressive loss of kidney function. The wider renal spectrum includes proximal tubulopathy and focal segmental glomerulosclerosis; these distinct renal findings are not synonyms for proteinuria.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Ragged-red fibers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ragged-red fibers on modified Gomori trichrome staining of muscle biopsy, reflecting mitochondrial proliferation.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Skeletal muscle mitochondrial proliferation\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Modified Gomori trichrome staining reveals mitochondrial accumulation within muscle fibers.\"}], \"term_id\": \"HP:0003200\"}}, {\"id\": \"Recurrent vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting is a common manifestation of MELAS, often accompanying stroke-like episodes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Retinal pigment epithelium metabolic dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidative phosphorylation failure in retinal pigment epithelium may disrupt metabolic cooperation with photoreceptors and contribute to retinal dystrophy. Human donor-eye observations support this proposed sequence but do not prove causal order.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic seizures, often focal or generalized, frequently accompanying stroke-like episodes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing impairment is often an early manifestation and may progress over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Skeletal muscle mitochondrial proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of mitochondria within skeletal muscle fibers produces the characteristic histological pattern of mitochondrial myopathy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Soluble guanylate cyclase stimulation (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Zagociguat and the earlier IW-6463 are CNS-penetrant stimulators of soluble guanylate cyclase, the receptor for nitric oxide. They act one step downstream of the arginine and citrulline strategy: rather than supplying more NO precursor, they amplify signalling through the NO-cGMP axis whose failure defines the endothelial-dysfunction node. Both have been taken into MELAS-specific trials; neither is approved, and the IW-6463 study was terminated.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"zagociguat\", \"soluble guanylate cyclase stimulator\"]}}, {\"id\": \"Status epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Status epilepticus can complicate MELAS and was a leading proximate cause of death together with acute stroke-like episodes in followed clinical cohorts. This mortality burden supports the priority given to active seizure management during an episode.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002133\"}}, {\"id\": \"Stroke-like episodes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute neurological deficits with neuroimaging lesions that do not conform to classic vascular territories, a defining feature of MELAS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002401\"}}, {\"id\": \"Taurine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral taurine supplementation aims to restore taurine modification of the wobble uridine of mutant mitochondrial tRNA-Leu(UUR), improving codon decoding and reducing stroke-like episode recurrence. Unusually for MELAS, this is a therapy aimed at the proximal molecular lesion rather than at a downstream consequence.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"taurine\"]}}, {\"id\": \"Taurine wobble-modification deficiency of tRNA-Leu(UUR)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pathogenic MT-TL1 variants abolish the normal taurine-containing modification (5-taurinomethyluridine) at the anticodon wobble position of mitochondrial tRNA-Leu(UUR). This is the proximal molecular lesion: the unmodified anticodon can no longer form a correct codon-anticodon pair, and the resulting decoding failure is codon-specific rather than a uniform loss of leucine incorporation. The same defect is the rationale for taurine supplementation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tRNA wobble uridine modification\"], \"genes\": [\"MT-TL1\"], \"gene_terms\": [{\"label\": \"MT-TL1\", \"id\": \"hgnc:7490\"}]}}, {\"id\": \"m.3243A\u003eG patient iPSC-derived neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Induced pluripotent stem cells reprogrammed from m.3243A\u003eG patients, then differentiated to neurons and to teratoma-derived tissues. The model exists because the mitochondrial genome cannot be edited by transgenic methods, so patient cells are the only route to a human m.3243A\u003eG system. Its distinctive result is that respiratory-chain deficiency is cell-type specific from one shared genotype, with complex I predominating as it does in patient tissue, and that neurons additionally clear complex I by mitophagy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:24003133\"}}], \"edges\": [{\"source\": \"Taurine wobble-modification deficiency of tRNA-Leu(UUR)\", \"target\": \"Mitochondrial tRNA-Leu(UUR) translation defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the wobble taurine modification degrades codon-anticodon pairing, with UUG decoding affected more severely than UUA, so mitochondrial translation fails in a codon-biased way.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial tRNA-Leu(UUR) translation defect\", \"target\": \"Oxidative phosphorylation deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective synthesis of mtDNA-encoded subunits reduces assembly and activity of the respiratory chain complexes, especially complex I.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative phosphorylation deficiency\", \"target\": \"Cellular energy failure and lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ATP synthesis forces a shift to anaerobic glycolysis, raising lactate, and starves high-energy-demand tissues (brain, muscle, vascular endothelium and smooth muscle).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative phosphorylation deficiency\", \"target\": \"Complex I-predominant deficiency and neuronal mitophagy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The respiratory-chain deficit is not distributed evenly across the complexes or across cell types; complex I is disproportionately affected, and in neurons the deficient complex is actively cleared by mitophagy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative phosphorylation deficiency\", \"target\": \"Retinal pigment epithelium metabolic dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative phosphorylation failure in retinal pigment epithelium may disrupt metabolic cooperation with photoreceptors and contribute to retinal dystrophy. Human donor-eye observations support this proposed sequence but do not prove causal order.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Complex I-predominant deficiency and neuronal mitophagy\", \"target\": \"Cellular energy failure and lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selective loss of complex I lowers NADH oxidation and ATP output most severely in the neuronal populations that can least tolerate it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Mitochondrial angiopathy and NO deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy failure in cerebral small-vessel endothelium and smooth muscle drives mitochondrial angiopathy and impaired nitric oxide availability.\", \"hypothesis_groups\": [\"ischemic_vascular_angiopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the non-ischemic model, a mismatch between the energy demanded by an active cortical neuronal population and the ATP that a defective respiratory chain can supply renders those neurons hyperexcitable. What converts this chronic vulnerability into a discrete episode is not known.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Skeletal muscle mitochondrial proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy deficiency can stimulate mitochondrial proliferation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of mitochondrial energy production contributes to skeletal muscle weakness.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Mitochondrial myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy failure in skeletal muscle contributes to mitochondrial myopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Enteric neuromuscular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial energy production may compromise intestinal smooth muscle and enteric neural function.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory-chain failure increases glycolytic lactate production and can produce lactic acidosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Cochlear and auditory neural energy dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction may impair energy-dependent cochlear and auditory neural processes, producing sensorineural hearing loss.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Impaired pancreatic beta-cell insulin secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction in pancreatic beta cells impairs insulin secretion and contributes to diabetes mellitus.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Myocardial energy deficit and hypertrophic remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myocardial energy deficits may stimulate compensatory hypertrophy, providing a proposed route to hypertrophic cardiomyopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Glomerular mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glomerular mitochondrial dysfunction can impair renal protein retention and produce proteinuria. The cell-specific injury sequence is unresolved in the reviewed clinical synthesis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Peripheral nerve mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction compromises energy-dependent peripheral nerve function and contributes to chronic sensory and motor neuropathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial angiopathy and NO deficiency\", \"target\": \"Stroke-like episodes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial angiopathy and NO deficiency, together with neuronal energy failure, converge to produce stroke-like episodes that do not respect classic vascular territories.\", \"hypothesis_groups\": [\"ischemic_vascular_angiopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial angiopathy and NO deficiency\", \"target\": \"Increased cerebral capillary permeability and vasogenic edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction in capillary endothelium leaves the cortical microvasculature primed to leak, which is the substrate on which epileptic activity produces vasogenic edema.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\", \"ischemic_vascular_angiopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"target\": \"Increased cerebral capillary permeability and vasogenic edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged epileptic activity increases capillary permeability in cortex whose microvasculature is already compromised by mitochondrial angiopathy.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"target\": \"Cortical laminar necrosis and progressive lesion spread\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depolarization of adjacent neurons propagates the epileptic focus into surrounding cortex, and the most vulnerable cortical layers are lost.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lowering neuronal seizure thresholds contributes to the overall epileptic phenotype, including focal and generalized events.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"target\": \"Focal-onset seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Localized cortical hyperexcitability underlies focal epileptic activity during stroke-like episodes; this specifies the focal presentation within the broader seizure phenotype.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased cerebral capillary permeability and vasogenic edema\", \"target\": \"Cortical laminar necrosis and progressive lesion spread\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained edema in cortex that is simultaneously hyperexcitable and energy-starved converts reversible signal change into tissue loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical laminar necrosis and progressive lesion spread\", \"target\": \"Stroke-like episodes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The evolving cortical lesion is what produces the acute focal deficit and its imaging correlate.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical laminar necrosis and progressive lesion spread\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulating cortical injury contributes to cognitive encephalopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Stroke-like episodes\", \"target\": \"Progressive brain atrophy and dementia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated stroke-like episodes accumulate cortical tissue loss; brain atrophy and cognitive decline are the residue left in survivors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stroke-like episodes\", \"target\": \"Hemiparesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal cortical dysfunction during a stroke-like episode produces this neurological deficit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stroke-like episodes\", \"target\": \"Aphasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal cortical dysfunction during a stroke-like episode produces this neurological deficit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stroke-like episodes\", \"target\": \"Cortical (cerebral) visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal cortical dysfunction during a stroke-like episode produces this neurological deficit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stroke-like episodes\", \"target\": \"Hemianopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A posterior cortical stroke-like lesion can produce visual field loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive brain atrophy and dementia\", \"target\": \"Dementia and progressive cognitive decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinical manifestation of accumulated cerebral injury after recurrent stroke-like episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive brain atrophy and dementia\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinical manifestation of accumulated cerebral injury after recurrent stroke-like episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enteric neuromuscular dysfunction\", \"target\": \"Intestinal pseudo-obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of intestinal neuromuscular propulsion can produce pseudo-obstruction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cochlear and auditory neural energy dysfunction\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinical expression of the proposed tissue-specific mitochondrial dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired pancreatic beta-cell insulin secretion\", \"target\": \"Diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinical expression of the proposed tissue-specific mitochondrial dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myocardial energy deficit and hypertrophic remodeling\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertrophic remodeling provides a proposed mechanism for the hypertrophic subset of the broader cardiomyopathy phenotype; it does not explain every dilated or other myocardial presentation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myocardial energy deficit and hypertrophic remodeling\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compensatory myocardial hypertrophy is proposed to produce the specifically hypertrophic cardiomyopathy phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myocardial energy deficit and hypertrophic remodeling\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myocardial remodeling can contribute to cardiac rhythm disorders in MELAS; the electrical intermediates and contributions of primary conduction-pathway dysfunction remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glomerular mitochondrial dysfunction\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinical expression of the proposed tissue-specific mitochondrial dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peripheral nerve mitochondrial dysfunction\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinical expression of the proposed tissue-specific mitochondrial dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Retinal pigment epithelium metabolic dysfunction\", \"target\": \"Mitochondrial retinal dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RPE dysfunction is a proposed early step leading to outer retinal degeneration.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Seizures\", \"target\": \"Status epilepticus\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Seizures can persist or recur without recovery and evolve into status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial myopathy\", \"target\": \"Muscle weakness\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Clinical expression of mitochondrial muscle disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial myopathy\", \"target\": \"Exercise intolerance\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Clinical expression of mitochondrial muscle disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Migraine-like headaches\", \"target\": \"Stroke-like episodes\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Migrainous headache attacks can precipitate stroke-like episodes; the intervening mechanism and circumstances determining progression are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lactic acidosis\", \"target\": \"Recurrent vomiting\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Lactic acidosis can contribute to recurrent vomiting; this is one metabolic route rather than an attribution of every vomiting episode.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"L-arginine therapy\", \"target\": \"Mitochondrial angiopathy and NO deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Taurine supplementation\", \"target\": \"Taurine wobble-modification deficiency of tRNA-Leu(UUR)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Citrulline supplementation\", \"target\": \"Mitochondrial angiopathy and NO deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Aggressive antiseizure therapy\", \"target\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Soluble guanylate cyclase stimulation (investigational)\", \"target\": \"Mitochondrial angiopathy and NO deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"m.3243A\u003eG patient iPSC-derived neurons\", \"target\": \"Complex I-predominant deficiency and neuronal mitophagy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the complex I-predominant respiratory-chain defect seen in MELAS patient tissue and adds the neuron-specific mitophagic clearance step.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Heteroplasmy segregates bimodally toward homoplasmy during reprogramming, so the clone\u0027s mutant load is not the patient\u0027s tissue load; the model is a cultured neuron rather than cortex, and it cannot reproduce a stroke-like episode, which requires vasculature, seizure activity, and an intact cortical network.\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Elevated blood lactate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Blood lactate is a biochemical readout of the glycolytic response to respiratory-chain dysfunction.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Skeletal muscle mitochondrial proliferation\", \"target\": \"Ragged-red fibers\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Modified Gomori trichrome staining reveals mitochondrial accumulation within muscle fibers.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"target\": \"Focal epileptiform EEG discharges\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"EEG records focal epileptic activity; this observation alone does not prove which process initiated the stroke-like episode.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"MT-TL1 m.3243A\u003eG\", \"target\": \"Mitochondrial tRNA-Leu(UUR) translation defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MT-TL1 m.3243A\u003eG\", \"target\": \"Taurine wobble-modification deficiency of tRNA-Leu(UUR)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive antiseizure therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Under the neuronal-hyperexcitability model, seizure control is not merely symptomatic management but treatment aimed at the mechanism that initiates and propagates the stroke-like lesion. Epilepsy in MELAS is typically drug resistant, yet most patients achieve substantial seizure reduction with combinations of two or more antiseizure medications. Valproic acid is specifically avoided as a mitochondrial toxin.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Aphasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aphasia can accompany a stroke-like episode involving language cortex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002381\"}}, {\"id\": \"Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac arrhythmias occur in MELAS. A clinically and genetically confirmed case had non-sustained atrial tachycardia with left ventricular hypertrophy; a clinical review also describes atrial fibrillation and ventricular tachycardia. This broad rhythm category accommodates different reported arrhythmias and has no syndrome-wide frequency assignment. It does not establish sudden cardiac death in the reported patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomyopathy may be hypertrophic or dilated.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"\u003c25%\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Cellular energy failure and lactic acidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"OXPHOS deficiency drives a compensatory increase in anaerobic glycolysis, producing elevated blood and CSF lactate. Energy failure preferentially affects metabolically demanding tissues, underlying encephalopathy, myopathy, and endocrine dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\", \"skeletal muscle fiber\"], \"biological_processes\": [\"generation of precursor metabolites and energy\"]}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral volume loss progresses over the disease course and can accumulate after recurrent stroke-like lesions. Slowly progressive brain dysfunction and atrophy extend beyond the acute evolution of an individual lesion.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002059\"}}, {\"id\": \"Citrulline supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral citrulline, a nitric oxide precursor, increases arginine availability and nitric oxide production. Stable-isotope studies suggest citrulline may be a more effective NO precursor than arginine in MELAS.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"L-citrulline\"]}}, {\"id\": \"Cochlear and auditory neural energy dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction may impair energy-dependent cochlear and auditory neural processes, producing sensorineural hearing loss.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Complex I-predominant deficiency and neuronal mitophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The respiratory-chain deficit produced by defective mitochondrial translation is not uniform. Complex I, whose subunits are the most dependent on mtDNA-encoded synthesis, is disproportionately affected, and the pattern of deficiency differs between cell types derived from the same patient. In differentiated neurons, complex I specifically is sequestered into PINK1/Parkin-positive autophagosomes, so active mitophagy - not only failed assembly - contributes to the neuronal deficit. This is the mechanistic reason why one heteroplasmic variant produces a neuron-weighted, rather than uniformly systemic, disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"autophagy of mitochondrion\"], \"molecular_functions\": [\"NADH dehydrogenase (ubiquinone) activity\"], \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"m.3243A\u003eG patient iPSC-derived neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the complex I-predominant respiratory-chain defect seen in MELAS patient tissue and adds the neuron-specific mitophagic clearance step.\"}]}}, {\"id\": \"Cortical (cerebral) visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Occipital cortex is the predilection site for stroke-like lesions, so visual field loss and cortical blindness are among the most characteristic deficits. Cortical blindness is significantly more frequent in the adult-onset form than in the juvenile form.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100704\"}}, {\"id\": \"Cortical laminar necrosis and progressive lesion spread\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lesion of a stroke-like episode preferentially involves cerebral cortex with variable subcortical edema, spreads into surrounding cortex over weeks, and leaves neuronal loss in a laminar or pseudo-laminar distribution. Cortical laminar necrosis is visible as subacute T1 hyperintense cortical signal, and intracortical gyral microhemorrhage has been confirmed pathologically.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Dementia and progressive cognitive decline\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive decline combines accumulated deficits after stroke-like episodes with a diffuse, slowly progressive neurological component. Dementia can affect language, perception, attention, executive function, and memory; it is not explained solely by a single cortical lesion.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0000726\"}}, {\"id\": \"Diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diabetes mellitus occurs in clinically defined MELAS as well as in the MIDD phenotype associated with m.3243A\u003eG.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"25%-49%\", \"term_id\": \"HP:0000819\"}}, {\"id\": \"Elevated blood lactate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated blood lactate reflects increased reliance on anaerobic glycolysis. Hyperlactatemia alone does not establish acidemia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Cellular energy failure and lactic acidosis\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Blood lactate is a biochemical readout of the glycolytic response to respiratory-chain dysfunction.\"}], \"term_id\": \"HP:0002151\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Encephalopathy with cognitive decline, sometimes progressing to dementia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Enteric neuromuscular dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction may impair intestinal propulsion through visceral smooth-muscle disease and/or myenteric neuropathy. The relative contributions remain unresolved in MELAS.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced exercise capacity due to impaired mitochondrial energy production.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Focal epileptiform EEG discharges\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal epileptiform discharges can be recorded over an acute stroke-like lesion.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"EEG records focal epileptic activity; this observation alone does not prove which process initiated the stroke-like episode.\"}], \"term_id\": \"HP:0011185\"}}, {\"id\": \"Focal-onset seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal seizures predominated in a cohort of 22 children and adolescents with MELAS and epilepsy: 21 had focal seizures and seven had generalized seizures. Earlier seizure onset was associated with more drug-resistant epilepsy. Seizure semiology and EEG abnormalities were not syndrome-specific, so these findings alone do not identify MELAS.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007359\"}}, {\"id\": \"Glomerular mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glomerular mitochondrial dysfunction can impair renal protein retention and produce proteinuria. The cell-specific injury sequence is unresolved in the reviewed clinical synthesis.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Hemianopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemianopia can accompany a posterior cortical stroke-like lesion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012377\"}}, {\"id\": \"Hemiparesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemiparesis may occur as a transient or persistent focal deficit during stroke-like episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001269\"}}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophic cardiomyopathy, often concentric and non-obstructive, is one form of myocardial involvement in MELAS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001639\"}}, {\"id\": \"Impaired pancreatic beta-cell insulin secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction in pancreatic beta cells impairs insulin secretion and contributes to diabetes mellitus.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Increased cerebral capillary permeability and vasogenic edema\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cortical stroke-like lesions in MELAS are characteristically edematous with elevated apparent diffusion coefficient and focal hyperperfusion, the signature of vasogenic rather than purely cytotoxic edema. The picture is not clean: diffusion restriction consistent with a cytotoxic component is also reported within the same lesions, so both processes appear to coexist.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Intestinal pseudo-obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intestinal pseudo-obstruction produces abdominal distension, nausea, vomiting, and pain through impaired intestinal propulsion, mimicking mechanical obstruction. It is under-recognized in MELAS and can prompt the diagnosis. Bowel dysfunction and stroke-like episodes may aggravate each other, but the cited case review explicitly leaves the direction of causation unresolved. Concomitant pseudo-obstruction requires treatment during stroke-like-episode management.\", \"meta\": {\"evidence_count\": 5, \"term_id\": \"HP:0004389\"}}, {\"id\": \"L-arginine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous L-arginine in the acute phase and oral supplementation for prophylaxis aims to restore nitric oxide availability and improve endothelial function, reducing the frequency and severity of stroke-like episodes.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"L-arginine\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lactic acidosis can accompany respiratory-chain failure; an elevated lactate concentration alone does not establish an acid-base disturbance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003128\"}}, {\"id\": \"MT-TL1 m.3243A\u003eG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"MT-TL1\"], \"gene_terms\": [{\"label\": \"MT-TL1\", \"id\": \"hgnc:7490\"}], \"subtypes\": [\"MT-TL1 m.3243A\u003eG\"], \"association\": \"The m.3243A\u003eG point mutation in MT-TL1 (mitochondrial tRNA-Leu(UUR)) is the most common cause of MELAS, found in roughly 80% of patients. Disease expression depends on the heteroplasmy level of mutant mtDNA.\"}}, {\"id\": \"Migraine-like headaches\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent severe pulsatile migraine-like headaches, often with vomiting, can precipitate stroke-like episodes and may become more severe during them. This trigger relation does not establish that cortical injury causes the migraine phenotype.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002076\"}}, {\"id\": \"Mitochondrial angiopathy and NO deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial proliferation in the smooth muscle and endothelial cells of cerebral small vessels (mitochondrial angiopathy) and impaired nitric oxide availability produce endothelial dysfunction and impaired microvascular perfusion. This NO-deficient endothelial dysfunction is the target of L-arginine therapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"smooth muscle cell\", \"endothelial cell\"], \"biological_processes\": [\"nitric oxide biosynthetic process\"]}}, {\"id\": \"Mitochondrial myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mitochondrial muscle disease manifests as muscle weakness and exercise intolerance; muscle biopsy may show ragged-red fibers.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003737\"}}, {\"id\": \"Mitochondrial retinal dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinal dystrophy is an ocular source of visual loss distinct from cortical visual impairment. In a 29-person m.3243A\u003eG carrier cohort, four grades ranged from fine pigment changes visible on autofluorescence, through macular pigment deposits, to extrafoveal chorioretinal atrophy and finally foveal atrophy with marked visual-acuity loss. Retinal abnormalities affected 25 carriers; this is not a MELAS-specific prevalence estimate. Grade correlated with age and visual acuity, without an observed correlation with heteroplasmy or overall disease involvement. Variable or absent systemic features can obscure recognition of the mitochondrial retinal disorder.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0000556\"}}, {\"id\": \"Mitochondrial tRNA-Leu(UUR) translation defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The m.3243A\u003eG variant in MT-TL1 disrupts the structure and aminoacylation of mitochondrial tRNA-Leu(UUR), impairing mitochondrial protein synthesis (translation) of the mtDNA-encoded respiratory chain subunits.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tRNA aminoacylation for protein translation\", \"mitochondrial translation\"], \"genes\": [\"MT-TL1\"], \"gene_terms\": [{\"label\": \"MT-TL1\", \"id\": \"hgnc:7490\"}]}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle weakness is a clinical manifestation of mitochondrial myopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myocardial energy deficit and hypertrophic remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myocardial energy deficits may stimulate compensatory hypertrophy, providing a proposed route to hypertrophic cardiomyopathy.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the non-ischemic model of the stroke-like episode, focal neuronal hyperexcitability arises in a cortical region where mitochondrial dysfunction - in neurons, astrocytes, or capillary endothelium - has left energy supply unable to meet demand. The resulting epileptic activity depolarizes adjacent neurons, which is how a stroke-like lesion spreads into contiguous cortex over days to weeks instead of appearing at once in a fixed arterial territory. Focal epileptiform discharges and focal cortical hyperperfusion, not hypoperfusion, are recorded over the acute lesion.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\", \"astrocyte\"], \"biological_processes\": [\"membrane depolarization\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Oxidative phosphorylation deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial translation reduces the abundance and activity of respiratory chain complexes, lowering ATP synthesis through oxidative phosphorylation. The defect becomes clinically apparent above a heteroplasmy threshold of mutant mtDNA.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\", \"aerobic respiration\"]}}, {\"id\": \"Peripheral nerve mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction compromises energy-dependent peripheral nerve function and contributes to chronic sensory and motor neuropathy.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy is a common manifestation of MELAS.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Progressive brain atrophy and dementia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond any single episode, MELAS is slowly progressive: brain dysfunction and atrophy advance between episodes, and recurrent stroke-like episodes leave progressive brain atrophy and dementia as their long-term sequel.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proteinuria is a renal manifestation of MELAS. In the broader m.3243A\u003eG renal-disease literature, subnephrotic proteinuria may accompany progressive loss of kidney function. The wider renal spectrum includes proximal tubulopathy and focal segmental glomerulosclerosis; these distinct renal findings are not synonyms for proteinuria.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Ragged-red fibers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ragged-red fibers on modified Gomori trichrome staining of muscle biopsy, reflecting mitochondrial proliferation.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Skeletal muscle mitochondrial proliferation\", \"relationship\": \"READOUT_OF\", \"interpretation\": \"Modified Gomori trichrome staining reveals mitochondrial accumulation within muscle fibers.\"}], \"term_id\": \"HP:0003200\"}}, {\"id\": \"Recurrent vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting is a common manifestation of MELAS, often accompanying stroke-like episodes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Retinal pigment epithelium metabolic dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidative phosphorylation failure in retinal pigment epithelium may disrupt metabolic cooperation with photoreceptors and contribute to retinal dystrophy. Human donor-eye observations support this proposed sequence but do not prove causal order.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic seizures, often focal or generalized, frequently accompanying stroke-like episodes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing impairment is often an early manifestation and may progress over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Skeletal muscle mitochondrial proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of mitochondria within skeletal muscle fibers produces the characteristic histological pattern of mitochondrial myopathy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Soluble guanylate cyclase stimulation (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Zagociguat and the earlier IW-6463 are CNS-penetrant stimulators of soluble guanylate cyclase, the receptor for nitric oxide. They act one step downstream of the arginine and citrulline strategy: rather than supplying more NO precursor, they amplify signalling through the NO-cGMP axis whose failure defines the endothelial-dysfunction node. Both have been taken into MELAS-specific trials; neither is approved, and the IW-6463 study was terminated.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"zagociguat\", \"soluble guanylate cyclase stimulator\"]}}, {\"id\": \"Status epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Status epilepticus can complicate MELAS and was a leading proximate cause of death together with acute stroke-like episodes in followed clinical cohorts. This mortality burden supports the priority given to active seizure management during an episode.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002133\"}}, {\"id\": \"Stroke-like episodes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute neurological deficits with neuroimaging lesions that do not conform to classic vascular territories, a defining feature of MELAS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002401\"}}, {\"id\": \"Taurine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral taurine supplementation aims to restore taurine modification of the wobble uridine of mutant mitochondrial tRNA-Leu(UUR), improving codon decoding and reducing stroke-like episode recurrence. Unusually for MELAS, this is a therapy aimed at the proximal molecular lesion rather than at a downstream consequence.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"taurine\"]}}, {\"id\": \"Taurine wobble-modification deficiency of tRNA-Leu(UUR)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pathogenic MT-TL1 variants abolish the normal taurine-containing modification (5-taurinomethyluridine) at the anticodon wobble position of mitochondrial tRNA-Leu(UUR). This is the proximal molecular lesion: the unmodified anticodon can no longer form a correct codon-anticodon pair, and the resulting decoding failure is codon-specific rather than a uniform loss of leucine incorporation. The same defect is the rationale for taurine supplementation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tRNA wobble uridine modification\"], \"genes\": [\"MT-TL1\"], \"gene_terms\": [{\"label\": \"MT-TL1\", \"id\": \"hgnc:7490\"}]}}, {\"id\": \"m.3243A\u003eG patient iPSC-derived neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Induced pluripotent stem cells reprogrammed from m.3243A\u003eG patients, then differentiated to neurons and to teratoma-derived tissues. The model exists because the mitochondrial genome cannot be edited by transgenic methods, so patient cells are the only route to a human m.3243A\u003eG system. Its distinctive result is that respiratory-chain deficiency is cell-type specific from one shared genotype, with complex I predominating as it does in patient tissue, and that neurons additionally clear complex I by mitophagy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:24003133\"}}], \"edges\": [{\"source\": \"Taurine wobble-modification deficiency of tRNA-Leu(UUR)\", \"target\": \"Mitochondrial tRNA-Leu(UUR) translation defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the wobble taurine modification degrades codon-anticodon pairing, with UUG decoding affected more severely than UUA, so mitochondrial translation fails in a codon-biased way.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial tRNA-Leu(UUR) translation defect\", \"target\": \"Oxidative phosphorylation deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective synthesis of mtDNA-encoded subunits reduces assembly and activity of the respiratory chain complexes, especially complex I.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative phosphorylation deficiency\", \"target\": \"Cellular energy failure and lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ATP synthesis forces a shift to anaerobic glycolysis, raising lactate, and starves high-energy-demand tissues (brain, muscle, vascular endothelium and smooth muscle).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative phosphorylation deficiency\", \"target\": \"Complex I-predominant deficiency and neuronal mitophagy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The respiratory-chain deficit is not distributed evenly across the complexes or across cell types; complex I is disproportionately affected, and in neurons the deficient complex is actively cleared by mitophagy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative phosphorylation deficiency\", \"target\": \"Retinal pigment epithelium metabolic dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative phosphorylation failure in retinal pigment epithelium may disrupt metabolic cooperation with photoreceptors and contribute to retinal dystrophy. Human donor-eye observations support this proposed sequence but do not prove causal order.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Complex I-predominant deficiency and neuronal mitophagy\", \"target\": \"Cellular energy failure and lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selective loss of complex I lowers NADH oxidation and ATP output most severely in the neuronal populations that can least tolerate it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Mitochondrial angiopathy and NO deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy failure in cerebral small-vessel endothelium and smooth muscle drives mitochondrial angiopathy and impaired nitric oxide availability.\", \"hypothesis_groups\": [\"ischemic_vascular_angiopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the non-ischemic model, a mismatch between the energy demanded by an active cortical neuronal population and the ATP that a defective respiratory chain can supply renders those neurons hyperexcitable. What converts this chronic vulnerability into a discrete episode is not known.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Skeletal muscle mitochondrial proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy deficiency can stimulate mitochondrial proliferation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of mitochondrial energy production contributes to skeletal muscle weakness.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Mitochondrial myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy failure in skeletal muscle contributes to mitochondrial myopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Enteric neuromuscular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial energy production may compromise intestinal smooth muscle and enteric neural function.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory-chain failure increases glycolytic lactate production and can produce lactic acidosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Cochlear and auditory neural energy dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction may impair energy-dependent cochlear and auditory neural processes, producing sensorineural hearing loss.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Impaired pancreatic beta-cell insulin secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction in pancreatic beta cells impairs insulin secretion and contributes to diabetes mellitus.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Myocardial energy deficit and hypertrophic remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myocardial energy deficits may stimulate compensatory hypertrophy, providing a proposed route to hypertrophic cardiomyopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Glomerular mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glomerular mitochondrial dysfunction can impair renal protein retention and produce proteinuria. The cell-specific injury sequence is unresolved in the reviewed clinical synthesis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Peripheral nerve mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction compromises energy-dependent peripheral nerve function and contributes to chronic sensory and motor neuropathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial angiopathy and NO deficiency\", \"target\": \"Stroke-like episodes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial angiopathy and NO deficiency, together with neuronal energy failure, converge to produce stroke-like episodes that do not respect classic vascular territories.\", \"hypothesis_groups\": [\"ischemic_vascular_angiopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial angiopathy and NO deficiency\", \"target\": \"Increased cerebral capillary permeability and vasogenic edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction in capillary endothelium leaves the cortical microvasculature primed to leak, which is the substrate on which epileptic activity produces vasogenic edema.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\", \"ischemic_vascular_angiopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"target\": \"Increased cerebral capillary permeability and vasogenic edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged epileptic activity increases capillary permeability in cortex whose microvasculature is already compromised by mitochondrial angiopathy.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"target\": \"Cortical laminar necrosis and progressive lesion spread\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depolarization of adjacent neurons propagates the epileptic focus into surrounding cortex, and the most vulnerable cortical layers are lost.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lowering neuronal seizure thresholds contributes to the overall epileptic phenotype, including focal and generalized events.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"target\": \"Focal-onset seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Localized cortical hyperexcitability underlies focal epileptic activity during stroke-like episodes; this specifies the focal presentation within the broader seizure phenotype.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased cerebral capillary permeability and vasogenic edema\", \"target\": \"Cortical laminar necrosis and progressive lesion spread\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained edema in cortex that is simultaneously hyperexcitable and energy-starved converts reversible signal change into tissue loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical laminar necrosis and progressive lesion spread\", \"target\": \"Stroke-like episodes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The evolving cortical lesion is what produces the acute focal deficit and its imaging correlate.\", \"hypothesis_groups\": [\"neuronal_hyperexcitability\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical laminar necrosis and progressive lesion spread\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulating cortical injury contributes to cognitive encephalopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Stroke-like episodes\", \"target\": \"Progressive brain atrophy and dementia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated stroke-like episodes accumulate cortical tissue loss; brain atrophy and cognitive decline are the residue left in survivors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stroke-like episodes\", \"target\": \"Hemiparesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal cortical dysfunction during a stroke-like episode produces this neurological deficit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stroke-like episodes\", \"target\": \"Aphasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal cortical dysfunction during a stroke-like episode produces this neurological deficit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stroke-like episodes\", \"target\": \"Cortical (cerebral) visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal cortical dysfunction during a stroke-like episode produces this neurological deficit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stroke-like episodes\", \"target\": \"Hemianopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A posterior cortical stroke-like lesion can produce visual field loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive brain atrophy and dementia\", \"target\": \"Dementia and progressive cognitive decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinical manifestation of accumulated cerebral injury after recurrent stroke-like episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive brain atrophy and dementia\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinical manifestation of accumulated cerebral injury after recurrent stroke-like episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enteric neuromuscular dysfunction\", \"target\": \"Intestinal pseudo-obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of intestinal neuromuscular propulsion can produce pseudo-obstruction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cochlear and auditory neural energy dysfunction\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinical expression of the proposed tissue-specific mitochondrial dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired pancreatic beta-cell insulin secretion\", \"target\": \"Diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinical expression of the proposed tissue-specific mitochondrial dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myocardial energy deficit and hypertrophic remodeling\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertrophic remodeling provides a proposed mechanism for the hypertrophic subset of the broader cardiomyopathy phenotype; it does not explain every dilated or other myocardial presentation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myocardial energy deficit and hypertrophic remodeling\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compensatory myocardial hypertrophy is proposed to produce the specifically hypertrophic cardiomyopathy phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myocardial energy deficit and hypertrophic remodeling\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myocardial remodeling can contribute to cardiac rhythm disorders in MELAS; the electrical intermediates and contributions of primary conduction-pathway dysfunction remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glomerular mitochondrial dysfunction\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinical expression of the proposed tissue-specific mitochondrial dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Peripheral nerve mitochondrial dysfunction\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinical expression of the proposed tissue-specific mitochondrial dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Retinal pigment epithelium metabolic dysfunction\", \"target\": \"Mitochondrial retinal dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RPE dysfunction is a proposed early step leading to outer retinal degeneration.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Seizures\", \"target\": \"Status epilepticus\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Seizures can persist or recur without recovery and evolve into status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial myopathy\", \"target\": \"Muscle weakness\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Clinical expression of mitochondrial muscle disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial myopathy\", \"target\": \"Exercise intolerance\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Clinical expression of mitochondrial muscle disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Migraine-like headaches\", \"target\": \"Stroke-like episodes\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Migrainous headache attacks can precipitate stroke-like episodes; the intervening mechanism and circumstances determining progression are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lactic acidosis\", \"target\": \"Recurrent vomiting\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Lactic acidosis can contribute to recurrent vomiting; this is one metabolic route rather than an attribution of every vomiting episode.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"L-arginine therapy\", \"target\": \"Mitochondrial angiopathy and NO deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Taurine supplementation\", \"target\": \"Taurine wobble-modification deficiency of tRNA-Leu(UUR)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Citrulline supplementation\", \"target\": \"Mitochondrial angiopathy and NO deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Aggressive antiseizure therapy\", \"target\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Soluble guanylate cyclase stimulation (investigational)\", \"target\": \"Mitochondrial angiopathy and NO deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"m.3243A\u003eG patient iPSC-derived neurons\", \"target\": \"Complex I-predominant deficiency and neuronal mitophagy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the complex I-predominant respiratory-chain defect seen in MELAS patient tissue and adds the neuron-specific mitophagic clearance step.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Heteroplasmy segregates bimodally toward homoplasmy during reprogramming, so the clone\u0027s mutant load is not the patient\u0027s tissue load; the model is a cultured neuron rather than cortex, and it cannot reproduce a stroke-like episode, which requires vasculature, seizure activity, and an intact cortical network.\"}, {\"source\": \"Cellular energy failure and lactic acidosis\", \"target\": \"Elevated blood lactate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Blood lactate is a biochemical readout of the glycolytic response to respiratory-chain dysfunction.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Skeletal muscle mitochondrial proliferation\", \"target\": \"Ragged-red fibers\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Modified Gomori trichrome staining reveals mitochondrial accumulation within muscle fibers.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"Neuronal hyperexcitability and propagating epileptic activity\", \"target\": \"Focal epileptiform EEG discharges\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"EEG records focal epileptic activity; this observation alone does not prove which process initiated the stroke-like episode.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"MT-TL1 m.3243A\u003eG\", \"target\": \"Mitochondrial tRNA-Leu(UUR) translation defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MT-TL1 m.3243A\u003eG\", \"target\": \"Taurine wobble-modification deficiency of tRNA-Leu(UUR)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -9892,6 +10108,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9906,6 +10125,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9933,6 +10153,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9954,6 +10175,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10019,6 +10241,9 @@ This clinical feature is Stroke-like episode (HP:0002401). HP:0002401 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10033,6 +10258,7 @@ This clinical feature is Stroke-like episode (HP:0002401). HP:0002401 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10089,6 +10315,9 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10103,6 +10332,7 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10127,6 +10357,7 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10189,6 +10420,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10203,6 +10437,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10257,6 +10492,9 @@ This clinical feature is Wolff-Parkinson-White syndrome (HP:0001716). HP:0001716
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10271,6 +10509,7 @@ This clinical feature is Wolff-Parkinson-White syndrome (HP:0001716). HP:0001716
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10327,6 +10566,9 @@ This clinical feature is Cardiac conduction abnormality (HP:0031546). HP:0031546
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10341,6 +10583,7 @@ This clinical feature is Cardiac conduction abnormality (HP:0031546). HP:0031546
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10365,6 +10608,7 @@ This clinical feature is Cardiac conduction abnormality (HP:0031546). HP:0031546
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10427,6 +10671,9 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10441,6 +10688,7 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10465,6 +10713,7 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10521,6 +10770,9 @@ This clinical feature is Right bundle branch block, completeness unspecified, an
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10535,6 +10787,7 @@ This clinical feature is Right bundle branch block, completeness unspecified, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10559,6 +10812,7 @@ This clinical feature is Right bundle branch block, completeness unspecified, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10642,6 +10896,9 @@ This clinical feature is Recurrent vomiting, annotated with Vomiting (HP:0002013
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10656,6 +10913,7 @@ This clinical feature is Recurrent vomiting, annotated with Vomiting (HP:0002013
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10680,6 +10938,7 @@ This clinical feature is Recurrent vomiting, annotated with Vomiting (HP:0002013
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10739,6 +10998,9 @@ This clinical feature is Intestinal pseudo-obstruction (HP:0004389). HP:0004389 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -10753,6 +11015,7 @@ This clinical feature is Intestinal pseudo-obstruction (HP:0004389). HP:0004389 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10780,6 +11043,7 @@ This clinical feature is Intestinal pseudo-obstruction (HP:0004389). HP:0004389 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10801,6 +11065,7 @@ This clinical feature is Intestinal pseudo-obstruction (HP:0004389). HP:0004389 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10868,6 +11133,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10882,6 +11150,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10947,6 +11216,9 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10961,6 +11233,7 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10988,6 +11261,7 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11009,6 +11283,7 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11081,6 +11356,9 @@ This clinical feature is Hemianopia (HP:0012377). HP:0012377 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11095,6 +11373,7 @@ This clinical feature is Hemianopia (HP:0012377). HP:0012377 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11149,6 +11428,9 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11163,6 +11445,7 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11187,6 +11470,7 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11241,6 +11525,9 @@ This clinical feature is Mitochondrial retinal dystrophy (pigmentary macular pat
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -11255,6 +11542,7 @@ This clinical feature is Mitochondrial retinal dystrophy (pigmentary macular pat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11282,6 +11570,7 @@ This clinical feature is Mitochondrial retinal dystrophy (pigmentary macular pat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11303,6 +11592,7 @@ This clinical feature is Mitochondrial retinal dystrophy (pigmentary macular pat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11361,6 +11651,9 @@ This clinical feature is Progressive external ophthalmoplegia (HP:0000590). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11375,6 +11668,7 @@ This clinical feature is Progressive external ophthalmoplegia (HP:0000590). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11399,6 +11693,7 @@ This clinical feature is Progressive external ophthalmoplegia (HP:0000590). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11461,6 +11756,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11475,6 +11773,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11538,6 +11837,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -11552,6 +11854,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11579,6 +11882,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11600,6 +11904,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11667,6 +11972,9 @@ This clinical feature is Increased circulating lactate concentration (HP:0002151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11681,6 +11989,7 @@ This clinical feature is Increased circulating lactate concentration (HP:0002151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11733,6 +12042,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -11756,6 +12068,7 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11817,6 +12130,9 @@ This clinical feature is Mitochondrial myopathy (HP:0003737). HP:0003737 is a ph
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -11845,6 +12161,7 @@ This clinical feature is Mitochondrial myopathy (HP:0003737). HP:0003737 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11866,6 +12183,7 @@ This clinical feature is Mitochondrial myopathy (HP:0003737). HP:0003737 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11922,6 +12240,9 @@ This clinical feature is Ragged-red muscle fibers (HP:0003200). HP:0003200 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11936,6 +12257,7 @@ This clinical feature is Ragged-red muscle fibers (HP:0003200). HP:0003200 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11990,6 +12312,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12004,6 +12329,7 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12060,6 +12386,9 @@ This clinical feature is Basal ganglia calcification (HP:0002135). HP:0002135 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -12074,6 +12403,7 @@ This clinical feature is Basal ganglia calcification (HP:0002135). HP:0002135 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12098,6 +12428,7 @@ This clinical feature is Basal ganglia calcification (HP:0002135). HP:0002135 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12170,6 +12501,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -12193,6 +12527,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12247,6 +12582,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12261,6 +12599,7 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12313,6 +12652,9 @@ This clinical feature is Migraine (HP:0002076). HP:0002076 is a phenotype from t
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -12339,6 +12681,7 @@ This clinical feature is Migraine (HP:0002076). HP:0002076 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12360,6 +12703,7 @@ This clinical feature is Migraine (HP:0002076). HP:0002076 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12416,6 +12760,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -12430,6 +12777,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12454,6 +12802,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12517,6 +12866,9 @@ This clinical feature is Learning disability, annotated with Specific learning d
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -12531,6 +12883,7 @@ This clinical feature is Learning disability, annotated with Specific learning d
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12555,6 +12908,7 @@ This clinical feature is Learning disability, annotated with Specific learning d
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12616,6 +12970,9 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -12630,6 +12987,7 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12657,6 +13015,7 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12678,6 +13037,7 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12732,6 +13092,9 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -12746,6 +13109,7 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12773,6 +13137,7 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12794,6 +13159,7 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12848,6 +13214,9 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -12862,6 +13231,7 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12889,6 +13259,7 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12910,6 +13281,7 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12984,6 +13356,9 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -12998,6 +13373,7 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13022,6 +13398,7 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13076,6 +13453,9 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13090,6 +13470,7 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13144,6 +13525,9 @@ This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13158,6 +13542,7 @@ This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13212,6 +13597,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13226,6 +13614,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13282,6 +13671,9 @@ This clinical feature is EEG with focal epileptiform discharges (HP:0011185). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13296,6 +13688,7 @@ This clinical feature is EEG with focal epileptiform discharges (HP:0011185). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13352,6 +13745,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13366,6 +13762,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13438,6 +13835,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13452,6 +13852,7 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13517,6 +13918,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -13531,6 +13935,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13555,6 +13960,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13656,6 +14062,9 @@ This disease-associated gene is MT-TL1 (hgnc:7490). hgnc:7490 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Mitochondrial inheritance</span>
@@ -13678,6 +14087,7 @@ This disease-associated gene is MT-TL1 (hgnc:7490). hgnc:7490 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13705,6 +14115,7 @@ This disease-associated gene is MT-TL1 (hgnc:7490). hgnc:7490 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13726,6 +14137,7 @@ This disease-associated gene is MT-TL1 (hgnc:7490). hgnc:7490 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13783,6 +14195,9 @@ This disease-associated gene is MT-ND5 (hgnc:7461). hgnc:7461 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -13797,6 +14212,7 @@ This disease-associated gene is MT-ND5 (hgnc:7461). hgnc:7461 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13824,6 +14240,7 @@ This disease-associated gene is MT-ND5 (hgnc:7461). hgnc:7461 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13845,6 +14262,7 @@ This disease-associated gene is MT-ND5 (hgnc:7461). hgnc:7461 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13957,6 +14375,12 @@ This treatment uses L-arginine (CHEBI:16467). CHEBI:16467 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Intravenous L-arginine in the acute phase and oral supplementation for prophylaxis aims to restore nitric oxide availability and improve endothelial function, reducing the frequency and severity of stroke-like episodes.</div>
 
 
@@ -13987,6 +14411,7 @@ This treatment uses L-arginine (CHEBI:16467). CHEBI:16467 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14033,6 +14458,7 @@ This treatment uses L-arginine (CHEBI:16467). CHEBI:16467 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14054,6 +14480,7 @@ This treatment uses L-arginine (CHEBI:16467). CHEBI:16467 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14142,6 +14569,9 @@ This treatment uses taurine (CHEBI:15891). CHEBI:15891 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -14152,6 +14582,9 @@ This treatment uses taurine (CHEBI:15891). CHEBI:15891 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -14188,6 +14621,7 @@ This treatment uses taurine (CHEBI:15891). CHEBI:15891 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14234,6 +14668,7 @@ This treatment uses taurine (CHEBI:15891). CHEBI:15891 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14255,6 +14690,7 @@ This treatment uses taurine (CHEBI:15891). CHEBI:15891 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14348,6 +14784,12 @@ This treatment uses L-citrulline (CHEBI:16349). CHEBI:16349 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Oral citrulline, a nitric oxide precursor, increases arginine availability and nitric oxide production. Stable-isotope studies suggest citrulline may be a more effective NO precursor than arginine in MELAS.</div>
 
 
@@ -14378,6 +14820,7 @@ This treatment uses L-citrulline (CHEBI:16349). CHEBI:16349 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14421,6 +14864,7 @@ This treatment uses L-citrulline (CHEBI:16349). CHEBI:16349 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14493,6 +14937,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Supportive care including antiseizure medications, management of diabetes and hearing loss, avoidance of mitochondrial toxins, and mitochondrial cofactor supplementation (e.g., coenzyme Q10, L-carnitine). GeneReviews recommends annual ophthalmologic, audiologic, and cardiac assessment, including ECG and echocardiography, plus annual urinalysis and fasting glucose to detect multisystem involvement.</div>
 
 
@@ -14514,6 +14964,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14541,6 +14992,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14562,6 +15014,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14628,6 +15081,9 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -14638,6 +15094,9 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -14674,6 +15133,7 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14720,6 +15180,7 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14741,6 +15202,7 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14846,6 +15308,9 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -14856,6 +15321,9 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
     </div>
+
+
+
 
 
 
@@ -14892,6 +15360,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14938,6 +15407,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14959,6 +15429,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15021,6 +15492,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15160,6 +15632,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15201,6 +15674,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15222,6 +15696,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15346,6 +15821,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15384,6 +15860,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15438,6 +15915,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15489,6 +15967,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15510,6 +15989,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -15597,6 +16077,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15618,6 +16099,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15688,6 +16170,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15709,6 +16192,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15781,6 +16265,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15802,6 +16287,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15872,6 +16358,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15893,6 +16380,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15996,6 +16484,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -16060,6 +16549,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -16109,6 +16599,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16164,6 +16655,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -16213,6 +16705,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16266,6 +16759,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -16290,6 +16784,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -16311,6 +16806,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16387,6 +16883,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -16446,6 +16943,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -16501,6 +16999,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16570,6 +17069,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -16591,6 +17091,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16682,6 +17183,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -16749,6 +17251,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16822,6 +17325,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -16843,6 +17347,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16935,6 +17440,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -17012,6 +17518,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -17033,6 +17540,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -17113,6 +17621,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -17187,6 +17696,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -17386,6 +17896,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -17460,6 +17971,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -17540,6 +18052,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -17561,6 +18074,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -17680,6 +18194,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -17754,6 +18269,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -17834,6 +18350,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -17855,6 +18372,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -17933,6 +18451,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -17954,6 +18473,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -18034,6 +18554,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -18055,6 +18576,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -18123,6 +18645,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -18176,6 +18699,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -18226,6 +18750,7 @@ This treatment uses soluble guanylate cyclase stimulator (NCIT:C210759). NCIT:C2
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -18302,6 +18827,7 @@ This clinical trial targets Stroke-like episode (HP:0002401). HP:0002401 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -18352,6 +18878,7 @@ This clinical trial targets Stroke-like episode (HP:0002401). HP:0002401 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -18408,6 +18935,7 @@ This clinical trial targets Stroke-like episode (HP:0002401). HP:0002401 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -18458,6 +18986,7 @@ This clinical trial targets Stroke-like episode (HP:0002401). HP:0002401 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -18512,6 +19041,7 @@ This clinical trial targets Stroke-like episode (HP:0002401). HP:0002401 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -18560,6 +19090,7 @@ This clinical trial targets Stroke-like episode (HP:0002401). HP:0002401 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -18731,6 +19262,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -18790,6 +19322,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -18829,6 +19362,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -18878,6 +19412,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -23802,6 +24337,54 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Add MassIVE and GSE1462 datasets from the OpenScientist pass</strong> · 2026-08-26T03:37:32Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/MELAS_Syndrome/2026-08-26T033732Z-claude-code-06badb.yaml">View source</a></p>
+                        <p class="research-review-text">Folds in the OpenScientist deep-research report (research/datasets/MELAS_Syndrome-datasets-openscientist.md, run against templates/disease_datasets_research.md) and curates the two datasets it surfaced that the deterministic and manual passes had both missed.
+
+massive:MSV000088237 - paired proteomics and metabolomics of patient-derived dermal fibroblasts carrying m.14453G&gt;A in MT-ND6. Two things earn it a place. It is the only public patient-tissue multi-omics deposit found for a non-m.3243A&gt;G MELAS genotype, so it speaks to the allele arm of the genotype-phenotype gap and to the complex I subunit subtype in this entry. And it reports downregulated arginine biosynthesis through blocked argininosuccinate synthase, which is a cell-intrinsic route to arginine deficiency and therefore a different claim from the reduced plasma arginine the existing therapeutic rationale rests on. Attached to both the genotype-phenotype and the arginine-evidence gaps, with the arginine rationale updated to separate the mechanistic case (strengthened) from the clinical efficacy question (unchanged - no dataset substitutes for the trial that has never been run).
+
+geo:GSE1462 - skeletal muscle from four PEO and four MELAS patients, all carrying m.3243A&gt;G, against controls. This is the only dataset in the entry that holds genotype constant and varies clinical phenotype in patient tissue, which is precisely the design the genotype-phenotype gap calls for; the authors read the difference as support for nuclear background as the modifier. Four patients per arm on a 2005 array platform, so a hypothesis rather than a demonstration.
+
+A triage note is recorded on GSE1462 because it is easy to get wrong: its GEO title is the uninformative &#34;Mitochondrial disorders&#34;, and summary-level screening reads it as a mixed-genotype cohort. It was dismissed on first pass for exactly that reason and recovered only by reading the full record. The OpenScientist report itself filed it under &#34;broader mitochondrial-disease datasets containing a MELAS stratum&#34;, which understates it.
+
+Also not curated, from the same report: GSE42986 (primary respiratory-chain disease cohort, genuinely class-level), GSE106601 and GSE142741 (MERRF), GSE208690/GSE208691 (share mitochondrial-encephalomyopathy wording, different conditions), GSE33831 (mesenchymal mitochondrial transfer). Accessions appearing at lines 71-73 of the report (GSE67472, E-MTAB-2770, PXD000001, phs000424, MTBLS123, SRP123456, EGAS00001000123, OSD-737, MSV000078618, MGYS00005566) are the template&#39;s own worked examples of accession syntax, not proposals, and were checked as such rather than triaged as candidates.
+
+The report and its citations sidecar and HTML/PDF artifacts are committed under research/datasets/ per the research-artifact policy. The 29 new references_cache/GEO_*.md records were generated by the deep-research client&#39;s reference validation and follow the existing GEO_ cache convention (146 already tracked).
+
+Validation: 190/190 evidence snippets verified; all 16 dataset accessions resolve; schema, term, entity-ref, and just validate-disorders pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Add gap-linked public datasets from GEO, PRIDE and registries</strong> · 2026-08-26T03:28:20Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/MELAS_Syndrome/2026-08-26T032820Z-claude-code-c0d4a2.yaml">View source</a></p>
+                        <p class="research-review-text">Searched public repositories for datasets bearing on the seven knowledge gaps recorded in the previous MELAS session, and curated the results with each dataset attached to the gap it speaks to.
+
+Method: deterministic search first (just discover-datasets, which found 8 GEO candidates), then targeted E-utilities queries against GEO on &#34;3243A&gt;G&#34;, &#34;MELAS&#34;, and the expanded syndrome name, which surfaced substantially more; then non-NCBI repositories that GEO search cannot reach - PRIDE, MetaboLights, Metabolomics Workbench, EGA, dbGaP - and an OpenScientist deep-research pass as an independent cross-check. Every curated accession passes just verify-datasets.
+
+Curated 14 datasets (13 GEO, 1 PRIDE), each attached to a gap via Discussion.attaches_to using the datasets# entity-reference grammar:
+
+- Genotype-phenotype discordance: GSE202747 (per-cell heteroplasmy in human MELAS retina; partitions by developmental lineage, not randomly), GSE56158 (cybrids across the full heteroplasmy range; sharp transcriptional transitions rather than a gradient), GSE129091 (low vs high load on the MELAS-versus-MIDD axis), GSE85549 (allele-level: m.3243A&gt;G vs m.3302A&gt;G RNA processing).
+- Ischemic-versus-hyperexcitable controversy: GSE127478 (vascular arm - m.3243A&gt;G iPSC endothelium is cell-autonomously dysfunctional and pro-inflammatory), GSE154825 (neuronal arm - MEA-seq network electrophysiology plus non-cell-autonomous astrocyte changes), GSE165953 (heteroplasmy-scaled glutamate dysregulation confirmed in MELAS post-mortem brain), GSE202747 (cuts against the vascular arm: choroidal vasculature near-homoplasmic wild-type while neural lineages carried high mutant load).
+- Human-model mismatch: GSE324301 (cerebral organoid slice model with cortical architecture, generated because no animal carries the mutation, validated against MELAS autopsy), PXD058785 (hiPSC myofibres, heteroplasmy-graded proteomics/phosphoproteomics/metabolomics), GSE61390 (isogenic corrected lines from reprogramming segregation).
+- Prognostic biomarker: GSE89066 (20 patients vs 20 controls, serum miR-27b-3p outperforming lactate - but on diagnosis, not prognosis), GSE14882 (MELAS whole blood correlated to mutant load and clinical features), GSE165953, GSE113300.
+- Episodic trigger: recorded as a negative result. No public dataset addresses the timing question, and the absence is structural - every public MELAS dataset is a cross-sectional snapshot while an episode is a transition in living cortex. GSE27545 attached as the nearest relevant work (a self-aggravating RXRA-ROS-JNK-PGC1alpha retrograde loop, which accounts for progression but not for punctuation).
+- Multi-organ ascertainment: also a negative result for omics. Added two natural-history registry records instead - NCT01532791, which ascertains through maternal relatives of known carriers regardless of their own carrier status with paternal relatives as controls, and NCT05554835, the global harmonized registry.
+
+Deliberately not curated, with reasons: GSE222921 (TYMP/MNGIE - a different mitochondrial disease; both the deterministic tool and OpenScientist independently flagged or rejected it); GSE105454 and GSE122198 (TARGET-seq method papers on JAK2-V617F myelofibrosis HSPCs, which OpenScientist listed as confirmed MELAS datasets - they are not); PXD063824 (disease-class-level &#34;mitochondrial disorders&#34;, not MELAS); Metabolomics Workbench ST003924 (genetically confirmed paediatric primary mitochondrial disorders with a renal framing - relevant to the ascertainment gap, but its sample factors carry only the disease-class label so MELAS cases cannot be identified within it; referenced in the gap rationale rather than curated). SubSeries were not curated alongside their SuperSeries (GSE202735/202746/202886 under GSE202747; GSE89065/89059 under GSE89066). EGA and dbGaP returned nothing for MELAS.
+
+OpenScientist contributed one dataset the deterministic path missed (GSE89066, the strongest biomarker candidate in the set) and independently reproduced the rest of the GEO list and the GSE222921 rejection; it also returned two false positives. It searched only NCBI, so it missed the PRIDE proteomics dataset.
+
+Validation: 186/186 evidence snippets verified against the reference cache; all 14 dataset accessions resolve via just verify-datasets; schema, term, entity-ref (38 hash refs, none dangling), duplicate-key, folded-hyphen, snippet-length, title-snippet and source-defect gates pass, as does just validate-disorders. Root-level compliance is now 100%.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

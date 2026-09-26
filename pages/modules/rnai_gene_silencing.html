@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1883,11 +1920,13 @@ This mechanism module involves decreased gene expression (GO:0010467). GO:001046
             
             <div class="item-box anchor-target" id="module-pathophysiology-pathogenic-transcript-abundance" data-dismech-node="Pathogenic Transcript Abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathogenic Transcript Abundance</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The disease-causing transcript is transcribed and translated at a level that produces harmful amounts of the encoded protein, or produces a protein whose intrinsic properties are pathogenic. The transcript is usually structurally normal - it is the abundance of its product, or that product&#39;s toxicity, that drives disease - which makes reducing the message, rather than inhibiting the protein after it is made, the upstream therapeutic target. This is the same upstream state that the RNase H branch of antisense_oligonucleotide_therapy addresses; it is restated here so an RNAi conformer has an anchor that does not imply an ASO effector. Worked targets include TTR mRNA in ATTR amyloidosis, PCSK9 mRNA in familial hypercholesterolemia, ALAS1 mRNA in acute intermittent porphyria, and APOC3 mRNA in familial chylomicronemia syndrome.</div>
                 
@@ -1965,11 +2004,13 @@ This pathophysiological event involves increased mRNA metabolic process (GO:0016
             
             <div class="item-box anchor-target" id="module-pathophysiology-target-cell-sirna-delivery" data-dismech-node="Target-Cell siRNA Delivery" data-dismech-type="pathophysiology">
                 <div class="item-name">Target-Cell siRNA Delivery</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A chemically stabilized siRNA duplex reaches the cytosol of the cell that transcribes the target gene. Naked siRNA cannot do this unaided: it is degraded by serum nucleases, cannot cross the plasma membrane, and is digested in the endosome after uptake. Two platforms solve this in approved drugs. An ionizable lipid nanoparticle encapsulates the duplex and, on endosomal acidification, becomes positively charged and destabilizes the endosomal membrane (patisiran). Alternatively, a tri-antennary GalNAc conjugate on a nuclease-resistant duplex engages the asialoglycoprotein receptor on hepatocytes, driving receptor-mediated endocytosis, after which a small fraction escapes the endosome - enough, because RISC-mediated cleavage is catalytic (vutrisiran, inclisiran, givosiran). This is the node a conforming disorder entry specializes to its own target organ; the two platforms above are the liver-directed case, not the general one.</div>
                 
@@ -2047,11 +2088,13 @@ This pathophysiological event involves increased receptor-mediated endocytosis o
             
             <div class="item-box anchor-target" id="module-pathophysiology-argonaute-2-cleavage-of-the-target-transcript" data-dismech-node="Argonaute-2 Cleavage of the Target Transcript" data-dismech-type="pathophysiology">
                 <div class="item-name">Argonaute-2 Cleavage of the Target Transcript</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The cytosolic siRNA duplex is loaded into the RNA-induced silencing complex, the passenger strand is discarded, and the retained guide strand directs the complex by Watson-Crick base pairing to the transcript carrying the matching sequence. That guide-strand selection is what makes the platform programmable: the protein machinery is endogenous and constant, and only the loaded sequence changes between one disease and the next. Loading is described here as setup rather than modeled as its own node - see the note on node granularity below. Argonaute-2, the sole catalytically competent human Argonaute, endonucleolytically cleaves the guide-paired transcript. The cleaved fragments are degraded by cytoplasmic exonucleases and the guide-loaded complex is released to engage another transcript, so silencing is catalytic rather than stoichiometric. That catalytic turnover is what allows the very small fraction of an administered dose that escapes the endosome to produce a therapeutic effect, and is the proximate reason GalNAc siRNAs can be dosed quarterly or twice yearly. This is the RNAi counterpart of the antisense_oligonucleotide_therapy#RNase H-Mediated Transcript Degradation node. Both degrade the target message; the effector differs, and a disorder entry should conform to the one that matches its drug rather than treating them as interchangeable.</div>
                 
@@ -2129,11 +2172,13 @@ This pathophysiological event involves increased siRNA-mediated degradation of t
             
             <div class="item-box anchor-target" id="module-pathophysiology-sustained-reduction-of-the-encoded-protein" data-dismech-node="Sustained Reduction of the Encoded Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained Reduction of the Encoded Protein</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Steady-state levels of the encoded protein fall in proportion to the degree of transcript knockdown, and remain suppressed for as long as the guide-loaded complex persists. The reduction is deep - typically 80% or more of circulating protein for a liver-expressed target - and long-lived, which is what converts a molecular effect into an interval-dosed medicine. Because silencing is reversible and does not alter the genome, protein levels recover when dosing stops; this distinguishes RNAi from gene editing and is the reason these are chronic therapies. Downstream disease benefit is not asserted here. It depends on whether the silenced protein is genuinely causal in the disease at hand and on how much irreversible damage has already accrued, so a conforming disorder entry must carry its own outcome evidence.</div>
                 
@@ -2259,6 +2304,9 @@ This treatment uses patisiran (NCIT:C116792). NCIT:C116792 is a therapeutic agen
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -2271,10 +2319,13 @@ This treatment uses patisiran (NCIT:C116792). NCIT:C116792 is a therapeutic agen
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Lipid nanoparticle</span>
         
         
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: Unconjugated</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: Unconjugated</span>
         
         
     </div>
+    
+    
+    
     
     
     <div class="item-meta">
@@ -2404,6 +2455,9 @@ This treatment uses vutrisiran (NCIT:C152919). NCIT:C152919 is a therapeutic age
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -2416,10 +2470,13 @@ This treatment uses vutrisiran (NCIT:C152919). NCIT:C152919 is a therapeutic age
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Ligand conjugate</span>
         
         
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: GalNAc</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: GalNAc</span>
         
         
     </div>
+    
+    
+    
     
     
     <div class="item-meta">
@@ -2549,6 +2606,9 @@ This treatment uses inclisiran (CHEBI:176399). CHEBI:176399 is a therapeutic age
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -2561,10 +2621,13 @@ This treatment uses inclisiran (CHEBI:176399). CHEBI:176399 is a therapeutic age
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Ligand conjugate</span>
         
         
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: GalNAc</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: GalNAc</span>
         
         
     </div>
+    
+    
+    
     
     
     <div class="item-meta">
@@ -2694,6 +2757,9 @@ This treatment uses givosiran (NCIT:C146805). NCIT:C146805 is a therapeutic agen
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -2706,10 +2772,13 @@ This treatment uses givosiran (NCIT:C146805). NCIT:C146805 is a therapeutic agen
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Ligand conjugate</span>
         
         
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: GalNAc</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: GalNAc</span>
         
         
     </div>
+    
+    
+    
     
     
     <div class="item-meta">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4111,6 +4179,7 @@ HSAN1E is allelic to ADCA-DN, which is curated separately here. The two are dist
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4135,6 +4204,7 @@ HSAN1E is allelic to ADCA-DN, which is curated separately here. The two are dist
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4156,6 +4226,7 @@ HSAN1E is allelic to ADCA-DN, which is curated separately here. The two are dist
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4249,6 +4320,7 @@ So position within the domain is a real gradient rather than a rule with a count
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4273,6 +4345,7 @@ So position within the domain is a real gradient rather than a rule with a count
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4294,6 +4367,7 @@ So position within the domain is a real gradient rather than a rule with a count
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4365,6 +4439,7 @@ Candidate explanations available in the literature cited here: the methylome ana
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4386,6 +4461,7 @@ Candidate explanations available in the literature cited here: the methylome ana
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4427,6 +4503,7 @@ Candidate explanations available in the literature cited here: the methylome ana
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dnmt1-targeting-sequence-domain-misfolding" data-dismech-node="DNMT1 Targeting-Sequence Domain Misfolding" data-dismech-type="pathophysiology">
                 <div class="item-name">DNMT1 Targeting-Sequence Domain Misfolding</div>
 
+
                 <div class="item-desc">The initiating lesion. Causal variants cluster in the targeting sequence (TS, also RFTS) domain encoded by exons 20 and 21, and the residues involved sit in the hydrophobic core or the linker between the domain&#39;s two subdomains rather than at the catalytic site. Expressed in bacteria, wild-type TS domain is soluble while the mutant domains form inclusion bodies - direct evidence of misfolding rather than of an altered but folded protein.</div>
 
 
@@ -4449,9 +4526,14 @@ Candidate explanations available in the literature cited here: the methylome ana
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4499,6 +4581,7 @@ Candidate explanations available in the literature cited here: the methylome ana
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4520,6 +4603,7 @@ Candidate explanations available in the literature cited here: the methylome ana
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4547,6 +4631,7 @@ Candidate explanations available in the literature cited here: the methylome ana
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4571,6 +4656,7 @@ Candidate explanations available in the literature cited here: the methylome ana
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-dnmt1-degradation-and-loss-of-chromatin-targeting" data-dismech-node="Premature DNMT1 Degradation and Loss of Chromatin Targeting" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature DNMT1 Degradation and Loss of Chromatin Targeting</div>
+
 
                 <div class="item-desc">Three consequences of the same misfold, which is why they are one node rather than three. The protein is degraded in late S and G2 phase; it fails to remain associated with heterochromatin when it should; and it loses the UHRF1 interaction that normally delivers it to hemimethylated substrate after replication. The enzyme&#39;s catalytic domain is intact, so this is a failure of delivery and persistence rather than of chemistry - which is why measured methyltransferase activity falls without the active site being touched.</div>
 
@@ -4662,6 +4748,7 @@ This pathophysiological event involves decreased DNA (cytosine-5-)-methyltransfe
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4683,6 +4770,7 @@ This pathophysiological event involves decreased DNA (cytosine-5-)-methyltransfe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4708,6 +4796,7 @@ This pathophysiological event involves decreased DNA (cytosine-5-)-methyltransfe
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-hypomethylation-with-site-specific-hypermethylation" data-dismech-node="Global Hypomethylation with Site-Specific Hypermethylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Hypomethylation with Site-Specific Hypermethylation</div>
+
 
                 <div class="item-desc">The epigenomic phenotype, and the reason this disease is not simply &#34;loss of methylation&#34;. Whole-genome bisulfite sequencing of three patient-sibling pairs found consistent methylation loss across all chromosomes, with X and chromosome 18 most affected, and over half a million differentially methylated CpG sites. Hypomethylation predominates in promoters, exons, most CpG islands and repeat classes - but within some CpG islands hypermethylated sites outnumber hypomethylated ones, and imprinted genes carry more differentially methylated sites than non-imprinted genes. A maintenance enzyme that is mistargeted rather than simply absent produces exactly this mixed picture.</div>
 
@@ -4761,6 +4850,7 @@ This pathophysiological event involves decreased DNA (cytosine-5-)-methyltransfe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4782,6 +4872,7 @@ This pathophysiological event involves decreased DNA (cytosine-5-)-methyltransfe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4809,6 +4900,7 @@ This pathophysiological event involves decreased DNA (cytosine-5-)-methyltransfe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4831,6 +4923,7 @@ This pathophysiological event involves decreased DNA (cytosine-5-)-methyltransfe
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-apoptosis-and-failed-neuronal-differentiation" data-dismech-node="Neuronal Apoptosis and Failed Neuronal Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Apoptosis and Failed Neuronal Differentiation</div>
+
 
                 <div class="item-desc">The cellular consequence. DNMT1 is highly expressed in postmitotic neurons despite its canonical role being replication-coupled, which is the standing puzzle of this disease: how a maintenance methyltransferase defect damages cells that are not dividing. Cells expressing mutant DNMT1 are apoptosis-prone and fail to enter the neuronal lineage in differentiation assays.</div>
 
@@ -4964,6 +5057,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4986,6 +5080,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-length-dependent-sensory-axonal-degeneration" data-dismech-node="Length-Dependent Sensory Axonal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Length-Dependent Sensory Axonal Degeneration</div>
+
 
                 <div class="item-desc">The peripheral arm. Quantitative sensory testing, nerve conduction studies and nerve biopsy all indicate progressive sensory axonal loss in a length-dependent distribution, with nerve pathology showing axonal loss without inflammatory or infiltrative inclusions. Sensory nerve action potentials are absent while motor conduction is near-normal, which is what makes this a pure sensory neuropathy rather than a sensorimotor one.</div>
 
@@ -5058,6 +5153,7 @@ This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5079,6 +5175,7 @@ This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5104,6 +5201,7 @@ This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-atrophy" data-dismech-node="Central Nervous System Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Nervous System Atrophy</div>
+
 
                 <div class="item-desc">The central arm. Brain imaging shows global atrophy and autopsied brains are reduced in weight; functional imaging in one kindred suggested medial frontal and thalamic hypometabolism. As in the nerve, the pathology is axonal loss without infiltrative inclusions, so this is not a proteinopathy.</div>
 
@@ -5142,6 +5240,7 @@ This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5163,6 +5262,7 @@ This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5299,6 +5399,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5313,6 +5416,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5378,6 +5482,9 @@ This clinical feature is Renal failure, annotated with Renal insufficiency (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5392,6 +5499,7 @@ This clinical feature is Renal failure, annotated with Renal insufficiency (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5473,6 +5581,9 @@ This clinical feature is Osteomyelitis (HP:0002754), qualified as temporality ch
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5487,6 +5598,7 @@ This clinical feature is Osteomyelitis (HP:0002754), qualified as temporality ch
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5552,6 +5664,9 @@ This clinical feature is Hypohidrosis (HP:0000966). HP:0000966 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5566,6 +5681,7 @@ This clinical feature is Hypohidrosis (HP:0000966). HP:0000966 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5622,6 +5738,9 @@ This clinical feature is Painless foot ulcer, annotated with Skin ulcer (HP:0200
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5636,6 +5755,7 @@ This clinical feature is Painless foot ulcer, annotated with Skin ulcer (HP:0200
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5660,6 +5780,7 @@ This clinical feature is Painless foot ulcer, annotated with Skin ulcer (HP:0200
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5741,6 +5862,9 @@ This clinical feature is Sensory neuropathy (HP:0000763), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5755,6 +5879,7 @@ This clinical feature is Sensory neuropathy (HP:0000763), qualified as course pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5827,6 +5952,9 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5841,6 +5969,7 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5897,6 +6026,9 @@ This clinical feature is Abnormal autonomic nervous system physiology (HP:001233
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5911,6 +6043,7 @@ This clinical feature is Abnormal autonomic nervous system physiology (HP:001233
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5965,6 +6098,9 @@ This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5979,6 +6115,7 @@ This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6033,6 +6170,9 @@ This clinical feature is Cataplexy (HP:0002524). HP:0002524 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6047,6 +6187,7 @@ This clinical feature is Cataplexy (HP:0002524). HP:0002524 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6071,6 +6212,7 @@ This clinical feature is Cataplexy (HP:0002524). HP:0002524 is a phenotype from 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6125,6 +6267,9 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6139,6 +6284,7 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6193,6 +6339,9 @@ This clinical feature is Hallucinations (HP:0000738). HP:0000738 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6207,6 +6356,7 @@ This clinical feature is Hallucinations (HP:0000738). HP:0000738 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6263,6 +6413,9 @@ This clinical feature is Global brain atrophy (HP:0002283). HP:0002283 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6277,6 +6430,7 @@ This clinical feature is Global brain atrophy (HP:0002283). HP:0002283 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6349,6 +6503,9 @@ This clinical feature is Loss of pain sensation, annotated with Impaired pain se
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6363,6 +6520,7 @@ This clinical feature is Loss of pain sensation, annotated with Impaired pain se
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6435,6 +6593,9 @@ This clinical feature is Loss of vibration sense, annotated with Impaired vibrat
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6449,6 +6610,7 @@ This clinical feature is Loss of vibration sense, annotated with Impaired vibrat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6473,6 +6635,7 @@ This clinical feature is Loss of vibration sense, annotated with Impaired vibrat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6529,6 +6692,9 @@ This clinical feature is Personality change, annotated with Personality changes 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6543,6 +6709,7 @@ This clinical feature is Personality change, annotated with Personality changes 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6567,6 +6734,7 @@ This clinical feature is Personality change, annotated with Personality changes 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6621,6 +6789,9 @@ This clinical feature is Frontotemporal dementia-like syndrome, annotated with F
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6635,6 +6806,7 @@ This clinical feature is Frontotemporal dementia-like syndrome, annotated with F
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6659,6 +6831,7 @@ This clinical feature is Frontotemporal dementia-like syndrome, annotated with F
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6713,6 +6886,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6727,6 +6903,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6751,6 +6928,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6849,6 +7027,9 @@ This disease-associated gene is DNMT1 (hgnc:2976). hgnc:2976 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6863,6 +7044,7 @@ This disease-associated gene is DNMT1 (hgnc:2976). hgnc:2976 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6890,6 +7072,7 @@ This disease-associated gene is DNMT1 (hgnc:2976). hgnc:2976 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6911,6 +7094,7 @@ This disease-associated gene is DNMT1 (hgnc:2976). hgnc:2976 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6997,6 +7181,9 @@ This treatment is preventive skin and foot care, annotated with Supportive Care 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7007,6 +7194,9 @@ This treatment is preventive skin and foot care, annotated with Supportive Care 
 
 
     </div>
+
+
+
 
 
 
@@ -7055,6 +7245,7 @@ This treatment is preventive skin and foot care, annotated with Supportive Care 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7076,6 +7267,7 @@ This treatment is preventive skin and foot care, annotated with Supportive Care 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7143,6 +7335,9 @@ This treatment is hearing amplification, annotated with Rehabilitation (NCIT:C15
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7153,6 +7348,9 @@ This treatment is hearing amplification, annotated with Rehabilitation (NCIT:C15
 
 
     </div>
+
+
+
 
 
 
@@ -7180,6 +7378,7 @@ This treatment is hearing amplification, annotated with Rehabilitation (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7268,6 +7467,9 @@ This treatment uses antipsychotic agent (NCIT:C29710). NCIT:C29710 is a therapeu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7278,6 +7480,9 @@ This treatment uses antipsychotic agent (NCIT:C29710). NCIT:C29710 is a therapeu
 
 
     </div>
+
+
+
 
 
 
@@ -7324,6 +7529,7 @@ No agent, dose or trial is named in the source, and none should be inferred here
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7391,6 +7597,9 @@ This treatment is caregiver education and psychological support, annotated with 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7401,6 +7610,9 @@ This treatment is caregiver education and psychological support, annotated with 
 
 
     </div>
+
+
+
 
 
 
@@ -7428,6 +7640,7 @@ This treatment is caregiver education and psychological support, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7495,6 +7708,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7505,6 +7721,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
     </div>
+
+
+
 
 
 
@@ -7536,6 +7755,7 @@ The caveat is as important as the result and is the authors&#39; own. Her memory
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7560,6 +7780,7 @@ The caveat is as important as the result and is the authors&#39; own. Her memory
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7581,6 +7802,7 @@ The caveat is as important as the result and is the authors&#39; own. Her memory
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7689,6 +7911,7 @@ The caveat is as important as the result and is the authors&#39; own. Her memory
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7710,6 +7933,7 @@ The caveat is as important as the result and is the authors&#39; own. Her memory
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7800,6 +8024,7 @@ The caveat is as important as the result and is the authors&#39; own. Her memory
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7824,6 +8049,7 @@ The caveat is as important as the result and is the authors&#39; own. Her memory
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7845,6 +8071,7 @@ The caveat is as important as the result and is the authors&#39; own. Her memory
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7915,6 +8142,7 @@ The caveat is as important as the result and is the authors&#39; own. Her memory
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7936,6 +8164,7 @@ The caveat is as important as the result and is the authors&#39; own. Her memory
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9281,6 +9510,56 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Three things a reviewer is likely to look for and not find, recorded here so they read as decisions rather than as omissions.
+Narcolepsy and cataplexy pharmacotherapy is not curated. The deep-research report names wake-promoting agents and sodium oxybate and cites PMID:24727570 for them. That paper is cached on this branch and contains no treatment content at all - it is a phenotyping and CSF hypocretin study. A targeted search found no publication reporting narcolepsy pharmacotherapy in DNMT1 disorder specifically. Curating the treatment would mean citing general narcolepsy management for a claim about this disease, or citing a paper for a sentence it does not contain. Both are worse than the gap, so the gap stands until a real source exists.
+Charcot arthropathy is not curated. The research report lists it as Common and binds it to HP:0002828, which is Multiple joint contractures rather than a neuropathic arthropathy - the correct term would be HP:0002821. More to the point, no source on this branch reports neuropathic arthropathy in DNMT1 disorder; the only occurrence of &#34;Charcot&#34; across the cached references is Charcot-Marie-Tooth in a family history. The published Charcot-joint literature reached from this disease is about congenital insensitivity to pain with anhidrosis and HSAN II, which are different genes and different diseases. What this entry does curate from real sources is the injury pathway that would produce it: impaired pain sensation, painless foot ulcers, an unfelt toe fracture, and chronic osteomyelitis.
+Impaired temperature sensation is not curated for the same reason - no cached source names it in this disease, only pain and vibration.
+Relationship to ADCA-DN. The two are allelic DNMT1 targeting-sequence-domain disorders and GeneReviews treats them as one phenotypic spectrum under the title &#34;DNMT1-Related Disorder&#34;. They are curated here as separate Disease entries - ADCA-DN already existed on main - because their leading clinical problems differ (sensory neuropathy and painless injury here, cerebellar ataxia and narcolepsy there) and their MONDO terms are distinct. The mechanistic_hypotheses block records that the boundary between them is contested rather than settled, and the evidence for and against the exon-position rule is curated on both sides.
+Two snippets in this entry are truncated at line boundaries in the cached source text (PMID:23365052 and PMID:22338191, both of which cache as hard-wrapped PubMed-style records rather than as single-line abstracts). Each is flagged in its own explanation with what follows it. They are quoted short rather than reflowed, because a snippet must be an exact substring of the cached reference and reflowing one would make it fail verification while looking more complete.
+No treatment here is disease-modifying, and GeneReviews says so directly. Both treatments listed act on consequences - the injury the patient cannot feel, and the hearing loss that arrives first.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: address five blocking findings, with three dispositioned as sourcing failures</strong> · 2026-09-13T22:24:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hereditary_Sensory_and_Autonomic_Neuropathy_Type_1E/2026-09-13T222449Z-claude-code-878c25.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the ai4c-reviewer CHANGES_REQUESTED review on PR #11797.
+
+Finding 1, GeneReviews partly mined. Added the GeneReviews DIAGNOSIS/TESTING statement to the diagnosis section, and four GENETIC COUNSELING items to inheritance: the disease-specific mode of inheritance, the 50 per cent transmission risk, the de novo statement, and the prenatal/PGT statement. Populated Inheritance.de_novo_rate with GeneReviews&#39; own &#39;unknown&#39;. The pre-existing PMID:21532572 item, which is about the HSAN1 group rather than this disease, is kept but marked directness INDIRECT.
+
+Finding 2, sedative/antipsychotic treatment. Added, with therapeutic_agent NCIT:C29710 Antipsychotic Agent and a target_mechanisms link to Central Nervous System Atrophy marked symptomatic rather than disease-modifying. Also added the GeneReviews caregiver education and psychological support recommendation as a second treatment.
+
+Finding 3, narcolepsy pharmacotherapy and cochlear implantation. Cochlear implantation added from PMID:32754641, which reports a measured outcome in a genetically confirmed p.T497P patient, using the CLAUDE.md device pattern (NCIT:C15329 plus an NCIT:C16830 qualifier carrying NCIT:C157820). The authors&#39; timing caveat is curated alongside the result. Narcolepsy pharmacotherapy is NOT added, and the reason is recorded in notes: the deep-research report cites PMID:24727570 for modafinil and sodium oxybate, that paper is cached here and contains no treatment content whatsoever, and a targeted PubMed search found no publication reporting narcolepsy pharmacotherapy in DNMT1 disorder specifically.
+
+Finding 4, renal failure. Added as a phenotype bound to HP:0000083, from the same PMID:25678562 sentence the entry already quoted twice.
+
+Finding 5, missing phenotypes. Added six: impaired pain sensation (HP:0007328), impaired vibratory sensation (HP:0002495), painless neuropathic foot ulcers (HP:0200042), personality change preceding cognitive decline (HP:0000751), frontotemporal dementia-like presentation (HP:0002145), and cerebellar atrophy on imaging (HP:0001272, with a REFUTE item recording that the same patient had no definite clinical cerebellar ataxia).
+
+Two of the reviewer&#39;s suggested phenotypes are NOT added and are dispositioned in notes. Charcot arthropathy: the HP id offered, HP:0002828, is Multiple joint contractures rather than a neuropathic arthropathy (the correct term is HP:0002821), and no source on this branch reports neuropathic arthropathy in DNMT1 disorder - the only &#39;Charcot&#39; occurrence in the caches is Charcot-Marie-Tooth in a family history, and the published Charcot-joint literature reachable from HSAN is CIPA/NTRK1 and HSAN II. Impaired temperature sensation: no cached source names it in this disease, only pain and vibration. The injury pathway that would produce a Charcot joint is curated from real sources instead.
+
+Suggestion on diagnostic breadth taken: added an Electrophysiologic and Imaging Characterization entry recording the modality set, the central-tractopathy case where peripheral sensory function was preserved, and a normal early nerve conduction study in an affected individual.
+
+Suggestion to split pathophysiology node 4 declined for now; the reviewer called it borderline and the two GO processes share the same downstream edges.
+
+New reference consumed: PMID:32754641, already present in references_cache on main and reproduced byte-identically by the fetch, so no cache churn.
+
+Validation: schema, term and reference validation all pass; snippets verified 74/74 (was 49/49). All nine offline gates run.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Hereditary_Sensory_and_Autonomic_Neuropathy_Type_1E (MONDO:0013584)</strong> · 2026-09-13T21:48:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hereditary_Sensory_and_Autonomic_Neuropathy_Type_1E/2026-09-13T214853Z-claude-code-ae52aa.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of HSAN1E, the sensory-neuropathy arm of DNMT1-related disorder. Deep research: one openscientist report, committed alongside. Report reference validation resolved 13/13 citations with confabulation_rate 0.0; term validation returned needs_review: true with 21 label mismatches, all of which are table-parsing artefacts where the validator read a category column as the label. Its obsolete_terms block was the useful part and changed the curation: it flagged HP:0030050 as obsolete Narcolepsy replaced by HP:0002524 Cataplexy, and HP:0002459 as obsolete Dysautonomia replaced by HP:0012332, both of which are now bound correctly. GeneReviews baseline: PMID:22338191 (DNMT1-Related Disorder) fetched, tagged, and used for the clinical characterisation and management. just preflight-dr returns WARN for two reasons, both benign and checked: the report cites OMIM 604121 alongside MONDO&#39;s 614116, and 604121 is ADCA-DN, which the report legitimately discusses as the allelic disorder; and the rival-gene detector reports HP mentioned 20 times, which is the HPO CURIE prefix being read as the haptoglobin gene symbol rather than a second disease entity. The entry is curated as a separate Disease from ADCA-DN, already on main, following PMID:24727570&#39;s own conclusion that the two are discrete clinical entities in one spectrum. A mechanistic_hypotheses block records the domain-position question, upgraded from the exon 20 / exon 21 shorthand to the sub-domain gradient reported by a 45-subject cohort (PMID:25678562), with the exon 21 HSAN counterexample curated as REFUTE against the exon framing. A second hypothesis records why a replication-coupled maintenance methyltransferase damages postmitotic neurons, with the authors&#39; own statement that the trajectory is unknown. Two snippets are quoted short because the cached records are hard-wrapped PubMed-style text, and one because the reference validator strips bracketed spans before matching; each is flagged in its own explanation. Validation: schema, term and reference checks pass with 49/49 snippets verified; all five offline gates pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

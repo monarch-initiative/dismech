@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4222,6 +4290,7 @@ Partial and complete IRF8 deficiency are two diseases, not two severities, and t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4438,6 +4507,7 @@ Partial and complete IRF8 deficiency are two diseases, not two severities, and t
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-irf8-t80a-impairs-irf8-dna-binding" data-dismech-node="Heterozygous IRF8 T80A Impairs IRF8 DNA Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous IRF8 T80A Impairs IRF8 DNA Binding</div>
 
+
                 <div class="item-desc">IRF8 is an interferon regulatory factor that directs mononuclear phagocyte development by binding composite Ets/IRF and interferon-stimulated response elements in target promoters. The T80A substitution lies in the DNA-binding domain and impairs the IRF8-DNA interaction, reducing transcriptional output at IRF8 target genes. The lesion is in DNA contact, not in expression level or protein stability, which is what makes a single mutant allele consequential.</div>
 
 
@@ -4498,6 +4568,8 @@ This pathophysiological event involves IRF8 (hgnc:5358). hgnc:5358 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4510,6 +4582,9 @@ This pathophysiological event involves IRF8 (hgnc:5358). hgnc:5358 is a gene fro
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4631,6 +4706,7 @@ This pathophysiological event involves decreased sequence-specific DNA binding b
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4653,6 +4729,7 @@ This pathophysiological event involves decreased sequence-specific DNA binding b
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-selective-depletion-of-cd1c-positive-conventional-dendritic-cells" data-dismech-node="Selective Depletion of CD1c-Positive Conventional Dendritic Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Selective Depletion of CD1c-Positive Conventional Dendritic Cells</div>
+
 
                 <div class="item-desc">The cellular signature of the dominant form. CD11c+CD1c+ circulating conventional dendritic cells are selectively depleted, while circulating monocytes and the other mononuclear phagocyte subsets are preserved. That selectivity is the whole difference from the recessive form, in which monocytes and every DC subset are absent, and it is why this disease is confined to mycobacterial susceptibility rather than being a general immunodeficiency.</div>
 
@@ -4816,6 +4893,7 @@ This pathophysiological event involves decreased myeloid dendritic cell differen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4842,6 +4920,7 @@ This pathophysiological event involves decreased myeloid dendritic cell differen
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4863,6 +4942,7 @@ This pathophysiological event involves decreased myeloid dendritic cell differen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4888,6 +4968,7 @@ This pathophysiological event involves decreased myeloid dendritic cell differen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-il-12-production-by-antigen-presenting-cells" data-dismech-node="Reduced IL-12 Production by Antigen-Presenting Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced IL-12 Production by Antigen-Presenting Cells</div>
+
 
                 <div class="item-desc">The step that places this disease in the IL-12/IFN-gamma circuit. With fewer IL-12-competent conventional dendritic cells, less IL-12 reaches NK and T lymphocytes. This node is inferred from the position of IRF8 and of conventional DCs in that circuit rather than measured in a patient carrying the dominant allele; see the attached knowledge gap.</div>
 
@@ -4979,6 +5060,7 @@ This pathophysiological event involves decreased interleukin-12 production (GO:0
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5001,6 +5083,7 @@ This pathophysiological event involves decreased interleukin-12 production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-interferon-gamma-production-by-nk-and-t-lymphocytes" data-dismech-node="Reduced Interferon-Gamma Production by NK and T Lymphocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Interferon-Gamma Production by NK and T Lymphocytes</div>
+
 
                 <div class="item-desc">IL-12 is what drives NK and T lymphocytes to make IFN-gamma. With the IL-12 signal weakened, that production falls. This is a separate event from the macrophage response below, in a different cell, and the MSMD literature treats the two as distinct lesions because different genes break each one.</div>
 
@@ -5154,6 +5237,7 @@ This pathophysiological event involves decreased type II interferon production (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5176,6 +5260,7 @@ This pathophysiological event involves decreased type II interferon production (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insufficient-interferon-gamma-dependent-macrophage-activation" data-dismech-node="Insufficient Interferon-Gamma-Dependent Macrophage Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Insufficient Interferon-Gamma-Dependent Macrophage Activation</div>
+
 
                 <div class="item-desc">IFN-gamma is what licenses macrophages to kill the mycobacteria they have taken up. With less of it, macrophage activation is insufficient and weakly virulent mycobacteria persist and disseminate. This is the convergence point shared by almost every MSMD etiology, and it is why this transcription-factor defect presents with the same clinical syndrome as a cytokine or receptor defect.</div>
 
@@ -5307,6 +5392,7 @@ This pathophysiological event involves decreased type II interferon-mediated sig
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5328,6 +5414,7 @@ This pathophysiological event involves decreased type II interferon-mediated sig
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5444,6 +5531,9 @@ This clinical feature is Selective depletion of CD11c+CD1c+ circulating dendriti
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5458,6 +5548,7 @@ This clinical feature is Selective depletion of CD11c+CD1c+ circulating dendriti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5523,6 +5614,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5540,6 +5634,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5633,6 +5728,9 @@ This clinical feature is BCGosis (HP:0020087), qualified as childhood onset. HP:
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5660,6 +5758,7 @@ This clinical feature is BCGosis (HP:0020087), qualified as childhood onset. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5716,6 +5815,9 @@ This clinical feature is Granuloma (HP:0032252). HP:0032252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5733,6 +5835,7 @@ This clinical feature is Granuloma (HP:0032252). HP:0032252 is a phenotype from 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5788,6 +5891,9 @@ This clinical feature is Immunodeficiency (HP:0002721). HP:0002721 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5802,6 +5908,7 @@ This clinical feature is Immunodeficiency (HP:0002721). HP:0002721 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5867,6 +5974,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5884,6 +5994,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5983,6 +6094,9 @@ This disease-associated gene is IRF8 (hgnc:5358). hgnc:5358 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5997,6 +6111,7 @@ This disease-associated gene is IRF8 (hgnc:5358). hgnc:5358 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6021,6 +6136,7 @@ This disease-associated gene is IRF8 (hgnc:5358). hgnc:5358 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6055,6 +6171,12 @@ This disease-associated gene is IRF8 (hgnc:5358). hgnc:5358 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The heterozygous missense substitution that defines this entry. It sits in the IRF8 DNA-binding domain and impairs the IRF8-DNA interaction rather than IRF8 expression. It is what separates this autosomal dominant, partial deficiency from the autosomal recessive complete deficiency caused by the biallelic K108E allele: the same kind of lesion, in the same domain, at a different dose.</div>
 
 
@@ -6082,6 +6204,7 @@ This disease-associated gene is IRF8 (hgnc:5358). hgnc:5358 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6103,6 +6226,7 @@ This disease-associated gene is IRF8 (hgnc:5358). hgnc:5358 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6193,6 +6317,9 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6203,6 +6330,9 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6252,6 +6382,7 @@ This treatment targets BCGosis (HP:0020087). HP:0020087 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6340,6 +6471,9 @@ This treatment uses recombinant interferon gamma-1b, annotated with Interferon G
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6350,6 +6484,9 @@ This treatment uses recombinant interferon gamma-1b, annotated with Interferon G
 
 
     </div>
+
+
+
 
 
 
@@ -6389,6 +6526,7 @@ This treatment uses recombinant interferon gamma-1b, annotated with Interferon G
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6434,6 +6572,7 @@ This treatment uses recombinant interferon gamma-1b, annotated with Interferon G
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6504,6 +6643,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Autosomal dominant transmission carries a 50% recurrence risk per pregnancy. Because the presenting illness in both reported carriers was BCG disease, the practical consequence for an identified relative is avoidance of live BCG vaccination. Note this recommendation follows from the disease mechanism and the reported presentations rather than from a trial.</div>
 
 
@@ -6550,6 +6695,7 @@ This treatment targets BCGosis (HP:0020087). HP:0020087 is a phenotype from the 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6626,6 +6772,7 @@ This treatment targets BCGosis (HP:0020087). HP:0020087 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6679,6 +6826,7 @@ This treatment targets BCGosis (HP:0020087). HP:0020087 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6753,6 +6901,7 @@ This treatment targets BCGosis (HP:0020087). HP:0020087 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6838,6 +6987,7 @@ This treatment targets BCGosis (HP:0020087). HP:0020087 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6890,6 +7040,7 @@ This treatment targets BCGosis (HP:0020087). HP:0020087 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6948,6 +7099,7 @@ This treatment targets BCGosis (HP:0020087). HP:0020087 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7000,6 +7152,7 @@ This treatment targets BCGosis (HP:0020087). HP:0020087 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7949,6 +8102,88 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation decisions worth recording.
+Review round 1, on the HPO annotation set for OMIM:614893. Lymphadenitis (HP:0002840, annotated 1 of 2) is deliberately not curated. No cited source reports it in a T80A carrier. The two cached references that mention the word are against it rather than for it: the 830-patient MSMD review uses it to name the local BCG reaction in explicit contrast to the disseminated form this entry curates, and the IFN-gamma review&#39;s lymphadenitis patient carries a different MSMD genotype. The HPO annotation is real curation and may well be right, but adopting it here would assert a phenotype no source in this entry supports.
+BCGitis versus BCGosis. The official annotation is HP:0020086 BCGitis; this entry binds HP:0020087 BCGosis. That is deliberate. The founding report describes disseminated disease, and the MSMD review draws exactly this line, calling the adverse reactions either local (lymphadenitis or BCG-itis) or disseminated (BCG-osis). Binding the local term would understate what these patients had.
+Recurrent infections (HP:0002719, in the same annotation set) is likewise not curated. Both reported carriers were otherwise healthy adults whose only susceptibility was to weakly virulent mycobacteria, which the entry states throughout; a general recurrent-infection phenotype would contradict it.
+Scope. This entry is the partial (autosomal dominant, T80A) form only, as the MONDO term specifies. Complete IRF8 deficiency and the biallelic R83C/R291Q phenotype are curated as differentials rather than subtypes, because the compartment lost differs (monocytes spared versus abolished), the inheritance differs, and the outcome differs. Both are candidates for their own entries.
+The IL-12 node is inferred, and is labelled as such. See the knowledge gap. The incoming edge is typed INDIRECT_UNKNOWN_INTERMEDIATES and its evidence carries directness: INDIRECT for the same reason.
+Phenotype binding is coarser than the finding. HPO has HP:0020178 (Abnormal dendritic cell count) with no directional or subset child term, so the selective CD11c+CD1c+ depletion cannot be bound at the specificity the literature reports it at. The specific finding is carried in preferred_term, which the ontology term contract permits.
+Deep research. An OpenScientist report is committed with the entry. It supplied the IRF8 dose-dependence argument, the HPO annotation set for OMIM:614893, the pooled MSMD cohort figures, and the dominant-negative allele as a fourth phenotype. One of its identifiers was wrong and is not used here: it offered NCIT:C20495 for &#34;Interferon Gamma&#34;, and that code is Interferon Beta. The entry binds NCIT:C100089, Interferon Gamma-1b, which names the recombinant protein the treatment actually is. Nothing flagged the report&#39;s error, because its own term-validation section did not check the NCIT terms. That validation could not be run inside the research recipe at all until three non-ontology prefixes were skipped; see the notes on issue #10396.
+Frequency bands drawn from the pooled MSMD cohort are marked as such. The lymphadenopathy, fever and granuloma phenotypes carry directness: INDIRECT because their denominators are all 830 MSMD patients across 21 genes, not the two reported T80A carriers. They are included because they are the HPO-annotated findings for this OMIM entry, but a reader should not take those percentages as IRF8-specific.
+No GeneReviews chapter exists for this disorder. PubMed searches for &#34;Mendelian susceptibility to mycobacterial disease GeneReviews&#34; and &#34;IRF8 GeneReviews&#34; both returned zero records, so there is no expert-curated phenotype baseline to cross-reference and the phenotype list is drawn from the primary literature.
+The recessive K108E sentence is quoted on the DC-depletion node deliberately. It describes a different disease, and its explanation says so: it is cited as the contrast that establishes the dominant allele&#39;s loss is selective rather than globally milder. Reading it as evidence for this entry&#39;s own cellular phenotype would be wrong.
+The counselling entry reaches the pathograph through target_phenotypes rather than target_mechanisms. Its actionable content is avoidance of live BCG vaccination, so the phenotype it addresses is BCGosis, the manifestation that exposure produces in a carrier. It is prevention rather than treatment, which the description says and the INDIRECT grading on its evidence records; no TreatmentEffectEnum value describes removing an exposure, so asserting a target_mechanisms link into the causal chain would have overstated it.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 2: correct the notes sentence that named the superseded NCIT term</strong> · 2026-09-06T08:44:41Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Partial_IRF8_Deficiency/2026-09-06T084441Z-claude-code-3b0c5e.yaml">View source</a></p>
+                        <p class="research-review-text">One blocking finding, and it was introduced by the previous fix push rather than by the original curation. Taking review suggestion 8 rebound the interferon gamma therapeutic_agent from NCIT:C583 to NCIT:C100089 Interferon Gamma-1b, but the deep-research paragraph in notes still said in the present tense that the entry uses NCIT:C583. That paragraph exists to stop a future curator repeating the report&#39;s binding error, so it was the worst possible sentence to leave stale. Corrected to name NCIT:C100089 and to say what it is. The reviewer also noted that the same sentence opened with Two of its identifiers were wrong and then listed one identifier plus a process gap; reworded so the count matches what follows and the term-validation gap is a separate sentence. Prose only: no evidence, terms, bindings or structure touched. Validation: schema, terms, 31/31 snippets, entity refs, causal targets, duplicate keys, enum values clean; five whole-KB gates report nothing naming this entry; no cache change; NCIT:C583 no longer appears anywhere in the file.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: MSMD due to partial IRF8 deficiency (IRF8 T80A)</strong> · 2026-09-05T19:37:37Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Partial_IRF8_Deficiency/2026-09-05T193737Z-claude-code-ff2478.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of MSMD due to partial IRF8 deficiency (MONDO:0013957, IRF8
+T80A), claimed at #11153. entry_type resolved to DISEASE and the stub deleted.
+
+Deep research: one OpenScientist run, committed as
+research/Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Partial_IRF8_Deficiency-deep-research-openscientist.md
+with its citations sidecar and artifacts. It contributed the IRF8
+dose-dependence argument (PMID:40680811), the HPO annotation set for
+OMIM:614893, the pooled 830-patient MSMD cohort figures (PMID:38341181), the
+IL-12/23-IFN-gamma convergence statement (PMID:42183200) and the
+dominant-negative allele as a fourth IRF8 phenotype (PMID:40072380).
+
+Report validation. The run exited 3 before writing either validation section,
+so both were retrofitted. Reference validation: 12/12 resolved, 0 unresolved.
+Term validation could not be run by `just validate-research-terms` at all until
+MedGen, GARD and DOID were passed as extra --skip-prefix values; the failure is
+deterministic rather than the transient timeout described in #10396, and that
+distinction was reported on that issue. With those skipped the section reports
+40 terms, 31 resolved, 0 unresolved, and one label mismatch that is an artifact
+of the template line &#39;MONDO:0013957 (if available)&#39;.
+
+One report identifier was wrong and was not used: NCIT:C20495 offered as
+&#34;Interferon Gamma&#34; is Interferon Beta. The entry binds NCIT:C583 (Recombinant
+Interferon Gamma) instead. The report&#39;s own term validation did not check the
+NCIT terms, so nothing flagged it; it was caught by resolving every CURIE
+independently before binding.
+
+Scope decision. The entry covers the autosomal dominant partial form only.
+Complete (recessive K108E) IRF8 deficiency, the biallelic R83C/R291Q phenotype
+and the dominant-negative c.1279dupT phenotype are curated as differentials, on
+the grounds that the compartment lost, the inheritance and the outcome all
+differ. Two of them are candidates for their own entries.
+
+Two things deliberately not asserted. The IL-12 production node is inferred from
+the position of conventional dendritic cells in the MSMD circuit, not measured
+in a T80A carrier; its incoming edge is INDIRECT_UNKNOWN_INTERMEDIATES, its
+evidence carries directness: INDIRECT, and a KNOWLEDGE_GAP with a proposed
+whole-blood assay is attached. Frequency bands for lymphadenopathy, fever and
+granuloma come from the pooled MSMD cohort across 21 genes, not from the two
+reported T80A carriers, and are marked INDIRECT for that reason.
+
+No GeneReviews chapter exists for this disorder; PubMed searches for
+&#34;Mendelian susceptibility to mycobacterial disease GeneReviews&#34; and
+&#34;IRF8 GeneReviews&#34; both returned zero records.
+
+Validation: just validate passes schema, terms and 27/27 snippets;
+check-entity-refs, check-causal-targets, check-duplicate-keys and
+check-enum-values are clean. Seven references fetched during research but not
+cited by the entry were pruned from references_cache rather than staged.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

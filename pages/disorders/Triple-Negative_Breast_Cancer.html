@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3805,7 +3873,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Triple-Negative%20Breast%20Cancer"
@@ -3956,7 +4024,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3985,7 +4053,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4044,7 +4112,7 @@
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
@@ -4309,6 +4377,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"BL1 and BL2 subtypes had higher expression of cell cycle and DNA damage response genes, and representative cell lines preferentially responded to cisplatin."</div>
@@ -4366,6 +4435,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4429,6 +4499,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The LAR subtype includes patients with decreased relapse-free survival and was characterized by androgen receptor (AR) signaling. LAR cell lines were uniquely sensitive to bicalutamide (an AR antagonist)."</div>
@@ -4489,6 +4560,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Cluster analysis identified 6 TNBC subtypes displaying unique GE and ontologies, including 2 basal-like (BL1 and BL2), an immunomodulatory (IM), a mesenchymal (M), a mesenchymal stem-like (MSL), and a luminal androgen receptor (LAR) subtype."</div>
@@ -4526,11 +4598,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-hormone-receptor-signaling" data-dismech-node="Loss of Hormone Receptor Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Hormone Receptor Signaling</div>
+
 
                 <div class="item-desc">TNBC lacks expression of estrogen receptor alpha (ESR1) and progesterone receptor (PGR), eliminating the growth-promoting effects of estrogen signaling that drive most breast cancers. This absence removes a key therapeutic target but also indicates fundamentally different tumor biology.</div>
 
@@ -4622,6 +4695,7 @@ This pathophysiological event involves absent estrogen receptor signaling pathwa
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4644,6 +4718,7 @@ This pathophysiological event involves absent estrogen receptor signaling pathwa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alternative-oncogenic-pathways" data-dismech-node="Alternative Oncogenic Pathways" data-dismech-type="pathophysiology">
                 <div class="item-name">Alternative Oncogenic Pathways</div>
+
 
                 <div class="item-desc">In the absence of hormone receptor signaling, TNBC is driven by alternative oncogenic pathways including EGFR signaling, PI3K-AKT-mTOR activation, and Wnt/beta-catenin signaling. Many TNBCs have TP53 mutations eliminating this tumor suppressor checkpoint.</div>
 
@@ -4758,6 +4833,7 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-repair-deficiency" data-dismech-node="DNA Repair Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">DNA Repair Deficiency</div>
 
+
                 <div class="item-desc">A significant subset of TNBC (~20%) harbors germline or somatic BRCA1/2 mutations resulting in homologous recombination deficiency. This creates sensitivity to platinum chemotherapy and PARP inhibitors through synthetic lethality.</div>
 
 
@@ -4848,6 +4924,7 @@ This pathophysiological event involves decreased homologous recombination (GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4870,6 +4947,7 @@ This pathophysiological event involves decreased homologous recombination (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-instability" data-dismech-node="Genomic Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Genomic Instability</div>
+
 
                 <div class="item-desc">Loss of high-fidelity double-strand-break repair, compounded by near-universal TP53 inactivation, produces a mutator phenotype and pervasive chromosomal instability. This is the enabling characteristic that supplies the driver lesions feeding the alternative oncogenic pathways and aggressive behavior of TNBC.</div>
 
@@ -4995,6 +5073,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5017,6 +5096,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-mediated-immune-suppression" data-dismech-node="Macrophage-Mediated Immune Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage-Mediated Immune Suppression</div>
+
 
                 <div class="item-desc">The TNBC microenvironment is immunosuppressive, with pro-inflammatory M1 macrophage polarization suppressed. Apolipoprotein C-II (APOC2) is upregulated in TNBC tissue and inversely correlates with M1 macrophage infiltration; overexpressing it in tumor cells suppresses M1 polarization and promotes tumor growth, so the effect on macrophages is tumor-cell-extrinsic. KLHL1 (a Cullin3-RING E3 ubiquitin ligase substrate adaptor) degrades APOC2 via the ubiquitin-proteasome pathway and reverses this immunosuppressive phenotype by restoring M1 polarization.</div>
 
@@ -5149,7 +5229,15 @@ This pathophysiological event involves decreased M1 macrophage polarization, ann
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Aggressive Tumor Behavior</span>
 
-	                            <span class="crosslink-desc">Immune suppression through macrophage polarization skewing promotes tumor progression</span>
+	                            <span class="crosslink-desc">Suppression of M1 polarization promotes tumor progression.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intratumoral CXCL9 Deficiency</span>
+
+	                            <span class="crosslink-desc">Macrophages are a principal source of the CD8-recruiting chemokine CXCL9, so an immunosuppressed macrophage compartment leaves the tumor short of it.</span>
 
 
 	                        </div>
@@ -5173,6 +5261,7 @@ This pathophysiological event involves decreased M1 macrophage polarization, ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5200,6 +5289,7 @@ This pathophysiological event involves decreased M1 macrophage polarization, ann
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5224,6 +5314,7 @@ This pathophysiological event involves decreased M1 macrophage polarization, ann
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5244,8 +5335,481 @@ This pathophysiological event involves decreased M1 macrophage polarization, ann
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-intratumoral-cxcl9-deficiency" data-dismech-node="Intratumoral CXCL9 Deficiency" data-dismech-type="pathophysiology">
+                <div class="item-name">Intratumoral CXCL9 Deficiency</div>
+
+
+                <div class="item-desc">CXCL9 is the dominant CXCR3 ligand recruiting cytotoxic T lymphocytes into solid tumors, and tumor-associated macrophages are a principal source of it. Where the macrophage compartment is immunosuppressed, intratumoral CXCL9 is low, and in breast cancer its expression tracks with both immune infiltration and survival. Restoring it is sufficient to pull CTLs back into the tumor, which is what makes the deficiency causal rather than merely correlated.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        tumor-associated macrophage
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000235</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves tumor-associated macrophage, annotated with macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        TREM2-positive tumor-associated macrophage
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_4047053" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:4047053</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves TREM2-positive tumor-associated macrophage, annotated with TREM2-positive macrophage (CL:4047053). CL:4047053 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CXCL9
+
+
+    <a href="https://bioregistry.io/hgnc:7098" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:7098</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CXCL9 (hgnc:7098). hgnc:7098 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TREM2
+
+
+    <a href="https://bioregistry.io/hgnc:17761" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:17761</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TREM2 (hgnc:17761). hgnc:17761 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        CXCL9-CXCR3 chemokine signaling
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0070098" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0070098</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased CXCL9-CXCR3 chemokine signaling, annotated with chemokine-mediated signaling pathway (GO:0070098). GO:0070098 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cytotoxic T Lymphocyte Exclusion</span>
+
+	                            <span class="crosslink-desc">Too little CXCL9 in the tumor means too little CXCR3-driven chemotaxis of CD8-positive T cells across the tumor margin.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41588017" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41588017" target="_blank">PMID:41588017</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"analysis of human datasets (TCGA-BRCA and Kim cohorts) revealed that tumor necrosis factor superfamily member 9 (TNFSF9) and C-X-C motif chemokine ligand (CXCL9) expressions correlate with improved prognosis and enhanced immune cell infiltration"</div>
+
+
+                <div class="evidence-explanation">Human breast-cancer cohorts tie CXCL9 expression to immune infiltration and outcome. Graded INDIRECT because a positive correlation between higher CXCL9 and better infiltration is the claim read backwards; it establishes the axis, not that low CXCL9 is what excludes the T cells.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42726873" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42726873" target="_blank">PMID:42726873</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"targets the protein triggering receptor expressed on myeloid cells 2 (TREM2) expressed by tumor-associated macrophages (TAMs)"</div>
+
+
+                <div class="evidence-explanation">Establishes TREM2 as a surface marker of the tumor-associated macrophages this node binds, which is what the CL:4047053 binding asserts. The quoted sentence states the premise the paper&#39;s targeting strategy rests on, not a result it produced, so quote_role is BACKGROUND. The paper&#39;s own experiments are murine, but this sentence reports no experiment at all, which is why evidence_source is OTHER rather than MODEL_ORGANISM.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytotoxic-t-lymphocyte-exclusion" data-dismech-node="Cytotoxic T Lymphocyte Exclusion" data-dismech-type="pathophysiology">
+                <div class="item-name">Cytotoxic T Lymphocyte Exclusion</div>
+
+
+                <div class="item-desc">TNBC tumors are poorly infiltrated by CD8-positive cytotoxic T lymphocytes, which is the proximate reason immune checkpoint blockade benefits only a minority of patients: a drug that releases a brake on T cells does little where the T cells are not present. Supplying CXCL9 reverses the exclusion in model systems.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        CD8-positive cytotoxic T lymphocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000625</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8-positive cytotoxic T lymphocyte, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        T cell chemotaxis into the tumor
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0010818" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0010818</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased T cell chemotaxis into the tumor, annotated with T cell chemotaxis (GO:0010818). GO:0010818 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aggressive Tumor Behavior</span>
+
+	                            <span class="crosslink-desc">Without cytotoxic T cells in the tumor, immune control of outgrowth is lost.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41588017" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41588017" target="_blank">PMID:41588017</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Due to limited tumor immune infiltration in TNBC, the effectiveness of immunotherapy is constrained"</div>
+
+
+                <div class="evidence-explanation">States the node for TNBC specifically, and the consequence that makes it matter clinically. quote_role BACKGROUND records that the sentence is the paper&#39;s framing rather than a result it reports, and evidence_source is OTHER because the sentence itself reports no study.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42726873" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42726873" target="_blank">PMID:42726873</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"codelivery of a Toll-like receptor agonist and CXCL9-encoding mRNA encapsulated in our Ab-LNP successfully ameliorates immunosuppression and improves tumor infiltration and activity of CTLs"</div>
+
+
+                <div class="evidence-explanation">A therapeutic rescue cited as validation of the mechanism it targets: restoring CXCL9 to TREM2-positive macrophages improves CTL infiltration, so the exclusion is CXCL9-dependent and reversible. INDIRECT because the claim follows from the intervention working rather than being asserted, and the system is an orthotopic mouse model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aggressive-tumor-behavior" data-dismech-node="Aggressive Tumor Behavior" data-dismech-type="pathophysiology">
                 <div class="item-name">Aggressive Tumor Behavior</div>
+
 
                 <div class="item-desc">TNBC is characterized by high proliferation rates, early metastasis (especially to viscera and brain), and shorter time to recurrence compared to other breast cancer subtypes. The aggressive biology reflects activation of multiple oncogenic pathways and loss of tumor suppressors.</div>
 
@@ -5268,11 +5832,11 @@ This pathophysiological event involves decreased M1 macrophage polarization, ann
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0008283</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5319,6 +5883,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5381,6 +5946,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Invasive ductal carcinoma (IDC) is the most common type of breast cancer,"</div>
@@ -5421,7 +5987,7 @@ This pathophysiological event involves increased cell population proliferation (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive Tumor Behavior\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TNBC is characterized by high proliferation rates, early metastasis (especially to viscera and brain), and shorter time to recurrence compared to other breast cancer subtypes. The aggressive biology reflects activation of multiple oncogenic pathways and loss of tumor suppressors.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Alternative Oncogenic Pathways\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the absence of hormone receptor signaling, TNBC is driven by alternative oncogenic pathways including EGFR signaling, PI3K-AKT-mTOR activation, and Wnt/beta-catenin signaling. Many TNBCs have TP53 mutations eliminating this tumor suppressor checkpoint.\", \"meta\": {\"biological_processes\": [\"epidermal growth factor receptor signaling pathway\", \"phosphatidylinositol 3-kinase signaling\"]}}, {\"id\": \"DNA Repair Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A significant subset of TNBC (~20%) harbors germline or somatic BRCA1/2 mutations resulting in homologous recombination deficiency. This creates sensitivity to platinum chemotherapy and PARP inhibitors through synthetic lethality.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"homologous recombination\"]}}, {\"id\": \"Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of high-fidelity double-strand-break repair, compounded by near-universal TP53 inactivation, produces a mutator phenotype and pervasive chromosomal instability. This is the enabling characteristic that supplies the driver lesions feeding the alternative oncogenic pathways and aggressive behavior of TNBC.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\", \"chromosome segregation\"]}}, {\"id\": \"Loss of Hormone Receptor Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TNBC lacks expression of estrogen receptor alpha (ESR1) and progesterone receptor (PGR), eliminating the growth-promoting effects of estrogen signaling that drive most breast cancers. This absence removes a key therapeutic target but also indicates fundamentally different tumor biology.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"estrogen receptor signaling pathway\"]}}, {\"id\": \"Macrophage-Mediated Immune Suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The TNBC microenvironment is immunosuppressive, with pro-inflammatory M1 macrophage polarization suppressed. Apolipoprotein C-II (APOC2) is upregulated in TNBC tissue and inversely correlates with M1 macrophage infiltration; overexpressing it in tumor cells suppresses M1 polarization and promotes tumor growth, so the effect on macrophages is tumor-cell-extrinsic. KLHL1 (a Cullin3-RING E3 ubiquitin ligase substrate adaptor) degrades APOC2 via the ubiquitin-proteasome pathway and reverses this immunosuppressive phenotype by restoring M1 polarization.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"M1 macrophage\"], \"biological_processes\": [\"inflammatory response\", \"M1 macrophage polarization\"]}}], \"edges\": [{\"source\": \"Loss of Hormone Receptor Signaling\", \"target\": \"Alternative Oncogenic Pathways\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Other signaling pathways drive proliferation in absence of ER\"}, {\"source\": \"Alternative Oncogenic Pathways\", \"target\": \"Aggressive Tumor Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multiple activated pathways drive aggressive phenotype\"}, {\"source\": \"DNA Repair Deficiency\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DNA repair defects lead to mutation accumulation\"}, {\"source\": \"Genomic Instability\", \"target\": \"Aggressive Tumor Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated driver lesions and chromosomal instability fuel clonal evolution and the aggressive clinical course.\"}, {\"source\": \"Macrophage-Mediated Immune Suppression\", \"target\": \"Aggressive Tumor Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune suppression through macrophage polarization skewing promotes tumor progression\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive Tumor Behavior\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TNBC is characterized by high proliferation rates, early metastasis (especially to viscera and brain), and shorter time to recurrence compared to other breast cancer subtypes. The aggressive biology reflects activation of multiple oncogenic pathways and loss of tumor suppressors.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Alternative Oncogenic Pathways\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the absence of hormone receptor signaling, TNBC is driven by alternative oncogenic pathways including EGFR signaling, PI3K-AKT-mTOR activation, and Wnt/beta-catenin signaling. Many TNBCs have TP53 mutations eliminating this tumor suppressor checkpoint.\", \"meta\": {\"biological_processes\": [\"epidermal growth factor receptor signaling pathway\", \"phosphatidylinositol 3-kinase signaling\"]}}, {\"id\": \"Cytotoxic T Lymphocyte Exclusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TNBC tumors are poorly infiltrated by CD8-positive cytotoxic T lymphocytes, which is the proximate reason immune checkpoint blockade benefits only a minority of patients: a drug that releases a brake on T cells does little where the T cells are not present. Supplying CXCL9 reverses the exclusion in model systems.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive cytotoxic T lymphocyte\"], \"biological_processes\": [\"T cell chemotaxis into the tumor\"]}}, {\"id\": \"DNA Repair Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A significant subset of TNBC (~20%) harbors germline or somatic BRCA1/2 mutations resulting in homologous recombination deficiency. This creates sensitivity to platinum chemotherapy and PARP inhibitors through synthetic lethality.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"homologous recombination\"]}}, {\"id\": \"Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of high-fidelity double-strand-break repair, compounded by near-universal TP53 inactivation, produces a mutator phenotype and pervasive chromosomal instability. This is the enabling characteristic that supplies the driver lesions feeding the alternative oncogenic pathways and aggressive behavior of TNBC.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\", \"chromosome segregation\"]}}, {\"id\": \"Intratumoral CXCL9 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CXCL9 is the dominant CXCR3 ligand recruiting cytotoxic T lymphocytes into solid tumors, and tumor-associated macrophages are a principal source of it. Where the macrophage compartment is immunosuppressed, intratumoral CXCL9 is low, and in breast cancer its expression tracks with both immune infiltration and survival. Restoring it is sufficient to pull CTLs back into the tumor, which is what makes the deficiency causal rather than merely correlated.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"tumor-associated macrophage\", \"TREM2-positive tumor-associated macrophage\"], \"biological_processes\": [\"CXCL9-CXCR3 chemokine signaling\"], \"genes\": [\"CXCL9\", \"TREM2\"], \"gene_terms\": [{\"label\": \"CXCL9\", \"id\": \"hgnc:7098\"}, {\"label\": \"TREM2\", \"id\": \"hgnc:17761\"}]}}, {\"id\": \"Loss of Hormone Receptor Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TNBC lacks expression of estrogen receptor alpha (ESR1) and progesterone receptor (PGR), eliminating the growth-promoting effects of estrogen signaling that drive most breast cancers. This absence removes a key therapeutic target but also indicates fundamentally different tumor biology.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"estrogen receptor signaling pathway\"]}}, {\"id\": \"Macrophage-Mediated Immune Suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The TNBC microenvironment is immunosuppressive, with pro-inflammatory M1 macrophage polarization suppressed. Apolipoprotein C-II (APOC2) is upregulated in TNBC tissue and inversely correlates with M1 macrophage infiltration; overexpressing it in tumor cells suppresses M1 polarization and promotes tumor growth, so the effect on macrophages is tumor-cell-extrinsic. KLHL1 (a Cullin3-RING E3 ubiquitin ligase substrate adaptor) degrades APOC2 via the ubiquitin-proteasome pathway and reverses this immunosuppressive phenotype by restoring M1 polarization.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"M1 macrophage\"], \"biological_processes\": [\"inflammatory response\", \"M1 macrophage polarization\"]}}], \"edges\": [{\"source\": \"Loss of Hormone Receptor Signaling\", \"target\": \"Alternative Oncogenic Pathways\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Other signaling pathways drive proliferation in absence of ER\"}, {\"source\": \"Alternative Oncogenic Pathways\", \"target\": \"Aggressive Tumor Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multiple activated pathways drive aggressive phenotype\"}, {\"source\": \"DNA Repair Deficiency\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DNA repair defects lead to mutation accumulation\"}, {\"source\": \"Genomic Instability\", \"target\": \"Aggressive Tumor Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated driver lesions and chromosomal instability fuel clonal evolution and the aggressive clinical course.\"}, {\"source\": \"Macrophage-Mediated Immune Suppression\", \"target\": \"Aggressive Tumor Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suppression of M1 polarization promotes tumor progression.\"}, {\"source\": \"Macrophage-Mediated Immune Suppression\", \"target\": \"Intratumoral CXCL9 Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macrophages are a principal source of the CD8-recruiting chemokine CXCL9, so an immunosuppressed macrophage compartment leaves the tumor short of it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intratumoral CXCL9 Deficiency\", \"target\": \"Cytotoxic T Lymphocyte Exclusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Too little CXCL9 in the tumor means too little CXCR3-driven chemotaxis of CD8-positive T cells across the tumor margin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cytotoxic T Lymphocyte Exclusion\", \"target\": \"Aggressive Tumor Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without cytotoxic T cells in the tumor, immune control of outgrowth is lost.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5471,15 +6037,18 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003002</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003002</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5518,15 +6087,18 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002664</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002664</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HPO has no generic metastasis term, so this is bound to the coarse parent HP:0002664 Neoplasm. The binding does not convey the metastatic or visceral specificity described here.</div>
@@ -5558,15 +6130,18 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002664</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002664</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5586,6 +6161,7 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5669,10 +6245,10 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:11998</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5684,6 +6260,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -5702,6 +6281,7 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5742,10 +6322,10 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                         Gene: BRCA1
 
 
-    <a href="https://bioregistry.io/hgnc:1100" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:1100</a>
+    <a href="https://bioregistry.io/hgnc:1100" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:1100</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is BRCA1 (hgnc:1100). hgnc:1100 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5757,6 +6337,9 @@ This disease-associated gene is BRCA1 (hgnc:1100). hgnc:1100 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE_AND_SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -5783,10 +6366,10 @@ This disease-associated gene is BRCA1 (hgnc:1100). hgnc:1100 is a gene from the 
                         Gene: PIK3CA
 
 
-    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:8975</a>
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:8975</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5798,6 +6381,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -5832,7 +6418,7 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Neoadjuvant Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Neoadjuvant Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Neoadjuvant Chemotherapy (NCIT:C213450). NCIT:C213450 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5872,6 +6458,12 @@ This treatment is Neoadjuvant Chemotherapy (NCIT:C213450). NCIT:C213450 is a cli
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Standard treatment includes anthracycline and taxane-based regimens given before surgery. Pathologic complete response (pCR) rates are higher in TNBC than other subtypes and strongly predict long-term outcomes.</div>
 
 
@@ -5893,6 +6485,7 @@ This treatment is Neoadjuvant Chemotherapy (NCIT:C213450). NCIT:C213450 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5922,7 +6515,7 @@ This treatment is Neoadjuvant Chemotherapy (NCIT:C213450). NCIT:C213450 is a cli
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5964,16 +6557,22 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-19">NCIT:C106432</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C106432</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6009,6 +6608,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Among patients with early triple-negative breast cancer, the percentage with a pathological complete response was significantly higher among those who received pembrolizumab plus neoadjuvant chemotherapy than among those who received placebo plus neoadjuvant chemotherapy."</div>
@@ -6035,7 +6635,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6076,6 +6676,12 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Olaparib and talazoparib are approved for germline BRCA-mutated metastatic TNBC. They exploit synthetic lethality in HRD-positive tumors unable to repair DNA double-strand breaks.</div>
 
 
@@ -6097,6 +6703,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6126,7 +6733,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6167,16 +6774,22 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C102783" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C102783</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C102783" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C102783</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses sacituzumab govitecan (NCIT:C102783). NCIT:C102783 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6212,6 +6825,7 @@ This treatment uses sacituzumab govitecan (NCIT:C102783). NCIT:C102783 is a ther
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Progression-free and overall survival were significantly longer with sacituzumab govitecan than with single-agent chemotherapy among patients with metastatic triple-negative breast cancer."</div>
@@ -6238,7 +6852,7 @@ This treatment uses sacituzumab govitecan (NCIT:C102783). NCIT:C102783 is a ther
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6279,6 +6893,12 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Carboplatin improves pCR rates in neoadjuvant therapy, particularly in BRCA-mutated or HRD-positive TNBC. Used in combination with taxanes.</div>
 
 
@@ -6300,6 +6920,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6883,7 +7504,175 @@ pathophysiology:
       reversal by KLHL1, in a tumor-bearing animal rather than in culture.
   downstream:
   - target: Aggressive Tumor Behavior
-    description: Immune suppression through macrophage polarization skewing promotes tumor progression
+    description: Suppression of M1 polarization promotes tumor progression.
+    evidence:
+    - reference: PMID:42600954
+      reference_title: KLHL1 suppresses triple-negative breast cancer progression by promoting M1 macrophage polarization via APOC2 degradation.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;in vivo xenograft experiments demonstrated that APOC2 reduced M1 macrophage polarization and increased tumor weight and volume, whereas KLHL1 overexpression counteracted the oncogenic effects of APOC2&#34;
+      explanation: &gt;-
+        Evidences the edge rather than either node it joins: the same manipulation
+        that reduces M1 polarization increases tumor weight and volume, and
+        reversing it reverses both.
+  - target: Intratumoral CXCL9 Deficiency
+    causal_link_type: DIRECT
+    description: &gt;-
+      Macrophages are a principal source of the CD8-recruiting chemokine CXCL9, so
+      an immunosuppressed macrophage compartment leaves the tumor short of it.
+    evidence:
+    - reference: PMID:42168200
+      reference_title: Macrophage ALDH2 drives immunotherapy resistance by silencing CXCL9 through metabolic-epigenetic crosstalk.
+      supports: SUPPORT
+      directness: DIRECT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Myeloid-restricted ALDH2 ablation converts TAMs from a pro-tumorigenic phenotype to immunostimulatory regulators, concomitantly amplifying CD8+ T cell infiltration and cytotoxicity to improve ICB responsiveness&#34;
+      explanation: &gt;-
+        Reversing the macrophage immunosuppressive phenotype restores the CXCL9
+        output and the CD8 infiltration that depends on it, which is this edge
+        read in the rescue direction.
+- name: Intratumoral CXCL9 Deficiency
+  biological_scale: TISSUE
+  description: &gt;-
+    CXCL9 is the dominant CXCR3 ligand recruiting cytotoxic T lymphocytes into
+    solid tumors, and tumor-associated macrophages are a principal source of it.
+    Where the macrophage compartment is immunosuppressed, intratumoral CXCL9 is
+    low, and in breast cancer its expression tracks with both immune infiltration
+    and survival. Restoring it is sufficient to pull CTLs back into the tumor,
+    which is what makes the deficiency causal rather than merely correlated.
+  notes: &gt;-
+    The human evidence here is expression-correlative (TCGA-BRCA and the Kim
+    cohorts) and the interventional evidence is from mouse models, so the node is
+    stated as a chemokine deficiency in the tumor microenvironment rather than as
+    a measured CXCL9 concentration in patient tissue. No study cited here reports
+    the latter.
+  cell_types:
+  - preferred_term: tumor-associated macrophage
+    term:
+      id: CL:0000235
+      label: macrophage
+  - preferred_term: TREM2-positive tumor-associated macrophage
+    term:
+      id: CL:4047053
+      label: TREM2-positive macrophage
+  biological_processes:
+  - preferred_term: CXCL9-CXCR3 chemokine signaling
+    modifier: DECREASED
+    term:
+      id: GO:0070098
+      label: chemokine-mediated signaling pathway
+  genes:
+  - preferred_term: CXCL9
+    term:
+      id: hgnc:7098
+      label: CXCL9
+  - preferred_term: TREM2
+    term:
+      id: hgnc:17761
+      label: TREM2
+  evidence:
+  - reference: PMID:41588017
+    reference_title: Co-delivery of chemokine CXCL9 and costimulatory ligand TNFSF9 by mesenchymal stem cells reprograms the immune microenvironment for triple-negative breast cancer.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;analysis of human datasets (TCGA-BRCA and Kim cohorts) revealed that tumor necrosis factor superfamily member 9 (TNFSF9) and C-X-C motif chemokine ligand (CXCL9) expressions correlate with improved prognosis and enhanced immune cell infiltration&#34;
+    explanation: &gt;-
+      Human breast-cancer cohorts tie CXCL9 expression to immune infiltration and
+      outcome. Graded INDIRECT because a positive correlation between higher CXCL9
+      and better infiltration is the claim read backwards; it establishes the axis,
+      not that low CXCL9 is what excludes the T cells.
+  - reference: PMID:42726873
+    reference_title: Targeting tumor-associated macrophages using mRNA lipid nanoparticles for cytotoxic T lymphocyte-mediated cancer immunotherapy.
+    supports: SUPPORT
+    directness: DIRECT
+    quote_role: BACKGROUND
+    evidence_source: OTHER
+    snippet: &#34;targets the protein triggering receptor expressed on myeloid cells 2 (TREM2) expressed by tumor-associated macrophages (TAMs)&#34;
+    explanation: &gt;-
+      Establishes TREM2 as a surface marker of the tumor-associated macrophages
+      this node binds, which is what the CL:4047053 binding asserts. The quoted
+      sentence states the premise the paper&#39;s targeting strategy rests on, not a
+      result it produced, so quote_role is BACKGROUND. The paper&#39;s own
+      experiments are murine, but this sentence reports no experiment at all,
+      which is why evidence_source is OTHER rather than MODEL_ORGANISM.
+  downstream:
+  - target: Cytotoxic T Lymphocyte Exclusion
+    causal_link_type: DIRECT
+    description: &gt;-
+      Too little CXCL9 in the tumor means too little CXCR3-driven chemotaxis of
+      CD8-positive T cells across the tumor margin.
+    evidence:
+    - reference: PMID:42168200
+      reference_title: Macrophage ALDH2 drives immunotherapy resistance by silencing CXCL9 through metabolic-epigenetic crosstalk.
+      supports: SUPPORT
+      directness: DIRECT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Subsequent CXCL9 derepression in TAMs facilitates persistent CD8+ T cell infiltration and enhances their cytotoxic effector functions&#34;
+      explanation: &gt;-
+        States the edge itself: relieving the block on macrophage CXCL9 is what
+        produces CD8 infiltration, so the deficiency is what withholds it.
+- name: Cytotoxic T Lymphocyte Exclusion
+  biological_scale: TISSUE
+  description: &gt;-
+    TNBC tumors are poorly infiltrated by CD8-positive cytotoxic T lymphocytes,
+    which is the proximate reason immune checkpoint blockade benefits only a
+    minority of patients: a drug that releases a brake on T cells does little
+    where the T cells are not present. Supplying CXCL9 reverses the exclusion in
+    model systems.
+  cell_types:
+  - preferred_term: CD8-positive cytotoxic T lymphocyte
+    term:
+      id: CL:0000625
+      label: CD8-positive, alpha-beta T cell
+  biological_processes:
+  - preferred_term: T cell chemotaxis into the tumor
+    modifier: DECREASED
+    term:
+      id: GO:0010818
+      label: T cell chemotaxis
+  evidence:
+  - reference: PMID:41588017
+    reference_title: Co-delivery of chemokine CXCL9 and costimulatory ligand TNFSF9 by mesenchymal stem cells reprograms the immune microenvironment for triple-negative breast cancer.
+    supports: SUPPORT
+    directness: DIRECT
+    quote_role: BACKGROUND
+    evidence_source: OTHER
+    snippet: &#34;Due to limited tumor immune infiltration in TNBC, the effectiveness of immunotherapy is constrained&#34;
+    explanation: &gt;-
+      States the node for TNBC specifically, and the consequence that makes it
+      matter clinically. quote_role BACKGROUND records that the sentence is the
+      paper&#39;s framing rather than a result it reports, and evidence_source is
+      OTHER because the sentence itself reports no study.
+  - reference: PMID:42726873
+    reference_title: Targeting tumor-associated macrophages using mRNA lipid nanoparticles for cytotoxic T lymphocyte-mediated cancer immunotherapy.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;codelivery of a Toll-like receptor agonist and CXCL9-encoding mRNA encapsulated in our Ab-LNP successfully ameliorates immunosuppression and improves tumor infiltration and activity of CTLs&#34;
+    explanation: &gt;-
+      A therapeutic rescue cited as validation of the mechanism it targets:
+      restoring CXCL9 to TREM2-positive macrophages improves CTL infiltration, so
+      the exclusion is CXCL9-dependent and reversible. INDIRECT because the claim
+      follows from the intervention working rather than being asserted, and the
+      system is an orthotopic mouse model.
+  downstream:
+  - target: Aggressive Tumor Behavior
+    causal_link_type: DIRECT
+    description: &gt;-
+      Without cytotoxic T cells in the tumor, immune control of outgrowth is lost.
+    evidence:
+    - reference: PMID:41588017
+      reference_title: Co-delivery of chemokine CXCL9 and costimulatory ligand TNFSF9 by mesenchymal stem cells reprograms the immune microenvironment for triple-negative breast cancer.
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;effectively suppresses TNBC growth by reprogramming the intra-tumoral immune landscape&#34;
+      explanation: &gt;-
+        Reversing the infiltration deficit suppresses tumor growth, which is this
+        edge read in the rescue direction. INDIRECT because the growth effect is
+        attributed to the immune landscape as a whole rather than to CD8
+        infiltration in isolation.
 - name: Aggressive Tumor Behavior
   description: &gt;-
     TNBC is characterized by high proliferation rates, early metastasis (especially
@@ -7403,8 +8192,37 @@ datasets:
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
-                    <span class="card-count">2</span>
+                    <span class="card-count">3</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Add the CXCL9 / cytotoxic-T-cell-exclusion arm downstream of macrophage immune suppression</strong> · 2026-09-13T06:50:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Triple_Negative_Breast_Cancer/2026-09-13T065016Z-claude-code-16ba3e.yaml">View source</a></p>
+                        <p class="research-review-text">Extends the immune arm that PR #9543 opened. That PR added Macrophage-Mediated Immune Suppression (APOC2/KLHL1 -&gt; M1 polarization) with a single bare edge to Aggressive Tumor Behavior; this adds the chain that connects macrophage immunosuppression to the entry&#39;s clinical problem, and evidences that bare edge.
+
+New nodes: Intratumoral CXCL9 Deficiency (TISSUE) and Cytotoxic T Lymphocyte Exclusion (TISSUE). Chain is Macrophage-Mediated Immune Suppression -&gt; Intratumoral CXCL9 Deficiency -&gt; Cytotoxic T Lymphocyte Exclusion -&gt; Aggressive Tumor Behavior, with every edge carrying its own evidence rather than borrowing a node&#39;s.
+
+The entry previously had no immune pathophysiology beyond #9543&#39;s node, despite carrying an Immunomodulatory subtype and pembrolizumab as a treatment. The exclusion node is what makes that treatment&#39;s limited benefit legible: a drug that releases a brake on T cells does little where the T cells are not present.
+
+Three references, all newly cached. PMID:42726873 (Chen et al., Sci Adv 2026) is the TREM2-targeted mRNA-LNP paper the user supplied as a PDF; its PMID was confirmed against the DOI 10.1126/sciadv.aed9568 and first author before use, and only its abstract is cached, so the paper&#39;s human CXCL9/CD8A correlation (r=0.8191) and Kaplan-Meier data are deliberately not cited - they are in the Results, which the cache does not carry. PMID:42168200 supplies the macrophage-CXCL9-CD8 mechanism. PMID:41588017 supplies the human TNBC anchor (TCGA-BRCA and Kim cohorts) and the statement of limited infiltration in TNBC.
+
+Evidence grading is deliberately mixed and mostly not DIRECT: two items are therapeutic-rescue arguments (restoring CXCL9 improves CTL infiltration; reprogramming the immune landscape suppresses growth), which are INDIRECT per the directness rule - the claim follows from the intervention working rather than being asserted. The human cohort item is INDIRECT too, because a positive CXCL9-infiltration correlation is the deficiency claim read backwards. The TNBC infiltration statement is graded OTHER because it is that paper&#39;s background framing, not a result it reports.
+
+Ontology: CL:4047053 TREM2-positive macrophage and CL:0000625 CD8-positive, alpha-beta T cell were both looked up and label-verified against OLS before binding (CL:4047053 is new to the KB; its two cache rows are the only cache change). CL:0000235, GO:0070098, GO:0010818, hgnc:7098 and hgnc:17761 came from the committed caches. No CURIE was written from memory.
+
+Two deep-research reports exist for this entry and neither supports this axis: the committed openscientist report mentions CXCL9, TREM2, TAMs and CD8 zero times, and the falcon report states in its own limitations that myeloid and site-specific immunosuppression papers were not directly accessible in its evidence set. Sources were therefore found by PubMed search from the supplied paper outward, and that is recorded here rather than left implicit. The openscientist report also mislabels HP:0031416 and HP:0030075 and carries one unsupported quote (PMID:42373230); none of those were used.
+
+A notes field on the CXCL9 node records that the human evidence is expression-correlative and the interventional evidence is murine, so the node claims a microenvironmental deficiency rather than a measured patient-tissue CXCL9 concentration, which no cited study reports.
+
+Validated: just validate (schema + 27/27 snippets verified, up from 19/19), just validate-terms, just check-entity-refs, just check-causal-targets, just check-duplicate-keys, just check-qualifier-terms, plus the batched just validate-disorders and the whole-KB snippet gates.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7587,6 +8405,632 @@ Triple-negative breast cancer is defined by the absence of ER, PR, and HER2 expr
                     </div>
                 </div>
 
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>OpenScientist</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+
+                        <div class="report-meta">
+
+                            <div class="report-subtitle">Triple-Negative Breast Cancer (MONDO:0005494): A Comprehensive Disease Characteristics Report</div>
+
+
+                            <span class="report-badge">openscientist-autonomous</span>
+
+
+                            <span class="report-badge">57 citations</span>
+
+
+                            <span class="report-meta-text">2026-09-12T18:19:36.556961</span>
+
+                        </div>
+
+                        <div class="report-content">
+                            <h1>Triple-Negative Breast Cancer (MONDO:0005494): A Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>Triple-negative breast cancer (TNBC)</strong> is an aggressive, molecularly heterogeneous subtype of invasive breast carcinoma that accounts for approximately <strong>10–15% of all new breast cancer diagnoses</strong>. It is operationally defined by the absence of three receptors on tumor immunohistochemistry: estrogen receptor (ER), progesterone receptor (PR), and lack of amplification/overexpression of human epidermal growth factor receptor 2 (HER2). This receptor-negative phenotype removes the two most successful therapeutic targets in breast oncology — endocrine therapy and HER2-directed agents — leaving cytotoxic chemotherapy, and more recently immunotherapy and biology-guided targeted agents, as the therapeutic backbone. TNBC disproportionately affects younger women, women of African ancestry, premenopausal women, and germline <em>BRCA1</em> mutation carriers, and it is a major contributor to racial disparities in breast cancer mortality.</p>
+<p>Mechanistically, TNBC is best understood as a <strong>TP53-mutant, homologous-recombination–deficient (HRD) disease</strong>. Near-universal <em>TP53</em> mutation (with combined loss-of-function and oncogenic gain-of-function) cooperates with loss of homologous-recombination (HR) DNA repair — arising from germline or somatic <em>BRCA1/2</em>, <em>PALB2</em>, and <em>RAD51</em> pathway defects, or from epigenetic <em>BRCA1</em> promoter hypermethylation ("BRCAness") — to produce profound genomic instability. This drives a highly proliferative, basal-like tumor cell that undergoes early hematogenous spread with a strong tropism for visceral organs and brain. Superimposed metabolic reprogramming (Warburg glycolysis and glutamine addiction) supports rapid proliferation and stress resistance. TNBC resolves into four tumor-intrinsic transcriptomic subtypes — <strong>basal-like 1 (BL1), basal-like 2 (BL2), mesenchymal (M), and luminal androgen receptor (LAR)</strong> — that differ in biology, prognosis, and therapy response.</p>
+<p>Clinically, the HRD/genomic-instability biology has become therapeutically actionable. Standard of care now includes <strong>neoadjuvant pembrolizumab plus chemotherapy (KEYNOTE-522)</strong> for stage II–III disease, <strong>PARP inhibitors (olaparib, talazoparib)</strong> exploiting synthetic lethality in germline-<em>BRCA</em>-mutated tumors, the <strong>Trop-2 antibody–drug conjugate sacituzumab govitecan</strong> for metastatic disease, and <strong>androgen-receptor blockade</strong> for the LAR subtype. Tumor-infiltrating lymphocytes (TILs) predict chemoimmunotherapy response. Despite these advances, metastatic TNBC still carries a dismal prognosis (~12-month median overall survival), and prevention in hereditary disease relies on risk-reducing surgery and intensified surveillance in <em>BRCA1/2</em> carriers. This report synthesizes 14 confirmed findings across 65 reviewed papers into the full 15-section disease knowledge template. No primary patient-level data files were provided; all statements are aggregated disease-level evidence from primary literature and reviews.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>1. Disease Information</h3>
+<p>TNBC is a subtype of invasive breast carcinoma "with a poor prognosis and aggressive behavior that accounts for 10-15% of all new cases of breast cancer... characterized by the absence of progesterone and estrogen receptor expression and lacks gene amplification or overexpression of HER2" (<a href="https://pubmed.ncbi.nlm.nih.gov/37044296/">PMID: 37044296</a>). It is a molecular/immunohistochemical classification rather than a distinct histologic entity — most TNBCs are invasive ductal carcinomas of no special type, frequently high-grade (grade 3) and basal-like.</p>
+<p><strong>Key identifiers and ontology terms:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td>MONDO:0005494 (triple-negative breast cancer)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Triple Negative Breast Neoplasms (D064726)</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>C50.x (malignant neoplasm of breast; TNBC not separately coded)</td>
+</tr>
+<tr>
+<td>ICD-O morphology</td>
+<td>8500/3 (invasive ductal carcinoma NST, most common)</td>
+</tr>
+<tr>
+<td>NCIT</td>
+<td>C71732 (Triple-Negative Breast Carcinoma)</td>
+</tr>
+<tr>
+<td>Disease Ontology</td>
+<td>DOID:0060081</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Synonyms / alternative names:</strong> triple-negative breast carcinoma; ER-/PR-/HER2- breast cancer; basal-like breast cancer (overlapping but not identical — see below); ductal breast carcinoma triple-negative.</p>
+<p><strong>Source of information:</strong> This report is derived predominantly from <em>aggregated disease-level resources</em> — clinical trials, molecular profiling cohorts (TCGA), registry data (SEER), and mechanistic literature — rather than individual EHR records.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors and risk factors.</strong> TNBC arises from acquired and inherited defects in genome maintenance. Established epidemiological risk factors are well characterized: "Risk factors for TNBC include young age at breast cancer diagnosis, young age at menarche, high parity, lack of breast feeding, high body mass index and African American ethnicity. The majority of BRCA1 tumours are TNBC" (<a href="https://pubmed.ncbi.nlm.nih.gov/21080741/">PMID: 21080741</a>).</p>
+<ul>
+<li><strong>Genetic risk factors:</strong> Germline pathogenic variants confer graded risk. In multigene panel testing, "Germline pathogenic variants in BARD1, BRCA1, BRCA2, PALB2, and RAD51D were associated with high risk (odds ratio &gt; 5.0) of TNBC," while BRIP1, RAD51C, and TP53 conferred moderate risk (OR &gt; 2) (<a href="https://pubmed.ncbi.nlm.nih.gov/30099541/">PMID: 30099541</a>). <em>BRCA1</em> is the dominant hereditary driver, and the majority of <em>BRCA1</em>-associated tumors are triple-negative.</li>
+<li><strong>Environmental/reproductive risk factors:</strong> young age at menarche, high parity, lack of breastfeeding, high BMI/obesity, and African American ethnicity (<a href="https://pubmed.ncbi.nlm.nih.gov/21080741/">PMID: 21080741</a>).</li>
+<li><strong>Protective factors:</strong> Breastfeeding is protective (its absence is a risk factor). In <em>BRCA</em> carriers post-oophorectomy, estrogen-only hormone replacement therapy was <strong>not</strong> associated with increased breast cancer risk and each year was associated with reduced risk (HR 0.90, 95% CI 0.81–0.99; and HR 0.87 in <em>BRCA1</em> carriers) (<a href="https://pubmed.ncbi.nlm.nih.gov/41949865/">PMID: 41949865</a>).</li>
+<li><strong>Gene–environment interactions:</strong> Obesity and ancestry interact with tumor immunobiology — in a balanced Black/White TNBC cohort, immune deconvolution showed higher abundance of several immune cell populations in tumors from Black women, though neither Black race nor obesity was intrinsically predictive of poor outcome after balancing for stage and subtype (<a href="https://pubmed.ncbi.nlm.nih.gov/41224793/">PMID: 41224793</a>).</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<p>TNBC most commonly presents as a <strong>palpable breast mass</strong> (HP:0031416, breast mass), often growing rapidly. In an imaging cohort, TNBC was associated with presentation on breast exam (56%), palpability (59.1%), more invasive ductal carcinoma (92.4%), higher stage (stage III, 16.5%), and higher grade (grade 3, 82.7%), and notably <em>lower</em> mammographic breast density (<a href="https://pubmed.ncbi.nlm.nih.gov/31927471/">PMID: 31927471</a>).</p>
+<table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO suggestion</th>
+<th>Characteristics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Breast mass / palpable lump</td>
+<td>HP:0031416</td>
+<td>Adult-onset; often rapidly enlarging; frequently interval (between screens)</td>
+</tr>
+<tr>
+<td>High tumor grade (grade 3)</td>
+<td>—</td>
+<td>82.7% grade 3; severe/aggressive</td>
+</tr>
+<tr>
+<td>Visceral metastasis</td>
+<td>HP:0030075 (neoplasm of lung), liver/lung involvement</td>
+<td>Early; poor prognosis</td>
+</tr>
+<tr>
+<td>Brain metastasis</td>
+<td>HP:0030692 (brain neoplasm)</td>
+<td>Overrepresented in rapid-relapse TNBC (10.9%)</td>
+</tr>
+<tr>
+<td>Lymph node metastasis</td>
+<td>HP:0002716</td>
+<td>Common at presentation</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Age of onset:</strong> adult, skewing younger than other breast cancers (basal subtype significantly more common in patients aged &lt;50 and premenopausal women; <a href="https://pubmed.ncbi.nlm.nih.gov/37482851/">PMID: 37482851</a>). <strong>Severity/progression:</strong> severe, progressive, with early distant relapse. <strong>Quality of life:</strong> In metastatic disease, PARP inhibition improved health-related QoL versus chemotherapy (global health status difference 7.5 points, 95% CI 2.48–12.44, P=0.0035; <a href="https://pubmed.ncbi.nlm.nih.gov/31446213/">PMID: 31446213</a>).</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>TP53 and BRCA1/2 are the dominant genomic drivers.</strong> In germline <em>BRCA</em>-mutated early TNBC (NEOTALA/talazoparib cohort), "Ninety-eight percent of patients had TP53 mutations," and "Strong concordance (97.8%) was observed between tumor BRCA and germline BRCA mutations, and 90.5% (38/42)... were predicted to exhibit BRCA loss of heterozygosity (LOH)" (<a href="https://pubmed.ncbi.nlm.nih.gov/38869771/">PMID: 38869771</a>).</p>
+<ul>
+<li><strong>Causal genes:</strong> <em>TP53</em> (OMIM 191170), <em>BRCA1</em> (OMIM 113705), <em>BRCA2</em> (OMIM 600185), <em>PALB2</em>, <em>RAD51C/D</em>, <em>BARD1</em>, <em>BRIP1</em> (HGNC-approved symbols). High-risk (OR&gt;5): <em>BARD1, BRCA1, BRCA2, PALB2, RAD51D</em>; moderate-risk (OR&gt;2): <em>BRIP1, RAD51C, TP53</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30099541/">PMID: 30099541</a>).</li>
+<li><strong>Somatic vs germline:</strong> <em>BRCA</em> alterations occur both germline and somatically, with distinct biological/clinical patterns; somatic alterations "should not be interpreted in isolation and require integration with germline status" (<a href="https://pubmed.ncbi.nlm.nih.gov/42492369/">PMID: 42492369</a>). Whole-exome sequencing of Indian TNBC found ~106 mutations/sample, recurrent somatic mutations in <em>CTNNB1</em> (47%), <em>TP53</em> (33%), <em>PIK3CA</em>, <em>BRCA1/2</em>, and mutational signature 3 (HR-repair failure) associated with high tumor mutational burden (<a href="https://pubmed.ncbi.nlm.nih.gov/41324770/">PMID: 41324770</a>).</li>
+<li><strong>Variant classification/type:</strong> Pathogenic germline <em>BRCA1</em> founder-type frameshifts (e.g., c.66_67delAG [185delAG], c.3226_3227delAG) reported in TNBC; somatic <em>TP53</em> missense predominate (<a href="https://pubmed.ncbi.nlm.nih.gov/34097676/">PMID: 34097676</a>).</li>
+<li><strong>Functional consequences:</strong> <em>BRCA1/2</em> loss = loss of function → HRD; mutant <em>TP53</em> combines loss of function with oncogenic gain of function (see Finding 13 below).</li>
+<li><strong>Epigenetic information:</strong> "Aberrant methylation patterns are characterized by promoter hypermethylation of tumor suppressor genes (BRCA1, CDH1, PTEN, RARβ)... and global hypomethylation that activates oncogenes and promotes genomic instability" (<a href="https://pubmed.ncbi.nlm.nih.gov/40925466/">PMID: 40925466</a>). <em>BRCA1</em> promoter hypermethylation phenocopies <em>BRCA1</em> loss ("BRCAness").</li>
+<li><strong>Chromosomal abnormalities:</strong> Genomic instability, chromosomal instability, centrosome amplification, and copy-number alterations mirroring TCGA are characteristic (<a href="https://pubmed.ncbi.nlm.nih.gov/33267874/">PMID: 33267874</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30859564/">PMID: 30859564</a>).</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Lifestyle factors:</strong> high BMI/obesity, high parity, lack of breastfeeding, and young age at menarche are the established modifiable/reproductive contributors (<a href="https://pubmed.ncbi.nlm.nih.gov/21080741/">PMID: 21080741</a>).</li>
+<li><strong>Environmental/social determinants:</strong> Residential racialized economic segregation independently affects outcomes — patients in the most deprived counties had higher breast cancer–specific mortality (HR 1.14) and late-stage diagnosis (OR 1.15), explaining ~28% of the excess Black-vs-White mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/40105752/">PMID: 40105752</a>).</li>
+<li><strong>Infectious agents:</strong> Not applicable — TNBC is not caused by an infectious agent. (Iatrogenic infection risk, e.g., parvovirus B19 during immunochemotherapy, is a treatment complication, not a cause; <a href="https://pubmed.ncbi.nlm.nih.gov/42500288/">PMID: 42500288</a>.)</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Causal chain (initiating lesion → clinical manifestation):</strong></p>
+<pre><code>1. Germline or somatic loss of BRCA1/BRCA2/PALB2/RAD51 pathway
+   —OR— epigenetic BRCA1 promoter hypermethylation (&quot;BRCAness&quot;)
+│  leads to
+▼
+2. Homologous-recombination deficiency (HRD) — inability to accurately
+   repair DNA double-strand breaks
+│  results in
+▼
+3. Near-universal TP53 mutation (loss-of-function + gain-of-function),
+   abrogating G2/M checkpoint and apoptosis
+│  leads to
+▼
+4. Genomic instability: chromosomal instability, centrosome
+   amplification, loss of heterozygosity, high mutational burden
+│  drives
+▼
+5. Emergence of a highly proliferative, poorly differentiated
+   basal-like tumor cell (EGFR+, CK5/6+, high Ki67)
+│  supported by
+▼
+6. Metabolic reprogramming — Warburg aerobic glycolysis + glutamine
+   addiction — fueling biosynthesis, redox/ferroptosis defense
+│  enables
+▼
+7. Invasion, EMT, and early hematogenous dissemination
+│  results in
+▼
+8. Visceral- and brain-tropic metastasis, chemoresistant relapse,
+   and death (~12-month median OS in metastatic disease)
+
+   BRANCH (LAR subtype): androgen-receptor–driven signaling defines a
+   distinct, chemo-resistant, AR-targetable trajectory.
+</code></pre>
+<p><strong>Molecular detail.</strong></p>
+<ul>
+<li><strong>Mutant TP53 gain-of-function.</strong> "the R181C mutation leads to 'loss-of-function' of transcriptional regulating tumor suppressor genes like p21, bax, and PUMA as well as 'gain-of-function' of transcriptional regulating tumor promoting genes of PIK3CA, SHC1, SRC and PAK4. This dysregulation promotes genomic instability" (<a href="https://pubmed.ncbi.nlm.nih.gov/41484250/">PMID: 41484250</a>). Mutant p53 also drives loss of the wild-type allele: "we observed profound stabilization of mutp53 protein, the loss of p21 expression, the abrogation of G2/M checkpoint, chromosomal instability, centrosome amplification" (via Nek2 upregulation; <a href="https://pubmed.ncbi.nlm.nih.gov/33267874/">PMID: 33267874</a>). <em>GO terms:</em> GO:0006281 (DNA repair), GO:0000724 (double-strand break repair via homologous recombination), GO:0007049 (cell cycle), GO:0006915 (apoptotic process).</li>
+<li><strong>HRD synthetic lethality.</strong> "Poly(ADP-ribose) polymerase (PARP) inhibitors exploit this deficiency through synthetic lethality... especially in BRCA1 or BRCA2 mutation carriers" (<a href="https://pubmed.ncbi.nlm.nih.gov/29753961/">PMID: 29753961</a>). Basal-like/TNBC tumors "share several histo-molecular characteristics with BRCA1-deficient tumors, including genomic instability and reduced BRCA1 expression beyond germline-mutated cases" (<a href="https://pubmed.ncbi.nlm.nih.gov/42394702/">PMID: 42394702</a>).</li>
+<li><strong>Metabolic reprogramming.</strong> TNBC exhibits the Warburg effect and glutamine addiction: "the addiction of TNBC to Gln could facilitate the proliferation and invasiveness of these cancers. Thus, Gln metabolism inhibitors, such as CB-839, could be applied" (<a href="https://pubmed.ncbi.nlm.nih.gov/34083056/">PMID: 34083056</a>). Integrated omics in MDA-MB-231 show glutamine drives reductive TCA lipogenesis/sterol synthesis (SREBF1/2) while glucose "licens[es] chromatin engagement, DNA replication, and mitotic progression" (<a href="https://pubmed.ncbi.nlm.nih.gov/42373230/">PMID: 42373230</a>). <em>CHEBI:</em> glutamine (CHEBI:28300), glucose (CHEBI:17234), lactate (CHEBI:24996).</li>
+<li><strong>Immune microenvironment.</strong> TILs shape prognosis and therapy response; the immunomodulatory signal reflects infiltrating lymphocytes and varies by subtype (highest in BL1; <a href="https://pubmed.ncbi.nlm.nih.gov/30312311/">PMID: 30312311</a>).</li>
+<li><strong>Cell types (CL):</strong> basal/luminal-progenitor mammary epithelial cell (CL:0002326, luminal epithelial cell of mammary gland; CL:0000646 basal cell), tumor-infiltrating T lymphocyte (CL:0000084), regulatory T cell (CL:0000815).</li>
+</ul>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organ:</strong> breast (UBERON:0000310), specifically mammary gland epithelium/ductal-lobular units (UBERON:0002114 duct; mammary gland epithelium).</li>
+<li><strong>Tissue/cell:</strong> epithelial tissue; basal-like tumors express EGFR and cytokeratin 5/6 and arise from a basal/luminal-progenitor lineage.</li>
+<li><strong>Secondary organ involvement (metastatic tropism):</strong> lung, liver, bone, lymph nodes, and brain. In a real-world sacituzumab govitecan cohort, metastatic sites were lymph nodes (60.9%), bone (43.0%), lung (42.6%), liver (33.2%), brain (26.2%) (<a href="https://pubmed.ncbi.nlm.nih.gov/42413328/">PMID: 42413328</a>). Rapid-relapse TNBC preferentially presents with visceral (74.9%) and brain (10.9%) metastases (<a href="https://pubmed.ncbi.nlm.nih.gov/42499497/">PMID: 42499497</a>).</li>
+<li><strong>Subcellular (GO CC):</strong> nucleus (GO:0005634, site of TP53/BRCA DNA-repair defects), centrosome (GO:0005813, amplified), mitochondrion (GO:0005739, metabolic rewiring).</li>
+<li><strong>Lateralization:</strong> unilateral at presentation (as in most breast cancers), bilateral risk elevated in <em>BRCA</em> carriers.</li>
+<li><strong>UBERON:</strong> breast (UBERON:0000310), mammary gland (UBERON:0001911), lung (UBERON:0002048), liver (UBERON:0002107), brain (UBERON:0000955), bone (UBERON:0002481), lymph node (UBERON:0000029).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> adult-onset, skewing younger/premenopausal; basal subtype significantly more common in patients &lt;50 and premenopausal women (<a href="https://pubmed.ncbi.nlm.nih.gov/37482851/">PMID: 37482851</a>).</li>
+<li><strong>Progression:</strong> rapid. TNBC is graded by AJCC stage; stage III independently predicts worse recurrence-free survival (HR 2.18) and distant metastasis-free survival (HR 2.43) (<a href="https://pubmed.ncbi.nlm.nih.gov/42292008/">PMID: 42292008</a>).</li>
+<li><strong>Disease course:</strong> aggressive, progressive, with a characteristic early relapse peak. "Rapid relapse" TNBC (distant metastasis/death within 24 months) is associated with platinum resistance and visceral/CNS tropism (<a href="https://pubmed.ncbi.nlm.nih.gov/42499497/">PMID: 42499497</a>).</li>
+<li><strong>Critical period / window of opportunity:</strong> the neoadjuvant setting — achieving pathologic complete response (pCR) is the key early prognostic milestone and intervention window (KEYNOTE-522).</li>
+<li><strong>Remission:</strong> treatment-induced (pCR after neoadjuvant chemoimmunotherapy); spontaneous remission is not a feature.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> ~10–15% of all breast cancers (<a href="https://pubmed.ncbi.nlm.nih.gov/37044296/">PMID: 37044296</a>); basal-like ~15–20% of cases (<a href="https://pubmed.ncbi.nlm.nih.gov/42394702/">PMID: 42394702</a>).</li>
+<li><strong>Inheritance:</strong> the hereditary fraction follows <strong>autosomal dominant</strong> transmission of <em>BRCA1/2</em>, <em>PALB2</em>, <em>RAD51</em> pathway variants with incomplete, age-dependent penetrance; the disease itself is multifactorial/polygenic. Founder <em>BRCA1</em> variants (e.g., 185delAG) occur (<a href="https://pubmed.ncbi.nlm.nih.gov/34097676/">PMID: 34097676</a>).</li>
+<li><strong>Sex ratio:</strong> overwhelmingly female (as with breast cancer generally).</li>
+<li><strong>Population demographics:</strong> Higher incidence and worse outcomes in Black/African American women and younger women. "Black women experience a 36% higher mortality rate" than White women, partly attributable to higher prevalence of aggressive subtypes such as TNBC (<a href="https://pubmed.ncbi.nlm.nih.gov/42320849/">PMID: 42320849</a>). SEER analyses show young Black women with TNBC and Asian women &lt;50 carry elevated hazard ratios (<a href="https://pubmed.ncbi.nlm.nih.gov/41896553/">PMID: 41896553</a>). In African American women with invasive breast cancer, 64.1% met NCCN genetic-testing criteria; pathogenic mutations concentrated in <em>BRCA2</em> (29.4%) and <em>BRCA1</em> (15.7%) (<a href="https://pubmed.ncbi.nlm.nih.gov/33083949/">PMID: 33083949</a>).</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<p><strong>Core diagnosis is immunohistochemistry demonstrating ER-negative, PR-negative, HER2-negative status</strong> (with HER2 confirmed by ISH if IHC equivocal). Within TNBC, basal-like tumors are identified by additional markers: "Basal subtype was significantly more common in patients aged &lt;50 years at diagnosis, premenopausal women, patients with positive nodal status, those with grade III tumours, and patients with Ki67 proliferation marker &gt;20% (p&lt;0.05)" — basal markers being EGFR and CK5/6 (<a href="https://pubmed.ncbi.nlm.nih.gov/37482851/">PMID: 37482851</a>). An IHC combination of high CK19 + high Ki-67 + E-cadherin loss identified the worst relapse-free and overall survival (<a href="https://pubmed.ncbi.nlm.nih.gov/39435793/">PMID: 39435793</a>).</p>
+<ul>
+<li><strong>Imaging:</strong> mammography (TNBC associated with lower mammographic density), MRI, ultrasound; TNBC often presents as an interval/palpable mass (<a href="https://pubmed.ncbi.nlm.nih.gov/31927471/">PMID: 31927471</a>). Trop-2-directed PET/CT is emerging (<a href="https://pubmed.ncbi.nlm.nih.gov/42559486/">PMID: 42559486</a>).</li>
+<li><strong>Biopsy/pathology:</strong> core-needle biopsy with histopathology (usually invasive ductal carcinoma NST, grade 3) plus IHC panel.</li>
+<li><strong>Genetic testing:</strong> Germline multigene panel testing (BRCA1/2, PALB2, RAD51C/D, BARD1, BRIP1, TP53) is recommended given the high hereditary yield (<a href="https://pubmed.ncbi.nlm.nih.gov/30099541/">PMID: 30099541</a>); tumor BRCA and germline BRCA show 97.8% concordance (<a href="https://pubmed.ncbi.nlm.nih.gov/38869771/">PMID: 38869771</a>). NCCN criteria capture the majority but miss ~12.5% of African American mutation carriers (<a href="https://pubmed.ncbi.nlm.nih.gov/33083949/">PMID: 33083949</a>).</li>
+<li><strong>Omics/transcriptomic diagnostics:</strong> Lehmann TNBCtype-4 subtyping (BL1, BL2, M, LAR) and PAM50, plus HRD/genomic scar scores and DNA-damage-repair signatures, refine classification and predict therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/27310713/">PMID: 27310713</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37334114/">PMID: 37334114</a>).</li>
+<li><strong>Predictive biomarkers:</strong> PD-L1 (immunotherapy), germline/somatic BRCA and HRD (PARP inhibitors), TILs (pCR), Trop-2 (ADC), AR (LAR subtype).</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<p>TNBC has the worst stage-adjusted prognosis of the major breast cancer subtypes. <strong>Metastatic TNBC "bears a dismal prognosis with an average survival of 12 months"</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29753961/">PMID: 29753961</a>). In a large real-world PD-L1-negative metastatic cohort (n=929), "Median rwOS and rwPFS... were 12.2 (10.7, 14.4) months and 4.7 (4.5, 5.2) months" (<a href="https://pubmed.ncbi.nlm.nih.gov/42554864/">PMID: 42554864</a>).</p>
+<table>
+<thead>
+<tr>
+<th>Prognostic factor</th>
+<th>Direction</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stage III</td>
+<td>Worse RFS (HR 2.18), DMFS (HR 2.43)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42292008/">PMID: 42292008</a></td>
+</tr>
+<tr>
+<td>TILs present</td>
+<td>Better (higher pCR: 70% vs 48%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42360368/">PMID: 42360368</a></td>
+</tr>
+<tr>
+<td>pCR achieved</td>
+<td>Better EFS/OS</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42607489/">PMID: 42607489</a></td>
+</tr>
+<tr>
+<td>Basal markers (EGFR/CK5/6, CK19+Ki67+/E-cad loss)</td>
+<td>Worse RFS/OS</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39435793/">PMID: 39435793</a></td>
+</tr>
+<tr>
+<td>LAR subtype</td>
+<td>Chemo-resistant, lowest pCR</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29940524/">PMID: 29940524</a></td>
+</tr>
+<tr>
+<td>Low SPDEF expression</td>
+<td>Worse RFS/OS</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42305508/">PMID: 42305508</a></td>
+</tr>
+<tr>
+<td>High miR-1911-3p</td>
+<td>Worse recurrence-free survival (HR 3.04)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42517063/">PMID: 42517063</a></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Racial disparity:</strong> Black women experience 36% higher breast cancer mortality, and residential segregation explains ~28% of the excess mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/42320849/">PMID: 42320849</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40105752/">PMID: 40105752</a>). <strong>Complications</strong> include visceral organ failure from metastasis, CNS metastasis, and treatment toxicities (e.g., immune-related adverse events, cytopenias).</p>
+<h3>12. Treatment</h3>
+<p>TNBC treatment has shifted from chemotherapy-only to <strong>biology-guided, multimodal therapy</strong>.</p>
+<p><strong>Neoadjuvant chemoimmunotherapy (standard for stage II–III).</strong> "Neoadjuvant chemotherapy (NACT) combined with pembrolizumab is now standard care for early-stage, triple-negative breast cancer (TNBC), based on KEYNOTE-522 demonstrating improved pathological complete response (pCR), event-free survival, and overall survival" (<a href="https://pubmed.ncbi.nlm.nih.gov/42607489/">PMID: 42607489</a>). Real-world pCR ~57%, and TILs predict response (70% vs 48% pCR, p=0.0027; TIL-positive 2.44× more likely to achieve pCR; <a href="https://pubmed.ncbi.nlm.nih.gov/42360368/">PMID: 42360368</a>). <em>NCIT:</em> pembrolizumab (C106432).</p>
+<p><strong>PARP inhibitors (germline BRCA).</strong> In OlympiAD, olaparib prolonged PFS versus chemotherapy, with strong benefit in the triple-negative subgroup (PFS HR 0.47, 95% CI 0.32–0.69; <a href="https://pubmed.ncbi.nlm.nih.gov/36971103/">PMID: 36971103</a>), durable long-term survival in first-line metastatic disease (<a href="https://pubmed.ncbi.nlm.nih.gov/36893711/">PMID: 36893711</a>), and improved QoL (<a href="https://pubmed.ncbi.nlm.nih.gov/31446213/">PMID: 31446213</a>). Talazoparib is used in the neoadjuvant germline-<em>BRCA</em> setting (<a href="https://pubmed.ncbi.nlm.nih.gov/38869771/">PMID: 38869771</a>). <em>NCIT:</em> olaparib (C71721), talazoparib (C97316).</p>
+<p><strong>Trop-2 antibody–drug conjugate (metastatic).</strong> Sacituzumab govitecan (SG) delivers durable benefit in real-world mTNBC: median rwPFS 6.4 months, rwOS 13.6 months, ORR/CR+PR 37.5% (<a href="https://pubmed.ncbi.nlm.nih.gov/42413328/">PMID: 42413328</a>). Combination with PD-1 inhibitors ± antiangiogenics improves response in later lines (<a href="https://pubmed.ncbi.nlm.nih.gov/42714605/">PMID: 42714605</a>), and SG synergizes with TRAIL agonists preclinically (<a href="https://pubmed.ncbi.nlm.nih.gov/42601637/">PMID: 42601637</a>). <em>NCIT:</em> sacituzumab govitecan (C124255).</p>
+<p><strong>Androgen-receptor blockade (LAR subtype).</strong> "The partial AR antagonist bicalutamide and the next-generation AR inhibitor enzalutamide are being assessed in standard protocols for the mitigation of TNBC" (<a href="https://pubmed.ncbi.nlm.nih.gov/36612226/">PMID: 36612226</a>). AR blockade induces G1 arrest in AR-positive MDA-MB-453 cells; nuclear AR is detectable in ~30% of TNBC (<a href="https://pubmed.ncbi.nlm.nih.gov/42373057/">PMID: 42373057</a>). The LAR subtype is chemo-resistant with the lowest pCR (<a href="https://pubmed.ncbi.nlm.nih.gov/29940524/">PMID: 29940524</a>). <em>NCIT:</em> bicalutamide (C1685), enzalutamide (C95733).</p>
+<p><strong>Other modalities:</strong> cytotoxic chemotherapy backbone (anthracycline/taxane, platinum for HRD), surgery (breast-conserving or mastectomy), and adjuvant radiotherapy. Experimental: metabolic inhibitors (CB-839/telaglenastat targeting glutaminase; <a href="https://pubmed.ncbi.nlm.nih.gov/34083056/">PMID: 34083056</a>), p53-reactivating small molecules (PRIMA-1/APR-246; <a href="https://pubmed.ncbi.nlm.nih.gov/35234267/">PMID: 35234267</a>), PLK2 inhibitors to disarm mutant p53 (<a href="https://pubmed.ncbi.nlm.nih.gov/39480521/">PMID: 39480521</a>), and iPSC-derived mesothelin-targeted CAR-NK cells (<a href="https://pubmed.ncbi.nlm.nih.gov/37584622/">PMID: 37584622</a>).</p>
+<p><strong>Adverse events:</strong> SG toxicities include alopecia (69.1%), neutropenia (57%), nausea, anemia, diarrhea (<a href="https://pubmed.ncbi.nlm.nih.gov/42413328/">PMID: 42413328</a>); pembrolizumab carries immune-related adverse events and rare severe cytopenias (<a href="https://pubmed.ncbi.nlm.nih.gov/42500288/">PMID: 42500288</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42314326/">PMID: 42314326</a>).</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention (hereditary):</strong> For <em>BRCA1/2</em> carriers, guideline strategies include risk-reducing mastectomy, risk-reducing bilateral salpingo-oophorectomy (RRBSO), and intensified MRI surveillance. In a population-based cohort, "Of those without a prior breast cancer (n = 1021), 20.8% underwent bilateral mastectomy... 71.8% underwent RRBSO" (<a href="https://pubmed.ncbi.nlm.nih.gov/42166900/">PMID: 42166900</a>); breast MRI uptake was ~31–33% (<a href="https://pubmed.ncbi.nlm.nih.gov/42647762/">PMID: 42647762</a>).</li>
+<li><strong>Secondary prevention:</strong> breast screening (mammography/MRI in high-risk women); TNBC's lower mammographic density and interval-cancer tendency underscore the value of supplemental MRI in carriers.</li>
+<li><strong>Genetic counseling and cascade testing:</strong> identify carriers for prevention; decision-coaching reduces decisional conflict and increases decision-making in carriers with open family planning (<a href="https://pubmed.ncbi.nlm.nih.gov/42607047/">PMID: 42607047</a>). Disparities in counseling access persist for young Black women (<a href="https://pubmed.ncbi.nlm.nih.gov/25868867/">PMID: 25868867</a>).</li>
+<li><strong>Behavioral/public-health:</strong> weight management, breastfeeding, and addressing socioeconomic/segregation drivers of late-stage diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/40105752/">PMID: 40105752</a>).</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<p>Spontaneous triple-negative mammary carcinoma occurs naturally in companion animals, providing immunocompetent comparative models. "Feline invasive mammary carcinomas are characterized by their high clinical aggressiveness, rare expression of hormone receptors, and pathological resemblance to human breast cancer, especially triple-negative breast cancer" — including an immune-suppressed, FOXP3+ Treg-infiltrated basal-like subgroup mirroring human TNBC immunobiology (<a href="https://pubmed.ncbi.nlm.nih.gov/31959092/">PMID: 31959092</a>). In dogs, mammary epitheliosis "was a slow-growing, triple-negative process with a strong predominance of basal-like nonmyoepithelial cells" (CK14+) associated with malignancy (<a href="https://pubmed.ncbi.nlm.nih.gov/35451346/">PMID: 35451346</a>).</p>
+<ul>
+<li><strong>Taxonomy:</strong> <em>Felis catus</em> (NCBI:txid9685), <em>Canis lupus familiaris</em> (NCBI:txid9615), <em>Mus musculus</em> (NCBI:txid10090).</li>
+<li><strong>Orthologous genes:</strong> <em>Trp53</em>, <em>Brca1</em>, <em>Brca2</em> (mouse orthologs of human <em>TP53</em>, <em>BRCA1</em>, <em>BRCA2</em>).</li>
+<li><strong>Veterinary relevance:</strong> naturally occurring, immunocompetent, spontaneously arising — valuable for microenvironment and immunotherapy studies.</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<p>TNBC is studied across in vitro, in vivo, and ex vivo systems.</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Examples</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Human cell lines</td>
+<td>MDA-MB-231 (basal/mesenchymal), MDA-MB-453 (LAR), MDA-MB-468, HCC1806, HCC1937</td>
+<td>Mechanistic, drug testing</td>
+</tr>
+<tr>
+<td>Syngeneic mouse</td>
+<td>4T1</td>
+<td>Immunocompetent metastasis/immunotherapy (<a href="https://pubmed.ncbi.nlm.nih.gov/33727591/">PMID: 33727591</a>)</td>
+</tr>
+<tr>
+<td>Patient-derived xenografts</td>
+<td>61-PDX panel</td>
+<td>Recapitulate molecular heterogeneity (<a href="https://pubmed.ncbi.nlm.nih.gov/30859564/">PMID: 30859564</a>)</td>
+</tr>
+<tr>
+<td>Organoids</td>
+<td>Patient-derived</td>
+<td>Precision phototherapy/drug testing (<a href="https://pubmed.ncbi.nlm.nih.gov/38532439/">PMID: 38532439</a>)</td>
+</tr>
+<tr>
+<td>iPSC-derived</td>
+<td>CAR-NK (mesothelin-targeted)</td>
+<td>Immunotherapy development (<a href="https://pubmed.ncbi.nlm.nih.gov/37584622/">PMID: 37584622</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>PDX fidelity: "TNBC PDX represent all of the various TNBC subtypes identified by the Lehmann classification except for immunomodulatory subtype, which is underrepresented in PDX. NGS and copy number data showed a similar diversity of significantly mutated gene and somatic copy number alteration in PDX and the Cancer Genome Atlas TNBC patients" (<a href="https://pubmed.ncbi.nlm.nih.gov/30859564/">PMID: 30859564</a>). <strong>Limitation:</strong> the immunomodulatory/TIL-driven biology is underrepresented in immunodeficient xenografts — a key gap given the therapeutic importance of TILs and immunotherapy.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>TNBC is best conceptualized not as a single disease but as a <strong>convergent phenotype of genome-maintenance failure</strong> landing on the mammary epithelium. Two upstream lesions dominate and cooperate:</p>
+<ol>
+<li><strong>HR-repair collapse</strong> (BRCA1/2/PALB2/RAD51 mutation or <em>BRCA1</em> promoter hypermethylation) removes the cell's ability to faithfully repair double-strand breaks.</li>
+<li><strong>TP53 loss/gain-of-function</strong> removes the checkpoint that would otherwise arrest or eliminate genomically damaged cells, and actively upregulates oncogenic programs (PIK3CA, SRC, PAK4).</li>
+</ol>
+<p>Together these produce runaway <strong>genomic instability</strong> — the disease's central engine — which manifests as chromosomal instability, LOH, centrosome amplification, and high mutational burden. Downstream, this instability generates a basal-like, highly proliferative tumor (EGFR+, CK5/6+, Ki67-high) that is metabolically rewired (Warburg glycolysis + glutamine addiction) to sustain proliferation and resist oxidative/ferroptotic stress. The tumor disseminates early, with a distinctive visceral and brain tropism, producing the disease's poor prognosis.</p>
+<p>Crucially, the same instability that makes TNBC aggressive is its <strong>therapeutic Achilles heel</strong>: HRD confers synthetic-lethal sensitivity to PARP inhibitors and platinum, high mutational/neoantigen burden invites checkpoint immunotherapy (potentiated where TILs are present), and surface Trop-2 offers an ADC target. The four transcriptomic subtypes (BL1/BL2/M/LAR) overlay biological trajectories onto this core, with LAR representing a distinct AR-driven, chemo-resistant but AR-targetable branch. The persistent racial disparity is a product of both biology (higher TNBC prevalence in Black and young women) and structural factors (segregation, delayed diagnosis, unequal access to genetic services).</p>
+<pre><code>HR-repair loss ──┐
+   (BRCA1/2, PALB2,      │
+    RAD51; or BRCA1      ├──► GENOMIC INSTABILITY ──► basal-like tumor ──► early visceral/
+    hypermethylation)    │    (the engine)             + metabolic          brain metastasis
+         │                              rewiring            ──► ~12-mo mOS (mets)
+TP53 LOF+GOF ────┘                                                        │
+                                                                  ▼
+   Therapeutic corollary: PARPi (HRD) · platinum · pembrolizumab (TMB/TILs) ·
+          sacituzumab govitecan (Trop-2) · AR blockade (LAR)
+</code></pre>
+<hr />
+<h2>Evidence Base</h2>
+<table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Supports / Challenges</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37044296/">37044296</a></td>
+<td>Definition, 10–15% prevalence, receptor-negativity</td>
+<td>Supports Finding 1</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21080741/">21080741</a></td>
+<td>Epidemiological risk factors, BRCA1 association</td>
+<td>Supports Findings 1–2</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27310713/">27310713</a></td>
+<td>TNBCtype-4 subtypes (BL1/BL2/M/LAR)</td>
+<td>Supports Finding 2</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38869771/">38869771</a></td>
+<td>98% TP53, 97.8% BRCA concordance, 90.5% LOH</td>
+<td>Supports Finding 3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30099541/">30099541</a></td>
+<td>Panel-based risk genes (OR&gt;5 high-risk)</td>
+<td>Supports Finding 3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42607489/">42607489</a></td>
+<td>KEYNOTE-522 standard of care</td>
+<td>Supports Finding 4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42360368/">42360368</a></td>
+<td>TILs predict pCR (70% vs 48%)</td>
+<td>Supports Finding 4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36971103/">36971103</a></td>
+<td>Olaparib PFS HR 0.47 in TNBC</td>
+<td>Supports Finding 5</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29753961/">29753961</a></td>
+<td>PARP synthetic lethality; 12-mo mOS</td>
+<td>Supports Findings 5–6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42320849/">42320849</a></td>
+<td>36% higher Black mortality</td>
+<td>Supports Finding 6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42499497/">42499497</a></td>
+<td>Visceral/brain tropism of rapid relapse</td>
+<td>Supports Finding 6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37482851/">37482851</a></td>
+<td>Basal markers ↔ aggressive features</td>
+<td>Supports Finding 7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39435793/">39435793</a></td>
+<td>CK19+Ki67+/E-cad loss = worst survival</td>
+<td>Supports Finding 7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42166900/">42166900</a></td>
+<td>Risk-reducing surgery uptake</td>
+<td>Supports Finding 8</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31959092/">31959092</a></td>
+<td>Feline TNBC model</td>
+<td>Supports Finding 9</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35451346/">35451346</a></td>
+<td>Canine basal-like mammary dysplasia</td>
+<td>Supports Finding 9</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36612226/">36612226</a></td>
+<td>Bicalutamide/enzalutamide for LAR</td>
+<td>Supports Finding 10</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29940524/">29940524</a></td>
+<td>LAR clinical behavior</td>
+<td>Supports Finding 10</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30859564/">30859564</a></td>
+<td>PDX fidelity/heterogeneity</td>
+<td>Supports Finding 11</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40925466/">40925466</a></td>
+<td>BRCA1 hypermethylation/BRCAness</td>
+<td>Supports Finding 12</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41484250/">41484250</a></td>
+<td>Mutant p53 LOF+GOF</td>
+<td>Supports Finding 13</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33267874/">33267874</a></td>
+<td>p53LOH, CIN, centrosome amplification</td>
+<td>Supports Finding 13</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34083056/">34083056</a></td>
+<td>Glutamine addiction, CB-839</td>
+<td>Supports Finding 14</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42373230/">42373230</a></td>
+<td>Glucose/glutamine metabolic states</td>
+<td>Supports Finding 14</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>No primary dataset was analyzed:</strong> This report is a literature/knowledge synthesis; no de novo statistical analysis of a patient cohort or omics dataset was performed. Effect sizes and quotes are drawn from published cohorts of varying size, geography, and quality (several are single-center or real-world retrospective studies).</li>
+<li><strong>Subtype instability:</strong> The Lehmann TNBCtype-4 classification is refined but still evolving; immunomodulatory (IM) and mesenchymal stem-like (MSL) signals were reassigned to microenvironment rather than tumor-intrinsic biology, and boundaries between "basal-like" (PAM50) and "TNBC" (IHC) are imperfect (~partial overlap).</li>
+<li><strong>Model gaps:</strong> Immunodeficient PDX/xenograft models underrepresent the immunomodulatory/TIL-driven biology that is central to modern immunotherapy — a major translational blind spot.</li>
+<li><strong>HRD quantification:</strong> The exact prevalence and best clinical assay for HRD beyond germline <em>BRCA</em> (e.g., genomic scar scores, <em>BRCA1</em> methylation) remain incompletely standardized.</li>
+<li><strong>Disparities causation:</strong> The relative contributions of ancestry-linked tumor biology versus structural/socioeconomic factors to racial outcome disparities are entangled and not fully resolved.</li>
+<li><strong>Metastatic prognosis:</strong> Despite new agents, metastatic TNBC survival remains ~12 months; predictive biomarkers for immunotherapy (beyond PD-L1/TILs) and ADC resistance mechanisms are incompletely defined.</li>
+</ul>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Quantitative HRD landscape:</strong> Analyze a genomic dataset (e.g., TCGA-BRCA TNBC subset or a public cohort) to quantify the fraction of TNBC that is HRD-positive by combined germline <em>BRCA</em>, somatic <em>BRCA/PALB2/RAD51</em>, and <em>BRCA1</em> methylation, and correlate with genomic scar scores — filling the standardization gap.</li>
+<li><strong>Subtype × therapy-response mapping:</strong> Integrate TNBCtype-4 subtype calls with pCR and survival across neoadjuvant cohorts to formally test whether BL1 (immune-rich) predicts pembrolizumab benefit and LAR predicts AR-blockade benefit.</li>
+<li><strong>Immune-competent modeling:</strong> Prioritize syngeneic (4T1), humanized-mouse, or organoid-immune co-culture systems to study checkpoint/ADC combinations, addressing the PDX immunobiology gap.</li>
+<li><strong>Metabolic–DNA-repair combination trials:</strong> Preclinically test glutaminase inhibition (CB-839) or p53-reactivation (APR-246/PLK2 inhibition) combined with PARP inhibitors/platinum, exploiting the convergence of metabolic and genomic vulnerabilities.</li>
+<li><strong>Equity intervention study:</strong> Design a prospective analysis linking cascade genetic-testing access, MRI surveillance uptake, and stage-at-diagnosis in Black and young women to quantify how much of the mortality gap is modifiable through service delivery.</li>
+<li><strong>Liquid-biopsy relapse detection:</strong> Evaluate ctDNA (TP53/BRCA-informed) for early detection of rapid-relapse TNBC within the 24-month high-risk window.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 14 confirmed findings across 65 reviewed papers over 5 iterations. Evidence source types span human clinical trials/cohorts, model organism (mouse, cat, dog), in vitro cell-line, and computational/omics studies, as annotated throughout.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Triple_Negative_Breast_Cancer-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Triple_Negative_Breast_Cancer-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>57</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>57</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>57</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:42373230</code> <em>(abstract only)</em>: "licens[es] chromatin engagement, DNA replication, and mitotic progression"</li>
+<li>closest text in source: "Conversely, glucose alone acts as the executor, licensing chromatin engagement, DNA replication, and mitotic progression"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>DOID:0060081</code> (1 mention) - the report calls it "Disease Ontology"; DOID calls it <strong>triple-negative breast cancer</strong></li>
+<li><code>HP:0031416</code> (2 mentions) - the report calls it "Breast mass / palpable lump"; HP calls it <strong>Abnormal nasal mucus secretion</strong></li>
+<li><code>HP:0030075</code> (1 mention) - the report calls it "neoplasm of lung"; HP calls it <strong>Ductal carcinoma in situ</strong></li>
+<li><code>UBERON:0000310</code> (2 mentions) - the report calls it "Primary organ:<strong> breast", "UBERON:</strong> breast"; UBERON calls it <strong>breast</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0002716</code> (1 mention) - the report calls it "Lymph node metastasis"; HP calls it <strong>Lymphadenopathy</strong>, and lists "Lymph node hyperplasia" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>UBERON:0000310</code> - called "Primary organ:<strong> breast", "UBERON:</strong> breast"</li>
+</ul>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
         </div>
@@ -7645,7 +9089,7 @@ Triple-negative breast cancer is defined by the absence of ER, PR, and HER2 expr
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Triple-Negative Breast Cancer", "mondoId": "MONDO:0005494", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Triple-Negative_Breast_Cancer", "yamlRevision": "cd973f78816e"};
+        const OS_CONFIG = {"diseaseName": "Triple-Negative Breast Cancer", "mondoId": "MONDO:0005494", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Triple-Negative_Breast_Cancer", "yamlRevision": "8e6f66c968e4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

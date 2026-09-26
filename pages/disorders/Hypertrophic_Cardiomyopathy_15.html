@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4300,6 +4368,7 @@ The gene-disease relationship is disputed, and this entry is curated on that foo
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4549,6 +4618,7 @@ Note what is not in dispute: metavinculin biochemistry. That the insert variants
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4570,6 +4640,7 @@ Note what is not in dispute: metavinculin biochemistry. That the insert variants
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4661,6 +4732,7 @@ Note what is not in dispute: metavinculin biochemistry. That the insert variants
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4685,6 +4757,7 @@ Note what is not in dispute: metavinculin biochemistry. That the insert variants
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4706,6 +4779,7 @@ Note what is not in dispute: metavinculin biochemistry. That the insert variants
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4743,6 +4817,13 @@ Note what is not in dispute: metavinculin biochemistry. That the insert variants
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vcl-missense-variant-in-vinculin-or-the-metavinculin-insert" data-dismech-node="VCL Missense Variant in Vinculin or the Metavinculin Insert" data-dismech-type="pathophysiology">
                 <div class="item-name">VCL Missense Variant in Vinculin or the Metavinculin Insert</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The proposed initiating lesion is a heterozygous germline missense substitution in VCL. Two locations have been implicated and they are not equivalent. p.Leu277Met lies in a region present in both vinculin and metavinculin, so it would perturb the ubiquitous protein as well as the cardiac isoform. p.Ala934Val, p.Pro943Ala and p.Arg975Trp lie inside the 68-residue insert encoded by exon 19, which is present only in metavinculin, so their effect is restricted to cardiac and smooth muscle. Whether either class is pathogenic in hypertrophic cardiomyopathy is disputed, which is why this node and everything downstream of it are marked HYPOTHETICAL.</div>
 
@@ -4837,6 +4918,8 @@ This pathophysiological event involves VCL (hgnc:12665). hgnc:12665 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -4852,6 +4935,9 @@ This pathophysiological event involves VCL (hgnc:12665). hgnc:12665 is a gene fr
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
     <div class="context-notes">GAIN_OF_FUNCTION follows ClinGen&#39;s reading of the biochemical data: the mutant metavinculin tails do not simply lose their inhibitory function, they acquire the ability to drive formation of large disordered actin assemblies that neither wild-type isoform produces. Note that this is the mechanism proposed for the exon-19 insert variants; no functional characterization of p.Leu277Met has been published, so the category is extrapolated to that allele rather than measured for it.</div>
@@ -4899,6 +4985,7 @@ This pathophysiological event involves VCL (hgnc:12665). hgnc:12665 is a gene fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4921,6 +5008,13 @@ This pathophysiological event involves VCL (hgnc:12665). hgnc:12665 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-metavinculin-restraint-on-vinculin-mediated-actin-bundling" data-dismech-node="Loss of Metavinculin Restraint on Vinculin-Mediated Actin Bundling" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Metavinculin Restraint on Vinculin-Mediated Actin Bundling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In the normal heart the two VCL isoforms are co-expressed at sub-stoichiometric ratio and do opposite things to actin. The vinculin tail binds F-actin and dimerizes to bundle filaments into thick fibers; the metavinculin tail binds F-actin the same way but cannot bundle it, severs filaments instead, and inhibits vinculin-mediated bundling. That inhibition requires a protruding sub-domain formed by the 68-residue insert, which sterically blocks vinculin tail dimerization. The cardiomyopathy variants destabilize the sub-domain, so the brake is released and mutant metavinculin no longer restrains vinculin.</div>
 
@@ -5044,6 +5138,7 @@ This pathophysiological event involves metavinculin-mediated actin filament seve
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5065,6 +5160,7 @@ This pathophysiological event involves metavinculin-mediated actin filament seve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5092,6 +5188,7 @@ This pathophysiological event involves metavinculin-mediated actin filament seve
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5116,6 +5213,13 @@ This pathophysiological event involves metavinculin-mediated actin filament seve
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disordered-f-actin-assembly-at-the-membrane-anchor" data-dismech-node="Disordered F-Actin Assembly at the Membrane Anchor" data-dismech-type="pathophysiology">
                 <div class="item-name">Disordered F-Actin Assembly at the Membrane Anchor</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">With the inhibitory brake released, the mutant tails produce large actin assemblies embedded with linear bundles rather than the regular bundled architecture vinculin normally builds. The actin network that couples the contractile apparatus to the membrane is therefore built wrongly, not merely built less.</div>
 
@@ -5239,6 +5343,7 @@ This pathophysiological event involves abnormal actin cytoskeleton organization 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5261,6 +5366,13 @@ This pathophysiological event involves abnormal actin cytoskeleton organization 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-intercalated-disc-and-costamere-anchorage" data-dismech-node="Disrupted Intercalated Disc and Costamere Anchorage" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Intercalated Disc and Costamere Anchorage</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Vinculin and metavinculin are structural components of the junctions where cardiomyocyte actin is anchored: the intercalated disc, which couples adjacent myocytes end to end, and the costamere, which couples the myofibril laterally to the sarcolemma and extracellular matrix. Myectomy tissue from both reported probands showed vinculin and metavinculin markedly reduced at the intercalated disc with normal Z-disc staining, and the earlier metavinculin work had shown altered intercalated-disc organization in vivo. The specificity of that finding is the weak point of the chain rather than its existence; see the REFUTE evidence on this node.</div>
 
@@ -5451,6 +5563,7 @@ This pathophysiological event involves abnormal cell-matrix adhesion (GO:0007160
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5472,6 +5585,7 @@ This pathophysiological event involves abnormal cell-matrix adhesion (GO:0007160
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5499,6 +5613,7 @@ This pathophysiological event involves abnormal cell-matrix adhesion (GO:0007160
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5521,6 +5636,13 @@ This pathophysiological event involves abnormal cell-matrix adhesion (GO:0007160
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cardiomyocyte-force-transmission" data-dismech-node="Impaired Cardiomyocyte Force Transmission" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cardiomyocyte Force Transmission</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Consequence of a mis-built actin-membrane anchor: contractile force generated by the sarcomere is transmitted less efficiently to neighbouring myocytes and to the extracellular matrix. That vinculin loss impairs myocyte mechanics is measured rather than assumed - vinculin-deficient mouse myocytes have reduced membrane cortical stiffness, wider myofilament lattice spacing and reduced systolic transverse strain in vivo, all before global ventricular dysfunction appears. What is not measured is the same for a CMH15 allele: those experiments use vinculin deletion, whereas the human variants proposed here are missense changes acting by gain of function, so the mechanical consequence is transferred across allele classes. The node is marked HYPOTHETICAL for that reason rather than for lack of any evidence.</div>
 
@@ -5666,6 +5788,7 @@ This pathophysiological event involves abnormal cardiac muscle contraction (GO:0
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5690,6 +5813,7 @@ This pathophysiological event involves abnormal cardiac muscle contraction (GO:0
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5718,6 +5842,7 @@ This pathophysiological event involves abnormal cardiac muscle contraction (GO:0
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5740,6 +5865,13 @@ This pathophysiological event involves abnormal cardiac muscle contraction (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maladaptive-left-ventricular-hypertrophy" data-dismech-node="Maladaptive Left Ventricular Hypertrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Maladaptive Left Ventricular Hypertrophy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The tissue-level endpoint: left ventricular hypertrophy which in the two reported probands was severely obstructive and mid-ventricular or apical in distribution. A separate series from the same centre found that hypertrophic cardiomyopathy attributable to Z-disc genes, VCL among them, carries a sigmoidal septal contour in most cases, in contrast to the reverse-curvature morphology typical of myofilament disease.</div>
 
@@ -5827,6 +5959,7 @@ This pathophysiological event involves abnormal cardiac muscle contraction (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5853,6 +5986,7 @@ This pathophysiological event involves abnormal cardiac muscle contraction (GO:0
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5875,6 +6009,13 @@ This pathophysiological event involves abnormal cardiac muscle contraction (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dynamic-outflow-obstruction" data-dismech-node="Dynamic Outflow Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Dynamic Outflow Obstruction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Both reported probands had severely obstructive hypertrophy, mid-ventricular in one and mid-ventricular plus apical in the other. Obstruction is the point at which this chain rejoins ordinary hypertrophic cardiomyopathy physiology, and also the point at which the entity&#39;s key confound arises, since obstruction itself depletes intercalated-disc vinculin. Named for the haemodynamic mechanism rather than the finding, so that it stays distinct from the clinical phenotype of the same name: the pathograph matches target strings verbatim, and two nodes differing only in capitalization would render as two nodes for one concept.</div>
 
@@ -5933,6 +6074,7 @@ This pathophysiological event involves abnormal cardiac muscle contraction (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5995,6 +6137,7 @@ This pathophysiological event involves abnormal cardiac muscle contraction (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6019,6 +6162,7 @@ This pathophysiological event involves abnormal cardiac muscle contraction (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6040,6 +6184,7 @@ This pathophysiological event involves abnormal cardiac muscle contraction (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6085,7 +6230,7 @@ This pathophysiological event involves abnormal cardiac muscle contraction (GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apical hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in the metavinculin proband, whose hypertrophy was mid-ventricular and apical. Apical contour was also the minority morphology in the wider Z-disc hypertrophic cardiomyopathy series, in 2 of 13 probands. Recorded as a reported feature of the individual cases, not as a characteristic of the entity, which has too few cases to have one.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031992\"}}, {\"id\": \"Cardiomyocyte-specific vinculin knockout mouse (cVclKO)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Cre-loxP deletion of Vcl in cardiomyocytes. Half the animals died suddenly before three months from ventricular tachycardia with preserved contractile function; survivors developed dilated cardiomyopathy and died before six months. Ultrastructure before dysfunction showed dissolution of the intercalated disc, reduced cadherin and beta-1D integrin, and connexin-43 mislocalized to the lateral border.\"}, {\"id\": \"Disordered F-Actin Assembly at the Membrane Anchor\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With the inhibitory brake released, the mutant tails produce large actin assemblies embedded with linear bundles rather than the regular bundled architecture vinculin normally builds. The actin network that couples the contractile apparatus to the membrane is therefore built wrongly, not merely built less.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"actin cytoskeleton organization\"]}}, {\"id\": \"Disrupted Intercalated Disc and Costamere Anchorage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vinculin and metavinculin are structural components of the junctions where cardiomyocyte actin is anchored: the intercalated disc, which couples adjacent myocytes end to end, and the costamere, which couples the myofibril laterally to the sarcolemma and extracellular matrix. Myectomy tissue from both reported probands showed vinculin and metavinculin markedly reduced at the intercalated disc with normal Z-disc staining, and the earlier metavinculin work had shown altered intercalated-disc organization in vivo. The specificity of that finding is the weak point of the chain rather than its existence; see the REFUTE evidence on this node.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"adherens junction organization\", \"cell-matrix adhesion\"], \"animal_models\": [{\"name\": \"Cardiomyocyte-specific vinculin knockout mouse (cVclKO)\", \"species\": \"Mouse\", \"genotype\": \"Vcl conditional null, cardiomyocyte-restricted Cre-loxP excision\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Establishes in vivo that removing cardiomyocyte vinculin dismantles exactly the junctions this node names, and that it does so before any contractile phenotype appears.\"}, {\"name\": \"Heterozygous vinculin knockout mouse (Vin+/-)\", \"species\": \"Mouse\", \"genotype\": \"Vcl heterozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Shows that a partial reduction in vinculin and metavinculin, closer in degree to a heterozygous human genotype than a complete null, is already enough to disorganize the intercalated disc and the Z-line register.\"}]}}, {\"id\": \"Dynamic Outflow Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both reported probands had severely obstructive hypertrophy, mid-ventricular in one and mid-ventricular plus apical in the other. Obstruction is the point at which this chain rejoins ordinary hypertrophic cardiomyopathy physiology, and also the point at which the entity\u0027s key confound arises, since obstruction itself depletes intercalated-disc vinculin. Named for the haemodynamic mechanism rather than the finding, so that it stays distinct from the clinical phenotype of the same name: the pathograph matches target strings verbatim, and two nodes differing only in capitalization would render as two nodes for one concept.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Heterozygous vinculin knockout mouse (Vin+/-)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Global heterozygous Vcl inactivation, giving roughly 58% less vinculin and 63% less metavinculin. These animals are grossly normal with normal baseline cardiac function, but carry abnormal electrocardiograms, abnormal intercalated discs, misaligned Z-lines, and decompensate when pressure-loaded by transverse aortic constriction.\"}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining phenotype. Both reported probands were ascertained from clinical hypertrophic cardiomyopathy cohorts at a single referral centre, having already been screened negative for the common myofilament genes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001639\"}}, {\"id\": \"Impaired Cardiomyocyte Force Transmission\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Consequence of a mis-built actin-membrane anchor: contractile force generated by the sarcomere is transmitted less efficiently to neighbouring myocytes and to the extracellular matrix. That vinculin loss impairs myocyte mechanics is measured rather than assumed - vinculin-deficient mouse myocytes have reduced membrane cortical stiffness, wider myofilament lattice spacing and reduced systolic transverse strain in vivo, all before global ventricular dysfunction appears. What is not measured is the same for a CMH15 allele: those experiments use vinculin deletion, whereas the human variants proposed here are missense changes acting by gain of function, so the mechanical consequence is transferred across allele classes. The node is marked HYPOTHETICAL for that reason rather than for lack of any evidence.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cardiac muscle contraction\"], \"animal_models\": [{\"name\": \"Heterozygous vinculin knockout mouse (Vin+/-)\", \"species\": \"Mouse\", \"genotype\": \"Vcl heterozygous null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Vin+/- hearts tolerate normal load but fail under acute pressure overload, which is the behaviour expected of a myocardium whose force-transmission apparatus has reduced reserve rather than reduced resting output.\"}]}}, {\"id\": \"Left ventricular outflow tract obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Both reported probands had severely obstructive disease and both came to surgical myectomy, which is how the tissue examined in these studies was obtained. Obstruction is the most consistent clinical feature of the two-case series, and it is also the feature that generates the entity\u0027s principal confound, since obstruction independently depletes intercalated-disc vinculin.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032092\"}}, {\"id\": \"Loss of Metavinculin Restraint on Vinculin-Mediated Actin Bundling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the normal heart the two VCL isoforms are co-expressed at sub-stoichiometric ratio and do opposite things to actin. The vinculin tail binds F-actin and dimerizes to bundle filaments into thick fibers; the metavinculin tail binds F-actin the same way but cannot bundle it, severs filaments instead, and inhibits vinculin-mediated bundling. That inhibition requires a protruding sub-domain formed by the 68-residue insert, which sterically blocks vinculin tail dimerization. The cardiomyopathy variants destabilize the sub-domain, so the brake is released and mutant metavinculin no longer restrains vinculin.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"vinculin-mediated actin filament bundling\"], \"molecular_functions\": [\"metavinculin-mediated actin filament severing\"]}}, {\"id\": \"Maladaptive Left Ventricular Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level endpoint: left ventricular hypertrophy which in the two reported probands was severely obstructive and mid-ventricular or apical in distribution. A separate series from the same centre found that hypertrophic cardiomyopathy attributable to Z-disc genes, VCL among them, carries a sigmoidal septal contour in most cases, in contrast to the reverse-curvature morphology typical of myofilament disease.\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"Cardiomyocyte-specific vinculin knockout mouse (cVclKO)\", \"species\": \"Mouse\", \"genotype\": \"Vcl conditional null, cardiomyocyte-restricted Cre-loxP excision\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The most informative negative result for this entity. Losing cardiomyocyte vinculin in vivo produces arrhythmic sudden death and then a dilated ventricle. It does not produce hypertrophy.\"}]}}, {\"id\": \"Septal myectomy for obstructive disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Both reported probands underwent surgical septal myectomy, which is how the tissue examined in the original studies was obtained. Management of CMH15 is the management of obstructive hypertrophic cardiomyopathy and is not genotype-directed: no VCL-specific therapy exists, none is in development, and the disputed status of the gene-disease relationship means the genotype should not influence treatment decisions at all.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"VCL Missense Variant in Vinculin or the Metavinculin Insert\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed initiating lesion is a heterozygous germline missense substitution in VCL. Two locations have been implicated and they are not equivalent. p.Leu277Met lies in a region present in both vinculin and metavinculin, so it would perturb the ubiquitous protein as well as the cardiac isoform. p.Ala934Val, p.Pro943Ala and p.Arg975Trp lie inside the 68-residue insert encoded by exon 19, which is present only in metavinculin, so their effect is restricted to cardiac and smooth muscle. Whether either class is pathogenic in hypertrophic cardiomyopathy is disputed, which is why this node and everything downstream of it are marked HYPOTHETICAL.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"genes\": [\"VCL\"], \"gene_terms\": [{\"label\": \"VCL\", \"id\": \"hgnc:12665\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\"}}}], \"edges\": [{\"source\": \"VCL Missense Variant in Vinculin or the Metavinculin Insert\", \"target\": \"Loss of Metavinculin Restraint on Vinculin-Mediated Actin Bundling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Metavinculin Restraint on Vinculin-Mediated Actin Bundling\", \"target\": \"Disordered F-Actin Assembly at the Membrane Anchor\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered F-Actin Assembly at the Membrane Anchor\", \"target\": \"Disrupted Intercalated Disc and Costamere Anchorage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Intercalated Disc and Costamere Anchorage\", \"target\": \"Impaired Cardiomyocyte Force Transmission\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cardiomyocyte Force Transmission\", \"target\": \"Maladaptive Left Ventricular Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Left Ventricular Hypertrophy\", \"target\": \"Dynamic Outflow Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maladaptive Left Ventricular Hypertrophy\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue lesion presenting as the clinical entity both probands were diagnosed with.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maladaptive Left Ventricular Hypertrophy\", \"target\": \"Apical hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apical distribution of the hypertrophy, reported in the metavinculin proband.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dynamic Outflow Obstruction\", \"target\": \"Left ventricular outflow tract obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding this mechanism presents as.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dynamic Outflow Obstruction\", \"target\": \"Disrupted Intercalated Disc and Costamere Anchorage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feedback edge. Obstruction reduces intercalated-disc vinculin and metavinculin independently of genotype, which is the alternative explanation for the probands\u0027 histology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypertrophic cardiomyopathy\", \"target\": \"Left ventricular outflow tract obstruction\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Both reported probands had severely obstructive disease, and obstruction is what brought each of them to the myectomy that produced the tissue examined in these studies.\"}, {\"source\": \"Septal myectomy for obstructive disease\", \"target\": \"Dynamic Outflow Obstruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Septal myectomy for obstructive disease\", \"target\": \"Left ventricular outflow tract obstruction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiomyocyte-specific vinculin knockout mouse (cVclKO)\", \"target\": \"Disrupted Intercalated Disc and Costamere Anchorage\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes in vivo that removing cardiomyocyte vinculin dismantles exactly the junctions this node names, and that it does so before any contractile phenotype appears.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A complete tissue-specific null, not a missense allele: it models absence of vinculin, whereas the CMH15 variants are proposed to act by gain of function through mutant metavinculin. Mouse hearts also express less metavinculin relative to vinculin than human hearts do, so an insert-specific effect is under-represented in this system.\"}, {\"source\": \"Cardiomyocyte-specific vinculin knockout mouse (cVclKO)\", \"target\": \"Maladaptive Left Ventricular Hypertrophy\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The most informative negative result for this entity. Losing cardiomyocyte vinculin in vivo produces arrhythmic sudden death and then a dilated ventricle. It does not produce hypertrophy.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The failure is not decisive against a hypertrophic mechanism, because the allele is wrong for the question: a null cannot test a gain-of-function missense hypothesis, and the opposite remodelling direction is what loss-of-function VCL alleles produce in humans too. The result constrains what can be inferred from vinculin-deficiency models about hypertrophy, and no CMH15 knock-in mouse exists to answer the question properly.\"}, {\"source\": \"Heterozygous vinculin knockout mouse (Vin+/-)\", \"target\": \"Disrupted Intercalated Disc and Costamere Anchorage\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Shows that a partial reduction in vinculin and metavinculin, closer in degree to a heterozygous human genotype than a complete null, is already enough to disorganize the intercalated disc and the Z-line register.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Reduced dosage of normal protein, whereas the CMH15 hypothesis is that mutant metavinculin is actively mis-functional; a 58% reduction does not test that. The phenotype is also latent until haemodynamic stress is applied.\"}, {\"source\": \"Heterozygous vinculin knockout mouse (Vin+/-)\", \"target\": \"Impaired Cardiomyocyte Force Transmission\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Vin+/- hearts tolerate normal load but fail under acute pressure overload, which is the behaviour expected of a myocardium whose force-transmission apparatus has reduced reserve rather than reduced resting output.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The readout is organ-level decompensation after aortic constriction, not a measurement of force transmission, so the mechanism is inferred from the stress response. PARTIALLY_RECAPITULATES because baseline function is normal: the model reproduces the vulnerability, not a resting deficit.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apical hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in the metavinculin proband, whose hypertrophy was mid-ventricular and apical. Apical contour was also the minority morphology in the wider Z-disc hypertrophic cardiomyopathy series, in 2 of 13 probands. Recorded as a reported feature of the individual cases, not as a characteristic of the entity, which has too few cases to have one.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031992\"}}, {\"id\": \"Cardiomyocyte-specific vinculin knockout mouse (cVclKO)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Cre-loxP deletion of Vcl in cardiomyocytes. Half the animals died suddenly before three months from ventricular tachycardia with preserved contractile function; survivors developed dilated cardiomyopathy and died before six months. Ultrastructure before dysfunction showed dissolution of the intercalated disc, reduced cadherin and beta-1D integrin, and connexin-43 mislocalized to the lateral border.\"}, {\"id\": \"Disordered F-Actin Assembly at the Membrane Anchor\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With the inhibitory brake released, the mutant tails produce large actin assemblies embedded with linear bundles rather than the regular bundled architecture vinculin normally builds. The actin network that couples the contractile apparatus to the membrane is therefore built wrongly, not merely built less.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"actin cytoskeleton organization\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Disrupted Intercalated Disc and Costamere Anchorage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vinculin and metavinculin are structural components of the junctions where cardiomyocyte actin is anchored: the intercalated disc, which couples adjacent myocytes end to end, and the costamere, which couples the myofibril laterally to the sarcolemma and extracellular matrix. Myectomy tissue from both reported probands showed vinculin and metavinculin markedly reduced at the intercalated disc with normal Z-disc staining, and the earlier metavinculin work had shown altered intercalated-disc organization in vivo. The specificity of that finding is the weak point of the chain rather than its existence; see the REFUTE evidence on this node.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"adherens junction organization\", \"cell-matrix adhesion\"], \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"Cardiomyocyte-specific vinculin knockout mouse (cVclKO)\", \"species\": \"Mouse\", \"genotype\": \"Vcl conditional null, cardiomyocyte-restricted Cre-loxP excision\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Establishes in vivo that removing cardiomyocyte vinculin dismantles exactly the junctions this node names, and that it does so before any contractile phenotype appears.\"}, {\"name\": \"Heterozygous vinculin knockout mouse (Vin+/-)\", \"species\": \"Mouse\", \"genotype\": \"Vcl heterozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Shows that a partial reduction in vinculin and metavinculin, closer in degree to a heterozygous human genotype than a complete null, is already enough to disorganize the intercalated disc and the Z-line register.\"}]}}, {\"id\": \"Dynamic Outflow Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both reported probands had severely obstructive hypertrophy, mid-ventricular in one and mid-ventricular plus apical in the other. Obstruction is the point at which this chain rejoins ordinary hypertrophic cardiomyopathy physiology, and also the point at which the entity\u0027s key confound arises, since obstruction itself depletes intercalated-disc vinculin. Named for the haemodynamic mechanism rather than the finding, so that it stays distinct from the clinical phenotype of the same name: the pathograph matches target strings verbatim, and two nodes differing only in capitalization would render as two nodes for one concept.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Heterozygous vinculin knockout mouse (Vin+/-)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Global heterozygous Vcl inactivation, giving roughly 58% less vinculin and 63% less metavinculin. These animals are grossly normal with normal baseline cardiac function, but carry abnormal electrocardiograms, abnormal intercalated discs, misaligned Z-lines, and decompensate when pressure-loaded by transverse aortic constriction.\"}, {\"id\": \"Hypertrophic cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining phenotype. Both reported probands were ascertained from clinical hypertrophic cardiomyopathy cohorts at a single referral centre, having already been screened negative for the common myofilament genes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001639\"}}, {\"id\": \"Impaired Cardiomyocyte Force Transmission\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Consequence of a mis-built actin-membrane anchor: contractile force generated by the sarcomere is transmitted less efficiently to neighbouring myocytes and to the extracellular matrix. That vinculin loss impairs myocyte mechanics is measured rather than assumed - vinculin-deficient mouse myocytes have reduced membrane cortical stiffness, wider myofilament lattice spacing and reduced systolic transverse strain in vivo, all before global ventricular dysfunction appears. What is not measured is the same for a CMH15 allele: those experiments use vinculin deletion, whereas the human variants proposed here are missense changes acting by gain of function, so the mechanical consequence is transferred across allele classes. The node is marked HYPOTHETICAL for that reason rather than for lack of any evidence.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cardiac muscle contraction\"], \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"Heterozygous vinculin knockout mouse (Vin+/-)\", \"species\": \"Mouse\", \"genotype\": \"Vcl heterozygous null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Vin+/- hearts tolerate normal load but fail under acute pressure overload, which is the behaviour expected of a myocardium whose force-transmission apparatus has reduced reserve rather than reduced resting output.\"}]}}, {\"id\": \"Left ventricular outflow tract obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Both reported probands had severely obstructive disease and both came to surgical myectomy, which is how the tissue examined in these studies was obtained. Obstruction is the most consistent clinical feature of the two-case series, and it is also the feature that generates the entity\u0027s principal confound, since obstruction independently depletes intercalated-disc vinculin.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032092\"}}, {\"id\": \"Loss of Metavinculin Restraint on Vinculin-Mediated Actin Bundling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the normal heart the two VCL isoforms are co-expressed at sub-stoichiometric ratio and do opposite things to actin. The vinculin tail binds F-actin and dimerizes to bundle filaments into thick fibers; the metavinculin tail binds F-actin the same way but cannot bundle it, severs filaments instead, and inhibits vinculin-mediated bundling. That inhibition requires a protruding sub-domain formed by the 68-residue insert, which sterically blocks vinculin tail dimerization. The cardiomyopathy variants destabilize the sub-domain, so the brake is released and mutant metavinculin no longer restrains vinculin.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"vinculin-mediated actin filament bundling\"], \"molecular_functions\": [\"metavinculin-mediated actin filament severing\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Maladaptive Left Ventricular Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level endpoint: left ventricular hypertrophy which in the two reported probands was severely obstructive and mid-ventricular or apical in distribution. A separate series from the same centre found that hypertrophic cardiomyopathy attributable to Z-disc genes, VCL among them, carries a sigmoidal septal contour in most cases, in contrast to the reverse-curvature morphology typical of myofilament disease.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Cardiomyocyte-specific vinculin knockout mouse (cVclKO)\", \"species\": \"Mouse\", \"genotype\": \"Vcl conditional null, cardiomyocyte-restricted Cre-loxP excision\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The most informative negative result for this entity. Losing cardiomyocyte vinculin in vivo produces arrhythmic sudden death and then a dilated ventricle. It does not produce hypertrophy.\"}]}}, {\"id\": \"Septal myectomy for obstructive disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Both reported probands underwent surgical septal myectomy, which is how the tissue examined in the original studies was obtained. Management of CMH15 is the management of obstructive hypertrophic cardiomyopathy and is not genotype-directed: no VCL-specific therapy exists, none is in development, and the disputed status of the gene-disease relationship means the genotype should not influence treatment decisions at all.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"VCL Missense Variant in Vinculin or the Metavinculin Insert\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed initiating lesion is a heterozygous germline missense substitution in VCL. Two locations have been implicated and they are not equivalent. p.Leu277Met lies in a region present in both vinculin and metavinculin, so it would perturb the ubiquitous protein as well as the cardiac isoform. p.Ala934Val, p.Pro943Ala and p.Arg975Trp lie inside the 68-residue insert encoded by exon 19, which is present only in metavinculin, so their effect is restricted to cardiac and smooth muscle. Whether either class is pathogenic in hypertrophic cardiomyopathy is disputed, which is why this node and everything downstream of it are marked HYPOTHETICAL.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"genes\": [\"VCL\"], \"gene_terms\": [{\"label\": \"VCL\", \"id\": \"hgnc:12665\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\"}, \"mechanism_confidence\": \"HYPOTHETICAL\"}}], \"edges\": [{\"source\": \"VCL Missense Variant in Vinculin or the Metavinculin Insert\", \"target\": \"Loss of Metavinculin Restraint on Vinculin-Mediated Actin Bundling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Metavinculin Restraint on Vinculin-Mediated Actin Bundling\", \"target\": \"Disordered F-Actin Assembly at the Membrane Anchor\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered F-Actin Assembly at the Membrane Anchor\", \"target\": \"Disrupted Intercalated Disc and Costamere Anchorage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Intercalated Disc and Costamere Anchorage\", \"target\": \"Impaired Cardiomyocyte Force Transmission\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cardiomyocyte Force Transmission\", \"target\": \"Maladaptive Left Ventricular Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Maladaptive Left Ventricular Hypertrophy\", \"target\": \"Dynamic Outflow Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maladaptive Left Ventricular Hypertrophy\", \"target\": \"Hypertrophic cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue lesion presenting as the clinical entity both probands were diagnosed with.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maladaptive Left Ventricular Hypertrophy\", \"target\": \"Apical hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apical distribution of the hypertrophy, reported in the metavinculin proband.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dynamic Outflow Obstruction\", \"target\": \"Left ventricular outflow tract obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding this mechanism presents as.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dynamic Outflow Obstruction\", \"target\": \"Disrupted Intercalated Disc and Costamere Anchorage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feedback edge. Obstruction reduces intercalated-disc vinculin and metavinculin independently of genotype, which is the alternative explanation for the probands\u0027 histology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypertrophic cardiomyopathy\", \"target\": \"Left ventricular outflow tract obstruction\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Both reported probands had severely obstructive disease, and obstruction is what brought each of them to the myectomy that produced the tissue examined in these studies.\"}, {\"source\": \"Septal myectomy for obstructive disease\", \"target\": \"Dynamic Outflow Obstruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Septal myectomy for obstructive disease\", \"target\": \"Left ventricular outflow tract obstruction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiomyocyte-specific vinculin knockout mouse (cVclKO)\", \"target\": \"Disrupted Intercalated Disc and Costamere Anchorage\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Establishes in vivo that removing cardiomyocyte vinculin dismantles exactly the junctions this node names, and that it does so before any contractile phenotype appears.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A complete tissue-specific null, not a missense allele: it models absence of vinculin, whereas the CMH15 variants are proposed to act by gain of function through mutant metavinculin. Mouse hearts also express less metavinculin relative to vinculin than human hearts do, so an insert-specific effect is under-represented in this system.\"}, {\"source\": \"Cardiomyocyte-specific vinculin knockout mouse (cVclKO)\", \"target\": \"Maladaptive Left Ventricular Hypertrophy\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The most informative negative result for this entity. Losing cardiomyocyte vinculin in vivo produces arrhythmic sudden death and then a dilated ventricle. It does not produce hypertrophy.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The failure is not decisive against a hypertrophic mechanism, because the allele is wrong for the question: a null cannot test a gain-of-function missense hypothesis, and the opposite remodelling direction is what loss-of-function VCL alleles produce in humans too. The result constrains what can be inferred from vinculin-deficiency models about hypertrophy, and no CMH15 knock-in mouse exists to answer the question properly.\"}, {\"source\": \"Heterozygous vinculin knockout mouse (Vin+/-)\", \"target\": \"Disrupted Intercalated Disc and Costamere Anchorage\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Shows that a partial reduction in vinculin and metavinculin, closer in degree to a heterozygous human genotype than a complete null, is already enough to disorganize the intercalated disc and the Z-line register.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Reduced dosage of normal protein, whereas the CMH15 hypothesis is that mutant metavinculin is actively mis-functional; a 58% reduction does not test that. The phenotype is also latent until haemodynamic stress is applied.\"}, {\"source\": \"Heterozygous vinculin knockout mouse (Vin+/-)\", \"target\": \"Impaired Cardiomyocyte Force Transmission\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Vin+/- hearts tolerate normal load but fail under acute pressure overload, which is the behaviour expected of a myocardium whose force-transmission apparatus has reduced reserve rather than reduced resting output.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The readout is organ-level decompensation after aortic constriction, not a measurement of force transmission, so the mechanism is inferred from the stress response. PARTIALLY_RECAPITULATES because baseline function is normal: the model reproduces the vulnerability, not a resting deficit.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6129,6 +6274,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6152,6 +6300,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6224,6 +6373,9 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6238,6 +6390,7 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6262,6 +6415,7 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6316,6 +6470,9 @@ This clinical feature is Apical hypertrophic cardiomyopathy (HP:0031992). HP:003
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6330,6 +6487,7 @@ This clinical feature is Apical hypertrophic cardiomyopathy (HP:0031992). HP:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6384,6 +6542,9 @@ This clinical feature is Left ventricular hypertrophy with sigmoidal septal cont
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6401,6 +6562,7 @@ This clinical feature is Left ventricular hypertrophy with sigmoidal septal cont
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6474,6 +6636,9 @@ This disease-associated gene is VCL (hgnc:12665). hgnc:12665 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -6488,6 +6653,7 @@ This disease-associated gene is VCL (hgnc:12665). hgnc:12665 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6515,6 +6681,7 @@ This disease-associated gene is VCL (hgnc:12665). hgnc:12665 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6536,6 +6703,7 @@ This disease-associated gene is VCL (hgnc:12665). hgnc:12665 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6624,6 +6792,9 @@ This treatment is septal myectomy, annotated with Myectomy (NCIT:C51591). NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6634,6 +6805,9 @@ This treatment is septal myectomy, annotated with Myectomy (NCIT:C51591). NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -6701,6 +6875,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6813,6 +6988,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6902,6 +7078,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6928,6 +7105,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6952,6 +7130,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7025,6 +7204,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7133,6 +7313,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7209,6 +7390,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7274,6 +7456,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7401,6 +7584,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7455,6 +7639,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7496,6 +7681,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7601,6 +7787,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7655,6 +7842,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7696,6 +7884,7 @@ This treatment targets Left ventricular outflow tract obstruction (HP:0032092). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9168,6 +9357,164 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Hypertrophic Cardiomyopathy 15 (VCL, ClinGen-disputed)</strong> · 2026-09-08T10:24:50Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypertrophic_Cardiomyopathy_15/2026-09-08T102450Z-claude-code-3d59fc.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Hypertrophic_Cardiomyopathy_15.yaml for MONDO:0013200
+(OMIM:613255), the VCL/metavinculin locus of familial hypertrophic
+cardiomyopathy, claimed via issue #11449.
+
+Curated deliberately as a DISPUTED gene-disease relationship rather than as an
+established disease. ClinGen&#39;s Hereditary Cardiovascular Disease Gene Curation
+Expert Panel reclassified VCL-hypertrophic cardiomyopathy from Limited to
+Disputed on 2023-05-10 (CGGV:assertion_27365fd2-...), while the Dilated
+Cardiomyopathy GCEP rates VCL-dilated cardiomyopathy Strong. The entry carries
+REFUTE evidence in the genetic block and on the histopathology finding,
+HYPOTHETICAL/PROVISIONAL mechanism_confidence throughout the chain, and an OPEN
+KNOWLEDGE_GAP discussion with two proposed experiments (a metavinculin-insert
+knock-in mouse, and a rare-variant burden test that directly answers ClinGen&#39;s
+frequency objection). The diagnosis block states explicitly that a VCL variant
+is not a molecular diagnosis of hypertrophic cardiomyopathy and must not drive
+cascade testing.
+
+Three specific things the curation establishes that a summary would lose. The
+corroborating histology in both 2006 probands - vinculin depleted at the
+intercalated disc - was shown by the same group (PMID:16949038) to occur in
+obstructive HCM without a VCL variant and in aortic stenosis, so it tracks
+outflow obstruction, not genotype; that paper is therefore cited twice on the
+same node, once SUPPORT and once REFUTE, and the entry&#39;s notes ask that those
+not be consolidated. The metavinculin biochemistry (PMID:30844403,
+PMID:22613835) is solid and is NOT part of the dispute; the gap is between that
+biochemistry and the human phenotype. And every in vivo model deletes vinculin
+(PMID:17785437, PMID:15331426) while the proposed human mechanism is gain of
+function, so the models&#39; failure to produce hypertrophy is recorded as a
+HUMAN_MODEL_MISMATCH discussion and a FAILS_TO_RECAPITULATE link with explicit
+limitations, not as decisive evidence against.
+
+DEEP RESEARCH: falcon (Edison Scientific Literature), 981s, 30 citations,
+research/Hypertrophic_Cardiomyopathy_15-deep-research-falcon.md plus its
+citations sidecar and one non-image artifact. The report independently reached
+the same framing (sparse subtype evidence; do not encode general-HCM
+prevalence, prognosis or mavacamten response as VCL-specific; the Vcl-null
+mouse models loss of function and evolves to DCM). It did NOT surface the
+ClinGen Disputed classification, nor PMID:16236538, PMID:16949038,
+PMID:30844403, PMID:17097056, PMID:15331426 or PMID:23561539, all of which were
+found by direct PubMed/ClinGen work and carry most of this entry&#39;s content.
+
+DEEP RESEARCH CITATION DEFECT, reported rather than silently dropped. The
+report&#39;s executive summary and section 4 attribute five PMIDs to Open Targets
+as human genetic literature supporting the VCL-HCM association: 16712796,
+20052757, 21779496, 22826437, 24937142. Only the first is about VCL. The other
+four are RAF1/BRAF Noonan-syndrome papers (RAF1 dephosphorylation of Ser259;
+Raf family kinases review; BRAF heterodimerization in Noonan RAF1 mutants; a
+Raf/Mek/Erk interactome review) - wrong gene, wrong disease. All four resolve
+in PubMed, so an identifier-resolution check scores them clean; the retro-fitted
+`just validate-research-reference` section reports 6/6 resolved and 0 off topic
+because its extractor does not parse the comma-separated list they appear in.
+None of the four was used. Flagged here because the failure mode - resolvable
+identifiers naming an unrelated disease - is invisible to the report&#39;s own
+validation.
+
+VALIDATION RUN: `just validate` passes (54/54 snippets verified against cached
+references); `just validate-terms` passes; `just compliance` 90.5% global /
+91.1% weighted. Offline gates run and clean: check-duplicate-keys,
+check-enum-values, check-qualifier-terms, check-entity-refs,
+check-causal-targets (no new dangling targets). `just validate-disorders` run as
+the final batched gate.
+
+The falcon report had no validation frontmatter, so both sections were
+retro-fitted with one `just validate-research-reference` run, which wrote a
+`## Reference Validation` section (6 references checked, 6 resolved, 0
+unresolved, 0 off topic) and a `## Term Validation` section (48 terms checked,
+48 resolved, 0 unresolved). A subsequent `just validate-research-terms` re-run
+failed on an OLS read timeout resolving HP:0031640 and changed nothing; the
+section from the first run is what is committed. The single term flagged as
+&#34;named as a different term&#34; is MONDO:0013200, which the report renders as
+&#34;MONDO:0013200 (if available)&#34; straight from the template - a parsing artifact,
+not a mis-binding. Note that the reference section&#39;s clean result is the reason
+the RAF1 defect above is recorded by hand.
+
+DELIBERATE OMISSIONS. No `datasets` block: `just discover-datasets` returns only
+generic hypertrophic cardiomyopathy series (myosin-inhibitor mouse studies,
+sarcomeric iPSC lines, HCM lncRNA networks) and none mentions VCL, vinculin or
+metavinculin, so attaching them would be Named Entity Confusion reached through
+dataset search. No prevalence figure, penetrance, onset or progression data: the
+published case base is two isolated probands from screening cohorts, with no
+pedigree. Treatments are deliberately thin and defer to the parent entry, since
+nothing here is genotype-directed. GeneReviews PMID:20301725 (Nonsyndromic
+Hypertrophic Cardiomyopathy Overview) is the applicable chapter and is tagged in
+`references`, but its cached PubMed record contains only the chapter&#39;s purpose
+statement with no clinical-characteristics text, so no phenotype is sourced from
+it and no snippet is claimed against it; there is no VCL-specific chapter.
+
+PRE-PR RED-TEAM REVIEW (dismech-pr-review skill, fresh-context subagent) found
+21 findings, all of which were taken. The two that mattered:
+
+(1) relationship_type was CAUSATIVE with a ten-line note retracting it. The
+enum has a DISPUTED value defined as ClinGen &#34;Disputed&#34; or &#34;Refuted&#34;, and
+CAUSATIVE is defined as ClinGen Definitive or Strong. The structured field is
+what an export or query reads; the prose caveat does not survive either. Changed
+to DISPUTED. This was the one field in the entry that contradicted its own
+framing.
+
+(2) The description said both probands had apical hypertrophy. Only the R975W
+proband did; the L277M proband&#39;s report says mid-ventricular only. With a
+two-patient case base that is not cosmetic. Corrected.
+
+Also taken: the pathophysiology chain terminated at obstruction and never
+reached the phenotype layer, and a pathophysiology node differed from a
+phenotype only in capitalization, which the verbatim-matching pathograph would
+have rendered as two nodes for one concept - the node is now &#34;Dynamic Outflow
+Obstruction&#34; and edges run into three phenotypes (orphan_targets is now empty,
+17 edges). A `Dilated cardiomyopathy` phenotype whose own description opened
+&#34;Not a feature of this entity&#34; was deleted, since a phenotypes[] entry asserts
+the opposite of what it said; the boundary is carried by the differential
+diagnosis and the allelism evidence. The ClinGen DCM-Strong record was regraded
+SUPPORT -&gt; NO_EVIDENCE, being true, worth citing, and about a different disease.
+Two evidence items had quotes that did not carry their explanations: the
+histopathology REFUTE quoted the DCM/HTN/PHTN comparator arm, which if anything
+makes the marker look more specific, and the differential quoted a sentence
+saying the marker discriminates between pathophysiologies; both now quote the
+obstructive-HCM/aortic-stenosis sentence that actually destroys VCL-specificity,
+and the comparator sentence is retained as a SUPPORT item for compartment and
+aetiology specificity. An unevidenced `modifier: LOSS_OF_FUNCTION` on
+GO:0003789 was dropped - the cited work shows mutants fail to inhibit bundling,
+not that they lose severing. &#34;No new evidence since 2006&#34; / &#34;the intervening
+seventeen years&#34; over-read ClinGen, whose phrase is &#34;since the initial
+curation&#34;, a curation event with an intervening 2021 recuration; both were
+corrected. The mouse-versus-human metavinculin share, asserted three times
+without a citation, is now evidenced from PMID:17785437&#39;s full text. The
+sigmoidal-contour phenotype now records that the class-level finding is in
+tension with both VCL probands&#39; described morphology and that the series&#39; two
+apical cases may be the VCL pair. `attaches_to: animal_models#Mouse` bound only
+the first of two same-species models and now names both by model name. A
+prevalence record that was really a diagnostic yield was removed and its content
+folded into the remaining record&#39;s notes, where the 389-proband denominator was
+also corrected (three variants across four patients, one carried forward, not
+&#34;one variant&#34;). The treatment term moved from NCIT:C15329 Surgical Procedure to
+NCIT:C51591 Myectomy, already an enum-validated member. A `would_refute`
+pointing at the hypertrophy node now points at the variant node, since the
+probands demonstrably had hypertrophy. Prose describing one `discover-datasets`
+run was trimmed to the durable claim.
+
+Compliance moved 90.5% -&gt; 87.4% across this revision. That is the placeholder
+prevalence record and the Dilated cardiomyopathy phenotype being removed; both
+scored full marks on evidence coverage and neither should have existed.
+
+UNRELATED PRE-EXISTING CHURN, surfaced not fixed. Eight references_cache/DOI_*.md
+files show as modified in a freshly created worktree off origin/main - a tool in
+the validation path lowercases the DOI in `reference_id` and `doi`
+(e.g. DOI:10.7554/eLife.74270 -&gt; DOI:10.7554/elife.74270). This predates and is
+unrelated to this curation and has been left unstaged.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

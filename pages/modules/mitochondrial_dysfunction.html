@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1600,7 +1637,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">mitochondrial_dysfunction</span>
-                <span class="badge badge-count">23 disorders</span>
+                <span class="badge badge-count">31 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
                 
@@ -2070,25 +2107,10 @@ The module also carries a pharmacological-probe arm - elamipretide (SS-31) under
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">23</span>
+                <span class="card-count">31</span>
             </div>
             
             <div class="crosslink-list">
-                
-                <div class="crosslink-item">
-                    <a href="../disorders/Ageing_Associated_Decline_in_Intrinsic_Capacity.html">Ageing Associated Decline in Intrinsic Capacity</a>
-                    
-                    <span class="crosslink-desc">
-                        via
-                        
-                        
-                        
-                        Mitochondrial Bioenergetic Decline → Bioenergetic Decline and Oxidative Stress
-                        
-                        
-                    </span>
-                    
-                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Alzheimer_Disease.html">Alzheimer Disease</a>
@@ -2241,6 +2263,21 @@ The module also carries a pharmacological-probe arm - elamipretide (SS-31) under
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/LETM1-Related_Childhood-Onset_Neurodegeneration.html">LETM1-Related Childhood-Onset Neurodegeneration</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Respiratory Chain Complex Deficiency → Bioenergetic Decline and Oxidative Stress
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/MELAS_Syndrome.html">MELAS Syndrome</a>
                     
                     <span class="crosslink-desc">
@@ -2271,6 +2308,36 @@ The module also carries a pharmacological-probe arm - elamipretide (SS-31) under
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_11.html">Mitochondrial Complex I Deficiency, Nuclear Type 11</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Complex I Deficiency → Bioenergetic Decline and Oxidative Stress
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_13.html">Mitochondrial Complex I Deficiency, Nuclear Type 13</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Isolated Complex I Deficiency → Bioenergetic Decline and Oxidative Stress
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_14.html">Mitochondrial Complex I Deficiency, Nuclear Type 14</a>
                     
                     <span class="crosslink-desc">
@@ -2279,6 +2346,51 @@ The module also carries a pharmacological-probe arm - elamipretide (SS-31) under
                         
                         
                         Impaired Mitochondrial NADH Reoxidation and ATP Synthesis → Bioenergetic Decline and Oxidative Stress
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_15.html">Mitochondrial Complex I Deficiency, Nuclear Type 15</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Isolated Complex I Deficiency → Bioenergetic Decline and Oxidative Stress
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_18.html">Mitochondrial Complex I Deficiency, Nuclear Type 18</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Isolated Complex I Deficiency → Bioenergetic Decline and Oxidative Stress
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_22.html">Mitochondrial Complex I Deficiency, Nuclear Type 22</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Reduced Complex I Amount and Activity → Bioenergetic Decline and Oxidative Stress
                         
                         
                     </span>
@@ -2376,6 +2488,41 @@ The module also carries a pharmacological-probe arm - elamipretide (SS-31) under
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Mitochondrial_DNA_Depletion_Syndrome_3_Hepatocerebral_Type.html">Mitochondrial DNA Depletion Syndrome 3 (Hepatocerebral Type)</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Combined Respiratory Chain Deficiency → Bioenergetic Decline and Oxidative Stress
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Mitochondrial_Spastic_Paraplegia.html">Mitochondrial Spastic Paraplegia</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Homoplasmic MT-TV m.1661A&gt;G Variant → Mitochondrial Damage and mtDNA Mutation
+                        
+                        
+                        , 
+                        
+                        Reduced Mitochondrial DNA Copy Number → Bioenergetic Decline and Oxidative Stress
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Pearson_syndrome.html">Pearson syndrome</a>
                     
                     <span class="crosslink-desc">
@@ -2399,6 +2546,21 @@ The module also carries a pharmacological-probe arm - elamipretide (SS-31) under
                         
                         
                         Mitochondrial Dysfunction and Oxidative Stress → Bioenergetic Decline and Oxidative Stress
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/SUCLA2-Related_Mitochondrial_DNA_Depletion_Syndrome.html">SUCLA2-Related Mitochondrial DNA Depletion Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Combined Respiratory Chain Deficiency → Bioenergetic Decline and Oxidative Stress
                         
                         
                     </span>
@@ -2459,11 +2621,13 @@ The module also carries a pharmacological-probe arm - elamipretide (SS-31) under
             
             <div class="item-box anchor-target" id="module-pathophysiology-mitochondrial-damage-and-mtdna-mutation" data-dismech-node="Mitochondrial Damage and mtDNA Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Damage and mtDNA Mutation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">With age, post-mitotic tissues accumulate somatic mitochondrial DNA (mtDNA) mutations and respiratory-chain damage. Because mtDNA encodes essential subunits of the oxidative-phosphorylation machinery and exists in many copies per cell, this heritable mitochondrial damage is the initiating lesion that compromises energy production.</div>
                 
@@ -2507,6 +2671,20 @@ This pathophysiological event involves decreased Aerobic Respiration (GO:0009060
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Mitochondrial_Spastic_Paraplegia.html">Mitochondrial Spastic Paraplegia</a>
+                            
+                            <span class="crosslink-desc">as Homoplasmic MT-TV m.1661A&gt;G Variant</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -2525,11 +2703,13 @@ This pathophysiological event involves decreased Aerobic Respiration (GO:0009060
             
             <div class="item-box anchor-target" id="module-pathophysiology-bioenergetic-decline-and-oxidative-stress" data-dismech-node="Bioenergetic Decline and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Decline and Oxidative Stress</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Damaged mitochondria produce less ATP by oxidative phosphorylation while generating more reactive oxygen species (ROS) as a toxic by-product. This fall in mitochondrial quality and activity - correlated with the development of a wide range of age-related diseases - is the central effector state that disease-specific mitochondrial lesions converge upon.</div>
                 
@@ -2606,13 +2786,6 @@ This pathophysiological event involves increased Reactive Oxygen Species Metabol
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Ageing_Associated_Decline_in_Intrinsic_Capacity.html">Ageing Associated Decline in Intrinsic Capacity</a>
-                            
-                            <span class="crosslink-desc">as Mitochondrial Bioenergetic Decline</span>
-                            
-                        </div>
-                        
-                        <div class="crosslink-item">
                             <a href="../disorders/Autosomal_Dominant_Optic_Atrophy.html">Autosomal Dominant Optic Atrophy</a>
                             
                             <span class="crosslink-desc">as Oxidative Phosphorylation Deficiency</span>
@@ -2676,6 +2849,13 @@ This pathophysiological event involves increased Reactive Oxygen Species Metabol
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/LETM1-Related_Childhood-Onset_Neurodegeneration.html">LETM1-Related Childhood-Onset Neurodegeneration</a>
+                            
+                            <span class="crosslink-desc">as Respiratory Chain Complex Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/MELAS_Syndrome.html">MELAS Syndrome</a>
                             
                             <span class="crosslink-desc">as Oxidative phosphorylation deficiency</span>
@@ -2690,9 +2870,44 @@ This pathophysiological event involves increased Reactive Oxygen Species Metabol
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_11.html">Mitochondrial Complex I Deficiency, Nuclear Type 11</a>
+                            
+                            <span class="crosslink-desc">as Complex I Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_13.html">Mitochondrial Complex I Deficiency, Nuclear Type 13</a>
+                            
+                            <span class="crosslink-desc">as Isolated Complex I Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_14.html">Mitochondrial Complex I Deficiency, Nuclear Type 14</a>
                             
                             <span class="crosslink-desc">as Impaired Mitochondrial NADH Reoxidation and ATP Synthesis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_15.html">Mitochondrial Complex I Deficiency, Nuclear Type 15</a>
+                            
+                            <span class="crosslink-desc">as Isolated Complex I Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_18.html">Mitochondrial Complex I Deficiency, Nuclear Type 18</a>
+                            
+                            <span class="crosslink-desc">as Isolated Complex I Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_22.html">Mitochondrial Complex I Deficiency, Nuclear Type 22</a>
+                            
+                            <span class="crosslink-desc">as Reduced Complex I Amount and Activity</span>
                             
                         </div>
                         
@@ -2739,6 +2954,20 @@ This pathophysiological event involves increased Reactive Oxygen Species Metabol
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Mitochondrial_DNA_Depletion_Syndrome_3_Hepatocerebral_Type.html">Mitochondrial DNA Depletion Syndrome 3 (Hepatocerebral Type)</a>
+                            
+                            <span class="crosslink-desc">as Combined Respiratory Chain Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Mitochondrial_Spastic_Paraplegia.html">Mitochondrial Spastic Paraplegia</a>
+                            
+                            <span class="crosslink-desc">as Reduced Mitochondrial DNA Copy Number</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Pearson_syndrome.html">Pearson syndrome</a>
                             
                             <span class="crosslink-desc">as Mitochondrial Translation and OXPHOS Deficiency</span>
@@ -2749,6 +2978,13 @@ This pathophysiological event involves increased Reactive Oxygen Species Metabol
                             <a href="../disorders/Sarcopenia.html">Sarcopenia</a>
                             
                             <span class="crosslink-desc">as Mitochondrial Dysfunction and Oxidative Stress</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/SUCLA2-Related_Mitochondrial_DNA_Depletion_Syndrome.html">SUCLA2-Related Mitochondrial DNA Depletion Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Combined Respiratory Chain Deficiency</span>
                             
                         </div>
                         
@@ -2778,11 +3014,13 @@ This pathophysiological event involves increased Reactive Oxygen Species Metabol
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-mitophagy-and-quality-control" data-dismech-node="Impaired Mitophagy and Quality Control" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitophagy and Quality Control</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Autophagic turnover specific for mitochondria (mitophagy) normally eliminates dysfunctional or damaged mitochondria, counteracting degeneration and dampening inflammation. When mitophagy and general autophagy decline with age, damaged mitochondria are not cleared and accumulate, amplifying bioenergetic failure and pro-inflammatory, pro-apoptotic signaling.</div>
                 
@@ -2865,11 +3103,13 @@ This pathophysiological event involves decreased Mitophagy, annotated with autop
             
             <div class="item-box anchor-target" id="module-pathophysiology-mitochondrial-contribution-to-senescence-and-inflammation" data-dismech-node="Mitochondrial Contribution to Senescence and Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Contribution to Senescence and Inflammation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Beyond energy failure, dysfunctional mitochondria drive other aging hallmarks: they contribute to cellular senescence, chronic inflammation (via pro-inflammatory signaling), and the age-dependent decline in stem-cell activity. This node is the conserved interface at which mitochondrial dysfunction feeds the senescence and inflammaging modules.</div>
                 
@@ -2931,11 +3171,13 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
             
             <div class="item-box anchor-target" id="module-pathophysiology-age-related-tissue-dysfunction" data-dismech-node="Age-Related Tissue Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Age-Related Tissue Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The combination of bioenergetic decline, oxidative stress, insufficient mitochondrial clearance, and mitochondria-driven senescence and inflammation degrades tissue function. This is the conserved consequence by which mitochondrial dysfunction contributes causally to age-related pathology; the specific organ or disease phenotype is supplied by the conforming disorder.</div>
                 
@@ -3013,6 +3255,9 @@ This treatment uses elamipretide (CHEBI:233331). CHEBI:233331 is a therapeutic a
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -3023,6 +3268,9 @@ This treatment uses elamipretide (CHEBI:233331). CHEBI:233331 is a therapeutic a
         
         
     </div>
+    
+    
+    
     
     
     
@@ -3170,6 +3418,9 @@ This treatment uses methylene blue (CHEBI:6872). CHEBI:6872 is a therapeutic age
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -3180,6 +3431,9 @@ This treatment uses methylene blue (CHEBI:6872). CHEBI:6872 is a therapeutic age
         
         
     </div>
+    
+    
+    
     
     
     
@@ -3275,6 +3529,9 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -3285,6 +3542,9 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
         
         
     </div>
+    
+    
+    
     
     
     

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3806,6 +3874,8 @@
                     </a>
                 </span>
 
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Isolated%20Woolly%20Hair"
@@ -3971,11 +4041,19 @@
 
 
 
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">⬡</div>
+                <div class="stat-value">14</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -3994,7 +4072,7 @@
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
@@ -4035,9 +4113,9 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-liph-lpar6">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-liph-lpar6-krt25-c3orf52">
                 <div class="item-name">
-                    Autosomal recessive (LIPH, LPAR6)
+                    Autosomal recessive (LIPH, LPAR6, KRT25, C3ORF52)
 
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank">
@@ -4047,7 +4125,7 @@
 
                 </div>
 
-                <div class="item-desc">Woolly hair/hypotrichosis due to LIPH or LPAR6 variants is inherited in an autosomal recessive manner, frequently in consanguineous families.
+                <div class="item-desc">Woolly hair/hypotrichosis due to LIPH, LPAR6, KRT25 or C3ORF52 variants is inherited in an autosomal recessive manner, frequently in consanguineous families.
 </div>
 
 
@@ -4086,6 +4164,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4106,9 +4185,9 @@
 
             </div>
 
-            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-krt74">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-krt74-krt71">
                 <div class="item-name">
-                    Autosomal dominant (KRT74)
+                    Autosomal dominant (KRT74, KRT71)
 
                     <span class="phenotype-id">
                         <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
@@ -4118,7 +4197,7 @@
 
                 </div>
 
-                <div class="item-desc">Woolly hair due to KRT74 variants is inherited in an autosomal dominant manner.
+                <div class="item-desc">Woolly hair due to KRT74 or KRT71 variants is inherited in an autosomal dominant manner.
 </div>
 
 
@@ -4157,6 +4236,9 @@
 
 
 
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4186,8 +4268,16 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -4227,6 +4317,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                LPAR6
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:15520" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:15520</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LPAR6 (hgnc:15520). hgnc:15520 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Autosomal recessive woolly hair/hypotrichosis 1 (ARWH1; OMIM 278150) caused by biallelic variants in LPAR6 (P2RY5), encoding the G-protein-coupled lysophosphatidic acid receptor 6 that acts downstream of LIPH. Hair is tightly curled and sparse from birth; phenotypically indistinguishable from LIPH-related ARWH, as both disrupt the same LIPH-LPA-LPAR6 axis.
@@ -4250,6 +4359,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4281,7 +4391,7 @@
                     <div class="item-name">
                         Autosomal Recessive Woolly Hair 2 (LIPH)
 
-                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0008686" target="_blank">MONDO:0008686</a>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0011452" target="_blank">MONDO:0011452</a>
 
 
 
@@ -4292,9 +4402,28 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                LIPH
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:18483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:18483</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LIPH (hgnc:18483). hgnc:18483 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
-                    <div class="item-desc">Autosomal recessive woolly hair/hypotrichosis 2 (ARWH2; OMIM 604379) caused by biallelic variants in LIPH, encoding membrane-associated lipase H (phosphatidic acid-selective phospholipase A1-alpha) that produces 2-acyl lysophosphatidic acid, the ligand for LPAR6. LIPH-related disease is the most common form, especially in Japan, Pakistan, and the Volga-Ural region of Russia, owing to founder mutations. MONDO does not yet provide a distinct ARWH2 term, so this subtype is bound to the ARWH grouping term.
+                    <div class="item-desc">Autosomal recessive woolly hair/hypotrichosis 2 (ARWH2; OMIM 604379) caused by biallelic variants in LIPH, encoding membrane-associated lipase H (phosphatidic acid-selective phospholipase A1-alpha) that produces 2-acyl lysophosphatidic acid, the ligand for LPAR6. LIPH-related disease is the most common form, especially in Japan, Pakistan, and the Volga-Ural region of Russia, owing to founder mutations.
 </div>
 
 
@@ -4315,6 +4444,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4357,9 +4487,28 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                KRT74
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:28929" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:28929</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in KRT74 (hgnc:28929). hgnc:28929 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
-                    <div class="item-desc">Autosomal dominant woolly hair / hypotrichosis simplex caused by heterozygous variants in KRT74, a type II hair-shaft keratin expressed in the inner root sheath. Variants disrupt keratin filament assembly, producing woolly, sparse hair.
+                    <div class="item-desc">Autosomal dominant woolly hair / hypotrichosis simplex caused by heterozygous variants in KRT74, a type II hair-shaft keratin expressed in the inner root sheath. Variants disrupt keratin filament assembly, producing woolly, sparse hair. KRT71, the other inner-root-sheath type II keratin reported in autosomal dominant woolly hair, is curated as the separate HYPT13 subtype because MONDO gives it its own gene-anchored term.
 </div>
 
 
@@ -4383,6 +4532,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4391,6 +4541,203 @@
 
 
                 <div class="evidence-explanation">Establishes a heterozygous KRT74 variant as the cause of autosomal dominant woolly hair.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-arwh3">
+
+                    <div class="item-name">
+                        Autosomal Recessive Woolly Hair 3 (KRT25)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014765" target="_blank">MONDO:0014765</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                KRT25
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:30839" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:30839</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in KRT25 (hgnc:30839). hgnc:30839 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Autosomal recessive woolly hair 3 (ARWH3; OMIM 616760) caused by biallelic variants in KRT25, a type I keratin expressed in all three layers of the hair-follicle inner root sheath and in the hair-shaft medulla. Unlike ARWH1 and ARWH2 it does not act through the LIPH-LPA-LPAR6 axis; the defect is in keratin heterodimerisation, which places it mechanistically beside the dominant keratin subtypes rather than beside the other recessive ones.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33988877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33988877" target="_blank">PMID:33988877</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Woolly hair autosomal recessive 1 (ARWH1) (MIM #278150), woolly hair autosomal recessive 2 (ARWH2) (MIM #604379) and woolly hair autosomal recessive 3 (ARWH3) (MIM #616760) are caused by mutations in LPAR6, LIPH and KRT25, respectively."</div>
+
+
+                <div class="evidence-explanation">Assigns ARWH3 and its OMIM number to KRT25 in a review of the ARWH gene set.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26160856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26160856" target="_blank">PMID:26160856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A homozygous missense variant c.950T&gt;C (p.(Leu317Pro)) within KRT25 segregated with ARWH in both families"</div>
+
+
+                <div class="evidence-explanation">The gene-discovery study, reporting segregation of a biallelic KRT25 variant with woolly hair in two consanguineous Pakistani families.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-hypt13">
+
+                    <div class="item-name">
+                        Hypotrichosis 13 / Autosomal Dominant Woolly Hair (KRT71)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014390" target="_blank">MONDO:0014390</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                KRT71
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:28927" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:28927</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in KRT71 (hgnc:28927). hgnc:28927 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Autosomal dominant woolly hair with hypotrichosis caused by heterozygous variants in KRT71, the type II inner-root-sheath keratin that partners K25. MONDO files this under the hypotrichosis series as hypotrichosis 13 while listing &#34;hypotrichosis with woolly hair&#34; as an exact synonym; it is a direct child of this entry&#39;s own disease term.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22592156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22592156" target="_blank">PMID:22592156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we discovered the heterozygous mutation c.422T&gt;G (p.Phe141Cys) within the helix initiation motif of the IRS-specific keratin K71 (KRT71) gene in affected family members."</div>
+
+
+                <div class="evidence-explanation">Reports the heterozygous KRT71 variant segregating in a Japanese family with autosomal dominant woolly hair and hypotrichosis.</div>
 
 
 
@@ -4428,6 +4775,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-liph-lpar6-lysophosphatidic-acid-signaling" data-dismech-node="Disrupted LIPH-LPAR6 Lysophosphatidic Acid Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted LIPH-LPAR6 Lysophosphatidic Acid Signaling</div>
 
+
                 <div class="item-desc">LIPH (lipase H) is a membrane-bound phospholipase A1 that hydrolyzes phosphatidic acid to produce 2-acyl lysophosphatidic acid (LPA). LPA is the physiological ligand for LPAR6 (P2RY5), a G-protein-coupled receptor expressed in the inner root sheath of the hair follicle. Loss-of-function variants in either LIPH or LPAR6 disrupt this autocrine/paracrine LPA-signaling axis that is required for normal hair-follicle differentiation, producing tightly curled woolly hair and hypotrichosis. Reduced LIPH-LPA-LPAR6 signaling decreases transactivation of downstream EGFR signaling, resulting in underdeveloped hairs.
 </div>
 
@@ -4443,11 +4791,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:2000092</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:2000092</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hair follicular keratinocyte (CL:2000092). CL:2000092 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4469,6 +4817,127 @@ This pathophysiological event involves hair follicular keratinocyte (CL:2000092)
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        LIPH
+
+
+    <a href="https://bioregistry.io/hgnc:18483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:18483</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LIPH (hgnc:18483). hgnc:18483 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        LPAR6
+
+
+    <a href="https://bioregistry.io/hgnc:15520" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:15520</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LPAR6 (hgnc:15520). hgnc:15520 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        C3ORF52
+
+
+    <a href="https://bioregistry.io/hgnc:26255" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:26255</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C3ORF52 (hgnc:26255). hgnc:26255 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4484,11 +4953,11 @@ This pathophysiological event involves hair follicular keratinocyte (CL:2000092)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009395" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0009395</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009395" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0009395</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased phospholipid catabolism / 2-acyl-LPA production by lipase H, annotated with phospholipid catabolic process (GO:0009395). GO:0009395 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4518,11 +4987,11 @@ This pathophysiological event involves decreased phospholipid catabolism / 2-acy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007186" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0007186</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007186" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007186</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased LPA receptor (LPAR6) G-protein-coupled signaling, annotated with G protein-coupled receptor signaling pathway (GO:0007186). GO:0007186 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4552,11 +5021,11 @@ This pathophysiological event involves decreased LPA receptor (LPAR6) G-protein-
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001942" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0001942</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001942" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001942</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal hair follicle development (GO:0001942). GO:0001942 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4587,6 +5056,45 @@ This pathophysiological event involves abnormal hair follicle development (GO:00
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Woolly Hair</span>
+
+	                            <span class="crosslink-desc">Loss of LPA signalling through this axis yields the underdeveloped, tightly curled hair that defines the recessive forms.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sparse Hair / Hypotrichosis</span>
+
+	                            <span class="crosslink-desc">The same signalling loss produces the hypotrichosis that accompanies woolly hair in the recessive forms.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Fine Hair</span>
+
+	                            <span class="crosslink-desc">The review&#39;s term for the phenotype this axis produces is underdeveloped hairs, of which the abnormally thin shaft is one aspect. The edge records that attribution; it is not a separate measurement of shaft diameter.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Slow-Growing Hair</span>
+
+	                            <span class="crosslink-desc">Reduced LPA-EGFR transactivation leaves hairs underdeveloped, which is the mechanism behind the short, slow-growing shafts.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -4603,6 +5111,7 @@ This pathophysiological event involves abnormal hair follicle development (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4630,6 +5139,7 @@ This pathophysiological event involves abnormal hair follicle development (GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4654,6 +5164,7 @@ This pathophysiological event involves abnormal hair follicle development (GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4674,10 +5185,11 @@ This pathophysiological event involves abnormal hair follicle development (GO:00
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-krt74-hair-shaft-keratin-filament-defect" data-dismech-node="KRT74 Hair-Shaft Keratin Filament Defect" data-dismech-type="pathophysiology">
-                <div class="item-name">KRT74 Hair-Shaft Keratin Filament Defect</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-inner-root-sheath-keratin-filament-defect" data-dismech-node="Inner Root Sheath Keratin Filament Defect" data-dismech-type="pathophysiology">
+                <div class="item-name">Inner Root Sheath Keratin Filament Defect</div>
 
-                <div class="item-desc">KRT74 encodes a type II inner root sheath hair-shaft keratin. Heterozygous dominant variants impair keratin intermediate-filament assembly in the inner root sheath, distorting hair-shaft formation and producing woolly hair with variable hypotrichosis.
+
+                <div class="item-desc">The inner root sheath keratins heterodimerise in obligate type I / type II pairs to build the keratin intermediate filaments that shape the growing hair shaft. KRT74 and KRT71 are the type II partners and KRT25 the type I partner curated here. Heterozygous dominant KRT74 or KRT71 variants impair filament assembly in the inner root sheath, and biallelic KRT25 variants disrupt the same filaments from the type I side, in each case distorting hair-shaft formation and producing woolly hair with variable hypotrichosis. This is a separate mechanism from the LIPH-LPA-LPAR6 signalling node: the keratin subtypes are not LPA-axis disorders, which is why a single entry carries two independent pathophysiology chains.
 </div>
 
 
@@ -4692,11 +5204,11 @@ This pathophysiological event involves abnormal hair follicle development (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:2000092</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:2000092</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hair follicular keratinocyte (CL:2000092). CL:2000092 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4718,6 +5230,127 @@ This pathophysiological event involves hair follicular keratinocyte (CL:2000092)
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        KRT74
+
+
+    <a href="https://bioregistry.io/hgnc:28929" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:28929</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KRT74 (hgnc:28929). hgnc:28929 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        KRT71
+
+
+    <a href="https://bioregistry.io/hgnc:28927" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:28927</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KRT71 (hgnc:28927). hgnc:28927 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        KRT25
+
+
+    <a href="https://bioregistry.io/hgnc:30839" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:30839</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KRT25 (hgnc:30839). hgnc:30839 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4733,11 +5366,11 @@ This pathophysiological event involves hair follicular keratinocyte (CL:2000092)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045109" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0045109</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045109" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0045109</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal intermediate filament (keratin) organization, annotated with intermediate filament organization (GO:0045109). GO:0045109 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4767,11 +5400,11 @@ This pathophysiological event involves abnormal intermediate filament (keratin) 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031069" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0031069</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031069" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0031069</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal hair follicle morphogenesis (GO:0031069). GO:0031069 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4802,11 +5435,50 @@ This pathophysiological event involves abnormal hair follicle morphogenesis (GO:
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Woolly Hair</span>
+
+	                            <span class="crosslink-desc">A disrupted inner-root-sheath keratin filament network distorts the shape of the hair shaft it moulds, producing the tightly curled hair.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Curly Hair</span>
+
+	                            <span class="crosslink-desc">The same filament defect is what makes the shaft tightly curled rather than straight.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormal Hair Shaft Morphology</span>
+
+	                            <span class="crosslink-desc">Filament disorganisation in the sheath that moulds the shaft leaves the shaft itself structurally abnormal.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sparse Hair / Hypotrichosis</span>
+
+	                            <span class="crosslink-desc">The dominant keratin subtypes present as woolly hair with variable hypotrichosis rather than woolly hair alone.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -4818,6 +5490,7 @@ This pathophysiological event involves abnormal hair follicle morphogenesis (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4845,6 +5518,7 @@ This pathophysiological event involves abnormal hair follicle morphogenesis (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4858,6 +5532,33 @@ This pathophysiological event involves abnormal hair follicle morphogenesis (GO:
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:22592156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22592156" target="_blank">PMID:22592156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We demonstrated that the mutant K71 protein led to disruption of keratin intermediate filament formation in cultured cells."</div>
+
+
+                <div class="evidence-explanation">Shows that a woolly-hair KRT71 variant produces the same intermediate-filament assembly failure as the KRT74 variant, extending this node to the second type II inner-root-sheath keratin.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -4872,6 +5573,29 @@ This pathophysiological event involves abnormal hair follicle morphogenesis (GO:
 
 
         <!-- Causal Graph (Pathograph) -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Isolated Woolly Hair</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Hair Shaft Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural abnormality of the hair shaft. Scanning electron microscopy of affected hair demonstrates an irregular, rough cuticle with longitudinal grooves and surface projections, and an altered (oval) cross-sectional shape.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001595\"}}, {\"id\": \"C3ORF52\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"C3ORF52\"], \"gene_terms\": [{\"label\": \"C3ORF52\", \"id\": \"hgnc:26255\"}]}}, {\"id\": \"Curly Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The woolly hair is tightly curled / coiled.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002212\"}}, {\"id\": \"Disrupted LIPH-LPAR6 Lysophosphatidic Acid Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIPH (lipase H) is a membrane-bound phospholipase A1 that hydrolyzes phosphatidic acid to produce 2-acyl lysophosphatidic acid (LPA). LPA is the physiological ligand for LPAR6 (P2RY5), a G-protein-coupled receptor expressed in the inner root sheath of the hair follicle. Loss-of-function variants in either LIPH or LPAR6 disrupt this autocrine/paracrine LPA-signaling axis that is required for normal hair-follicle differentiation, producing tightly curled woolly hair and hypotrichosis. Reduced LIPH-LPA-LPAR6 signaling decreases transactivation of downstream EGFR signaling, resulting in underdeveloped hairs.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hair follicular keratinocyte\"], \"biological_processes\": [\"phospholipid catabolism / 2-acyl-LPA production by lipase H\", \"LPA receptor (LPAR6) G-protein-coupled signaling\", \"hair follicle development\"], \"genes\": [\"LIPH\", \"LPAR6\", \"C3ORF52\"], \"gene_terms\": [{\"label\": \"LIPH\", \"id\": \"hgnc:18483\"}, {\"label\": \"LPAR6\", \"id\": \"hgnc:15520\"}, {\"label\": \"C3ORF52\", \"id\": \"hgnc:26255\"}]}}, {\"id\": \"Fine Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The hair shafts are abnormally thin / fine.\\n\", \"meta\": {\"term_id\": \"HP:0002213\"}}, {\"id\": \"Inner Root Sheath Keratin Filament Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The inner root sheath keratins heterodimerise in obligate type I / type II pairs to build the keratin intermediate filaments that shape the growing hair shaft. KRT74 and KRT71 are the type II partners and KRT25 the type I partner curated here. Heterozygous dominant KRT74 or KRT71 variants impair filament assembly in the inner root sheath, and biallelic KRT25 variants disrupt the same filaments from the type I side, in each case distorting hair-shaft formation and producing woolly hair with variable hypotrichosis. This is a separate mechanism from the LIPH-LPA-LPAR6 signalling node: the keratin subtypes are not LPA-axis disorders, which is why a single entry carries two independent pathophysiology chains.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"hair follicular keratinocyte\"], \"biological_processes\": [\"intermediate filament (keratin) organization\", \"hair follicle morphogenesis\"], \"genes\": [\"KRT74\", \"KRT71\", \"KRT25\"], \"gene_terms\": [{\"label\": \"KRT74\", \"id\": \"hgnc:28929\"}, {\"label\": \"KRT71\", \"id\": \"hgnc:28927\"}, {\"label\": \"KRT25\", \"id\": \"hgnc:30839\"}]}}, {\"id\": \"KRT25\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KRT25\"], \"gene_terms\": [{\"label\": \"KRT25\", \"id\": \"hgnc:30839\"}], \"subtypes\": [\"ARWH3\"]}}, {\"id\": \"KRT71\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KRT71\"], \"gene_terms\": [{\"label\": \"KRT71\", \"id\": \"hgnc:28927\"}], \"subtypes\": [\"HYPT13\"]}}, {\"id\": \"KRT74\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KRT74\"], \"gene_terms\": [{\"label\": \"KRT74\", \"id\": \"hgnc:28929\"}], \"subtypes\": [\"ADWH\"]}}, {\"id\": \"LIPH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LIPH\"], \"gene_terms\": [{\"label\": \"LIPH\", \"id\": \"hgnc:18483\"}], \"subtypes\": [\"ARWH2\"]}}, {\"id\": \"LPAR6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LPAR6\"], \"gene_terms\": [{\"label\": \"LPAR6\", \"id\": \"hgnc:15520\"}], \"subtypes\": [\"ARWH1\"]}}, {\"id\": \"Slow-Growing Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hair grows slowly and rarely reaches significant length, remaining short.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002217\"}}, {\"id\": \"Sparse Hair / Hypotrichosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable degrees of sparse scalp hair (hypotrichosis), particularly prominent in LIPH/LPAR6-related autosomal recessive disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008070\"}}, {\"id\": \"Woolly Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tightly curled, kinky scalp hair present from birth in individuals not of African ancestry, with an abnormal cross-sectional shape; the cardinal feature.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002224\"}}], \"edges\": [{\"source\": \"Disrupted LIPH-LPAR6 Lysophosphatidic Acid Signaling\", \"target\": \"Woolly Hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of LPA signalling through this axis yields the underdeveloped, tightly curled hair that defines the recessive forms.\"}, {\"source\": \"Disrupted LIPH-LPAR6 Lysophosphatidic Acid Signaling\", \"target\": \"Sparse Hair / Hypotrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same signalling loss produces the hypotrichosis that accompanies woolly hair in the recessive forms.\"}, {\"source\": \"Disrupted LIPH-LPAR6 Lysophosphatidic Acid Signaling\", \"target\": \"Fine Hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The review\u0027s term for the phenotype this axis produces is underdeveloped hairs, of which the abnormally thin shaft is one aspect. The edge records that attribution; it is not a separate measurement of shaft diameter.\"}, {\"source\": \"Disrupted LIPH-LPAR6 Lysophosphatidic Acid Signaling\", \"target\": \"Slow-Growing Hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced LPA-EGFR transactivation leaves hairs underdeveloped, which is the mechanism behind the short, slow-growing shafts.\"}, {\"source\": \"Inner Root Sheath Keratin Filament Defect\", \"target\": \"Woolly Hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A disrupted inner-root-sheath keratin filament network distorts the shape of the hair shaft it moulds, producing the tightly curled hair.\"}, {\"source\": \"Inner Root Sheath Keratin Filament Defect\", \"target\": \"Curly Hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same filament defect is what makes the shaft tightly curled rather than straight.\"}, {\"source\": \"Inner Root Sheath Keratin Filament Defect\", \"target\": \"Abnormal Hair Shaft Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Filament disorganisation in the sheath that moulds the shaft leaves the shaft itself structurally abnormal.\"}, {\"source\": \"Inner Root Sheath Keratin Filament Defect\", \"target\": \"Sparse Hair / Hypotrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dominant keratin subtypes present as woolly hair with variable hypotrichosis rather than woolly hair alone.\"}, {\"source\": \"LIPH\", \"target\": \"Disrupted LIPH-LPAR6 Lysophosphatidic Acid Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LPAR6\", \"target\": \"Disrupted LIPH-LPAR6 Lysophosphatidic Acid Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KRT74\", \"target\": \"Inner Root Sheath Keratin Filament Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KRT71\", \"target\": \"Inner Root Sheath Keratin Filament Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KRT25\", \"target\": \"Inner Root Sheath Keratin Filament Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C3ORF52\", \"target\": \"Disrupted LIPH-LPAR6 Lysophosphatidic Acid Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
 
 
         <!-- Phenotypes -->
@@ -4897,15 +5621,18 @@ This pathophysiological event involves abnormal hair follicle morphogenesis (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002224" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002224</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002224" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002224</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Woolly hair (HP:0002224). HP:0002224 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -4926,6 +5653,9 @@ This clinical feature is Woolly hair (HP:0002224). HP:0002224 is a phenotype fro
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4963,15 +5693,18 @@ This clinical feature is Woolly hair (HP:0002224). HP:0002224 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002212</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002212</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Curly hair (HP:0002212). HP:0002212 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -4992,6 +5725,9 @@ This clinical feature is Curly hair (HP:0002212). HP:0002212 is a phenotype from
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5029,15 +5765,18 @@ This clinical feature is Curly hair (HP:0002212). HP:0002212 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008070" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0008070</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008070" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0008070</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5057,6 +5796,7 @@ This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5095,15 +5835,18 @@ This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002213" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002213</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002213" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002213</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fine hair (HP:0002213). HP:0002213 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5127,15 +5870,18 @@ This clinical feature is Fine hair (HP:0002213). HP:0002213 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002217" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002217</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002217" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002217</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Slow-growing hair (HP:0002217). HP:0002217 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5155,6 +5901,7 @@ This clinical feature is Slow-growing hair (HP:0002217). HP:0002217 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5180,6 +5927,9 @@ This clinical feature is Slow-growing hair (HP:0002217). HP:0002217 is a phenoty
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5217,15 +5967,18 @@ This clinical feature is Slow-growing hair (HP:0002217). HP:0002217 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001595" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001595</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001595" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001595</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal hair shaft morphology, annotated with Abnormal hair morphology (HP:0001595). HP:0001595 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5245,6 +5998,7 @@ This clinical feature is Abnormal hair shaft morphology, annotated with Abnormal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5269,6 +6023,7 @@ This clinical feature is Abnormal hair shaft morphology, annotated with Abnormal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5305,7 +6060,7 @@ This clinical feature is Abnormal hair shaft morphology, annotated with Abnormal
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-liph" data-dismech-node="LIPH" data-dismech-type="genetic">
@@ -5324,10 +6079,10 @@ This clinical feature is Abnormal hair shaft morphology, annotated with Abnormal
                         Gene: LIPH
 
 
-    <a href="https://bioregistry.io/hgnc:18483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:18483</a>
+    <a href="https://bioregistry.io/hgnc:18483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:18483</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is LIPH (hgnc:18483). hgnc:18483 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5335,6 +6090,9 @@ This disease-associated gene is LIPH (hgnc:18483). hgnc:18483 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -5353,6 +6111,7 @@ This disease-associated gene is LIPH (hgnc:18483). hgnc:18483 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5393,10 +6152,10 @@ This disease-associated gene is LIPH (hgnc:18483). hgnc:18483 is a gene from the
                         Gene: LPAR6
 
 
-    <a href="https://bioregistry.io/hgnc:15520" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:15520</a>
+    <a href="https://bioregistry.io/hgnc:15520" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:15520</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is LPAR6 (hgnc:15520). hgnc:15520 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5404,6 +6163,9 @@ This disease-associated gene is LPAR6 (hgnc:15520). hgnc:15520 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -5422,6 +6184,7 @@ This disease-associated gene is LPAR6 (hgnc:15520). hgnc:15520 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5462,10 +6225,10 @@ This disease-associated gene is LPAR6 (hgnc:15520). hgnc:15520 is a gene from th
                         Gene: KRT74
 
 
-    <a href="https://bioregistry.io/hgnc:28929" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:28929</a>
+    <a href="https://bioregistry.io/hgnc:28929" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:28929</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is KRT74 (hgnc:28929). hgnc:28929 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5473,6 +6236,9 @@ This disease-associated gene is KRT74 (hgnc:28929). hgnc:28929 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -5494,6 +6260,7 @@ This disease-associated gene is KRT74 (hgnc:28929). hgnc:28929 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5502,6 +6269,331 @@ This disease-associated gene is KRT74 (hgnc:28929). hgnc:28929 is a gene from th
 
 
                 <div class="evidence-explanation">Defines autosomal dominant woolly hair as resulting from a KRT74 hair-follicle-specific keratin mutation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-krt71" data-dismech-node="KRT71" data-dismech-type="genetic">
+                <div class="item-name">
+                    KRT71
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: KRT71
+
+
+    <a href="https://bioregistry.io/hgnc:28927" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:28927</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KRT71 (hgnc:28927). hgnc:28927 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22592156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22592156" target="_blank">PMID:22592156</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we discovered the heterozygous mutation c.422T&gt;G (p.Phe141Cys) within the helix initiation motif of the IRS-specific keratin K71 (KRT71) gene in affected family members."</div>
+
+
+                <div class="evidence-explanation">Reports the heterozygous KRT71 variant segregating with autosomal dominant woolly hair and hypotrichosis in a Japanese family.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26160856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26160856" target="_blank">PMID:26160856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ADWH and hypotrichosis (MIM 613981) are caused by mutations in two type II IRS-specific genes KRT71 (MIM 608245) and KRT74 (MIM 608248)."</div>
+
+
+                <div class="evidence-explanation">Independent confirmation that KRT71 sits beside KRT74 as an autosomal dominant woolly hair gene. The quote is the introduction of the KRT25 gene-discovery paper restating established human genetics, not that paper&#39;s own finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-krt25" data-dismech-node="KRT25" data-dismech-type="genetic">
+                <div class="item-name">
+                    KRT25
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: KRT25
+
+
+    <a href="https://bioregistry.io/hgnc:30839" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:30839</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KRT25 (hgnc:30839). hgnc:30839 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26160856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26160856" target="_blank">PMID:26160856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A homozygous missense variant c.950T&gt;C (p.(Leu317Pro)) within KRT25 segregated with ARWH in both families"</div>
+
+
+                <div class="evidence-explanation">Reports segregation of a biallelic KRT25 variant with autosomal recessive woolly hair in two unrelated consanguineous families.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33988877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33988877" target="_blank">PMID:33988877</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Woolly hair autosomal recessive 1 (ARWH1) (MIM #278150), woolly hair autosomal recessive 2 (ARWH2) (MIM #604379) and woolly hair autosomal recessive 3 (ARWH3) (MIM #616760) are caused by mutations in LPAR6, LIPH and KRT25, respectively."</div>
+
+
+                <div class="evidence-explanation">A review assigning ARWH3 to KRT25, corroborating the gene-discovery report.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-c3orf52" data-dismech-node="C3ORF52" data-dismech-type="genetic">
+                <div class="item-name">
+                    C3ORF52
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: C3ORF52
+
+
+    <a href="https://bioregistry.io/hgnc:26255" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:26255</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C3ORF52 (hgnc:26255). hgnc:26255 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33988877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33988877" target="_blank">PMID:33988877</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, nonsense variants in C3ORF52 (*611956) were identified in ARWH patients."</div>
+
+
+                <div class="evidence-explanation">The basis for including C3ORF52 in this entry rather than only in a hypotrichosis entry.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32336749" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32336749" target="_blank">PMID:32336749</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified homozygous variants in C3ORF52 in four individuals with LAH."</div>
+
+
+                <div class="evidence-explanation">The gene-discovery report, in four individuals; it describes the phenotype as localized autosomal recessive hypotrichosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32336749" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32336749" target="_blank">PMID:32336749</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The LAH-causing variants were associated with decreased C3ORF52 expression and resulted in markedly reduced lipase H-mediated LPA biosynthesis."</div>
+
+
+                <div class="evidence-explanation">Places C3orf52 upstream in the same LPA-biosynthesis step as LIPH, which is why it wires to the signalling node in this entry.</div>
 
 
 
@@ -5541,7 +6633,7 @@ This disease-associated gene is KRT74 (hgnc:28929). hgnc:28929 is a gene from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5582,6 +6674,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">There is no specific curative therapy; management is supportive (gentle hair care, cosmetic measures) with genetic counseling regarding inheritance.
 </div>
 
@@ -5604,6 +6702,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5635,7 +6734,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">topical pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">topical pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is topical pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5677,16 +6776,22 @@ This treatment is topical pharmacotherapy, annotated with Pharmacotherapy (NCIT:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6942" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:6942</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6942" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-33">CHEBI:6942</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses minoxidil (CHEBI:6942). CHEBI:6942 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -5720,6 +6825,7 @@ This treatment uses minoxidil (CHEBI:6942). CHEBI:6942 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5805,6 +6911,7 @@ This treatment uses minoxidil (CHEBI:6942). CHEBI:6942 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5911,12 +7018,28 @@ has_subtypes:
     term:
       id: MONDO:0800312
       label: wooly hair, autosomal recessive 1, with or without hypotrichosis
+  genes:
+  - preferred_term: LPAR6
+    term:
+      id: hgnc:15520
+      label: LPAR6
   description: &gt;
     Autosomal recessive woolly hair/hypotrichosis 1 (ARWH1; OMIM 278150) caused by
     biallelic variants in LPAR6 (P2RY5), encoding the G-protein-coupled
     lysophosphatidic acid receptor 6 that acts downstream of LIPH. Hair is tightly
     curled and sparse from birth; phenotypically indistinguishable from LIPH-related
     ARWH, as both disrupt the same LIPH-LPA-LPAR6 axis.
+  review_notes: &gt;-
+    Left on MONDO:0800312, whose label matches this subtype exactly. MONDO also
+    carries MONDO:0010206 &#34;hypotrichosis 8&#34; for what appears to be the same
+    concept: it xrefs OMIM:278150 -- the OMIM number in this description -- holds
+    the causal-gene relationship RO:0004003 to LPAR6, and lists &#34;woolly hair,
+    autosomal recessive 1, with or without hypotrichosis&#34; as a related synonym,
+    while MONDO:0800312 has no OMIM xref and no gene relationship. Both are
+    direct children of MONDO:0008686. This looks like an upstream duplication
+    rather than two diseases; it is recorded here rather than resolved, because
+    rebinding to the gene-anchored term would silently change which MONDO
+    identifier this subtype claims.
   evidence:
   - reference: PMID:33988877
     reference_title: &#34;Isolated autosomal recessive woolly hair/hypotrichosis: genetics, pathogenesis and therapies.&#34;
@@ -5927,18 +7050,32 @@ has_subtypes:
 - name: ARWH2
   display_name: Autosomal Recessive Woolly Hair 2 (LIPH)
   subtype_term:
-    preferred_term: isolated familial woolly hair disorder
+    preferred_term: woolly hair, autosomal recessive 2, with or without hypotrichosis
     term:
-      id: MONDO:0008686
-      label: isolated familial wooly hair disorder
+      id: MONDO:0011452
+      label: hypotrichosis 7
+  genes:
+  - preferred_term: LIPH
+    term:
+      id: hgnc:18483
+      label: LIPH
   description: &gt;
     Autosomal recessive woolly hair/hypotrichosis 2 (ARWH2; OMIM 604379) caused by
     biallelic variants in LIPH, encoding membrane-associated lipase H (phosphatidic
     acid-selective phospholipase A1-alpha) that produces 2-acyl lysophosphatidic
     acid, the ligand for LPAR6. LIPH-related disease is the most common form,
     especially in Japan, Pakistan, and the Volga-Ural region of Russia, owing to
-    founder mutations. MONDO does not yet provide a distinct ARWH2 term, so this
-    subtype is bound to the ARWH grouping term.
+    founder mutations.
+  review_notes: &gt;-
+    Bound to MONDO:0011452, whose primary label is &#34;hypotrichosis 7&#34; but which
+    carries OMIM:604379 -- the OMIM number this subtype describes -- an exact
+    synonym &#34;wooly hair, autosomal recessive 2 with or without hypotrichosis&#34;,
+    and the causal-gene relationship RO:0004003 to LIPH. It is a direct child of
+    MONDO:0008686, this entry&#39;s own disease term. An earlier revision bound this
+    subtype to MONDO:0008686 itself on the stated grounds that no distinct ARWH2
+    term existed; re-running the lookup
+    (`runoak -i sqlite:obo:mondo descendants MONDO:0008686 -p i`) returns
+    MONDO:0011452 among six children, so that note was wrong and is withdrawn.
   evidence:
   - reference: PMID:33988877
     reference_title: &#34;Isolated autosomal recessive woolly hair/hypotrichosis: genetics, pathogenesis and therapies.&#34;
@@ -5953,11 +7090,18 @@ has_subtypes:
     term:
       id: MONDO:0020717
       label: autosomal dominant wooly hair
+  genes:
+  - preferred_term: KRT74
+    term:
+      id: hgnc:28929
+      label: KRT74
   description: &gt;
     Autosomal dominant woolly hair / hypotrichosis simplex caused by heterozygous
     variants in KRT74, a type II hair-shaft keratin expressed in the inner root
     sheath. Variants disrupt keratin filament assembly, producing woolly,
-    sparse hair.
+    sparse hair. KRT71, the other inner-root-sheath type II keratin reported in
+    autosomal dominant woolly hair, is curated as the separate HYPT13 subtype
+    because MONDO gives it its own gene-anchored term.
   evidence:
   - reference: PMID:20346438
     reference_title: &#34;Autosomal-dominant woolly hair resulting from disruption of keratin 74 (KRT74), a potential determinant of human hair texture.&#34;
@@ -5965,16 +7109,75 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We discovered a heterozygous mutation, p.Asn148Lys, within the helix initiation motif of the keratin 74 (KRT74) gene in all affected family members.&#34;
     explanation: Establishes a heterozygous KRT74 variant as the cause of autosomal dominant woolly hair.
+- name: ARWH3
+  display_name: Autosomal Recessive Woolly Hair 3 (KRT25)
+  subtype_term:
+    preferred_term: woolly hair, autosomal recessive 3
+    term:
+      id: MONDO:0014765
+      label: wooly hair, autosomal recessive 3
+  genes:
+  - preferred_term: KRT25
+    term:
+      id: hgnc:30839
+      label: KRT25
+  description: &gt;
+    Autosomal recessive woolly hair 3 (ARWH3; OMIM 616760) caused by biallelic
+    variants in KRT25, a type I keratin expressed in all three layers of the
+    hair-follicle inner root sheath and in the hair-shaft medulla. Unlike ARWH1
+    and ARWH2 it does not act through the LIPH-LPA-LPAR6 axis; the defect is in
+    keratin heterodimerisation, which places it mechanistically beside the
+    dominant keratin subtypes rather than beside the other recessive ones.
+  evidence:
+  - reference: PMID:33988877
+    reference_title: &#34;Isolated autosomal recessive woolly hair/hypotrichosis: genetics, pathogenesis and therapies.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Woolly hair autosomal recessive 1 (ARWH1) (MIM #278150), woolly hair autosomal recessive 2 (ARWH2) (MIM #604379) and woolly hair autosomal recessive 3 (ARWH3) (MIM #616760) are caused by mutations in LPAR6, LIPH and KRT25, respectively.&#34;
+    explanation: Assigns ARWH3 and its OMIM number to KRT25 in a review of the ARWH gene set.
+  - reference: PMID:26160856
+    reference_title: A homozygous missense variant in type I keratin KRT25 causes autosomal recessive woolly hair.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A homozygous missense variant c.950T&gt;C (p.(Leu317Pro)) within KRT25 segregated with ARWH in both families&#34;
+    explanation: The gene-discovery study, reporting segregation of a biallelic KRT25 variant with woolly hair in two consanguineous Pakistani families.
+- name: HYPT13
+  display_name: Hypotrichosis 13 / Autosomal Dominant Woolly Hair (KRT71)
+  subtype_term:
+    preferred_term: hypotrichosis with woolly hair
+    term:
+      id: MONDO:0014390
+      label: hypotrichosis 13
+  genes:
+  - preferred_term: KRT71
+    term:
+      id: hgnc:28927
+      label: KRT71
+  description: &gt;
+    Autosomal dominant woolly hair with hypotrichosis caused by heterozygous
+    variants in KRT71, the type II inner-root-sheath keratin that partners K25.
+    MONDO files this under the hypotrichosis series as hypotrichosis 13 while
+    listing &#34;hypotrichosis with woolly hair&#34; as an exact synonym; it is a direct
+    child of this entry&#39;s own disease term.
+  evidence:
+  - reference: PMID:22592156
+    reference_title: A missense mutation within the helix initiation motif of the keratin K71 gene underlies autosomal dominant woolly hair/hypotrichosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;we discovered the heterozygous mutation c.422T&gt;G (p.Phe141Cys) within the helix initiation motif of the IRS-specific keratin K71 (KRT71) gene in affected family members.&#34;
+    explanation: Reports the heterozygous KRT71 variant segregating in a Japanese family with autosomal dominant woolly hair and hypotrichosis.
 inheritance:
-- name: Autosomal recessive (LIPH, LPAR6)
+- name: Autosomal recessive (LIPH, LPAR6, KRT25, C3ORF52)
   inheritance_term:
     preferred_term: Autosomal recessive inheritance
     term:
       id: HP:0000007
       label: Autosomal recessive inheritance
   description: &gt;
-    Woolly hair/hypotrichosis due to LIPH or LPAR6 variants is inherited in an
-    autosomal recessive manner, frequently in consanguineous families.
+    Woolly hair/hypotrichosis due to LIPH, LPAR6, KRT25 or C3ORF52 variants is
+    inherited in an autosomal recessive manner, frequently in consanguineous
+    families.
   evidence:
   - reference: PMID:22385360
     reference_title: &#34;Mutations in LPAR6/P2RY5 and LIPH are associated with woolly hair and/or hypotrichosis.&#34;
@@ -5982,20 +7185,21 @@ inheritance:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;mutations in LPAR6/P2RY5 and LIPH result in similar phenotypes&#34;
     explanation: Confirms that LPAR6/P2RY5 and LIPH variants underlie autosomal recessive woolly hair with overlapping phenotypes.
-- name: Autosomal dominant (KRT74)
+- name: Autosomal dominant (KRT74, KRT71)
   inheritance_term:
     preferred_term: Autosomal dominant inheritance
     term:
       id: HP:0000006
       label: Autosomal dominant inheritance
   description: &gt;
-    Woolly hair due to KRT74 variants is inherited in an autosomal dominant
-    manner.
+    Woolly hair due to KRT74 or KRT71 variants is inherited in an autosomal
+    dominant manner.
   evidence:
   - reference: PMID:20346438
     reference_title: &#34;Autosomal-dominant woolly hair resulting from disruption of keratin 74 (KRT74), a potential determinant of human hair texture.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &#34;Autosomal-dominant woolly hair (ADWH) is a rare disorder characterized by tightly curled hair.&#34;
     explanation: Confirms autosomal dominant inheritance of KRT74-related woolly hair.
 pathophysiology:
@@ -6028,6 +7232,19 @@ pathophysiology:
     evidence_source: IN_VITRO
     snippet: &#34;Our study increases the spectrum of known LIPH mutations and provides biochemical evidence for the important role of lipase H and its product LPA in human hair growth.&#34;
     explanation: Confirms the requirement of lipase H and its product LPA for normal human hair growth.
+  genes:
+  - preferred_term: LIPH
+    term:
+      id: hgnc:18483
+      label: LIPH
+  - preferred_term: LPAR6
+    term:
+      id: hgnc:15520
+      label: LPAR6
+  - preferred_term: C3ORF52
+    term:
+      id: hgnc:26255
+      label: C3orf52
   cell_types:
   - preferred_term: hair follicular keratinocyte
     term:
@@ -6049,13 +7266,97 @@ pathophysiology:
       id: GO:0001942
       label: hair follicle development
     modifier: ABNORMAL
-- name: KRT74 Hair-Shaft Keratin Filament Defect
+  downstream:
+  - target: Woolly Hair
+    description: &gt;-
+      Loss of LPA signalling through this axis yields the underdeveloped,
+      tightly curled hair that defines the recessive forms.
+    evidence:
+    - reference: PMID:33988877
+      reference_title: &#34;Isolated autosomal recessive woolly hair/hypotrichosis: genetics, pathogenesis and therapies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;the loss of function of LIPH, LPAR6 or C3ORF52 leads to reduced LIPH-LPA-LPAR6 signalling, resulting in the decreased transactivation of EGFR signalling and the phenotype of underdeveloped hairs.&#34;
+      explanation: States the causal chain from loss of signalling through this axis to the hair phenotype.
+  - target: Sparse Hair / Hypotrichosis
+    description: &gt;-
+      The same signalling loss produces the hypotrichosis that accompanies
+      woolly hair in the recessive forms.
+    evidence:
+    - reference: PMID:33988877
+      reference_title: &#34;Isolated autosomal recessive woolly hair/hypotrichosis: genetics, pathogenesis and therapies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;Isolated autosomal recessive woolly hair/hypotrichosis (ARWH) is a rare hereditary hair disease characterized by tightly curled sparse hair at birth or in early infancy.&#34;
+      explanation: Establishes sparse hair as a defining feature of the recessive, LPA-axis forms this node models.
+  - target: Fine Hair
+    description: &gt;-
+      The review&#39;s term for the phenotype this axis produces is underdeveloped
+      hairs, of which the abnormally thin shaft is one aspect. The edge records
+      that attribution; it is not a separate measurement of shaft diameter.
+    evidence:
+    - reference: PMID:33988877
+      reference_title: &#34;Isolated autosomal recessive woolly hair/hypotrichosis: genetics, pathogenesis and therapies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;the loss of function of LIPH, LPAR6 or C3ORF52 leads to reduced LIPH-LPA-LPAR6 signalling, resulting in the decreased transactivation of EGFR signalling and the phenotype of underdeveloped hairs.&#34;
+      explanation: &gt;-
+        Attributes underdeveloped hairs to loss of signalling through this axis.
+        The quote names the phenotype at that level of description and does not
+        separately report shaft diameter, which is why this edge is drawn from
+        it rather than from a measurement.
+  - target: Slow-Growing Hair
+    description: &gt;-
+      Reduced LPA-EGFR transactivation leaves hairs underdeveloped, which is
+      the mechanism behind the short, slow-growing shafts.
+    evidence:
+    - reference: PMID:33988877
+      reference_title: &#34;Isolated autosomal recessive woolly hair/hypotrichosis: genetics, pathogenesis and therapies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;the loss of function of LIPH, LPAR6 or C3ORF52 leads to reduced LIPH-LPA-LPAR6 signalling, resulting in the decreased transactivation of EGFR signalling and the phenotype of underdeveloped hairs.&#34;
+      explanation: &gt;-
+        Gives the upstream half of this edge, the loss of signalling that leaves
+        hairs underdeveloped.
+    - reference: PMID:38818404
+      reference_title: &#34;Case report: Exploring autosomal recessive woolly hair: genetic and scanning electron microscopic perspectives on a Japanese patient.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: BACKGROUND
+      snippet: &#34;Woolly hair (WH) is a hair shaft anomaly characterized by tightly curled hair that typically stops growing at a few inches.&#34;
+      explanation: &gt;-
+        Gives the downstream half, the limited length that this entry records as
+        the slow-growing hair phenotype.
+- name: Inner Root Sheath Keratin Filament Defect
   conforms_to: &#34;keratin_intermediate_filament_fragility#Keratin Filament Network Collapse and Aggregation&#34;
   description: &gt;
-    KRT74 encodes a type II inner root sheath hair-shaft keratin. Heterozygous
-    dominant variants impair keratin intermediate-filament assembly in the inner
-    root sheath, distorting hair-shaft formation and producing woolly hair with
-    variable hypotrichosis.
+    The inner root sheath keratins heterodimerise in obligate type I / type II
+    pairs to build the keratin intermediate filaments that shape the growing
+    hair shaft. KRT74 and KRT71 are the type II partners and KRT25 the type I
+    partner curated here. Heterozygous dominant KRT74 or KRT71 variants impair
+    filament assembly in the inner root sheath, and biallelic KRT25 variants
+    disrupt the same filaments from the type I side, in each case distorting
+    hair-shaft formation and producing woolly hair with variable hypotrichosis.
+    This is a separate mechanism from the LIPH-LPA-LPAR6 signalling node: the
+    keratin subtypes are not LPA-axis disorders, which is why a single entry
+    carries two independent pathophysiology chains.
+  genes:
+  - preferred_term: KRT74
+    term:
+      id: hgnc:28929
+      label: KRT74
+  - preferred_term: KRT71
+    term:
+      id: hgnc:28927
+      label: KRT71
+  - preferred_term: KRT25
+    term:
+      id: hgnc:30839
+      label: KRT25
   evidence:
   - reference: PMID:20346438
     reference_title: &#34;Autosomal-dominant woolly hair resulting from disruption of keratin 74 (KRT74), a potential determinant of human hair texture.&#34;
@@ -6069,6 +7370,18 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;KRT74 encodes the inner root sheath (IRS)-specific epithelial (soft) keratin 74.&#34;
     explanation: Establishes KRT74 as an inner root sheath-specific hair keratin whose disruption causes woolly hair.
+  - reference: PMID:22592156
+    reference_title: A missense mutation within the helix initiation motif of the keratin K71 gene underlies autosomal dominant woolly hair/hypotrichosis.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;We demonstrated that the mutant K71 protein led to disruption of keratin intermediate filament formation in cultured cells.&#34;
+    explanation: Shows that a woolly-hair KRT71 variant produces the same intermediate-filament assembly failure as the KRT74 variant, extending this node to the second type II inner-root-sheath keratin.
+  - reference: PMID:26160856
+    reference_title: A homozygous missense variant in type I keratin KRT25 causes autosomal recessive woolly hair.
+    supports: SUPPORT
+    evidence_source: COMPUTATIONAL
+    snippet: &#34;The KRT25 variant is predicted to result in disruption of the second α-helical rod domain and the entire protein structure, thus possibly interfering with heterodimerisation of K25 with type II keratins within the inner root sheath (IRS) of the hair follicle and the medulla of the hair shaft.&#34;
+    explanation: Gives the type I side of the same filament defect. The authors state this as a structural prediction from molecular modelling rather than a measured assembly failure, so it is graded as the in-silico analysis it is.
   cell_types:
   - preferred_term: hair follicular keratinocyte
     term:
@@ -6085,6 +7398,69 @@ pathophysiology:
       id: GO:0031069
       label: hair follicle morphogenesis
     modifier: ABNORMAL
+  downstream:
+  - target: Woolly Hair
+    description: &gt;-
+      A disrupted inner-root-sheath keratin filament network distorts the shape
+      of the hair shaft it moulds, producing the tightly curled hair.
+    evidence:
+    - reference: PMID:20346438
+      reference_title: &#34;Autosomal-dominant woolly hair resulting from disruption of keratin 74 (KRT74), a potential determinant of human hair texture.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In this study, we define the ADWH phenotype resulting from a mutation in a hair-follicle-specific epithelial keratin in humans.&#34;
+      explanation: Ties the woolly-hair phenotype to disruption of a hair-follicle keratin, the defect this node models.
+  - target: Curly Hair
+    description: &gt;-
+      The same filament defect is what makes the shaft tightly curled rather
+      than straight.
+    evidence:
+    - reference: PMID:20346438
+      reference_title: &#34;Autosomal-dominant woolly hair resulting from disruption of keratin 74 (KRT74), a potential determinant of human hair texture.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: BACKGROUND
+      snippet: &#34;Autosomal-dominant woolly hair (ADWH) is a rare disorder characterized by tightly curled hair.&#34;
+      explanation: &gt;-
+        Establishes tightly curled hair as the phenotype of the dominant keratin
+        disorder this node models. It is the same source and the same disease as
+        the evidenced Woolly Hair edge on this node, at the finer-grained
+        phenotype this entry records separately.
+  - target: Abnormal Hair Shaft Morphology
+    description: &gt;-
+      Filament disorganisation in the sheath that moulds the shaft leaves the
+      shaft itself structurally abnormal.
+    evidence:
+    - reference: PMID:20346438
+      reference_title: &#34;Autosomal-dominant woolly hair resulting from disruption of keratin 74 (KRT74), a potential determinant of human hair texture.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;We demonstrate that the mutant K74 protein results in disruption of keratin intermediate filament formation in cultured cells, most likely in a dominant-negative manner.&#34;
+      explanation: &gt;-
+        Gives the filament disorganisation at the upstream end of this edge. The
+        structural abnormality of the shaft itself is documented by the
+        scanning-electron-microscopy evidence on the phenotype node.
+    - reference: PMID:26160856
+      reference_title: A homozygous missense variant in type I keratin KRT25 causes autosomal recessive woolly hair.
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &#34;The KRT25 variant is predicted to result in disruption of the second α-helical rod domain and the entire protein structure, thus possibly interfering with heterodimerisation of K25 with type II keratins within the inner root sheath (IRS) of the hair follicle and the medulla of the hair shaft.&#34;
+      explanation: &gt;-
+        Names both compartments this edge passes through, the inner root sheath
+        and the hair-shaft medulla, from the type I keratin side. The authors
+        state this as a structural prediction, so it is graded as the in-silico
+        analysis it is.
+  - target: Sparse Hair / Hypotrichosis
+    description: &gt;-
+      The dominant keratin subtypes present as woolly hair with variable
+      hypotrichosis rather than woolly hair alone.
+    evidence:
+    - reference: PMID:22592156
+      reference_title: A missense mutation within the helix initiation motif of the keratin K71 gene underlies autosomal dominant woolly hair/hypotrichosis.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In this study, we identified a Japanese family with ADWH and associated hypotrichosis.&#34;
+      explanation: Records hypotrichosis accompanying autosomal dominant woolly hair in a keratin-defect family.
 phenotypes:
 - name: Woolly Hair
   description: &gt;
@@ -6100,6 +7476,7 @@ phenotypes:
     reference_title: &#34;Mutations in LPAR6/P2RY5 and LIPH are associated with woolly hair and/or hypotrichosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &#34;Woolly hair (WH) belongs to a family of disorders characterized by hair shaft anomalies that clinically presents with tightly curled hair, which can be divided into syndromic and non-syndromic forms of WH.&#34;
     explanation: Defines woolly hair as a hair-shaft anomaly with tightly curled hair, including the non-syndromic (isolated) form curated here.
 - name: Curly Hair
@@ -6115,6 +7492,7 @@ phenotypes:
     reference_title: &#34;Autosomal-dominant woolly hair resulting from disruption of keratin 74 (KRT74), a potential determinant of human hair texture.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &#34;Autosomal-dominant woolly hair (ADWH) is a rare disorder characterized by tightly curled hair.&#34;
     explanation: Confirms tightly curled hair as the defining feature of woolly hair.
 - name: Sparse Hair / Hypotrichosis
@@ -6160,6 +7538,7 @@ phenotypes:
     reference_title: &#34;Case report: Exploring autosomal recessive woolly hair: genetic and scanning electron microscopic perspectives on a Japanese patient.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &#34;Woolly hair (WH) is a hair shaft anomaly characterized by tightly curled hair that typically stops growing at a few inches.&#34;
     explanation: Confirms that woolly hair typically stops growing at a few inches, reflecting slow-growing hair with limited maximal length.
 - name: Abnormal Hair Shaft Morphology
@@ -6204,6 +7583,33 @@ genetic:
     reference_title: &#34;In vitro analysis of LIPH mutations causing hypotrichosis simplex: evidence confirming the role of lipase H and lysophosphatidic acid in hair growth.&#34;
     snippet: &#34;Mutations in LIPH, which encodes lipase member H, have recently been shown to cause an autosomal-recessive form of HS.&#34;
     explanation: Establishes LIPH (lipase member H) as the cause of an autosomal recessive form of hypotrichosis simplex / woolly hair.
+  case_fractions:
+  - population: Pakistani ARWH families
+    case_fraction_percent: 47.2
+    notes: Share of Pakistani autosomal recessive woolly hair families attributed to LIPH; the remainder carried LPAR6.
+    evidence:
+    - reference: PMID:33988877
+      reference_title: &#34;Isolated autosomal recessive woolly hair/hypotrichosis: genetics, pathogenesis and therapies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;In the Pakistani population, 47.2% of ARWH families had the disease due to LIPH mutations and 52.8% of them carried LPAR6 mutations.&#34;
+      explanation: Gives both gene shares in the same Pakistani ARWH family series.
+  - population: Japanese ARWH families
+    case_fraction_percent: 98.7
+    notes: &gt;-
+      LIPH accounts for nearly all Japanese ARWH families, driven by two
+      recurrent founder alleles. The same figure is recorded under prevalence
+      with the founder-allele detail; it is repeated here because it is a
+      per-gene case share, which is what this slot is for.
+    evidence:
+    - reference: PMID:33988877
+      reference_title: &#34;Isolated autosomal recessive woolly hair/hypotrichosis: genetics, pathogenesis and therapies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;Most Japanese ARWH families (98.7%) harbour LIPH mutations, including the two highly prevalent, recurrent LIPH mutations c.736T&gt;A (p.Cys246Ser) and c.742C&gt;A (p.His248Asn).&#34;
+      explanation: Gives the LIPH share of Japanese ARWH families.
 - name: LPAR6
   subtype: ARWH1
   notes: &gt;
@@ -6222,6 +7628,18 @@ genetic:
     reference_title: &#34;Novel mutations in the P2RY5 gene in one Turkish and two Indian patients presenting with hypotrichosis and woolly hair.&#34;
     snippet: &#34;Our study increases the spectrum of known P2RY5 mutations and highlights the importance of this receptor in human hair growth and texture.&#34;
     explanation: Identifies LPAR6/P2RY5 mutations in patients with woolly hair and underscores the receptor&#39;s role in hair growth and texture.
+  case_fractions:
+  - population: Pakistani ARWH families
+    case_fraction_percent: 52.8
+    notes: Share of Pakistani autosomal recessive woolly hair families attributed to LPAR6; the remainder carried LIPH.
+    evidence:
+    - reference: PMID:33988877
+      reference_title: &#34;Isolated autosomal recessive woolly hair/hypotrichosis: genetics, pathogenesis and therapies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;In the Pakistani population, 47.2% of ARWH families had the disease due to LIPH mutations and 52.8% of them carried LPAR6 mutations.&#34;
+      explanation: Gives both gene shares in the same Pakistani ARWH family series.
 - name: KRT74
   subtype: ADWH
   notes: &gt;
@@ -6239,6 +7657,93 @@ genetic:
     reference_title: &#34;Autosomal-dominant woolly hair resulting from disruption of keratin 74 (KRT74), a potential determinant of human hair texture.&#34;
     snippet: &#34;In this study, we define the ADWH phenotype resulting from a mutation in a hair-follicle-specific epithelial keratin in humans.&#34;
     explanation: Defines autosomal dominant woolly hair as resulting from a KRT74 hair-follicle-specific keratin mutation.
+- name: KRT71
+  subtype: HYPT13
+  notes: &gt;-
+    KRT71 is the second type II inner-root-sheath keratin reported in autosomal
+    dominant woolly hair. MONDO gives it its own gene-anchored term in the
+    hypotrichosis series (MONDO:0014390, hypotrichosis 13, RO:0004003 to KRT71),
+    which is why it is curated as a distinct subtype rather than folded into the
+    KRT74 ADWH row.
+  gene_term:
+    preferred_term: KRT71
+    term:
+      id: hgnc:28927
+      label: KRT71
+  evidence:
+  - reference: PMID:22592156
+    reference_title: A missense mutation within the helix initiation motif of the keratin K71 gene underlies autosomal dominant woolly hair/hypotrichosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;we discovered the heterozygous mutation c.422T&gt;G (p.Phe141Cys) within the helix initiation motif of the IRS-specific keratin K71 (KRT71) gene in affected family members.&#34;
+    explanation: Reports the heterozygous KRT71 variant segregating with autosomal dominant woolly hair and hypotrichosis in a Japanese family.
+  - reference: PMID:26160856
+    reference_title: A homozygous missense variant in type I keratin KRT25 causes autosomal recessive woolly hair.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &#34;ADWH and hypotrichosis (MIM 613981) are caused by mutations in two type II IRS-specific genes KRT71 (MIM 608245) and KRT74 (MIM 608248).&#34;
+    explanation: Independent confirmation that KRT71 sits beside KRT74 as an autosomal dominant woolly hair gene. The quote is the introduction of the KRT25 gene-discovery paper restating established human genetics, not that paper&#39;s own finding.
+- name: KRT25
+  subtype: ARWH3
+  notes: &gt;-
+    KRT25 is a type I inner-root-sheath keratin. It is the one recessive gene in
+    this entry that does not act through the LIPH-LPA-LPAR6 axis, so it wires to
+    the keratin filament node rather than the signalling node.
+  gene_term:
+    preferred_term: KRT25
+    term:
+      id: hgnc:30839
+      label: KRT25
+  evidence:
+  - reference: PMID:26160856
+    reference_title: A homozygous missense variant in type I keratin KRT25 causes autosomal recessive woolly hair.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A homozygous missense variant c.950T&gt;C (p.(Leu317Pro)) within KRT25 segregated with ARWH in both families&#34;
+    explanation: Reports segregation of a biallelic KRT25 variant with autosomal recessive woolly hair in two unrelated consanguineous families.
+  - reference: PMID:33988877
+    reference_title: &#34;Isolated autosomal recessive woolly hair/hypotrichosis: genetics, pathogenesis and therapies.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Woolly hair autosomal recessive 1 (ARWH1) (MIM #278150), woolly hair autosomal recessive 2 (ARWH2) (MIM #604379) and woolly hair autosomal recessive 3 (ARWH3) (MIM #616760) are caused by mutations in LPAR6, LIPH and KRT25, respectively.&#34;
+    explanation: A review assigning ARWH3 to KRT25, corroborating the gene-discovery report.
+- name: C3ORF52
+  notes: &gt;-
+    C3orf52 is curated with no subtype foreign key because MONDO has no
+    gene-anchored disease term for it: searching the MONDO build for &#34;C3orf52&#34;
+    (`runoak -i sqlite:obo:mondo search &#34;C3orf52&#34;`) returns only the HGNC gene
+    node, and none of the six children of MONDO:0008686 names it. The gene
+    discovery paper describes the phenotype as localized autosomal recessive
+    hypotrichosis, and it is included in this entry because the ARWH review
+    reports the same variants in ARWH patients and places the gene in the same
+    LPA-biosynthesis axis as LIPH and LPAR6.
+  gene_term:
+    preferred_term: C3ORF52
+    term:
+      id: hgnc:26255
+      label: C3orf52
+  evidence:
+  - reference: PMID:33988877
+    reference_title: &#34;Isolated autosomal recessive woolly hair/hypotrichosis: genetics, pathogenesis and therapies.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;In addition, nonsense variants in C3ORF52 (*611956) were identified in ARWH patients.&#34;
+    explanation: The basis for including C3ORF52 in this entry rather than only in a hypotrichosis entry.
+  - reference: PMID:32336749
+    reference_title: Loss-of-function variants in C3ORF52 result in localized autosomal recessive hypotrichosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We identified homozygous variants in C3ORF52 in four individuals with LAH.&#34;
+    explanation: The gene-discovery report, in four individuals; it describes the phenotype as localized autosomal recessive hypotrichosis.
+  - reference: PMID:32336749
+    reference_title: Loss-of-function variants in C3ORF52 result in localized autosomal recessive hypotrichosis.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;The LAH-causing variants were associated with decreased C3ORF52 expression and resulted in markedly reduced lipase H-mediated LPA biosynthesis.&#34;
+    explanation: Places C3orf52 upstream in the same LPA-biosynthesis step as LIPH, which is why it wires to the signalling node in this entry.
 prevalence:
 - subtype: ARWH2
   population: Japan
@@ -6313,6 +7818,8 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -6772,7 +8279,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Isolated Woolly Hair", "mondoId": "MONDO:0008686", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Isolated_Woolly_Hair", "yamlRevision": "f3294135e148"};
+        const OS_CONFIG = {"diseaseName": "Isolated Woolly Hair", "mondoId": "MONDO:0008686", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Isolated_Woolly_Hair", "yamlRevision": "f7e69345698f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

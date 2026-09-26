@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4114,6 +4182,7 @@ A third point is worth stating because it affects how the evidence should be rea
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4386,6 +4455,7 @@ Worth stating because it governs how much can be generalized from apoC-III. ApoC
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-galnt2-loss-of-function" data-dismech-node="Biallelic GALNT2 Loss-of-Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic GALNT2 Loss-of-Function</div>
 
+
                 <div class="item-desc">The initiating lesion: loss of function of both GALNT2 alleles, removing the GalNAc-T2 isoenzyme.</div>
 
 
@@ -4403,6 +4473,8 @@ Worth stating because it governs how much can be generalized from apoC-III. ApoC
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4413,6 +4485,9 @@ Worth stating because it governs how much can be generalized from apoC-III. ApoC
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4460,6 +4535,7 @@ Worth stating because it governs how much can be generalized from apoC-III. ApoC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4482,6 +4558,7 @@ Worth stating because it governs how much can be generalized from apoC-III. ApoC
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-galnac-t2-initiation-of-mucin-type-o-glycosylation" data-dismech-node="Loss of GalNAc-T2 Initiation of Mucin-Type O-Glycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of GalNAc-T2 Initiation of Mucin-Type O-Glycosylation</div>
+
 
                 <div class="item-desc">GalNAc-T2 catalyses the first committed step of mucin-type O-glycosylation, adding GalNAc to serine or threonine on a secreted or membrane protein as it passes through the Golgi.
 This is where the redundancy question sits. GalNAc-T2 is one of a family, its expression is broad rather than tissue-restricted, and for most substrates another isoenzyme can do the same job. So the consequence of losing it is not a global O-glycosylation failure but a failure confined to the sites only GalNAc-T2 will modify.</div>
@@ -4633,6 +4710,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4654,6 +4732,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4679,6 +4758,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-o-glycosylation-at-non-redundant-galnac-t2-sites" data-dismech-node="Loss of O-Glycosylation at Non-Redundant GalNAc-T2 Sites" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of O-Glycosylation at Non-Redundant GalNAc-T2 Sites</div>
+
 
                 <div class="item-desc">The pivot of the disease. Most O-glycosites survive the loss of one isoenzyme; a minority do not, and those are what produce the phenotype.
 Apolipoprotein C-III is the substrate this was established on, and it is described as non-redundant for GalNAc-T2 explicitly: all seven patients lost its O-glycosylation entirely. That makes apoC-III both the mechanistic anchor and the diagnostic test.
@@ -4778,6 +4858,7 @@ Beyond apoC-III the substrate set has been mapped rather than enumerated one at 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4799,6 +4880,7 @@ Beyond apoC-III the substrate set has been mapped rather than enumerated one at 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4824,6 +4906,7 @@ Beyond apoC-III the substrate set has been mapped rather than enumerated one at 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apoc-iii-hypoglycosylation-and-altered-lipoprotein-metabolism" data-dismech-node="ApoC-III Hypoglycosylation and Altered Lipoprotein Metabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">ApoC-III Hypoglycosylation and Altered Lipoprotein Metabolism</div>
+
 
                 <div class="item-desc">ApoC-III normally carries a mucin-type core-1 O-glycan and circulates in glycoforms that differ in sialylation. Loss of GalNAc-T2 abolishes the initiating GalNAc, so no glycoform is made at all.
 Because apoC-III regulates triglyceride-rich lipoprotein handling, this shifts plasma lipids, and the clinical readout is a low HDL cholesterol. The direction is corroborated from a second, entirely independent direction: common variation at the GALNT2 locus in population cohorts shifts apoC-III glycoform proportions and shifts HDL and triglycerides with them.</div>
@@ -4912,6 +4995,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4938,6 +5022,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4960,6 +5045,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insulin-receptor-hypoglycosylation-and-altered-energy-homeostasis" data-dismech-node="Insulin Receptor Hypoglycosylation and Altered Energy Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Insulin Receptor Hypoglycosylation and Altered Energy Homeostasis</div>
+
 
                 <div class="item-desc">The second identified non-redundant substrate, and the reason the entry does not treat apoC-III as the whole of the mechanism. The insulin receptor is a GalNAc-T2 substrate, and Galnt2-null mice show altered insulin signalling, reduced adiposity and a shift in which fuel they burn.
 This matters for interpreting the human phenotype. Short stature and poor growth are core features of GALNT2-CDG and have no explanation in the lipid arm. A defect in insulin receptor glycosylation is a candidate explanation with a named substrate behind it, which is more than the neurological arm has.
@@ -5017,6 +5103,7 @@ The caution is that the demonstration is murine. No study has shown altered insu
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5043,6 +5130,7 @@ The caution is that the demonstration is murine. No study has shown altered insu
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5065,6 +5153,7 @@ The caution is that the demonstration is murine. No study has shown altered insu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-dysfunction" data-dismech-node="Neurodevelopmental Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Dysfunction</div>
+
 
                 <div class="item-desc">The clinically dominant arm of the disease and the least mechanistically explained. What is established is that it is not secondary to the lipid phenotype and that it is reproduced in rodents, so it is a consequence of losing the enzyme rather than an ascertainment artefact of the human series.
 What is not established is the intermediate. No brain substrate of GalNAc-T2 has been linked to the phenotype, and the defining paper attributes it to multiple non-redundant substrates in various tissues without naming the relevant ones.</div>
@@ -5264,6 +5353,7 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5286,6 +5376,7 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-decreased-hdl-cholesterol" data-dismech-node="Decreased HDL Cholesterol" data-dismech-type="pathophysiology">
                 <div class="item-name">Decreased HDL Cholesterol</div>
+
 
                 <div class="item-desc">The biochemical endpoint of the lipid arm, and in practice the finding that flags the diagnosis in a child investigated for developmental delay.</div>
 
@@ -5321,6 +5412,7 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5439,6 +5531,9 @@ This clinical feature is Dysmorphic facial features, annotated with Abnormal fac
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5453,6 +5548,7 @@ This clinical feature is Dysmorphic facial features, annotated with Abnormal fac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5520,6 +5616,9 @@ This clinical feature is Decreased HDL cholesterol concentration (HP:0003233). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5534,6 +5633,7 @@ This clinical feature is Decreased HDL cholesterol concentration (HP:0003233). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5599,6 +5699,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5613,6 +5716,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5669,6 +5773,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5683,6 +5790,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5739,6 +5847,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5753,6 +5864,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5811,6 +5923,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5825,6 +5940,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5883,6 +5999,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5897,6 +6016,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5971,6 +6091,9 @@ This clinical feature is Insomnia (HP:0100785), qualified as temporality chronic
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5985,6 +6108,7 @@ This clinical feature is Insomnia (HP:0100785), qualified as temporality chronic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6043,6 +6167,9 @@ This clinical feature is White matter changes on brain MRI, annotated with Abnor
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6057,6 +6184,7 @@ This clinical feature is White matter changes on brain MRI, annotated with Abnor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6122,6 +6250,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6136,6 +6267,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6234,6 +6366,9 @@ This disease-associated gene is GALNT2 (hgnc:4124). hgnc:4124 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6248,6 +6383,7 @@ This disease-associated gene is GALNT2 (hgnc:4124). hgnc:4124 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6333,6 +6469,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6343,6 +6482,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6421,6 +6563,9 @@ This treatment is developmental and educational intervention, annotated with Reh
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6431,6 +6576,9 @@ This treatment is developmental and educational intervention, annotated with Reh
 
 
     </div>
+
+
+
 
 
 
@@ -6509,6 +6657,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6519,6 +6670,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6591,6 +6745,7 @@ The claim that transferrin analysis is normal in this disease is an inference fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6617,6 +6772,7 @@ The claim that transferrin analysis is normal in this disease is an inference fr
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6641,6 +6797,7 @@ The claim that transferrin analysis is normal in this disease is an inference fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6699,6 +6856,7 @@ The claim that transferrin analysis is normal in this disease is an inference fr
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6753,6 +6911,7 @@ The claim that transferrin analysis is normal in this disease is an inference fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6826,6 +6985,7 @@ The claim that transferrin analysis is normal in this disease is an inference fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6932,6 +7092,7 @@ The claim that transferrin analysis is normal in this disease is an inference fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7080,6 +7241,7 @@ The claim that transferrin analysis is normal in this disease is an inference fr
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7164,6 +7326,7 @@ The claim that transferrin analysis is normal in this disease is an inference fr
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7213,6 +7376,7 @@ The claim that transferrin analysis is normal in this disease is an inference fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7325,6 +7489,7 @@ The claim that transferrin analysis is normal in this disease is an inference fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8479,6 +8644,48 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry covers biallelic GALNT2 loss of function. Common regulatory variation at the GALNT2 locus that shifts HDL in the general population is a different phenomenon and is curated here only as differential-diagnostic context, with INDIRECT directness.
+Deep research. An OpenScientist deep-research report for this disease is committed alongside this entry. It was used as a lead-generator, not as a source: its reference-validation block records 13 of 13 references resolving with zero confabulation but only 3 of 13 judged on-topic, so most of what it cites is about GALNT2 the lipid-GWAS locus rather than about this disease. The one lead taken from it was the insulin receptor as a second non-redundant substrate, which was then verified against the primary paper and cited from there.
+Evidence base. Five references, after this review round added one. One - the 2020 Brain paper defining the disease - carries the clinical phenotype, the apoC-III finding and the rodent models; of the remaining four, two are mechanistic, one is population-genetic, and one is a class-level review of the congenital disorders of glycosylation cited only for the diagnostic route. An earlier version of this sentence said &#34;five references ... the other three&#34;, which was both wrong and self-contradictory: there were four. The whole clinical phenotype therefore rests on a single cohort of seven patients, and every phenotype here is graded VERY_FREQUENT rather than OBLIGATE because that source describes the syndrome in aggregate (&#34;generally exhibit&#34;) rather than giving per-patient counts.
+Identifiers. OMIM 618885 is the phenotype record for this disease. It is not recorded in a `mappings:` block because the schema has `icd10cm_mappings`, `icd11f_mappings`, `mondo_mappings` and `ncit_mappings` and no OMIM slot. The number here was read from MONDO&#39;s own `oio:hasDbXref` on MONDO:0030043 rather than taken from the deep-research report, which offers it alongside a gene OMIM number this entry does not record because it was not independently checked.
+What this entry does not assert. It does not name a mechanism linking the enzyme defect to the neurological phenotype; the relevant causal edge is typed INDIRECT_UNKNOWN_INTERMEDIATES and the gap is recorded as a discussion. It does not claim normal transferrin isoform analysis in patients, although that follows from the pathway involved, because no cited source reports it - that inference sits in the diagnosis notes instead. And it names no antiseizure agent, because no disease-specific data support one.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: wire the phenotypes into the pathograph; add molecular diagnosis</strong> · 2026-09-12T12:59:13Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/GALNT2-Congenital_Disorder_of_Glycosylation/2026-09-12T125913Z-claude-code-e30624.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the three IMPORTANT findings in the CHANGES_REQUESTED review on PR #11718.
+
+Finding 1, pathograph disconnection. Nine of eleven phenotypes had no edges at all, so the rendered graph showed a lipid disease with an orphaned neurological phenotype list. Neurodevelopmental Dysfunction had no downstream edges despite the entry calling it the clinically dominant arm. Added bare-name downstream edges: Neurodevelopmental Dysfunction to its seven neurological phenotypes, the insulin-receptor node to Short Stature (the edge the node&#39;s own prose already argued for), and node 3 to Dysmorphic Features, which is morphogenetic rather than neurological so it is drawn from the substrate-loss node. All are typed INDIRECT_UNKNOWN_INTERMEDIATES, which is the honest typing: no substrate is identified for any of them. Added target_mechanisms to two of the three treatments (antiseizure to Epilepsy, developmental support to Neurodevelopmental Dysfunction); Genetic Counselling has no mechanism target and keeps none.
+
+Verified by rebuilding the graph rather than by reading the YAML: 20 edges, zero orphan targets, and isolated nodes down from 12 to 2. The two remaining are the GALNT2 gene node and Genetic Counselling, neither of which is a causal-graph participant.
+
+Finding 2, diagnosis. The section had only apoC-III glycoform analysis. Added molecular confirmation by next-generation sequencing, citing PMID:34540767, which was already cached in this PR but never cited, graded INDIRECT/OTHER because it is a class-level CDG review rather than a GALNT2-CDG source. Added brain MRI, since the entry curates white matter changes as a phenotype and the finding has to be looked for to be recorded. The transferrin IEF notes block was left unchanged, as the reviewer explicitly asked.
+
+Finding 3, notes miscount. The evidence-base sentence said five references and then said one plus the other three, which sums to four and there were four. Now five after this round&#39;s addition, itemised, with the earlier error stated rather than silently overwritten.
+
+Suggestions taken: oligodendrocyte (CL:0000128) added alongside neuron on the neurodevelopmental node, which also justifies the white-matter edge. OMIM 618885 recorded in notes rather than in mappings, because the schema has no OMIM mapping slot; the number was read from MONDO&#39;s own oio:hasDbXref rather than from the deep-research report.
+
+Suggestions declined with reasons given in the PR reply: HP:0000708 (is-a parent of an already-curated term, so it adds no queryable information), the gene OMIM number (not independently verified), and pruning the ten cached-but-uncited references.
+
+Validation: just validate passes, 32/32 snippets verified (was 30/30). check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values all OK.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: GALNT2-CDG (MONDO:0030043)</strong> · 2026-09-11T21:59:26Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/GALNT2-Congenital_Disorder_of_Glycosylation/2026-09-11T215926Z-claude-code-9abf34.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of GALNT2-CDG from claim issue #11713. Built the entry around the non-redundancy of GalNAc-T2 for a small substrate set rather than around a general loss of O-glycosylation, which does not occur. Kept the lipid arm (apoC-III -&gt; low HDL, a named and measured substrate) separate from the neurological arm, whose causal edge is typed INDIRECT_UNKNOWN_INTERMEDIATES because no brain substrate has been identified. Added the insulin receptor as a second named substrate after an OpenScientist deep-research report surfaced it; the lead was verified against the primary paper and graded INDIRECT/MODEL_ORGANISM since the demonstration is murine. Population-genetic GALNT2 lipid-locus evidence is cited only as differential-diagnostic context and graded INDIRECT throughout, to keep common-variant HDL biology from reading as evidence about this Mendelian disease. Validated: linkml-validate, linkml-term-validator, 30/30 snippets verified against cached references, plus check-duplicate-keys, check-entity-refs, check-causal-targets and check-qualifier-terms. One reference_title was initially written from a reconstructed string and was corrected to the cached title after check-reference-titles flagged it.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

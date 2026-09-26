@@ -395,6 +395,7 @@ the table below mirrors it.
 | Chemicals / drugs | ChEBI | `CHEBI:` |
 | Genes | HGNC | `hgnc:` (canonical lowercase), `HGNC:` (legacy) |
 | Inheritance / variant effects | Genotype Ontology | `GENO:` |
+| Physical variant classes / genomic sequence contexts | Sequence Ontology | `SO:` |
 | Treatments / clinical interventions | NCI Thesaurus | `NCIT:` |
 | Exposures | ECTO, ExO, XCO | `ECTO:`, `ExO:`, `XCO:` |
 | Environment | ENVO | `ENVO:` |
@@ -428,6 +429,96 @@ of fake identifiers.
 `conf/oak_config.yaml`, ensure the SQLite adapter is available, and re-run term
 validation. **Known gap:** prefixes *not* listed there are silently skipped during
 validation (only a warning), so an unconstrained prefix can pass unchecked — see *Gaps* below.
+
+### 4b. Coarse phenotype bindings state a basis; specificity is never scored (2026-09-05)
+
+**Decision.** A phenotype bound to a **coarse HPO term** must declare
+`coarse_binding_basis` on its descriptor: `VARIABLE_SPECTRUM`, `SOURCE_UNSPECIFIED`,
+`NO_HPO_TERM`, or `PATHOGRAPH_HUB`. Two are bare declarations; the other two carry a
+checkable requirement. The coarse set is 56 terms across two hand-reviewed schema
+enums — the 23 direct children of `HP:0000118` (`PhenotypeCategoryEnum`, which is also
+the browser's *Phenotype Systems* facet vocabulary) and 33 curated terms below those
+roots (`CoarsePhenotypeTermEnum`) that still name a system, organ or region. All are
+enforced offline and whole-KB by `just check-coarse-phenotypes`; the bindings predating
+the slot are grandfathered in a shrink-only baseline.
+
+**A coarse binding states a reason; it never lists what it left out.** The first
+implementation gave `VARIABLE_SPECTRUM` (then named `SPECTRUM_SUMMARY`) a companion
+`spectrum_terms` slot holding the constituent findings, term-bound but without frequency
+or evidence, so that a curator could keep the specifics cheaply. That was wrong twice
+over, and the slot was removed before the design shipped. First, it inverted the value's
+meaning: a spectrum is precisely the case where the findings *cannot* be pinned down, so
+requiring a list demands what is by definition unavailable. Second, where the findings
+*are* known and evidenced — as in the worked example, whose cited sentence names
+strabismus, esotropia and myopia — they are ordinary `phenotypes` entries and should be
+curated as such. The slot's version of them was strictly worse: invisible to the
+phenotype table, the browser facets, the KGX/CX2 exports, `phenotypes#` entity
+references and the pathograph. A cheap way to record a finding badly is not worth
+having when recording it properly costs one more block.
+
+**What was rejected, and why it stays rejected.** Three approaches to the same problem
+were considered and are recorded here so they are not re-proposed:
+
+1. **Information content or term depth.** Depth is a property of how HPO happens to be
+   built, not of the claim. `HP:0004322` *Short stature* is the most-used HP term in the
+   knowledge base and is exactly as specific as the literature ever gets; `HP:0001627`
+   *Abnormal heart morphology* carries "Congenital heart defect" as an EXACT synonym and
+   is the correct binding for a paper that names no lesion. Any metric ranking those as
+   vague would flag the terms most often exactly right.
+2. **Rewarding specificity in compliance scoring.** A score gradient towards narrower
+   terms is precisely the pressure that manufactures bindings the source does not
+   support, which §4's term contract forbids outright. Coverage is scored; grain is not.
+3. **Category-gated rules.** §10 already records why *category = X ⇒ term under X* is
+   circular — the category is derived from the term's HPO ancestry. Nothing about the
+   derived facet can say whether a coarse binding was deliberate.
+
+What remains is a **closed, hand-reviewed list**: membership is the whole specificity
+model, and widening it is a schema pull request with an argument attached. Tier 0 is read
+from `PhenotypeCategoryEnum`'s `meaning:` values rather than restated, so the coarse set
+and the facet set cannot drift apart.
+
+**Rationale.** The three legitimate reasons for a coarse binding were already present in
+the knowledge base as prose nothing could read — `PAICS_Deficiency` ("the specific ocular
+finding is not characterized in the available abstract"), the paragraph in
+`PUS3-Related_Neurodevelopmental_Disorder` arguing that `HP:0001627` is "the right binding
+rather than a mere fallback parent", and the `Li-Fraumeni_Syndrome` note recording that
+HPO has no term for neoplasm multiplicity. Making the reason structured leaves the
+*unexplained* coarse binding as the only thing a guard can fail, which is the one the
+maintainer objected to.
+
+**A hub is defined by incoming edges, not outgoing ones.** The `PATHOGRAPH_HUB` value
+covers a coarse term used deliberately as a convergence node inside the causal graph. An
+earlier draft required outgoing `sequelae` into the specific findings; that was wrong and
+was corrected before enactment. `sequelae` is a `CausalEdge`, and a coloboma is not
+*caused by* an eye abnormality — it *is* one, so the requirement would have had curators
+drawing an is-a hierarchy as a causal chain to satisfy a guard. A hub is instead required
+to be *targeted* by at least one causal edge in its entry, and to carry no `frequency`
+(frequency is a claim about patients; a hub makes none). Its constituent findings, where
+known, are ordinary phenotype entries beside it. A hub is also distinct from a
+pathophysiology node such as "disrupted eye development", which binds GO and asserts a
+process: no HP slot is being added to `Pathophysiology`.
+
+**The coarse set is two enums and was curated by hand.** Tier 0 is
+`PhenotypeCategoryEnum`'s meanings. Tier 1 is `CoarsePhenotypeTermEnum`, 33 terms below
+those roots naming a body system, whole organ or gross body region, curated in one pass
+over all 360 distinct `Abnormal*` HP terms bound in the KB. That pass is the argument for
+the list-not-rule design rather than an illustration of it: it admits `HP:0000077`
+*Abnormality of the kidney* and `HP:0000924` *Abnormality of the skeletal system* while
+excluding `HP:0001627` *Abnormal heart morphology* (149 uses, EXACT synonym "Congenital
+heart defect") and `HP:0001999` *Abnormal facial shape* (177 uses, dysmorphic facies) —
+decisions one step below the same roots that no depth, subsumption or naming-pattern rule
+separates. Four terms were left out as undecided rather than judged; the enum's
+description records them, the excluded findings, and the inclusion rule, so the reasoning
+is inherited rather than redone. Widening the set is a schema pull request.
+
+**Scope.** HP only. The same design would extend to GO and `biological_processes`, whose
+`goslim_*` subsets are the natural starting list, but that is not enacted. Companion rules
+are checked wherever a basis is declared, including on terms outside both tiers, so a
+curator may annotate a term they judge coarse before anyone agrees to add it.
+
+**Reference.** [`docs/coarse-phenotype-bindings.md`](../coarse-phenotype-bindings.md);
+brainstorm in
+[`docs/superpowers/specs/2026-09-05-coarse-hpo-bindings-brainstorm.md`](../superpowers/specs/2026-09-05-coarse-hpo-bindings-brainstorm.md).
 
 ### 4a. MAXO removed in favour of NCIT (2026-07-31)
 
@@ -532,6 +623,32 @@ exactly.
 
 **Rationale.** The exact-quote-plus-validation pipeline is DisMech's primary defense
 against AI hallucination and is core to the project's scientific credibility.
+
+### Jev judgments prioritize recuration; they do not replace curation
+
+**Decision.** The scheduled Jev audit sends public disease assertions and their
+selected snippets to TypeSafe to assess claim/evidence agreement. MATCH,
+MISMATCH and PARTIAL are advisory report labels, assessed per aspect and for the
+whole claim. They never automatically change KB assertions, `supports` or
+`directness`, or become benchmark curator labels.
+
+**Rationale.** A model can identify likely snippet-selection problems at corpus
+scale, while the decision to change a claim or its evidence remains a curation
+task. This audit evaluates snippet support rather than source quality or the
+claim's truth elsewhere. Missing evidence, API errors and incomplete runs remain
+separate from model judgments.
+
+**Storage and execution.** Corpus assessment history and the weekly workflow live
+in the public `monarch-initiative/dismech-evals` repository. Dismech owns the
+classifier and extraction code; `dismech-bench` owns curated benchmark cases and
+benchmark results. Local corpus outputs in dismech are ignored build artifacts.
+The evaluation repository stores each canonical input snapshot once, shared by
+assessment records across configurations. It retains historical inputs, scores
+and observed activity. A first corpus pass is large enough that committing it to
+dismech would burden ordinary checkouts; compression does not resolve that boundary.
+The evaluation workflow pins classifier and source revisions, then automatically
+commits generated data to its own repository using its own token. It has no write
+access to dismech or benchmark curation. See [the audit guide](../jev-evidence-audit.md).
 
 ### 6a. Superseded hypotheses are retained and marked, not deleted (2026-08-02)
 
@@ -653,10 +770,11 @@ verification cache. `geo:` is migrated; the remaining prefixes follow one at a t
   one a reordered paraphrase of a sentence that was in the cache all along
   (`GEO:GSE289185`) and one quoting GEO's uncached "overall design" field
   (`GEO:GSE316127`). KB-wide, 133,610 of 138,867 snippets verify with zero GEO failures.
-- **`cache/dataset_accessions.json` is frozen.** No script, module, test, workflow, or
+- **`cache/dataset_accessions.json` is retired and deleted.** No script, module, test, workflow, or
   recipe reads or writes it, enforced by
-  `test_no_automation_touches_the_frozen_dataset_cache`. It remains in git only until the
-  open PRs carrying edits to it have drained.
+  `test_no_automation_touches_the_frozen_dataset_cache`, which also checks Git's index
+  for reintroduction on every CI run. The temporary freeze has ended. Old PRs must
+  retain its deletion when resolving conflicts, without reading or merging its contents.
 
 **Rationale — the storage shape, not the checking, was the defect.** The old cache was one
 sorted JSON object rewritten *in full* on every run, including a run over a single
@@ -694,6 +812,63 @@ generation; the §6 exact-quote rule is unchanged.
 new code. Budget each migration as a backfill *plus* whatever the newly-enabled title and
 snippet checks surface — it is a curation pass, not a config edit. (2) Delete the frozen
 blob once open PRs have drained.
+
+
+### `quote_role`: provenance of the finding, separate from provenance of the sentence
+
+**Decision.** `EvidenceItem` carries an optional `quote_role`
+(`PRIMARY_RESULT` / `BACKGROUND` / `REVIEW_SYNTHESIS`) recording **where in the cited
+publication's own argument the quoted sentence sits**. Absent means unassessed and stays
+legal; nothing gates on it.
+
+**Why a fourth axis.** `reference` records which paper a quote came from. It does not
+record whether that paper *produced* the finding or was repeating somebody else's, and
+until this slot the model represented the two identically. The case that forced it
+([#10262](https://github.com/monarch-initiative/dismech/issues/10262)) is a chick-embryo
+study whose introduction states the human clinical picture, quoted for that human fact:
+
+- `MODEL_ORGANISM` asserts a chick measured human perinatal mortality. False.
+- `HUMAN_CLINICAL` asserts a study type the paper never ran. Also false.
+- `OTHER`, which review pressure settles on, says nothing at all, and collapses this case
+  together with the unrelated "quoted from a review" case.
+
+`HUMAN_CLINICAL` + `BACKGROUND` is true, and queryable. The distinction is orthogonal to
+all three existing axes and composes with each: `supports` is direction, `directness` is
+inferential distance, `evidence_source` is study type.
+
+**Why this passes the "derived, not authored" test** that
+[the evidence model](evidence-model.md) sets for new appraisal slots. It is not an
+appraisal: it is a fact about the cited document, and a partly *derivable* one. For a
+reference whose cached body carries NLM structured-abstract section labels, the zone a
+snippet sits in is a string containment; `just list-background-citations` reports that
+derivation as a worklist. Derivable is not autofilled: the derivation covers a minority of
+the corpus and a structured `BACKGROUND:` paragraph routinely closes with the authors' own
+framing, so the report proposes and a curator decides, the same line `dismech-terms` draws
+for ontology-term suggestions.
+
+**Three values, not four, and no `UNKNOWN`.** `REVIEW_SYNTHESIS` is load-bearing rather
+than decorative: it is what separates the two unrelated reasons an item ends up `OTHER`.
+`UNKNOWN` is omitted because absent already means "nobody has assessed this";
+`DirectnessEnum` carries both spellings and CLAUDE.md then has to instruct curators not to
+use one of them.
+
+**Mapped out, not modelled on.** Values carry CiTO mappings (`cito:citesAsEvidence`,
+`cito:obtainsBackgroundFrom`, `cito:citesAsAuthority`), following the §4 static-enum ruling.
+All three are `close_mappings`, not `exact_mappings`, because the two vocabularies describe
+different ends of the same citation: a CiTO property types the *citing* entity's use of a
+reference, while `quote_role` records where the sentence sits inside the *cited* document.
+They correlate and they come apart. An item quoting an introduction sentence as support for
+a KB claim is `citesAsEvidence` from the citing side while its `quote_role` is `BACKGROUND`,
+which is the case the slot exists for, so an exact mapping would assert an equivalence that
+fails precisely where it matters.
+
+**Not decided here.** A quoted *aim* statement ("the aim of the present study was to…")
+has no value in this enum; it is neither the paper's finding nor somebody else's fact.
+`just list-background-citations` reports those separately rather than the enum growing a
+value for them; see [#10262](https://github.com/monarch-initiative/dismech/issues/10262).
+Whether `quote_role` should ever be gated, and whether the same treatment should reach a
+full text's own section headings
+([#9711](https://github.com/monarch-initiative/dismech/issues/9711)), are both open.
 
 
 ## 7. Curation process & governance
@@ -886,9 +1061,14 @@ to 7% in the Indian cohort).
 questions and bind to different vocabularies:
 
 - **`modality`** (`ImagingModalityEnum`) — a small closed set (MRI, functional MRI, CT,
-  PET, SPECT, ultrasound, X-ray, mammography, angiography, OCT, other), with `meaning:`
-  values bound to the **NCI Thesaurus Diagnostic Imaging branch** (e.g. `NCIT:C16809`
-  Magnetic Resonance Imaging, `NCIT:C17204` Computed Tomography, `NCIT:C17007` PET).
+  micro-CT, PET, SPECT, ultrasound, X-ray, mammography, angiography, OCT, other), with
+  `meaning:` values bound to the **NCI Thesaurus Diagnostic Imaging branch** where NCIT
+  has a term for the modality (e.g. `NCIT:C16809` Magnetic Resonance Imaging,
+  `NCIT:C17204` Computed Tomography, `NCIT:C17007` PET). `MICRO_CT` and `OTHER` carry
+  no meaning: NCIT has no micro-CT term, and the value is scoped to *in-vivo*
+  micrometer-resolution CT so it stays inside this decision's boundary; ex vivo
+  micro-CT of fixed specimens (diceCT embryo morphometry) is a model readout, recorded
+  on an `ExperimentalReadout` with an `IMAGING` dataset, not an `ImagingFinding`.
 - **`imaging_finding_term`** (`ImagingFindingDescriptor`) — the imaging appearance, bound
   via `ImagingFindingTerm` to the **NCIT Imaging Finding branch** (`NCIT:C176708` /
   `NCIT:C199145`) and/or the **HP Phenotypic-abnormality branch** (`HP:0000118`), since
@@ -1152,7 +1332,8 @@ This section details decisions we have **not yet made or formalized**.
 | Area | Status | Tracking |
 |---|---|---|
 | Experiment-grounded evidence (`experiment.design` / `inference.role`) | Design exploration, **not yet a schema change.** The `EvidenceItem` model is a validated citation-pointer (real reference + exact snippet + validator = citation integrity) with a thin appraisal layer — `supports` is polarity, `evidence_source` is a coarse organism bucket, and neither records *what experiment* produced a claim or *how* the mechanistic edge was inferred from it. Proposal: an optional `experiment{design, system, perturbation, readout, result, inference}` block plus two small closed enums — `experiment.design` (*how it was shown*) and `inference.role` (*necessity / sufficiency / rescue / direct-physical / therapeutic-rescue*, what the result licenses about the edge), mutually constraining so strength is *derived, not authored* and `experiment.result.snippet` stays substring-validated. Bespoke enum preferred over ECO (which types entity→term annotations, not causal-graph assertions); SEPIO reserved for the export layer. Worked on the FH PCSK9 sub-graph. | [The Evidence Model](evidence-model.md) · [FH worked example](../reports/fh-experiment-grounded-evidence-2026-07-30.md) |
-| Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
+| Chromosomal-disorder curation guidelines | **Partly addressed (§15, PR #11943).** Optional named regions, cytoband syntax, and qualitative gene landmarks represent affected intervals without patient-specific coordinates. The noncoding-variant-impact skill covers their use; a dedicated chromosomal-disorder skill and the wider formation-mechanism guidance remain open. | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
+| Noncoding region–disease representation | **Qualitative representation added (§15, PR #11943).** Regional `Genetic` records can name affected enhancers and intervals without substituting a host gene. Stable region identifiers and dedicated region nodes in external knowledge graphs remain separate follow-ups. | [#4394](https://github.com/monarch-initiative/dismech/issues/4394) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
 | Measurement context on `ExperimentalReadout` (spatial position, sampling rate, named comparator) | **Open; narrower than first recorded.** `model_scale` and `divergences` now cover the *scale* and *shortfall* axes on `ModelMechanismLink`, and a NAM curation pass populated both across eight links. What they do not cover is positive metadata about how a measurement was made: an **internal spatial comparator** (organoid interior vs. edge in the same construct — `STRUCTURAL_IDEALIZATION` is the wrong shape, since the spatial structure is the model's strength), a **sampling rate** (20 ms light-sheet calcium imaging, currently in free-text `culture_system`; `TEMPORAL_SCOPE` types a mismatch, not a rate), and the **comparator arm** that `ModelReadoutDirectionEnum` is explicitly defined against but which no slot names — a readout reading `DECREASED` against epicardium-free tissue rather than untreated tissue is nearly meaningless without its prose. The comparator is the narrowest and most tractable piece and every readout in the KB inherits it. Weigh against sparse population of the slots that already exist. `assays` is populated on several hundred readouts but is **never ontology-bound**: every entry carries a bare `preferred_term` and not one carries a `term:`, because `OBI` is absent from `conf/oak_config.yaml` and has no `cache/enums/` membership cache, so a curator who tried could not validate it. Scale is near-universally `UNDETERMINED`. Both counts move with every curation pass and are deliberately not pinned in this register — read them from `just model-scale-audit` and from a `term:`-under-`assays:` scan of `kb/`. (An earlier revision of this row said `assays` was used on 0 of 289 readouts; the slot is used, it is the ontology binding that is at zero.) | [Spatially resolved in vitro models](../reports/spatially-resolved-in-vitro-models-2026-09-02.md) |
 | `would_support` / `would_refute` range | **ENACTED (#9224).** These two `Experiment` slots hold **entity references only** — the `[<file>:]<kind>#<name>` grammar shared with `attaches_to` — and name *what a result bears on*. A prose statement of *what would be observed* goes in the sibling `supporting_outcome` / `refuting_outcome` slots. The alternative (widen the reference slots to accept both forms and split on whitespace at render time) was rejected: the two are different **types**, not two spellings of one. "No enrichment of these lesions in tissue would indicate that the dominant clinical resistance mechanism lies outside the bypass lesions currently modeled at this node" is a conditional inference with no referent, and a slot whose meaning turns on whether its value contains a space cannot be exported. The ~51 prose values that motivated the issue have been migrated (zero remain across `kb/`), and the anchors now resolve: `render._build_semantic_ref_index` is driven by `entity_refs.SECTION_KEYS` (#9193), so **562 of 564** references in these slots render as live in-page links rather than dead chips — the 2 exceptions name `diagnosis` and `prevalence`, sections the disorder page renders no card for, which is a page-coverage gap rather than a modeling one. Gated by `check_entity_ref_foreign_keys`, which now fails a prose value, an unknown `<kind>`, or a dangling anchor in these slots, with **no baseline** — the backlog is zero, so a finding is always newly introduced. **Not precluded:** if a structural `knowledge_gaps:` slot (#2617) later wants a `ModelMechanismLink`-shaped object carrying a target *plus* qualifying prose *plus* its own evidence, this decision is compatible with it — the prose lives in a named slot either way. | [#9224](https://github.com/monarch-initiative/dismech/issues/9224) · [#9193](https://github.com/monarch-initiative/dismech/issues/9193) |
@@ -1384,3 +1565,101 @@ should work from this list:
    term-request id** rather than free prose? Otherwise the migration converts a silent
    MPATH gap into a silent NCIt gap, and the register gains nothing on that axis. Decide
    alongside Q2.
+
+## 14. Pathograph node classes are curated content under `kb/`, not a schema slot and not a new ontology (2026-09-15)
+
+**Decision.** The pathograph node-class tree
+(`kb/node_classes/pathograph_node_classes.txt`, with its GO seed table alongside) is
+**curated content, edited by pull request like any other `kb/` entry**. It is **not** a
+schema slot: no `Disease` entry names a node class, no enum carries the vocabulary, and
+`node_class_scan` applies it read-only. It is also **not** a new ontology in the sense
+§1 forbids: it mints no CURIEs, and where a class *can* be stated in existing ontology
+terms it carries a `= ...` logical definition over the GO / CL / UBERON / CHEBI / ECTO
+slots a node already binds, checked against those ontologies.
+
+**Why `kb/` and not `docs/`.** The tree began life as a design artifact under
+`docs/superpowers/`, and the argument for moving it is that its leaves are real
+`(node, disease)` pairs verified against the KB on every run: it drifts when curation
+renames a node, exactly as a pathograph target does, and the fix is a curation edit, not
+a documentation edit. Content that rots with the KB and is repaired by curating belongs
+with the KB. Nothing in `kb/` depends on it yet, which is the difference between "curated
+content" and "a slot": the vocabulary is being stabilised against worked examples
+(seven random draws so far; new leaves per draw have run 9, 4, 0, 2, 5, 0, 1) before
+anything is asked to conform to it.
+
+**How it relates to "not a new ontology" (§1).** The classes are *kinds of causal claim*
+ordered as a cascade (genomic, environmental, molecular activity, molecular substance,
+pathway, cellular, tissue, systemic, outcome) plus a few cross-cutting judgement classes
+(disposition, compensation, intervention point). MPATH and NCIt were checked as prior art
+and neither carries that axis: MPATH classifies lesions as a pathologist sees them and
+stops at the cell, NCIt's *Pathologic Process* is a flat list. So the axis is DisMech's
+own, but the *leaves* are anchored to existing ontologies wherever a term exists, and
+the classes without a definition are the ones no ontology term can decide (a standing
+disposition, the body pushing back, "aetiology unresolved"). That is reuse, not minting.
+
+**What would change this.** Two things are deliberately deferred. (1) A `node_class`
+slot on `Pathophysiology`, which would also settle whether it supersedes
+`biological_scale` (it is close to a refinement of it; two slots saying nearly the same
+thing would be worse than either). (2) Deriving the seed table from the definitions and
+retiring the hand-labelled GO rows. Both wait on the leaf set stabilising. The design
+record is
+[`docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`](../superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md);
+the tree's own build notes record what each draw forced.
+
+## 15. Affected genomic regions use names and qualitative landmarks (2026-09-21)
+
+**Decision.** `affected_regions` is an optional list of `GenomicRegion` objects
+on `GeneticContext`, `Variant`, and `Genetic`. Each region has a required name
+and optional description, cytoband (`chromosomal_region`), regulatory-element
+class, and typed gene landmarks. A named region may be the full affected
+interval or a relevant element within it; the description makes that scope
+explicit. Neither an ontology identifier nor a nucleotide coordinate pair is
+required. Existing free-text records remain valid, so this introduces no bulk
+migration.
+
+**Why qualitative regions.** Disease entries often summarize multiple alleles
+with different breakpoints. Copying one patient's coordinates onto the disease
+would manufacture precision, while a gene list loses the affected enhancer,
+boundary, or multigene interval. The pilots therefore identify the EPHA4-PAX3
+regulatory boundary, ZRS within LMBR1, and the variable 16p12.2-p11.2 deletion
+interval at the level their shared evidence supports. Specific cited variants
+can still retain genome build, coordinates, and breakpoint resolution in their
+descriptions.
+
+**Relations describe linear reference-genome placement.** `between_genes`
+contains exactly two distinct, unordered gene descriptors flanking the named
+region without overlapping it; they need not be nearest neighbors or coincide
+with its endpoints.
+`within_gene` identifies a containing gene span. `overlaps_genes` records
+overlap without claiming the list is exhaustive. `adjacent_to_genes` means
+sharing a sequence boundary without overlap, following the Sequence Ontology
+[`adjacent_to` definition](https://github.com/The-Sequence-Ontology/SO-Ontologies/blob/master/Ontology_Files/so.obo);
+it does not mean merely nearby. Left/right relations are deferred because
+reference-coordinate direction and transcriptional direction are different,
+and the current cases need neither. These relations do not describe contacts
+in three-dimensional chromatin or adjacency on a rearranged allele.
+
+**The subject matters.** The EPHA4-PAX3 boundary lies between the gene landmarks;
+the whole deletion also removes EPHA4 and cannot be described as confined
+between those genes. ZRS lies within LMBR1; a duplication containing ZRS can
+extend beyond LMBR1. Positional landmarks do not assert causal-gene involvement
+or a regulatory target. Target genes, expression changes, and their confidence
+remain separately curated. A regional `Genetic` record need not have a
+`gene_term`; using LMBR1 solely as a stand-in for ZRS would recreate the
+conflation the region object resolves.
+
+**Relationship to earlier work.** [Issue #3756](https://github.com/monarch-initiative/dismech/issues/3756)
+requested structured chromosomal regions and curation guidance, and
+[#4394](https://github.com/monarch-initiative/dismech/issues/4394) raised the
+noncoding region–disease gap. Their proposed models had not been implemented.
+[PR #8996](https://github.com/monarch-initiative/dismech/pull/8996) fixed a
+different problem: the KGX exporter no longer invents HGNC identifiers from
+arbitrary `genetic[].name` strings. That protection remains. Region names and
+positional gene landmarks are metadata, not a reason to emit a gene–disease
+causal edge. Stable region identifiers and external region-node modeling can
+be considered if an actual integration requires them.
+
+Population guidance and worked examples live in the
+[noncoding-variant-impact skill](../../.claude/skills/noncoding-variant-impact/SKILL.md),
+with the schema, rendering, and export support implemented in
+[PR #11943](https://github.com/monarch-initiative/dismech/pull/11943).

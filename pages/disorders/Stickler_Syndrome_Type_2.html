@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 28</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Stickler%20Syndrome%20Type%202"
@@ -4004,7 +4072,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">27</div>
+                <div class="stat-value">28</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4194,6 +4262,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4216,6 +4285,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4306,6 +4376,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4331,6 +4402,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4353,6 +4425,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4460,6 +4533,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4485,6 +4559,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4507,6 +4582,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4545,6 +4621,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-col11a1-triple-helical-domain-variant" data-dismech-node="COL11A1 Triple-Helical Domain Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">COL11A1 Triple-Helical Domain Variant</div>
+
 
                 <div class="item-desc">A heterozygous COL11A1 variant - classically a glycine substitution within the Gly-X-Y repeat of the triple-helical domain, or a splice-site change causing in-frame skipping of a triple-helical exon - yields a structurally abnormal pro-alpha1(XI) chain. The chain is still competent to enter the type XI heterotrimer, which is what makes the lesion dominant negative rather than a simple loss of one allele&#39;s product.
 </div>
@@ -4598,6 +4675,8 @@ This genetic context concerns COL11A1 (hgnc:2186). hgnc:2186 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4613,6 +4692,9 @@ This genetic context concerns COL11A1 (hgnc:2186). hgnc:2186 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline COL11A1 variants acting through incorporation of the mutant chain into the collagen XI heterotrimer.
 </div>
@@ -4664,6 +4746,7 @@ This genetic context concerns COL11A1 (hgnc:2186). hgnc:2186 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4686,6 +4769,7 @@ This genetic context concerns COL11A1 (hgnc:2186). hgnc:2186 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4714,6 +4798,7 @@ This genetic context concerns COL11A1 (hgnc:2186). hgnc:2186 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4737,6 +4822,7 @@ This genetic context concerns COL11A1 (hgnc:2186). hgnc:2186 is a gene from the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-type-xi-collagen-regulation-of-fibrillogenesis" data-dismech-node="Impaired Type XI Collagen Regulation of Fibrillogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Type XI Collagen Regulation of Fibrillogenesis</div>
+
 
                 <div class="item-desc">Type XI collagen co-assembles with type II collagen and controls fibril nucleation, diameter and spacing. With a mutant alpha1(XI) chain in the heterotrimer, that control is lost and the resulting heterotypic fibrils are abnormally sized, sparse and disorganized wherever the type II/XI network is load-bearing.
 </div>
@@ -4897,6 +4983,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4919,6 +5006,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4947,6 +5035,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4970,6 +5059,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-beaded-vitreous-anomaly" data-dismech-node="Beaded Vitreous Anomaly" data-dismech-type="pathophysiology">
                 <div class="item-name">Beaded Vitreous Anomaly</div>
+
 
                 <div class="item-desc">In the vitreous the disordered type II/XI network presents as sparse, irregularly thickened and beaded lamellae, in contrast to the membranous vitreous of COL2A1-related type 1 disease. This is the sign the diagnosis is made on at the slit lamp.
 </div>
@@ -5052,6 +5142,7 @@ This pathophysiological event occurs in vitreous humor (UBERON:0001797). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5074,6 +5165,7 @@ This pathophysiological event occurs in vitreous humor (UBERON:0001797). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5100,6 +5192,7 @@ This pathophysiological event occurs in vitreous humor (UBERON:0001797). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vitreoretinal-traction-and-retinal-tear" data-dismech-node="Vitreoretinal Traction and Retinal Tear" data-dismech-type="pathophysiology">
                 <div class="item-name">Vitreoretinal Traction and Retinal Tear</div>
+
 
                 <div class="item-desc">The abnormal vitreous gel retains adherence at the vitreous base while losing its normal internal architecture, so that ordinary vitreous movement or minor trauma transmits traction to the peripheral retina and produces giant retinal tears.
 </div>
@@ -5152,6 +5245,7 @@ This pathophysiological event occurs in vitreous humor (UBERON:0001797). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5174,6 +5268,7 @@ This pathophysiological event occurs in vitreous humor (UBERON:0001797). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5204,6 +5299,7 @@ This pathophysiological event occurs in vitreous humor (UBERON:0001797). UBERON:
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5227,6 +5323,7 @@ This pathophysiological event occurs in vitreous humor (UBERON:0001797). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disorganized-cartilage-collagen-matrix" data-dismech-node="Disorganized Cartilage Collagen Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Disorganized Cartilage Collagen Matrix</div>
+
 
                 <div class="item-desc">In cartilage the same fibril dysregulation gives thick, sparse fibrils and disturbed spatial organization and hypertrophic maturation of chondrocytes, affecting both the craniofacial cartilages laid down in development and the articular cartilage that has to bear load for a lifetime.
 </div>
@@ -5319,6 +5416,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5341,6 +5439,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5367,6 +5466,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-cartilage-malformation" data-dismech-node="Craniofacial Cartilage Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial Cartilage Malformation</div>
+
 
                 <div class="item-desc">Defective cartilage matrix during craniofacial morphogenesis underlies the midfacial hypoplasia and the failure of palatal shelf fusion seen as cleft palate or Pierre Robin sequence.
 </div>
@@ -5446,6 +5546,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5469,6 +5570,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-articular-cartilage-degeneration" data-dismech-node="Articular Cartilage Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Articular Cartilage Degeneration</div>
+
 
                 <div class="item-desc">Articular cartilage built on abnormally thick fibrils degenerates early, with matrix metalloproteinase induction, proteoglycan loss and reduced tensile stiffness preceding the clinical arthropathy.
 </div>
@@ -5542,6 +5644,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5564,6 +5667,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5590,6 +5694,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-middle-ear-collagen-abnormality" data-dismech-node="Middle Ear Collagen Abnormality" data-dismech-type="pathophysiology">
                 <div class="item-name">Middle Ear Collagen Abnormality</div>
+
 
                 <div class="item-desc">The fibrous layer of the tympanic membrane is collagenous too. Abnormal collagen there gives a hypermobile tympanic membrane, found in about a quarter of ears in type 2 disease and less often than in type 1. This is a distinct route to hearing impairment from the cochlear node, and it is not the only route to a conductive loss: palatal clefting with middle ear effusion accounts for much of the conductive component across Stickler syndrome.
 </div>
@@ -5645,6 +5750,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5668,6 +5774,7 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-extracellular-matrix-abnormality" data-dismech-node="Cochlear Extracellular Matrix Abnormality" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear Extracellular Matrix Abnormality</div>
+
 
                 <div class="item-desc">Col11a1 is expressed in the developing cochlea and contributes collagen to the basilar and tectorial membranes. A dominant-negative alpha1(XI) chain in those specialized matrices degrades sound transduction across the whole frequency range, giving a cochlear - not retrocochlear - hearing loss.
 </div>
@@ -5762,6 +5869,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5787,6 +5895,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5809,6 +5918,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5858,7 +5968,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Articular Cartilage Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Articular cartilage built on abnormally thick fibrils degenerates early, with matrix metalloproteinase induction, proteoglycan loss and reduced tensile stiffness preceding the clinical arthropathy.\\n\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"cho/+ heterozygous Col11a1 mouse\", \"species\": \"Mouse\", \"genotype\": \"Col11a1 cho/+ (heterozygous functional null)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"cho/+ mice develop increased articular cartilage fibril diameter and osteoarthritis-like degeneration of knee and temporomandibular joints from three months of age.\\n\"}]}}, {\"id\": \"Avoidance of Contact Sports\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standing advice to avoid contact sports and other activities carrying a risk of ocular or head trauma, because the abnormal vitreous converts minor trauma into a retinal detachment. This is the syndrome\u0027s circumstances-to-avoid warning.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Beaded Vitreous Anomaly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the vitreous the disordered type II/XI network presents as sparse, irregularly thickened and beaded lamellae, in contrast to the membranous vitreous of COL2A1-related type 1 disease. This is the sign the diagnosis is made on at the slit lamp.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"vitreous humor\"]}}, {\"id\": \"Beaded vitreous appearance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sparse, irregularly thickened and beaded vitreous lamellae throughout the vitreous cavity - the type 2 vitreous phenotype, and the sign that separates COL11A1 from COL2A1 disease clinically.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031154\"}}, {\"id\": \"COL11A1 Triple-Helical Domain Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous COL11A1 variant - classically a glycine substitution within the Gly-X-Y repeat of the triple-helical domain, or a splice-site change causing in-frame skipping of a triple-helical exon - yields a structurally abnormal pro-alpha1(XI) chain. The chain is still competent to enter the type XI heterotrimer, which is what makes the lesion dominant negative rather than a simple loss of one allele\u0027s product.\\n\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\", \"description\": \"Heterozygous germline COL11A1 variants acting through incorporation of the mutant chain into the collagen XI heterotrimer.\\n\", \"gene_terms\": [{\"label\": \"COL11A1\", \"id\": \"hgnc:2186\"}]}}}, {\"id\": \"Cleft palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate, occurring in isolation or within the Pierre Robin sequence, with the associated neonatal airway and feeding risk.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Cochlear Extracellular Matrix Abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Col11a1 is expressed in the developing cochlea and contributes collagen to the basilar and tectorial membranes. A dominant-negative alpha1(XI) chain in those specialized matrices degrades sound transduction across the whole frequency range, giving a cochlear - not retrocochlear - hearing loss.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"cochlea\"], \"animal_models\": [{\"name\": \"cho/+ heterozygous Col11a1 mouse\", \"species\": \"Mouse\", \"genotype\": \"Col11a1 cho/+ (heterozygous functional null)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Auditory brainstem response thresholds in cho/+ mice are indistinguishable from wild-type littermates through ten months of age, despite the same animals developing the joint phenotype. Human COL11A1 heterozygotes have frequent sensorineural hearing loss.\\n\"}]}}, {\"id\": \"Conductive hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A conductive component is present in a small minority of ears (3%). Separately, hypermobile tympanic membranes are found in 24% of ears - less often than has been documented in type 1 disease - and, when present, are attributed to collagen abnormality in the middle ear itself. The two observations are distinct: the source makes the collagen attribution for the hypermobile tympanic membrane, not for the conductive loss, and a palatal defect with middle ear effusion is a well-described route to conductive loss in Stickler syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Craniofacial Cartilage Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective cartilage matrix during craniofacial morphogenesis underlies the midfacial hypoplasia and the failure of palatal shelf fusion seen as cleft palate or Pierre Robin sequence.\\n\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"col11a1a morpholino knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"col11a1a morpholino knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Knockdown embryos develop craniofacial cartilage defects with disordered chondrocyte organization and abnormally thick, sparse cartilage matrix fibrils, which the authors note resemble human Stickler/Marshall chondrodysplasia.\\n\"}]}}, {\"id\": \"Craniofacial and Cleft Palate Surgical Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Care in a comprehensive craniofacial clinic, with tracheostomy where needed for neonatal Pierre Robin airway obstruction, mandibular advancement for persistent micrognathia, and feeding and nutritional support.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Disorganized Cartilage Collagen Matrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In cartilage the same fibril dysregulation gives thick, sparse fibrils and disturbed spatial organization and hypertrophic maturation of chondrocytes, affecting both the craniofacial cartilages laid down in development and the articular cartilage that has to bear load for a lifetime.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"chondrocyte\"]}}, {\"id\": \"Hearing Amplification and Audiologic Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Annual audiologic evaluation with hearing aid fitting for the sensorineural loss, plus prompt treatment of otitis media and consideration of myringotomy tubes where a conductive component is present. Surveillance matters disproportionately here because many of these patients are also visually impaired.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"High myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital or early-onset myopia, usually moderate to high, is among the presenting features of the type XI collagenopathies.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011003\"}}, {\"id\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type XI collagen co-assembles with type II collagen and controls fibril nucleation, diameter and spacing. With a mutant alpha1(XI) chain in the heterotrimer, that control is lost and the resulting heterotypic fibrils are abnormally sized, sparse and disorganized wherever the type II/XI network is load-bearing.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"]}}, {\"id\": \"Middle Ear Collagen Abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The fibrous layer of the tympanic membrane is collagenous too. Abnormal collagen there gives a hypermobile tympanic membrane, found in about a quarter of ears in type 2 disease and less often than in type 1. This is a distinct route to hearing impairment from the cochlear node, and it is not the only route to a conductive loss: palatal clefting with middle ear effusion accounts for much of the conductive component across Stickler syndrome.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Midface retrusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midfacial hypoplasia with a flat facial profile, described as more pronounced in COL11A1-related than in COL2A1-related disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Ocular or head trauma, including contact sports\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Trauma is not a cause of STL2 - the disease is fully monogenic - but it is the trigger that converts an already abnormal vitreoretinal interface into a detachment. This is the interaction behind the syndrome\u0027s one standing activity restriction.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ophthalmic Surveillance, Refractive Correction and Patient Education\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Annual review by a vitreoretinal specialist, spectacle correction of the refractive error, and teaching patients the symptoms of a detachment so they present within the window in which vision can be saved. Repair of an established detachment is not curated as a separate treatment here - see the entry `notes`.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Premature osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset degenerative joint disease, described in the STL2 literature as osteoarthropathy, affecting large weight-bearing joints well before the usual age.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003088\"}}, {\"id\": \"Prophylactic 360-Degree Laser Retinopexy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Circumferential laser retinopexy posterior to the ora serrata, the other arm of retinal-detachment prophylaxis. As with cryotherapy the reported series are in Stickler syndrome broadly rather than type 2 specifically.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Prophylactic Retinal Cryotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"360-degree contiguous cryotherapy at the retina-pars plana junction, to forestall giant retinal tear and detachment before it happens. The controlled evidence comes from type 1 cohorts, so use in STL2 is extrapolated from the shared vitreoretinal mechanism rather than demonstrated.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Retinal detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rhegmatogenous retinal detachment, classically from a giant retinal tear. Detachment tends to occur later in STL2 than in STL1, but the risk is lifelong and persists into and beyond middle age.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000541\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral cochlear hearing loss affecting all test frequencies rather than the high frequencies alone. It is the predominant type of hearing impairment in STL2 and is more consistently present than in type 1 disease.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Symptomatic Management of Arthropathy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptomatic treatment of the joint disease with orthopedic input, plus clinical, radiographic and orthopedic assessment as needed. There is no disease-modifying therapy for the underlying collagen defect.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vitreoretinal Traction and Retinal Tear\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The abnormal vitreous gel retains adherence at the vitreous base while losing its normal internal architecture, so that ordinary vitreous movement or minor trauma transmits traction to the peripheral retina and produces giant retinal tears.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"cho/+ heterozygous Col11a1 mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The spontaneous chondrodysplasia (cho) allele is a functional null of Col11a1. Homozygotes die perinatally; heterozygotes are viable and are the standard genetic model for the joint arm of COL11A1 disease. Because the allele is a null rather than a dominant-negative missense change, the heterozygote models haploinsufficiency and not the human STL2 lesion - which is why it splits so sharply between the joint and ear phenotypes.\\n\"}, {\"id\": \"col11a1a morpholino knockdown zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Morpholino knockdown of the zebrafish COL11A1 ortholog, expressed at 48 hours post fertilisation in craniofacial skeleton, pectoral fin endoskeleton and otic vesicles.\\n\"}], \"edges\": [{\"source\": \"COL11A1 Triple-Helical Domain Variant\", \"target\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mutant alpha1(XI) chain is incorporated into wild-type-containing fibrillar collagen assemblies and disrupts their function.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"target\": \"Beaded Vitreous Anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the vitreous the same loss of fibril regulation presents as the beaded lamellar phenotype, which tracks the causal gene closely enough to be used clinically to predict it.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"target\": \"Disorganized Cartilage Collagen Matrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"target\": \"Cochlear Extracellular Matrix Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cochlear extracellular matrices carry the same fibrillar collagen, and it is the mutant chains within them - not reduced dosage - that the mouse work implicates.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"target\": \"Middle Ear Collagen Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A separate, smaller branch: the fibrous layer of the tympanic membrane is also collagenous, and abnormality there is hypermobility rather than cochlear dysfunction.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"target\": \"High myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The refractive error of STL2 is congenital or early in onset and is attributed to the same structural collagen defect in the developing eye. Left uncited: no source found states the step from collagen XI dysregulation to axial elongation, as opposed to listing myopia among the syndrome\u0027s features.\\n\"}, {\"source\": \"Beaded Vitreous Anomaly\", \"target\": \"Vitreoretinal Traction and Retinal Tear\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The abnormal gel is the substrate on which peripheral tractional tears form.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Beaded Vitreous Anomaly\", \"target\": \"Beaded vitreous appearance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vitreoretinal Traction and Retinal Tear\", \"target\": \"Retinal detachment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disorganized Cartilage Collagen Matrix\", \"target\": \"Craniofacial Cartilage Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disorganized Cartilage Collagen Matrix\", \"target\": \"Articular Cartilage Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Cartilage Malformation\", \"target\": \"Midface retrusion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial Cartilage Malformation\", \"target\": \"Cleft palate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Articular Cartilage Degeneration\", \"target\": \"Premature osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Middle Ear Collagen Abnormality\", \"target\": \"Conductive hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inferential, and deliberately marked as such. The source attributes middle-ear collagen abnormality to the hypermobile tympanic membrane, and separately counts a conductive loss in 3% of ears; it does not join the two. The intermediate - abnormal tympanic membrane mechanics degrading sound conduction - is the standard otologic account rather than something this cohort demonstrated. A palatal defect with middle ear effusion is a competing and probably commoner route to conductive loss in Stickler syndrome, which is why this edge is not drawn DIRECT.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cochlear Extracellular Matrix Abnormality\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular or head trauma, including contact sports\", \"target\": \"Vitreoretinal Traction and Retinal Tear\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Impact transmitted to an abnormal vitreous gel produces the tractional tear that the intrinsic mechanism has already made the eye vulnerable to.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prophylactic Retinal Cryotherapy\", \"target\": \"Vitreoretinal Traction and Retinal Tear\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prophylactic 360-Degree Laser Retinopexy\", \"target\": \"Vitreoretinal Traction and Retinal Tear\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ophthalmic Surveillance, Refractive Correction and Patient Education\", \"target\": \"Retinal detachment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmic Surveillance, Refractive Correction and Patient Education\", \"target\": \"High myopia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of Contact Sports\", \"target\": \"Vitreoretinal Traction and Retinal Tear\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hearing Amplification and Audiologic Surveillance\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Craniofacial and Cleft Palate Surgical Management\", \"target\": \"Cleft palate\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptomatic Management of Arthropathy\", \"target\": \"Premature osteoarthritis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"cho/+ heterozygous Col11a1 mouse\", \"target\": \"Articular Cartilage Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"cho/+ mice develop increased articular cartilage fibril diameter and osteoarthritis-like degeneration of knee and temporomandibular joints from three months of age.\\n\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The cho allele is a functional null, so the heterozygote reproduces the joint phenotype through halved collagen XI dosage rather than through the dominant-negative incorporation that operates in human STL2.\\n\"}, {\"source\": \"cho/+ heterozygous Col11a1 mouse\", \"target\": \"Cochlear Extracellular Matrix Abnormality\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Auditory brainstem response thresholds in cho/+ mice are indistinguishable from wild-type littermates through ten months of age, despite the same animals developing the joint phenotype. Human COL11A1 heterozygotes have frequent sensorineural hearing loss.\\n\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The negative result is specific to a null allele on a C57BL/6 background. The authors read it as evidence that the human auditory phenotype requires dominant-negative mutant chains rather than reduced dosage, so the model\u0027s failure is mechanistically informative but it cannot be used to study the human cochlear lesion.\\n\"}, {\"source\": \"col11a1a morpholino knockdown zebrafish\", \"target\": \"Craniofacial Cartilage Malformation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Knockdown embryos develop craniofacial cartilage defects with disordered chondrocyte organization and abnormally thick, sparse cartilage matrix fibrils, which the authors note resemble human Stickler/Marshall chondrodysplasia.\\n\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A transient morpholino knockdown in a teleost with two COL11A1 orthologs, modelling loss of collagen XI rather than the human dominant-negative allele; no ocular or auditory phenotype was assessed.\\n\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Articular Cartilage Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Articular cartilage built on abnormally thick fibrils degenerates early, with matrix metalloproteinase induction, proteoglycan loss and reduced tensile stiffness preceding the clinical arthropathy.\\n\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"cho/+ heterozygous Col11a1 mouse\", \"species\": \"Mouse\", \"genotype\": \"Col11a1 cho/+ (heterozygous functional null)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"cho/+ mice develop increased articular cartilage fibril diameter and osteoarthritis-like degeneration of knee and temporomandibular joints from three months of age.\\n\"}]}}, {\"id\": \"Avoidance of Contact Sports\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standing advice to avoid contact sports and other activities carrying a risk of ocular or head trauma, because the abnormal vitreous converts minor trauma into a retinal detachment. This is the syndrome\u0027s circumstances-to-avoid warning.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Beaded Vitreous Anomaly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the vitreous the disordered type II/XI network presents as sparse, irregularly thickened and beaded lamellae, in contrast to the membranous vitreous of COL2A1-related type 1 disease. This is the sign the diagnosis is made on at the slit lamp.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"vitreous humor\"]}}, {\"id\": \"Beaded vitreous appearance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sparse, irregularly thickened and beaded vitreous lamellae throughout the vitreous cavity - the type 2 vitreous phenotype, and the sign that separates COL11A1 from COL2A1 disease clinically.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031154\"}}, {\"id\": \"COL11A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"COL11A1\"], \"gene_terms\": [{\"label\": \"COL11A1\", \"id\": \"hgnc:2186\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"COL11A1 Triple-Helical Domain Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous COL11A1 variant - classically a glycine substitution within the Gly-X-Y repeat of the triple-helical domain, or a splice-site change causing in-frame skipping of a triple-helical exon - yields a structurally abnormal pro-alpha1(XI) chain. The chain is still competent to enter the type XI heterotrimer, which is what makes the lesion dominant negative rather than a simple loss of one allele\u0027s product.\\n\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\", \"description\": \"Heterozygous germline COL11A1 variants acting through incorporation of the mutant chain into the collagen XI heterotrimer.\\n\", \"gene_terms\": [{\"label\": \"COL11A1\", \"id\": \"hgnc:2186\"}]}}}, {\"id\": \"Cleft palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate, occurring in isolation or within the Pierre Robin sequence, with the associated neonatal airway and feeding risk.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Cochlear Extracellular Matrix Abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Col11a1 is expressed in the developing cochlea and contributes collagen to the basilar and tectorial membranes. A dominant-negative alpha1(XI) chain in those specialized matrices degrades sound transduction across the whole frequency range, giving a cochlear - not retrocochlear - hearing loss.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"cochlea\"], \"animal_models\": [{\"name\": \"cho/+ heterozygous Col11a1 mouse\", \"species\": \"Mouse\", \"genotype\": \"Col11a1 cho/+ (heterozygous functional null)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Auditory brainstem response thresholds in cho/+ mice are indistinguishable from wild-type littermates through ten months of age, despite the same animals developing the joint phenotype. Human COL11A1 heterozygotes have frequent sensorineural hearing loss.\\n\"}]}}, {\"id\": \"Conductive hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A conductive component is present in a small minority of ears (3%). Separately, hypermobile tympanic membranes are found in 24% of ears - less often than has been documented in type 1 disease - and, when present, are attributed to collagen abnormality in the middle ear itself. The two observations are distinct: the source makes the collagen attribution for the hypermobile tympanic membrane, not for the conductive loss, and a palatal defect with middle ear effusion is a well-described route to conductive loss in Stickler syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Craniofacial Cartilage Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective cartilage matrix during craniofacial morphogenesis underlies the midfacial hypoplasia and the failure of palatal shelf fusion seen as cleft palate or Pierre Robin sequence.\\n\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"col11a1a morpholino knockdown zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"col11a1a morpholino knockdown\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Knockdown embryos develop craniofacial cartilage defects with disordered chondrocyte organization and abnormally thick, sparse cartilage matrix fibrils, which the authors note resemble human Stickler/Marshall chondrodysplasia.\\n\"}]}}, {\"id\": \"Craniofacial and Cleft Palate Surgical Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Care in a comprehensive craniofacial clinic, with tracheostomy where needed for neonatal Pierre Robin airway obstruction, mandibular advancement for persistent micrognathia, and feeding and nutritional support.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Disorganized Cartilage Collagen Matrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In cartilage the same fibril dysregulation gives thick, sparse fibrils and disturbed spatial organization and hypertrophic maturation of chondrocytes, affecting both the craniofacial cartilages laid down in development and the articular cartilage that has to bear load for a lifetime.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"chondrocyte\"]}}, {\"id\": \"Hearing Amplification and Audiologic Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Annual audiologic evaluation with hearing aid fitting for the sensorineural loss, plus prompt treatment of otitis media and consideration of myringotomy tubes where a conductive component is present. Surveillance matters disproportionately here because many of these patients are also visually impaired.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"High myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital or early-onset myopia, usually moderate to high, is among the presenting features of the type XI collagenopathies.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011003\"}}, {\"id\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type XI collagen co-assembles with type II collagen and controls fibril nucleation, diameter and spacing. With a mutant alpha1(XI) chain in the heterotrimer, that control is lost and the resulting heterotypic fibrils are abnormally sized, sparse and disorganized wherever the type II/XI network is load-bearing.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"]}}, {\"id\": \"Middle Ear Collagen Abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The fibrous layer of the tympanic membrane is collagenous too. Abnormal collagen there gives a hypermobile tympanic membrane, found in about a quarter of ears in type 2 disease and less often than in type 1. This is a distinct route to hearing impairment from the cochlear node, and it is not the only route to a conductive loss: palatal clefting with middle ear effusion accounts for much of the conductive component across Stickler syndrome.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Midface retrusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midfacial hypoplasia with a flat facial profile, described as more pronounced in COL11A1-related than in COL2A1-related disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Ocular or head trauma, including contact sports\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Trauma is not a cause of STL2 - the disease is fully monogenic - but it is the trigger that converts an already abnormal vitreoretinal interface into a detachment. This is the interaction behind the syndrome\u0027s one standing activity restriction.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ophthalmic Surveillance, Refractive Correction and Patient Education\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Annual review by a vitreoretinal specialist, spectacle correction of the refractive error, and teaching patients the symptoms of a detachment so they present within the window in which vision can be saved. Repair of an established detachment is not curated as a separate treatment here - see the entry `notes`.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Premature osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset degenerative joint disease, described in the STL2 literature as osteoarthropathy, affecting large weight-bearing joints well before the usual age.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003088\"}}, {\"id\": \"Prophylactic 360-Degree Laser Retinopexy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Circumferential laser retinopexy posterior to the ora serrata, the other arm of retinal-detachment prophylaxis. As with cryotherapy the reported series are in Stickler syndrome broadly rather than type 2 specifically.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Prophylactic Retinal Cryotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"360-degree contiguous cryotherapy at the retina-pars plana junction, to forestall giant retinal tear and detachment before it happens. The controlled evidence comes from type 1 cohorts, so use in STL2 is extrapolated from the shared vitreoretinal mechanism rather than demonstrated.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Retinal detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rhegmatogenous retinal detachment, classically from a giant retinal tear. Detachment tends to occur later in STL2 than in STL1, but the risk is lifelong and persists into and beyond middle age.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000541\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral cochlear hearing loss affecting all test frequencies rather than the high frequencies alone. It is the predominant type of hearing impairment in STL2 and is more consistently present than in type 1 disease.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Symptomatic Management of Arthropathy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptomatic treatment of the joint disease with orthopedic input, plus clinical, radiographic and orthopedic assessment as needed. There is no disease-modifying therapy for the underlying collagen defect.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vitreoretinal Traction and Retinal Tear\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The abnormal vitreous gel retains adherence at the vitreous base while losing its normal internal architecture, so that ordinary vitreous movement or minor trauma transmits traction to the peripheral retina and produces giant retinal tears.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"cho/+ heterozygous Col11a1 mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The spontaneous chondrodysplasia (cho) allele is a functional null of Col11a1. Homozygotes die perinatally; heterozygotes are viable and are the standard genetic model for the joint arm of COL11A1 disease. Because the allele is a null rather than a dominant-negative missense change, the heterozygote models haploinsufficiency and not the human STL2 lesion - which is why it splits so sharply between the joint and ear phenotypes.\\n\"}, {\"id\": \"col11a1a morpholino knockdown zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Morpholino knockdown of the zebrafish COL11A1 ortholog, expressed at 48 hours post fertilisation in craniofacial skeleton, pectoral fin endoskeleton and otic vesicles.\\n\"}], \"edges\": [{\"source\": \"COL11A1 Triple-Helical Domain Variant\", \"target\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mutant alpha1(XI) chain is incorporated into wild-type-containing fibrillar collagen assemblies and disrupts their function.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"target\": \"Beaded Vitreous Anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the vitreous the same loss of fibril regulation presents as the beaded lamellar phenotype, which tracks the causal gene closely enough to be used clinically to predict it.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"target\": \"Disorganized Cartilage Collagen Matrix\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"target\": \"Cochlear Extracellular Matrix Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cochlear extracellular matrices carry the same fibrillar collagen, and it is the mutant chains within them - not reduced dosage - that the mouse work implicates.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"target\": \"Middle Ear Collagen Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A separate, smaller branch: the fibrous layer of the tympanic membrane is also collagenous, and abnormality there is hypermobility rather than cochlear dysfunction.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Type XI Collagen Regulation of Fibrillogenesis\", \"target\": \"High myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The refractive error of STL2 is congenital or early in onset and is attributed to the same structural collagen defect in the developing eye. Left uncited: no source found states the step from collagen XI dysregulation to axial elongation, as opposed to listing myopia among the syndrome\u0027s features.\\n\"}, {\"source\": \"Beaded Vitreous Anomaly\", \"target\": \"Vitreoretinal Traction and Retinal Tear\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The abnormal gel is the substrate on which peripheral tractional tears form.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Beaded Vitreous Anomaly\", \"target\": \"Beaded vitreous appearance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vitreoretinal Traction and Retinal Tear\", \"target\": \"Retinal detachment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disorganized Cartilage Collagen Matrix\", \"target\": \"Craniofacial Cartilage Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disorganized Cartilage Collagen Matrix\", \"target\": \"Articular Cartilage Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Cartilage Malformation\", \"target\": \"Midface retrusion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial Cartilage Malformation\", \"target\": \"Cleft palate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Articular Cartilage Degeneration\", \"target\": \"Premature osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Middle Ear Collagen Abnormality\", \"target\": \"Conductive hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inferential, and deliberately marked as such. The source attributes middle-ear collagen abnormality to the hypermobile tympanic membrane, and separately counts a conductive loss in 3% of ears; it does not join the two. The intermediate - abnormal tympanic membrane mechanics degrading sound conduction - is the standard otologic account rather than something this cohort demonstrated. A palatal defect with middle ear effusion is a competing and probably commoner route to conductive loss in Stickler syndrome, which is why this edge is not drawn DIRECT.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cochlear Extracellular Matrix Abnormality\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular or head trauma, including contact sports\", \"target\": \"Vitreoretinal Traction and Retinal Tear\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Impact transmitted to an abnormal vitreous gel produces the tractional tear that the intrinsic mechanism has already made the eye vulnerable to.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prophylactic Retinal Cryotherapy\", \"target\": \"Vitreoretinal Traction and Retinal Tear\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prophylactic 360-Degree Laser Retinopexy\", \"target\": \"Vitreoretinal Traction and Retinal Tear\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ophthalmic Surveillance, Refractive Correction and Patient Education\", \"target\": \"Retinal detachment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmic Surveillance, Refractive Correction and Patient Education\", \"target\": \"High myopia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of Contact Sports\", \"target\": \"Vitreoretinal Traction and Retinal Tear\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hearing Amplification and Audiologic Surveillance\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Craniofacial and Cleft Palate Surgical Management\", \"target\": \"Cleft palate\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptomatic Management of Arthropathy\", \"target\": \"Premature osteoarthritis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"cho/+ heterozygous Col11a1 mouse\", \"target\": \"Articular Cartilage Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"cho/+ mice develop increased articular cartilage fibril diameter and osteoarthritis-like degeneration of knee and temporomandibular joints from three months of age.\\n\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The cho allele is a functional null, so the heterozygote reproduces the joint phenotype through halved collagen XI dosage rather than through the dominant-negative incorporation that operates in human STL2.\\n\"}, {\"source\": \"cho/+ heterozygous Col11a1 mouse\", \"target\": \"Cochlear Extracellular Matrix Abnormality\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Auditory brainstem response thresholds in cho/+ mice are indistinguishable from wild-type littermates through ten months of age, despite the same animals developing the joint phenotype. Human COL11A1 heterozygotes have frequent sensorineural hearing loss.\\n\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The negative result is specific to a null allele on a C57BL/6 background. The authors read it as evidence that the human auditory phenotype requires dominant-negative mutant chains rather than reduced dosage, so the model\u0027s failure is mechanistically informative but it cannot be used to study the human cochlear lesion.\\n\"}, {\"source\": \"col11a1a morpholino knockdown zebrafish\", \"target\": \"Craniofacial Cartilage Malformation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Knockdown embryos develop craniofacial cartilage defects with disordered chondrocyte organization and abnormally thick, sparse cartilage matrix fibrils, which the authors note resemble human Stickler/Marshall chondrodysplasia.\\n\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A transient morpholino knockdown in a teleost with two COL11A1 orthologs, modelling loss of collagen XI rather than the human dominant-negative allele; no ocular or auditory phenotype was assessed.\\n\"}, {\"source\": \"COL11A1\", \"target\": \"COL11A1 Triple-Helical Domain Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5926,6 +6036,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5940,6 +6053,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5965,6 +6079,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6020,6 +6135,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6034,6 +6152,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6059,6 +6178,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6114,6 +6234,9 @@ This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6128,6 +6251,7 @@ This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6192,6 +6316,9 @@ This clinical feature is Beaded vitreous appearance (HP:0031154). HP:0031154 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6206,6 +6333,7 @@ This clinical feature is Beaded vitreous appearance (HP:0031154). HP:0031154 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6257,6 +6385,9 @@ This clinical feature is High myopia (HP:0011003). HP:0011003 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">A cross-study prevalence of 83% is reported, but over a review population pooling STL1 and STL2, so no frequency band is claimed for type 2 here.
 </div>
 
@@ -6277,6 +6408,7 @@ This clinical feature is High myopia (HP:0011003). HP:0011003 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6329,6 +6461,9 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">The pooled 45% detachment rate in PMID:32316871 covers STL1 and STL2 together, so it is not adopted as a type 2 frequency band.
 </div>
 
@@ -6349,6 +6484,7 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6374,6 +6510,7 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6427,6 +6564,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Not attached to a pathophysiology node. No source found states how collagen XI dysregulation produces lens opacity, and drawing the edge on the strength of the two occurring in the same disease would assert a mechanism nobody has shown.
 </div>
 
@@ -6447,6 +6587,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6511,6 +6652,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6525,6 +6669,7 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6580,6 +6725,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6594,6 +6742,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6649,6 +6798,9 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6663,6 +6815,7 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6727,6 +6880,9 @@ This clinical feature is Premature osteoarthritis (HP:0003088). HP:0003088 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6741,6 +6897,7 @@ This clinical feature is Premature osteoarthritis (HP:0003088). HP:0003088 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6766,6 +6923,7 @@ This clinical feature is Premature osteoarthritis (HP:0003088). HP:0003088 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6865,6 +7023,9 @@ This disease-associated gene is COL11A1 (hgnc:2186). hgnc:2186 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6890,6 +7051,7 @@ This disease-associated gene is COL11A1 (hgnc:2186). hgnc:2186 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6912,6 +7074,7 @@ This disease-associated gene is COL11A1 (hgnc:2186). hgnc:2186 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6999,6 +7162,9 @@ This treatment is retinal cryotherapy, annotated with Cryotherapy (NCIT:C40030).
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7009,6 +7175,9 @@ This treatment is retinal cryotherapy, annotated with Cryotherapy (NCIT:C40030).
 
 
     </div>
+
+
+
 
 
 
@@ -7061,6 +7230,7 @@ This treatment is retinal cryotherapy, annotated with Cryotherapy (NCIT:C40030).
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7086,6 +7256,7 @@ This treatment is retinal cryotherapy, annotated with Cryotherapy (NCIT:C40030).
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7153,6 +7324,9 @@ This treatment is laser retinopexy, annotated with Laser Therapy (NCIT:C15466). 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7163,6 +7337,9 @@ This treatment is laser retinopexy, annotated with Laser Therapy (NCIT:C15466). 
 
 
     </div>
+
+
+
 
 
 
@@ -7215,6 +7392,7 @@ This treatment is laser retinopexy, annotated with Laser Therapy (NCIT:C15466). 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7237,6 +7415,7 @@ This treatment is laser retinopexy, annotated with Laser Therapy (NCIT:C15466). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7305,6 +7484,9 @@ This treatment is ophthalmic surveillance and patient education, annotated with 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7315,6 +7497,9 @@ This treatment is ophthalmic surveillance and patient education, annotated with 
 
 
     </div>
+
+
+
 
 
 
@@ -7385,6 +7570,7 @@ This treatment targets High myopia (HP:0011003). HP:0011003 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7407,6 +7593,7 @@ This treatment targets High myopia (HP:0011003). HP:0011003 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7475,6 +7662,9 @@ This treatment is activity restriction to prevent traumatic retinal detachment, 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7485,6 +7675,9 @@ This treatment is activity restriction to prevent traumatic retinal detachment, 
 
 
     </div>
+
+
+
 
 
 
@@ -7532,6 +7725,7 @@ This treatment is activity restriction to prevent traumatic retinal detachment, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7600,6 +7794,9 @@ This treatment is hearing amplification, annotated with Supportive Care (NCIT:C1
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7610,6 +7807,9 @@ This treatment is hearing amplification, annotated with Supportive Care (NCIT:C1
 
 
     </div>
+
+
+
 
 
 
@@ -7663,6 +7863,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7685,6 +7886,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7753,6 +7955,9 @@ This treatment is craniofacial surgical management, annotated with Surgical Proc
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7763,6 +7968,9 @@ This treatment is craniofacial surgical management, annotated with Surgical Proc
 
 
     </div>
+
+
+
 
 
 
@@ -7813,6 +8021,7 @@ This treatment targets Cleft palate (HP:0000175). HP:0000175 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7881,6 +8090,9 @@ This treatment is symptomatic management of arthropathy, annotated with Supporti
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7891,6 +8103,9 @@ This treatment is symptomatic management of arthropathy, annotated with Supporti
 
 
     </div>
+
+
+
 
 
 
@@ -7944,6 +8159,7 @@ This treatment targets Premature osteoarthritis (HP:0003088). HP:0003088 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7966,6 +8182,7 @@ This treatment targets Premature osteoarthritis (HP:0003088). HP:0003088 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8032,6 +8249,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8042,6 +8262,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8073,6 +8296,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8095,6 +8319,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8164,6 +8389,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8214,6 +8440,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8295,6 +8522,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8317,6 +8545,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8393,6 +8622,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8495,6 +8725,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8516,6 +8747,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8592,6 +8824,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8614,6 +8847,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8687,6 +8921,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8712,6 +8947,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8734,6 +8970,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8887,6 +9124,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8926,6 +9164,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9009,6 +9248,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9048,6 +9288,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9093,6 +9334,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9202,6 +9444,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9244,6 +9487,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10910,6 +11154,42 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated from a claude_code deep-research report (research/Stickler_Syndrome_Type_2-deep-research-claude_code.md) with the GeneReviews Stickler syndrome chapter (PMID:20301479) as the phenotype baseline. Two areas were deliberately left out. First, the rare biallelic COL11A1 form reported with unusually severe hearing loss: it is a distinct inheritance mode and belongs in its own record rather than as a footnote here. Second, a prevalence figure specific to type 2: none was found, so the `prevalence` record carries `prevalence_class: UNKNOWN` and states why a number was declined rather than adopting Orphanet&#39;s group-scoped band. The report&#39;s &#34;10-20% of Stickler cases&#34; figure is a case fraction rather than a population rate, and is recorded as one under `genetic.case_fractions`, sourced to PMID:32558342.
+No datasets are recorded. `just discover-datasets` returns only GENE_ONLY matches on COL11A1 - GEO series about collagen XI in ovarian cancer and in cutaneous squamous cell carcinoma invasion. Those accessions resolve perfectly and are about a different disease entirely, which is the Named Entity Confusion case the dataset-curation guidance warns about; none is admitted here.
+Lattice retinal degeneration is not recorded, and the omission is deliberate. The deep-research report puts paravascular lattice retinopathy at 38% and places it inside the vitreous-traction-to-detachment chain, so it belongs here on the merits; `HP:0007992` is the right term, and the report&#39;s proposed `HP:0000875` is *Episodic hypertension* and was rejected. What is missing is a quotable source. The 38% traces to Poulson et al., &#34;Clinical features of type 2 Stickler syndrome&#34; (PMID:15286167, DOI:10.1136/jmg.2004.018382), which has no abstract in PubMed, whose BMJ full text returns HTTP 403, and whose PMC copy (PMC1735871) no `just fetch-reference` prefix reaches. Every other cached source that mentions lattice is scoped elsewhere: PMID:21466760 discusses it in type 1 Stickler cohorts, PMID:36583093 in the general rhegmatogenous-detachment population, and the one recent case report pairing lattice with Stickler (PMID:41997526) is COL2A1, so type 1. Adding the phenotype on any of those would import a claim across the scope boundary this entry is otherwise careful about. Revisit if the Poulson text becomes fetchable.
+Repair of an established detachment - scleral buckling, vitrectomy - is not curated as a treatment. It is part of management, but no quotable sentence about it was found in any cached source and the GeneReviews abstract does not mention it; attaching a prophylaxis quote to a surgical-repair record would be a claim-evidence mismatch. Prophylaxis, surveillance and education are curated instead.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Stickler Syndrome Type 2 (COL11A1)</strong> · 2026-09-04T00:54:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Stickler_Syndrome_Type_2/2026-09-04T005453Z-claude-code-76e098.yaml">View source</a></p>
+                        <p class="research-review-text">New Mendelian disorder entry for COL11A1-related Stickler syndrome type 2 (MONDO:0011493), curated from a claude_code deep-research run (research/Stickler_Syndrome_Type_2-deep-research-claude_code.md, 288s, 13 web searches, 26 citations) with the GeneReviews Stickler syndrome chapter (PMID:20301479) as the mandatory phenotype baseline.
+
+The report carried no frontmatter validation, so both retro-fits were run: just validate-research-reference (17/17 references resolved, 0 unresolved, 0 off topic, but 2 of 3 quoted claims not found in source) and just validate-research-terms (39/41 resolved; 4 CURIEs named as a different term). No quote was copied from the report - all 87 snippets were taken directly from cached abstracts and full texts. The four mislabelled CURIEs were all rejected: UBERON:0000955 (report said cochlea, UBERON says brain) replaced by UBERON:0001844; UBERON:0002481 (report said mandible, UBERON says bone tissue) not used; HP:0000875 (report said lattice degeneration, HP says Episodic hypertension) not used; HP:0000272 Malar flattening replaced by HP:0011800 Midface retrusion.
+
+Three PMIDs recalled from memory during reference gathering turned out to be unrelated papers (24560571, 8894694, 7859280 - synapses, dystrophin, HIV-1) and were discarded rather than cited; their cache files are not committed.
+
+Content: a seven-node causal chain from the COL11A1 triple-helical-domain variant through loss of type XI regulation of collagen fibrillogenesis, branching to the beaded vitreous and retinal detachment, cartilage disorganisation with craniofacial and articular arms, and cochlear plus middle-ear extracellular matrix abnormality. 12 phenotypes, 8 treatments, 2 animal models with modeled_mechanisms links, one environmental exposure linked into the pathograph, and a HUMAN_MODEL_MISMATCH discussion for the cho/+ mouse, which recapitulates the joint phenotype but has normal ABR thresholds through 10 months (PMID:12527136) - the negative result that argues the human cochlear lesion is dominant-negative rather than a dosage effect.
+
+Scope-boundary discipline: no prevalence band or rate is asserted, because Orphanet&#39;s rows are scoped to the whole Stickler group and disagree among themselves by 500-fold; the COL11A1 case fraction (10-20% of Stickler patients, PMID:32558342) is recorded under genetic.case_fractions instead. Pooled myopia (83%) and retinal-detachment (45%) figures were declined for the same reason, with the reason recorded next to each. Cataract FREQUENT and sensorineural hearing impairment FREQUENT both rest on type-2-scoped numbers (59%, PMID:32316871; 69%, PMID:32901364). All retinal-prophylaxis evidence carries directness: INDIRECT because the controlled cohorts are type 1.
+
+No datasets are recorded: just discover-datasets returns only GENE_ONLY COL11A1 matches from ovarian cancer and cutaneous SCC invasion studies - resolvable accessions about a different disease.
+
+An adversarial pre-PR review pass was run against the dismech-pr-review skill and returned three blocking and eleven important findings; all were addressed before commit, including a group-scoped prevalence band published in machine-readable numeric fields, a phenotype description that attributed a source&#39;s middle-ear-collagen claim to the wrong referent, and a treatment whose only evidence described a different intervention.
+
+Validation: just validate (schema + terms + 87/87 snippets), just validate-disorders (batched, the CI gate), check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms-online, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence and check-reference-titles all pass. Weighted compliance 94.2%. The stubs/ entry was deleted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

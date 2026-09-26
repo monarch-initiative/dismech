@@ -473,7 +473,6 @@ def publish_release(
             + ", ".join(unquarantined_slugs)
         )
 
-    client = Ndex2(host=host, username=username, password=password)
     metadata = manifest["release_metadata"] | {
         "source_revision": manifest["source_revision"]
     }
@@ -493,6 +492,9 @@ def publish_release(
         for record in publishable
         if record["status"] == "EXPORTED"
     }
+
+    # Ndex2 contacts the server during construction; validate local files first.
+    client = Ndex2(host=host, username=username, password=password)
 
     for record in publishable:
         network_id = record.get("ndex_uuid")

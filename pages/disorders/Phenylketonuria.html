@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4347,6 +4415,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4430,6 +4499,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4451,6 +4521,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4547,6 +4618,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4606,6 +4678,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4671,6 +4744,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4731,7 +4805,7 @@
                 <div class="item-desc" style="margin-top: 8px;">Biallelic loss-of-function variants in PAH reduce hepatic phenylalanine hydroxylase activity, blocking conversion of phenylalanine to tyrosine. The resulting hyperphenylalaninemia exposes the developing and adult brain to neurotoxic phenylalanine levels, with downstream perturbation of large-neutral-amino-acid (LNAA) transport across the blood-brain barrier, depletion of cerebral tyrosine, tryptophan, and dopamine/serotonin neurotransmitter pools, impaired myelination, and oxidative stress. Severity is graded by residual PAH activity (classic PKU vs mild PKU vs non-PKU hyperphenylalaninemia) and the BH4-responsive subset; phenylalanine restriction, BH4 sapropterin, and pegvaliase (phenylalanine ammonia lyase) all act on this canonical axis.</div>
 
 
-                <div class="mapping-notes">Retained as CANONICAL. The 2026 falcon hypothesis-search report (kb/hypotheses/Phenylketonuria/canonical_pah_deficiency_phenylalanine_neurotoxicity_model; openscientist timed out) confirms biallelic PAH loss-of- function → hyperphenylalaninemia → neurotoxicity as the core mechanism, supported by phenylalanine-restricted diet efficacy, BH4 sapropterin response in cofactor-responsive variants, and pegvaliase (PAL enzyme substitution) approval. Three refinements: (1) the BBB neurotoxicity mechanism is multifactorial — LNAA transporter competition, depletion of cerebral tyrosine/tryptophan, reduced dopamine/serotonin synthesis, impaired myelin lipid composition, and oxidative stress all contribute, rather than direct Phe-toxicity alone; (2) maternal PKU teratogenicity (embryonic Phe exposure causing microcephaly, congenital heart disease, intellectual disability in offspring) operates through a distinct developmental mechanism; (3) executive dysfunction, attention deficits, and mood disorders persist in early-treated PKU adults even with good metabolic control, suggesting subtle developmental neurotoxicity beyond what current Phe targets capture.</div>
+                <div class="mapping-notes">Retained as CANONICAL. The 2026 falcon hypothesis-search report (kb/hypotheses/Phenylketonuria/canonical_pah_deficiency_phenylalanine_neurotoxicity_model; openscientist timed out) confirms biallelic PAH loss-of-function → hyperphenylalaninemia → neurotoxicity as the core mechanism, supported by phenylalanine-restricted diet efficacy, BH4 sapropterin response in cofactor-responsive variants, and pegvaliase (PAL enzyme substitution) approval. Three refinements: (1) the BBB neurotoxicity mechanism is multifactorial — LNAA transporter competition, depletion of cerebral tyrosine/tryptophan, reduced dopamine/serotonin synthesis, impaired myelin lipid composition, and oxidative stress all contribute, rather than direct Phe-toxicity alone; (2) maternal PKU teratogenicity (embryonic Phe exposure causing microcephaly, congenital heart disease, intellectual disability in offspring) operates through a distinct developmental mechanism; (3) executive dysfunction, attention deficits, and mood disorders persist in early-treated PKU adults even with good metabolic control, suggesting subtle developmental neurotoxicity beyond what current Phe targets capture.</div>
 
 
 
@@ -4774,6 +4848,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4812,6 +4887,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pah-pathogenic-variant-burden" data-dismech-node="Biallelic PAH Pathogenic Variant Burden" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PAH Pathogenic Variant Burden</div>
+
 
                 <div class="item-desc">Homozygous or compound heterozygous pathogenic PAH variant combinations initiate PKU by reducing phenylalanine hydroxylase activity, with variant severity determining whether the downstream biochemical phenotype is classic PKU, mild PKU, or mild hyperphenylalaninemia.</div>
 
@@ -4881,10 +4957,15 @@ This pathophysiological event involves decreased PAH (hgnc:8582). hgnc:8582 is a
 
 
 
+
+
         <span class="tag tag-classification">functional_impact: loss_of_function_or_hypomorphic</span>
 
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic pathogenic PAH variant combinations.</div>
 
@@ -4942,6 +5023,7 @@ This pathophysiological event involves decreased PAH (hgnc:8582). hgnc:8582 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4963,6 +5045,7 @@ This pathophysiological event involves decreased PAH (hgnc:8582). hgnc:8582 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4988,6 +5071,7 @@ This pathophysiological event involves decreased PAH (hgnc:8582). hgnc:8582 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-near-complete-pah-activity-loss" data-dismech-node="Near-Complete PAH Activity Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Near-Complete PAH Activity Loss</div>
+
 
                 <div class="item-desc">Severe PAH variant combinations produce complete or near-complete hepatic PAH activity loss, defining the classic PKU branch with the highest untreated phenylalanine burden and greatest neurotoxicity risk.</div>
 
@@ -5052,6 +5136,8 @@ This pathophysiological event involves decreased PAH (hgnc:8582). hgnc:8582 is a
 
 
 
+
+
         <span class="tag tag-classification">allele_type: null_or_severe_hypomorphic</span>
 
 
@@ -5063,6 +5149,9 @@ This pathophysiological event involves decreased PAH (hgnc:8582). hgnc:8582 is a
 
 
     </div>
+
+
+
 
     <div class="context-detail">Severe biallelic PAH variant combinations.</div>
 
@@ -5188,6 +5277,7 @@ This pathophysiological event involves decreased phenylalanine 4-monooxygenase a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5210,6 +5300,7 @@ This pathophysiological event involves decreased phenylalanine 4-monooxygenase a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-residual-pah-activity-and-bh4-responsiveness" data-dismech-node="Residual PAH Activity and BH4 Responsiveness" data-dismech-type="pathophysiology">
                 <div class="item-name">Residual PAH Activity and BH4 Responsiveness</div>
+
 
                 <div class="item-desc">Hypomorphic PAH variant combinations retain some enzyme activity, producing milder hyperphenylalaninemia/PKU phenotypes and enabling a subset of patients to respond to tetrahydrobiopterin or sapropterin.</div>
 
@@ -5274,6 +5365,8 @@ This pathophysiological event involves decreased PAH (hgnc:8582). hgnc:8582 is a
 
 
 
+
+
         <span class="tag tag-classification">allele_type: hypomorphic_or_residual_function</span>
 
 
@@ -5285,6 +5378,9 @@ This pathophysiological event involves decreased PAH (hgnc:8582). hgnc:8582 is a
 
 
     </div>
+
+
+
 
     <div class="context-detail">PAH variant combinations retaining pharmacologically activatable residual activity.</div>
 
@@ -5410,6 +5506,7 @@ This pathophysiological event involves decreased phenylalanine 4-monooxygenase a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5431,6 +5528,7 @@ This pathophysiological event involves decreased phenylalanine 4-monooxygenase a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5456,6 +5554,7 @@ This pathophysiological event involves decreased phenylalanine 4-monooxygenase a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-pah-enzyme-deficiency" data-dismech-node="Hepatic PAH Enzyme Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic PAH Enzyme Deficiency</div>
+
 
                 <div class="item-desc">Pathogenic PAH variants reduce hepatic phenylalanine hydroxylase activity.</div>
 
@@ -5726,6 +5825,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5747,6 +5847,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5774,6 +5875,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5796,6 +5898,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperphenylalaninemia" data-dismech-node="Hyperphenylalaninemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperphenylalaninemia</div>
+
 
                 <div class="item-desc">Phenylalanine accumulates in blood and tissues when PAH-dependent metabolism is impaired.</div>
 
@@ -5974,6 +6077,7 @@ This pathophysiological event involves dysregulated L-phenylalanine metabolic pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5995,6 +6099,7 @@ This pathophysiological event involves dysregulated L-phenylalanine metabolic pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6020,6 +6125,7 @@ This pathophysiological event involves dysregulated L-phenylalanine metabolic pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-insufficiency-during-dietary-therapy" data-dismech-node="Protein Insufficiency During Dietary Therapy" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein Insufficiency During Dietary Therapy</div>
+
 
                 <div class="item-desc">Phenylalanine-restricted therapy depends on carefully balanced natural protein and Phe-free protein substitutes; inadequate protein sufficiency, reflected by low plasma prealbumin, is associated with impaired linear growth in treated children with PKU.</div>
 
@@ -6119,6 +6225,7 @@ This pathophysiological event involves increased negative regulation of multicel
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6140,6 +6247,7 @@ This pathophysiological event involves increased negative regulation of multicel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6165,6 +6273,7 @@ This pathophysiological event involves increased negative regulation of multicel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-bone-mineral-density-in-pku" data-dismech-node="Reduced Bone Mineral Density in PKU" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Bone Mineral Density in PKU</div>
+
 
                 <div class="item-desc">Adults and children with PKU have repeatedly been reported to have lower bone mineral density, with mechanisms still uncertain and likely involving diet composition, metabolic control, and other modifiers.</div>
 
@@ -6264,6 +6373,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6285,6 +6395,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6310,6 +6421,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-hyperphenylalaninemia-teratogenicity" data-dismech-node="Maternal Hyperphenylalaninemia Teratogenicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Maternal Hyperphenylalaninemia Teratogenicity</div>
+
 
                 <div class="item-desc">In women with PKU or hyperphenylalaninemia, poor phenylalanine control during early pregnancy creates a fetal teratogenic exposure that is associated with congenital heart defects and other maternal PKU syndrome outcomes.</div>
 
@@ -6401,6 +6513,7 @@ This pathophysiological event involves abnormal heart development (GO:0007507). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6422,6 +6535,7 @@ This pathophysiological event involves abnormal heart development (GO:0007507). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6447,6 +6561,7 @@ This pathophysiological event involves abnormal heart development (GO:0007507). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-relative-tyrosine-deficiency" data-dismech-node="Relative Tyrosine Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Relative Tyrosine Deficiency</div>
+
 
                 <div class="item-desc">Decreased PAH flux lowers endogenous tyrosine generation from phenylalanine.</div>
 
@@ -6562,6 +6677,7 @@ This pathophysiological event involves decreased tyrosine metabolic process (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6583,6 +6699,7 @@ This pathophysiological event involves decreased tyrosine metabolic process (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6608,6 +6725,7 @@ This pathophysiological event involves decreased tyrosine metabolic process (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-competitive-large-neutral-amino-acid-transport-at-the-blood-brain-barrier" data-dismech-node="Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier" data-dismech-type="pathophysiology">
                 <div class="item-name">Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier</div>
+
 
                 <div class="item-desc">Large neutral amino acids, including phenylalanine, share competitive brain-entry transport.</div>
 
@@ -6746,6 +6864,7 @@ This pathophysiological event occurs in blood brain barrier (UBERON:0000120). UB
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6768,6 +6887,7 @@ This pathophysiological event occurs in blood brain barrier (UBERON:0000120). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-serotonin-biosynthesis" data-dismech-node="Reduced Serotonin Biosynthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Serotonin Biosynthesis</div>
+
 
                 <div class="item-desc">High phenylalanine states inhibit serotonin production pathways.</div>
 
@@ -6877,6 +6997,7 @@ This pathophysiological event involves decreased serotonin biosynthetic process 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6899,6 +7020,7 @@ This pathophysiological event involves decreased serotonin biosynthetic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-dopamine-biosynthesis" data-dismech-node="Reduced Dopamine Biosynthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Dopamine Biosynthesis</div>
+
 
                 <div class="item-desc">High phenylalanine states inhibit dopamine production pathways.</div>
 
@@ -7016,6 +7138,7 @@ This pathophysiological event involves decreased dopamine biosynthetic process (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7038,6 +7161,7 @@ This pathophysiological event involves decreased dopamine biosynthetic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brain-phenylalanine-toxicity" data-dismech-node="Brain Phenylalanine Toxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Brain Phenylalanine Toxicity</div>
+
 
                 <div class="item-desc">Elevated phenylalanine in the CNS drives diffuse brain dysfunction.</div>
 
@@ -7198,6 +7322,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7220,6 +7345,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-white-matter-and-subcortical-structural-injury" data-dismech-node="White Matter and Subcortical Structural Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">White Matter and Subcortical Structural Injury</div>
+
 
                 <div class="item-desc">Treated adults still exhibit white-matter damage and subcortical volume loss associated with phenylalanine burden.</div>
 
@@ -7390,6 +7516,7 @@ This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7411,6 +7538,7 @@ This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7436,6 +7564,7 @@ This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurocognitive-dysfunction" data-dismech-node="Neurocognitive Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurocognitive Dysfunction</div>
+
 
                 <div class="item-desc">PKU causes global and executive cognitive impairment, especially when metabolic control is poor or untreated.</div>
 
@@ -7587,6 +7716,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7609,6 +7739,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-melanin-biosynthesis" data-dismech-node="Impaired Melanin Biosynthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Melanin Biosynthesis</div>
+
 
                 <div class="item-desc">Reduced tyrosine availability limits melanin synthesis in untreated or poorly controlled disease.</div>
 
@@ -7700,6 +7831,7 @@ This pathophysiological event involves decreased melanin biosynthetic process (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7722,6 +7854,7 @@ This pathophysiological event involves decreased melanin biosynthetic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phenylketone-accumulation" data-dismech-node="Phenylketone Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Phenylketone Accumulation</div>
+
 
                 <div class="item-desc">Alternative phenylalanine metabolism increases phenylketones such as phenylpyruvate.</div>
 
@@ -7796,6 +7929,7 @@ This pathophysiological event involves decreased melanin biosynthetic process (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7923,6 +8057,9 @@ This clinical feature is Abnormal cardiovascular system morphology (HP:0030680).
                     </div>
 
 
+
+
+
                     <div class="item-desc">In PKU, cardiac malformations arise primarily in offspring of mothers with poorly controlled PKU (maternal PKU syndrome), rather than as a direct phenotype of affected individuals. Orphanet annotates this phenotype at occasional frequency.</div>
 
 
@@ -7942,6 +8079,7 @@ This clinical feature is Abnormal cardiovascular system morphology (HP:0030680).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7966,6 +8104,7 @@ This clinical feature is Abnormal cardiovascular system morphology (HP:0030680).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8031,6 +8170,9 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8045,6 +8187,7 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8107,6 +8250,9 @@ This clinical feature is Phenylalaninuria (HP:0032351). HP:0032351 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Urinary phenylalanine/phenylketone abnormality reflected in the disease name.</div>
 
 
@@ -8126,6 +8272,7 @@ This clinical feature is Phenylalaninuria (HP:0032351). HP:0032351 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8188,6 +8335,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Result of impaired brain development</div>
 
 
@@ -8207,6 +8357,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8234,6 +8385,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8255,6 +8407,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8322,6 +8475,9 @@ This clinical feature is Eczema, annotated with Eczematoid dermatitis (HP:000096
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8336,6 +8492,7 @@ This clinical feature is Eczema, annotated with Eczematoid dermatitis (HP:000096
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8360,6 +8517,7 @@ This clinical feature is Eczema, annotated with Eczematoid dermatitis (HP:000096
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8424,6 +8582,9 @@ This clinical feature is Hypopigmentation, annotated with Hypopigmentation of th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Fair skin, light hair, blue eyes due to melanin deficiency</div>
 
 
@@ -8443,6 +8604,7 @@ This clinical feature is Hypopigmentation, annotated with Hypopigmentation of th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8470,6 +8632,7 @@ This clinical feature is Hypopigmentation, annotated with Hypopigmentation of th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8491,6 +8654,7 @@ This clinical feature is Hypopigmentation, annotated with Hypopigmentation of th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8553,6 +8717,9 @@ This clinical feature is Hyperphenylalaninemia (HP:0004923). HP:0004923 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Elevated blood phenylalanine is the defining biochemical abnormality.</div>
 
 
@@ -8572,6 +8739,7 @@ This clinical feature is Hyperphenylalaninemia (HP:0004923). HP:0004923 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8634,6 +8802,9 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in untreated/poorly controlled disease; less frequent than hypotonia in pediatric series.</div>
 
 
@@ -8653,6 +8824,7 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8677,6 +8849,7 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8733,6 +8906,9 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8747,6 +8923,7 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8771,6 +8948,7 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8827,6 +9005,9 @@ This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8841,6 +9022,7 @@ This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8903,6 +9085,9 @@ This clinical feature is Intellectual Disability (HP:0001249). HP:0001249 is a p
                     </div>
 
 
+
+
+
                     <div class="item-desc">Develops in untreated PKU and is preventable with early dietary treatment. The Orphanet phenotype row documents severe intellectual disability as frequent, while this general phenotype entry retains VERY_FREQUENT for untreated intellectual disability risk.</div>
 
 
@@ -8922,6 +9107,7 @@ This clinical feature is Intellectual Disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8949,6 +9135,7 @@ This clinical feature is Intellectual Disability (HP:0001249). HP:0001249 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8970,6 +9157,7 @@ This clinical feature is Intellectual Disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9023,6 +9211,9 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
                     </div>
 
 
+
+
+
                     <div class="item-desc">Common in untreated patients</div>
 
 
@@ -9042,6 +9233,7 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9066,6 +9258,7 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9119,6 +9312,9 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
                     </div>
 
 
+
+
+
                     <div class="item-desc">White-matter abnormalities are reported in PKU, including early-treated adults.</div>
 
 
@@ -9138,6 +9334,7 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9194,6 +9391,9 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9208,6 +9408,7 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9264,6 +9465,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9278,6 +9482,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9334,6 +9539,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9348,6 +9556,7 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9404,6 +9613,9 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9418,6 +9630,7 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9474,6 +9687,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9488,6 +9704,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9544,6 +9761,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9558,6 +9778,7 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9614,6 +9835,9 @@ This clinical feature is Short attention span (HP:0000736). HP:0000736 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9628,6 +9852,7 @@ This clinical feature is Short attention span (HP:0000736). HP:0000736 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9684,6 +9909,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9698,6 +9926,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9754,6 +9983,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9768,6 +10000,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9824,6 +10057,9 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9838,6 +10074,7 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9894,6 +10131,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9908,6 +10148,7 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9970,6 +10211,9 @@ This clinical feature is Musty Odor (HP:0410021). HP:0410021 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Due to phenylacetic acid in sweat and urine</div>
 
 
@@ -9989,6 +10233,7 @@ This clinical feature is Musty Odor (HP:0410021). HP:0410021 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10013,6 +10258,7 @@ This clinical feature is Musty Odor (HP:0410021). HP:0410021 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10078,6 +10324,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10092,6 +10341,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10116,6 +10366,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10214,6 +10465,9 @@ This disease-associated gene is PAH (hgnc:8582). hgnc:8582 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10228,6 +10482,7 @@ This disease-associated gene is PAH (hgnc:8582). hgnc:8582 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10255,6 +10510,7 @@ This disease-associated gene is PAH (hgnc:8582). hgnc:8582 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10276,6 +10532,7 @@ This disease-associated gene is PAH (hgnc:8582). hgnc:8582 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10311,6 +10568,7 @@ This disease-associated gene is PAH (hgnc:8582). hgnc:8582 is a gene from the HU
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10330,11 +10588,17 @@ This variant is in PAH (hgnc:8582). hgnc:8582 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">null or severe hypomorphic variant combination</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Biallelic severe PAH variant combinations produce complete or near-complete PAH activity loss and map to the classic PKU mutation-to-phenotype path.</div>
@@ -10392,6 +10656,7 @@ This variant is in PAH (hgnc:8582). hgnc:8582 is a gene from the HUGO Gene Nomen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10413,6 +10678,7 @@ This variant is in PAH (hgnc:8582). hgnc:8582 is a gene from the HUGO Gene Nomen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10448,6 +10714,7 @@ This variant is in PAH (hgnc:8582). hgnc:8582 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10467,11 +10734,17 @@ This variant is in PAH (hgnc:8582). hgnc:8582 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">hypomorphic or residual function variant combination</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Hypomorphic PAH variant combinations retain enough PAH activity to produce milder PKU or mild hyperphenylalaninemia and can permit sapropterin/BH4 responsiveness.</div>
@@ -10529,6 +10802,7 @@ This variant is in PAH (hgnc:8582). hgnc:8582 is a gene from the HUGO Gene Nomen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10550,6 +10824,7 @@ This variant is in PAH (hgnc:8582). hgnc:8582 is a gene from the HUGO Gene Nomen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10640,6 +10915,7 @@ This variant is in PAH (hgnc:8582). hgnc:8582 is a gene from the HUGO Gene Nomen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10717,6 +10993,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10727,6 +11006,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -10828,6 +11110,7 @@ This dietary modification concerns nut (FOODON:03303171). FOODON:03303171 is a f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10871,6 +11154,7 @@ This dietary modification concerns nut (FOODON:03303171). FOODON:03303171 is a f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10895,6 +11179,7 @@ This dietary modification concerns nut (FOODON:03303171). FOODON:03303171 is a f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10916,6 +11201,7 @@ This dietary modification concerns nut (FOODON:03303171). FOODON:03303171 is a f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10985,6 +11271,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10995,6 +11284,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -11031,6 +11323,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11077,6 +11370,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11098,6 +11392,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11191,6 +11486,12 @@ This treatment uses sapropterin (CHEBI:59560). CHEBI:59560 is a therapeutic agen
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">BH4 cofactor replacement for responsive patients, allows dietary liberalization.</div>
 
 
@@ -11221,6 +11522,7 @@ This treatment uses sapropterin (CHEBI:59560). CHEBI:59560 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11267,6 +11569,7 @@ This treatment uses sapropterin (CHEBI:59560). CHEBI:59560 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11291,6 +11594,7 @@ This treatment uses sapropterin (CHEBI:59560). CHEBI:59560 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11312,6 +11616,7 @@ This treatment uses sapropterin (CHEBI:59560). CHEBI:59560 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11405,6 +11710,12 @@ This treatment uses pegvaliase (NCIT:C174744). NCIT:C174744 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Enzyme substitution therapy using PEGylated phenylalanine ammonia lyase.</div>
 
 
@@ -11435,6 +11746,7 @@ This treatment uses pegvaliase (NCIT:C174744). NCIT:C174744 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11481,6 +11793,7 @@ This treatment uses pegvaliase (NCIT:C174744). NCIT:C174744 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11505,6 +11818,7 @@ This treatment uses pegvaliase (NCIT:C174744). NCIT:C174744 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11526,6 +11840,7 @@ This treatment uses pegvaliase (NCIT:C174744). NCIT:C174744 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11593,6 +11908,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11603,6 +11921,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -11639,6 +11960,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11685,6 +12007,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11706,6 +12029,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11778,6 +12102,12 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Management of women with PKU planning pregnancy: elevated maternal phenylalanine is teratogenic, so tight preconception and gestational blood phenylalanine control (target 360 micromol/L or below, achieved before conception) is required to prevent maternal-PKU embryopathy (neurodevelopmental disorders and birth defects in the offspring).</div>
 
 
@@ -11802,6 +12132,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11823,6 +12154,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11911,6 +12243,7 @@ This environmental factor is dietary phenylalanine exposure, annotated with expo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11932,6 +12265,7 @@ This environmental factor is dietary phenylalanine exposure, annotated with expo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11986,6 +12320,7 @@ This environmental factor is dietary phenylalanine exposure, annotated with expo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12007,6 +12342,7 @@ This environmental factor is dietary phenylalanine exposure, annotated with expo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12087,6 +12423,7 @@ This environmental factor is carried by mammalian meat food product (FOODON:0000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12138,6 +12475,7 @@ This environmental factor is carried by mammalian meat food product (FOODON:0000
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -12217,6 +12555,7 @@ This environmental factor is carried by milk, annotated with cow milk (liquid) (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12268,6 +12607,7 @@ This environmental factor is carried by milk, annotated with cow milk (liquid) (
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -12347,6 +12687,7 @@ This environmental factor is carried by nut (FOODON:03303171). FOODON:03303171 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12398,6 +12739,7 @@ This environmental factor is carried by nut (FOODON:03303171). FOODON:03303171 i
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -12477,6 +12819,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12498,6 +12841,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12552,6 +12896,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12573,6 +12918,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12698,6 +13044,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12719,6 +13066,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12750,7 +13098,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
                 </div>
 
-                <div class="item-desc">Context: Plasma phenylalanine concentration measured during pharmacotherapy with phenylalanine hydroxylase activators (sapropterin) or phenylalanine- metabolizing enzyme therapy (pegvaliase). Distinct from baseline diagnostic hyperphenylalaninemia. Plasma phenylalanine is recognized by the FDA as a validated surrogate endpoint supporting traditional approval of PKU drugs.</div>
+                <div class="item-desc">Context: Plasma phenylalanine concentration measured during pharmacotherapy with phenylalanine hydroxylase activators (sapropterin) or phenylalanine-metabolizing enzyme therapy (pegvaliase). Distinct from baseline diagnostic hyperphenylalaninemia. Plasma phenylalanine is recognized by the FDA as a validated surrogate endpoint supporting traditional approval of PKU drugs.</div>
 
 
                 <div class="biomarker-readouts">
@@ -12849,6 +13197,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12873,6 +13222,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12894,6 +13244,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12939,6 +13290,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12960,6 +13312,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13044,6 +13397,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13065,6 +13419,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13174,6 +13529,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13195,6 +13551,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13279,6 +13636,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13357,6 +13715,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13441,6 +13800,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13507,6 +13867,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13528,6 +13889,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13585,6 +13947,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13606,6 +13969,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13696,6 +14060,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13717,6 +14082,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13784,6 +14150,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13860,14 +14227,15 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The overall worldwide prevalence of the disease is 6.002 per 100,000 neonates (95% confidence interval, 5.07-6.93)."</div>
+                <div class="evidence-snippet">"Phenylketonuria is a disease caused by congenital defects in phenylalanine metabolism that leads to irreversible nerve cell damage. The present study aimed to determine the worldwide prevalence of classic phenylketonuria using the data of neonatal screening studies. The highest prevalence..."</div>
 
 
-                <div class="evidence-explanation">This systematic review and meta-analysis provides a pooled global neonatal prevalence estimate for classic PKU.</div>
+                <div class="evidence-explanation">The meta-analysis pools 46 neonatal-screening studies of classic phenylketonuria, with an estimated 6.002 cases per 100,000 neonates and substantial geographic variation. This citation does not supply the separate PAH-deficiency survey estimate.</div>
 
 
 
@@ -13881,6 +14249,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13940,6 +14309,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -13961,6 +14331,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14067,6 +14438,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14088,6 +14460,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14166,6 +14539,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14187,6 +14561,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14265,6 +14640,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14286,6 +14662,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14364,6 +14741,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14385,6 +14763,7 @@ This environmental factor is exposure to aspartame (ECTO:9000578). ECTO:9000578 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14512,6 +14891,7 @@ This dataset samples patient-derived cells, annotated with cell (CL:0000000). CL
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14557,6 +14937,7 @@ This dataset samples patient-derived cells, annotated with cell (CL:0000000). CL
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14672,6 +15053,7 @@ This dataset samples organotypic brain cell culture, annotated with cell (CL:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14693,6 +15075,7 @@ This dataset samples organotypic brain cell culture, annotated with cell (CL:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14737,6 +15120,7 @@ This dataset samples organotypic brain cell culture, annotated with cell (CL:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14867,6 +15251,7 @@ This dataset samples liver tissue, annotated with liver (UBERON:0002107). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -14908,6 +15293,7 @@ This dataset samples liver tissue, annotated with liver (UBERON:0002107). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14995,6 +15381,7 @@ This clinical trial targets Intellectual Disability (HP:0001249). HP:0001249 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15090,6 +15477,7 @@ This clinical trial targets Seizures, annotated with Seizure (HP:0001250). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15162,6 +15550,7 @@ This clinical trial targets Intellectual Disability (HP:0001249). HP:0001249 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15308,6 +15697,7 @@ This clinical trial targets Intellectual Disability (HP:0001249). HP:0001249 is 
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -15420,6 +15810,7 @@ This clinical trial targets Intellectual Disability (HP:0001249). HP:0001249 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15536,6 +15927,7 @@ This clinical trial targets Intellectual Disability (HP:0001249). HP:0001249 is 
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -15557,6 +15949,7 @@ This clinical trial targets Intellectual Disability (HP:0001249). HP:0001249 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15727,8 +16120,18 @@ prevalence:
     reference_title: &#34;Global prevalence of classic phenylketonuria based on Neonatal Screening Program Data: systematic review and meta-analysis&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The overall worldwide prevalence of the disease is 6.002 per 100,000 neonates (95% confidence interval, 5.07-6.93).&#34;
-    explanation: This systematic review and meta-analysis provides a pooled global neonatal prevalence estimate for classic PKU.
+    snippet: &gt;-
+      Phenylketonuria is a disease caused by congenital defects in phenylalanine metabolism that
+      leads to irreversible nerve cell damage. The present study aimed to determine the worldwide
+      prevalence of classic phenylketonuria using the data of neonatal screening studies. The
+      highest prevalence (38.13) was reported in Turkey, while the lowest (0.3) in Thailand. A total
+      of 46 studies were entered into the meta-analysis for pooled prevalence estimation. The
+      overall worldwide prevalence of the disease is 6.002 per 100,000 neonates (95% confidence
+      interval, 5.07-6.93).
+    explanation: &gt;-
+      The meta-analysis pools 46 neonatal-screening studies of classic phenylketonuria, with an
+      estimated 6.002 cases per 100,000 neonates and substantial geographic variation. This citation
+      does not supply the separate PAH-deficiency survey estimate.
   - reference: PMID:34082800
     reference_title: &#34;Birth prevalence of phenylalanine hydroxylase deficiency: a systematic literature review and meta-analysis&#34;
     supports: SUPPORT
@@ -15778,8 +16181,8 @@ mechanistic_hypotheses:
     Retained as CANONICAL. The 2026 falcon
     hypothesis-search report
     (kb/hypotheses/Phenylketonuria/canonical_pah_deficiency_phenylalanine_neurotoxicity_model;
-    openscientist timed out) confirms biallelic PAH loss-of-
-    function → hyperphenylalaninemia → neurotoxicity as the
+    openscientist timed out) confirms biallelic PAH loss-of-function
+    → hyperphenylalaninemia → neurotoxicity as the
     core mechanism, supported by phenylalanine-restricted diet
     efficacy, BH4 sapropterin response in cofactor-responsive
     variants, and pegvaliase (PAL enzyme substitution) approval.
@@ -17545,8 +17948,8 @@ biochemical:
   presence: Treatment-induced
   context: &gt;-
     Plasma phenylalanine concentration measured during pharmacotherapy with
-    phenylalanine hydroxylase activators (sapropterin) or phenylalanine-
-    metabolizing enzyme therapy (pegvaliase). Distinct from baseline diagnostic
+    phenylalanine hydroxylase activators (sapropterin) or phenylalanine-metabolizing
+    enzyme therapy (pegvaliase). Distinct from baseline diagnostic
     hyperphenylalaninemia. Plasma phenylalanine is recognized by the FDA as a
     validated surrogate endpoint supporting traditional approval of PKU drugs.
   biomarker_term:
@@ -18579,6 +18982,8 @@ classifications:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -18909,7 +19314,7 @@ These associations are emphasized in cohort and guideline discussions linking bl
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Phenylketonuria", "mondoId": "MONDO:0009861", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Phenylketonuria", "yamlRevision": "67d9b05da712"};
+        const OS_CONFIG = {"diseaseName": "Phenylketonuria", "mondoId": "MONDO:0009861", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Phenylketonuria", "yamlRevision": "2bd2e8e52785"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

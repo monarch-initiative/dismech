@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4391,6 +4459,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4415,6 +4484,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4436,6 +4506,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4528,6 +4599,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4552,6 +4624,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4573,6 +4646,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4685,6 +4759,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4709,6 +4784,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4730,6 +4806,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4821,6 +4898,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4842,6 +4920,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4926,6 +5005,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4947,6 +5027,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5024,6 +5105,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5045,6 +5127,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5136,6 +5219,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5157,6 +5241,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5194,6 +5279,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ca2-loss-of-function" data-dismech-node="Biallelic CA2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CA2 Loss of Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Both CA2 alleles carry loss-of-function variants - splice-junction, nonsense, frameshift or missense - and carbonic anhydrase II protein is absent or catalytically dead in every tissue that normally expresses it. The erythrocyte is the accessible readout: the isoenzyme II peak, its esterase and CO2 hydratase activities, and immunoprecipitable enzyme are all essentially absent, while CA I is spared. Reported mechanisms of loss include abolished splicing (the intron 2 founder allele), premature termination with accelerated degradation and insoluble aggregation (the exon 7 frameshift), and destabilisation or disrupted zinc coordination of an otherwise full-length protein (His107Tyr, p.W123X).</div>
 
@@ -5281,6 +5373,8 @@ This genetic context concerns CA2 (hgnc:1373). hgnc:1373 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5293,6 +5387,9 @@ This genetic context concerns CA2 (hgnc:1373). hgnc:1373 is a gene from the HUGO
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous in most reported families, including all patients carrying the intron 2 founder allele; compound heterozygosity is reported in the index American family.</div>
 
@@ -5380,6 +5477,7 @@ This pathophysiological event involves absent carbonic anhydrase II (cytosolic C
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5401,6 +5499,7 @@ This pathophysiological event involves absent carbonic anhydrase II (cytosolic C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5428,6 +5527,7 @@ This pathophysiological event involves absent carbonic anhydrase II (cytosolic C
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5452,6 +5552,13 @@ This pathophysiological event involves absent carbonic anhydrase II (cytosolic C
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cytosolic-proton-and-bicarbonate-supply" data-dismech-node="Loss of Cytosolic Proton and Bicarbonate Supply" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cytosolic Proton and Bicarbonate Supply</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Carbonic anhydrase II catalyses the reversible hydration of CO2 to bicarbonate and a proton, and it does so fast enough to supply transporters working at physiological rates. Its loss removes the rapid intracellular source of both ions simultaneously. This single molecular deficit is the branch point of the disease: the osteoclast loses the protons its ruffled-border pump secretes, the renal tubule loses both the protons it secretes and the bicarbonate it reclaims, and the brain loses the same activity for reasons that remain less well defined.</div>
 
@@ -5597,6 +5704,7 @@ This pathophysiological event involves absent cytosolic CO2 hydration to proton 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5619,6 +5727,13 @@ This pathophysiological event involves absent cytosolic CO2 hydration to proton 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteoclast-resorption-lacuna-acidification-failure" data-dismech-node="Osteoclast Resorption Lacuna Acidification Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Osteoclast Resorption Lacuna Acidification Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The osteoclast seals a resorption lacuna against the bone surface and acidifies it to roughly pH 4.5 by pumping protons across the ruffled border with the V-ATPase, with CLCN7 supplying the counter-ion chloride. Carbonic anhydrase II generates those protons in the cytosol. Without it the osteoclast is present, multinucleated and attached but cannot lower the pH of the compartment it has sealed. This is the defining contrast with TCIRG1 and CLCN7 disease, where the pump and the counter-ion conductance themselves fail: the lesion here is upstream of the transport machinery, in the substrate it transports.</div>
 
@@ -5799,6 +5914,7 @@ This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5825,6 +5941,7 @@ This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:000
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5847,6 +5964,13 @@ This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-hydroxyapatite-dissolution-and-bone-matrix-degradation" data-dismech-node="Failure of Hydroxyapatite Dissolution and Bone Matrix Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Hydroxyapatite Dissolution and Bone Matrix Degradation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">With the resorption compartment at near-neutral pH the mineral phase is not dissolved and the organic matrix beneath it is not exposed to the osteoclast&#39;s proteolytic enzymes, so bone resorption fails at the tissue level while bone formation continues unchecked.</div>
 
@@ -6013,6 +6137,13 @@ This pathophysiological event involves decreased bone remodeling (GO:0046849). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-unresorbed-sclerotic-bone-with-preserved-osteoclast-number" data-dismech-node="Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Resorption fails while formation continues, so dense, poorly remodelled, mechanically brittle bone accumulates. Osteoclasts remain present and are not reduced in number - this is an osteoclast-rich osteopetrosis, the category shared with TCIRG1, CLCN7, OSTM1 and SNX10 disease and distinct from the osteoclast-poor RANKL/RANK forms, in which osteoclasts fail to be generated at all. The practical consequence is that supplying normal osteoclast precursors can rescue this arm, which is why transplantation works on the bone and on nothing else.</div>
 
 
@@ -6142,6 +6273,7 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6168,6 +6300,7 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6190,6 +6323,13 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-foramen-and-optic-canal-narrowing" data-dismech-node="Cranial Foramen and Optic Canal Narrowing" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial Foramen and Optic Canal Narrowing</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Unremodelled bone encroaches on the cranial foramina. Optic canal narrowing is the best-quantified instance: in a 23-patient cohort optic nerve involvement was present in half of eyes and correlated statistically with the degree of canal narrowing, which locates the lesion in the bony canal rather than in a primary optic neuropathy. Internal auditory canals in the same cohort were of normal size.</div>
 
@@ -6270,6 +6410,7 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6291,6 +6432,7 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6316,6 +6458,13 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-disproportion-and-upper-airway-narrowing" data-dismech-node="Craniofacial Disproportion and Upper Airway Narrowing" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial Disproportion and Upper Airway Narrowing</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Skeletal overgrowth of the skull produces a large cranial vault and broad forehead, with midfacial and mandibular disproportion. The inference that this geometry narrows the upper airway enough to cause obstructive sleep apnea rests on a case report plus the general osteopetrosis literature, so the node is recorded as provisional.</div>
 
@@ -6367,6 +6516,7 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6389,6 +6539,13 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-renal-tubular-proton-secretion-and-bicarbonate-reclamation" data-dismech-node="Impaired Renal Tubular Proton Secretion and Bicarbonate Reclamation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Renal Tubular Proton Secretion and Bicarbonate Reclamation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Cytosolic carbonic anhydrase II supplies protons for secretion and bicarbonate for basolateral exit in the proximal tubule, and the same activity in collecting-duct alpha-intercalated cells supports distal proton secretion. Its loss impairs both bicarbonate reclamation and distal acidification, which is why the renal phenotype is most often mixed rather than purely distal. Two observations qualify the cellular picture. First, CA II-deficient patients still respond to intravenous acetazolamide with a rise in urinary pH and bicarbonate excretion, so a separate acetazolamide-sensitive carbonic anhydrase - most plausibly the membrane-bound luminal isoenzyme, which is a different gene product - remains active in their kidneys. Second, in the mouse null the intercalated cell population itself is depleted, so part of the renal defect may be a cell-population phenotype rather than a purely enzymatic one.</div>
 
@@ -6617,6 +6774,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6638,6 +6796,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6663,6 +6822,13 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-hyperchloremic-metabolic-acidosis" data-dismech-node="Systemic Hyperchloremic Metabolic Acidosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Hyperchloremic Metabolic Acidosis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Net acid retention from the tubular defect produces a chronic hyperchloremic, normal-anion-gap metabolic acidosis, occasionally with hypokalemia. It is the arm that alkali therapy addresses and the one that transplantation does not, and it is the feature that separates this osteopetrosis from every other recessive form.</div>
 
@@ -6720,6 +6886,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6742,6 +6909,13 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracranial-parenchymal-calcium-deposition" data-dismech-node="Intracranial Parenchymal Calcium Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Intracranial Parenchymal Calcium Deposition</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Calcium deposits accumulate in the brain parenchyma from early childhood, predominantly in basal ganglia and thalami and at the frontal grey-white matter junction, and progress over years. This is the arm that named the disease and the one whose mechanism is least settled: it is not explained by the osteoclast or tubular defects, it does not track neurodevelopmental severity, and no demonstrated intervening step links CA II loss to mineral deposition at these sites. The node is therefore marked HYPOTHETICAL and carries a knowledge-gap discussion rather than a mechanism.</div>
 
@@ -6814,6 +6988,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6835,6 +7010,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6893,7 +7069,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resorption fails while formation continues, so dense, poorly remodelled, mechanically brittle bone accumulates. Osteoclasts remain present and are not reduced in number - this is an osteoclast-rich osteopetrosis, the category shared with TCIRG1, CLCN7, OSTM1 and SNX10 disease and distinct from the osteoclast-poor RANKL/RANK forms, in which osteoclasts fail to be generated at all. The practical consequence is that supplying normal osteoclast precursors can rescue this arm, which is why transplantation works on the bone and on nothing else.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ossification continuing without matched resorption\"], \"locations\": [\"bone element\"]}}, {\"id\": \"Allogeneic hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transplantation supplies CA II-competent osteoclast precursors, which are hematopoietic in origin, and can resolve the osteopetrosis histologically and radiologically. It is an arm-specific therapy by construction: the renal tubule and the brain are not hematopoietic, keep their own enzyme defect, and are unaffected. Reported indications have been severe progressive visual and hearing loss rather than marrow failure. This is emphatically not the default management of CA2 deficiency the way it is for TCIRG1 malignant infantile osteopetrosis: this is an intermediate osteopetrosis whose skeletal phenotype often improves with age and which is compatible with a normal lifespan, so transplantation is reserved.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Amelogenesis imperfecta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in a single genetically confirmed patient, in whom it was presented as a newly recognised feature of the syndrome. Recorded as very rare accordingly - this is one report, not a cohort frequency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000705\"}}, {\"id\": \"Biallelic CA2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both CA2 alleles carry loss-of-function variants - splice-junction, nonsense, frameshift or missense - and carbonic anhydrase II protein is absent or catalytically dead in every tissue that normally expresses it. The erythrocyte is the accessible readout: the isoenzyme II peak, its esterase and CO2 hydratase activities, and immunoprecipitable enzyme are all essentially absent, while CA I is spared. Reported mechanisms of loss include abolished splicing (the intron 2 founder allele), premature termination with accelerated degradation and insoluble aggregation (the exon 7 frameshift), and destabilisation or disrupted zinc coordination of an otherwise full-length protein (His107Tyr, p.W123X).\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"erythrocyte\"], \"molecular_functions\": [\"carbonic anhydrase II (cytosolic CO2 hydratase) activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous in most reported families, including all patients carrying the intron 2 founder allele; compound heterozygosity is reported in the index American family.\", \"gene_terms\": [{\"label\": \"CA2\", \"id\": \"hgnc:1373\"}]}}}, {\"id\": \"CA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"CA2\"], \"gene_terms\": [{\"label\": \"CA2\", \"id\": \"hgnc:1373\"}], \"presence\": \"Biallelic loss-of-function variants in all reported patients\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 4}}, {\"id\": \"Car-2 null mouse (ENU-induced)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An N-ethyl-N-nitrosourea-induced null allele at the mouse Car-2 locus on chromosome 3, with no detectable CA II protein in any tissue. This is the reference model for the disease and it splits the human phenotype cleanly in two: it reproduces the renal tubular acidosis and the growth failure, and it does not reproduce the osteopetrosis at any age. That dissociation is the single most important thing to know before using the model for the bone arm.\"}, {\"id\": \"Cerebral calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial parenchymal calcification, the feature behind the historical name \\\"marble brain disease\\\". Present in 70% of a modern 10-patient series and progressive on serial imaging, but age-dependent: a child without calcification at 9 years has been documented.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002514\"}}, {\"id\": \"Continuous positive airway pressure for obstructive sleep apnea\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CPAP for craniofacial obstructive sleep apnea. Reported in a single child in whom adherence built up gradually from a minimal starting pressure. Relevant because the airway obstruction in this disease is skeletal in origin, so adenotonsillectomy alone may not resolve it - in the reported family the twin had a severe respiratory complication after that surgery.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cranial Foramen and Optic Canal Narrowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unremodelled bone encroaches on the cranial foramina. Optic canal narrowing is the best-quantified instance: in a 23-patient cohort optic nerve involvement was present in half of eyes and correlated statistically with the degree of canal narrowing, which locates the lesion in the bony canal rather than in a primary optic neuropathy. Internal auditory canals in the same cohort were of normal size.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"bone element\"]}}, {\"id\": \"Cranial nerve compression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Compression of cranial nerves in narrowed skull-base foramina, with palsy. The optic nerve is the best documented; the internal auditory canals were of normal calibre in the largest cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001293\"}}, {\"id\": \"Craniofacial Disproportion and Upper Airway Narrowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skeletal overgrowth of the skull produces a large cranial vault and broad forehead, with midfacial and mandibular disproportion. The inference that this geometry narrows the upper airway enough to cause obstructive sleep apnea rests on a case report plus the general osteopetrosis literature, so the node is recorded as provisional.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Delayed eruption of teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impaired tooth eruption, expected in a sclerosing bone disease where unresorbed bone obstructs the eruption path, and documented alongside malocclusion in a CA2-confirmed patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000684\"}}, {\"id\": \"Dental and orthodontic care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restorative and orthodontic dental management. The oral disease in this syndrome has two separate sources, which is why it needs dental care rather than only monitoring: unresorbed bone obstructs the eruption path, giving impaired tooth eruption and malocclusion (anterior open bite, posterior crossbite), and enamel formation itself can be defective, giving hypoplastic amelogenesis imperfecta.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Erythrocyte carbonic anhydrase II\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"presence\": \"Virtually absent in affected individuals by HPLC peak, esterase activity, CO2 hydratase activity and immunoprecipitation; approximately half-normal in asymptomatic obligate heterozygotes; carbonic anhydrase I unaffected.\", \"specificity\": \"Isoenzyme-specific. CA I levels are normal, so the assay distinguishes this disorder from a general carbonic anhydrase deficiency.\", \"term_id\": \"NCIT:C183174\", \"term_label\": \"Carbonic Anhydrase 2\", \"readouts\": [{\"target\": \"pathophysiology#Biallelic CA2 Loss of Function\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"interpretation\": \"Absence of erythrocyte CA II establishes the enzymatic diagnosis; the half-normal carrier level makes the same assay a carrier test.\", \"description\": \"The erythrocyte is not an affected tissue in this disease, but it is the accessible one, and the enzyme is the same gene product.\"}]}}, {\"id\": \"Exon 7 single-base deletion (frameshift)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Single-base deletion in exon 7 producing a frameshift and premature termination, homozygous in seven unrelated Hispanic families of Caribbean ancestry. The truncated 27-kD product is inactive, aggregates, and is rapidly degraded.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"frameshift\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Failure of Hydroxyapatite Dissolution and Bone Matrix Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With the resorption compartment at near-neutral pH the mineral phase is not dissolved and the organic matrix beneath it is not exposed to the osteoclast\u0027s proteolytic enzymes, so bone resorption fails at the tissue level while bone formation continues unchecked.\", \"meta\": {\"cell_types\": [\"osteoclast\"], \"biological_processes\": [\"osteoclastic bone resorption\", \"bone remodeling\"], \"animal_models\": [{\"name\": \"Car-2 null mouse (ENU-induced)\", \"species\": \"Mouse\", \"genotype\": \"Car-2 null (ENU-induced, homozygous)\", \"background\": \"(C57BL/6J x DBA/2J)F1-derived\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The defining human phenotype is absent from the mouse null. Osteopetrosis could not be detected even in very old homozygotes.\"}]}}, {\"id\": \"His107Tyr (p.H107Y)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"C-to-T transition substituting tyrosine for the invariant histidine at position 107, disrupting hydrogen bonding to Glu-117 and Tyr-194 and destabilising the protein. Unusually among CA2 alleles it leaves detectable residual activity, which has been proposed as the explanation for the milder phenotype and absent cognitive impairment in the families that carry it.\", \"meta\": {\"evidence_count\": 3, \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Hyperchloremic metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The systemic, measurable expression of the tubular defect: a normal-anion-gap metabolic acidosis, occasionally with hypokalemia and consequent paralysis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004918\"}}, {\"id\": \"Impaired Renal Tubular Proton Secretion and Bicarbonate Reclamation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytosolic carbonic anhydrase II supplies protons for secretion and bicarbonate for basolateral exit in the proximal tubule, and the same activity in collecting-duct alpha-intercalated cells supports distal proton secretion. Its loss impairs both bicarbonate reclamation and distal acidification, which is why the renal phenotype is most often mixed rather than purely distal. Two observations qualify the cellular picture. First, CA II-deficient patients still respond to intravenous acetazolamide with a rise in urinary pH and bicarbonate excretion, so a separate acetazolamide-sensitive carbonic anhydrase - most plausibly the membrane-bound luminal isoenzyme, which is a different gene product - remains active in their kidneys. Second, in the mouse null the intercalated cell population itself is depleted, so part of the renal defect may be a cell-population phenotype rather than a purely enzymatic one.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\", \"collecting-duct alpha-intercalated cell\"], \"biological_processes\": [\"tubular bicarbonate reclamation\", \"tubular proton secretion\"], \"locations\": [\"kidney\"], \"animal_models\": [{\"name\": \"Car-2 null mouse (ENU-induced)\", \"species\": \"Mouse\", \"genotype\": \"Car-2 null (ENU-induced, homozygous)\", \"background\": \"(C57BL/6J x DBA/2J)F1-derived\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Homozygous null mice develop renal tubular acidosis, as humans with the same enzyme defect do.\"}]}}, {\"id\": \"Intracranial Parenchymal Calcium Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Calcium deposits accumulate in the brain parenchyma from early childhood, predominantly in basal ganglia and thalami and at the frontal grey-white matter junction, and progress over years. This is the arm that named the disease and the one whose mechanism is least settled: it is not explained by the osteoclast or tubular defects, it does not track neurodevelopmental severity, and no demonstrated intervening step links CA II loss to mineral deposition at these sites. The node is therefore marked HYPOTHETICAL and carries a knowledge-gap discussion rather than a mechanism.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"basal ganglion\"]}}, {\"id\": \"Loss of Cytosolic Proton and Bicarbonate Supply\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Carbonic anhydrase II catalyses the reversible hydration of CO2 to bicarbonate and a proton, and it does so fast enough to supply transporters working at physiological rates. Its loss removes the rapid intracellular source of both ions simultaneously. This single molecular deficit is the branch point of the disease: the osteoclast loses the protons its ruffled-border pump secretes, the renal tubule loses both the protons it secretes and the bicarbonate it reclaims, and the brain loses the same activity for reasons that remain less well defined.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"one-carbon (CO2/bicarbonate) interconversion\"], \"molecular_functions\": [\"cytosolic CO2 hydration to proton and bicarbonate\"]}}, {\"id\": \"Obstructive sleep apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe obstructive sleep apnea attributable to craniofacial dysmorphism rather than to adenotonsillar hypertrophy alone, reported in one child and successfully managed with CPAP.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"Ophthalmologic surveillance for compressive optic neuropathy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Serial ophthalmologic assessment to detect optic nerve compression before vision is lost. The indication is specific to this disease rather than generic good practice: roughly half of eyes in the largest cohort had optic nerve involvement, the globes and retinae were normal so the lesion is compressive and in the bony canal, and involvement was random in occurrence - meaning it cannot be predicted from the rest of the phenotype and has to be looked for. Detected progressive visual loss is also what has driven the decision to escalate to transplantation.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Compressive optic nerve involvement, observed in 22.2% of one pediatric series and in half of eyes in the largest cohort, where it correlated with the degree of optic canal narrowing while globes and retinae were normal. Progressive visual loss has been a reason to pursue transplantation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Oral alkali therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral bicarbonate or citrate to correct the hyperchloremic metabolic acidosis. This is the mainstay for the renal arm and the only arm-directed therapy that is not a transplant. It is worth being precise about its standing: there is no standardised pharmacologic regimen for this disease, and the strongest statement available is an inference from a cohort whose overall phenotype was milder than historical series, whose authors raised the possibility that early bicarbonate treatment was responsible. Alkali therapy does not affect the skeletal or cerebral arms.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sodium bicarbonate\"]}}, {\"id\": \"Osteoclast Resorption Lacuna Acidification Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The osteoclast seals a resorption lacuna against the bone surface and acidifies it to roughly pH 4.5 by pumping protons across the ruffled border with the V-ATPase, with CLCN7 supplying the counter-ion chloride. Carbonic anhydrase II generates those protons in the cytosol. Without it the osteoclast is present, multinucleated and attached but cannot lower the pH of the compartment it has sealed. This is the defining contrast with TCIRG1 and CLCN7 disease, where the pump and the counter-ion conductance themselves fail: the lesion here is upstream of the transport machinery, in the substrate it transports.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoclast\"], \"biological_processes\": [\"acidification of the sealed resorption lacuna\", \"proton secretion across the osteoclast ruffled border\"], \"locations\": [\"bone tissue\"]}}, {\"id\": \"Osteopetrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised increase in bone density from failed osteoclastic resorption. Present in every reported patient and one of the three cardinal features.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0011002\"}}, {\"id\": \"Recurrent fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repeated fractures of dense but brittle bone, typically accumulating through childhood. Notably, fractures are reported as relatively infrequent in patients carrying the intron 2 founder allele compared with the His107Tyr families.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002757\"}}, {\"id\": \"Renal tubular acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bound to the parent HP term deliberately. The literature most often describes a mixed proximal and distal defect, with kindreds in which either predominates, so neither HP:0002049 (proximal) nor HP:0008341 (distal) is the correct single binding for the disease as a whole. Individual reports have described purely distal disease, type 2 (proximal) disease, and one proband with osteopetrosis and cerebral calcification but no detectable RTA at all.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001947\"}}, {\"id\": \"Systemic Hyperchloremic Metabolic Acidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Net acid retention from the tubular defect produces a chronic hyperchloremic, normal-anion-gap metabolic acidosis, occasionally with hypokalemia. It is the arm that alkali therapy addresses and the one that transplantation does not, and it is the feature that separates this osteopetrosis from every other recessive form.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.232+1G\u003eT (intron 2 5\u0027 splice site; the \\\"Arabic\\\" founder allele)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Splice donor-site variant at the 5\u0027 end of intron 2. The predominant cause of CA II deficiency in North African and Middle Eastern patients, found homozygously in all ten Tunisian patients of one series and in the Iranian patient who underwent transplantation. Associated with cognitive impairment and with relatively infrequent fractures.\", \"meta\": {\"evidence_count\": 3, \"variant_type\": \"splice site\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.368G\u003eA p.W123X (nonsense)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous nonsense variant in exon 4 identified in a five-generation Chinese family; minigene and structural work attributed the effect to altered protein modification, impaired zinc binding, and reduced CA2 protein expression.\", \"meta\": {\"evidence_count\": 2, \"variant_type\": \"nonsense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"pathophysiology#Biallelic CA2 Loss of Function\", \"node_type\": \"unknown\", \"color\": \"#f3f4f6\", \"is_orphan\": false}], \"edges\": [{\"source\": \"Biallelic CA2 Loss of Function\", \"target\": \"Loss of Cytosolic Proton and Bicarbonate Supply\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence of the enzyme removes the cytosolic reaction that generates H+ and HCO3- from CO2 and water.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Proton and Bicarbonate Supply\", \"target\": \"Osteoclast Resorption Lacuna Acidification Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The osteoclast arm: without cytosolic protons the ruffled-border pump has nothing to secrete into the sealed resorption compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Proton and Bicarbonate Supply\", \"target\": \"Impaired Renal Tubular Proton Secretion and Bicarbonate Reclamation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The renal arm: the same enzyme serves proton secretion and bicarbonate reclamation in proximal tubule and collecting-duct intercalated cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Proton and Bicarbonate Supply\", \"target\": \"Intracranial Parenchymal Calcium Deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cerebral arm. CA II is expressed in brain and its loss is uniquely associated with early-childhood intracranial calcification, but the intervening steps are not established - this edge is recorded as indirect with unknown intermediates rather than as a mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Osteoclast Resorption Lacuna Acidification Failure\", \"target\": \"Failure of Hydroxyapatite Dissolution and Bone Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hydroxyapatite dissolution is acid-dependent, so a lacuna that is not acidified does not release bone mineral.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Hydroxyapatite Dissolution and Bone Matrix Degradation\", \"target\": \"Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number\", \"target\": \"Cranial Foramen and Optic Canal Narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number\", \"target\": \"Craniofacial Disproportion and Upper Airway Narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number\", \"target\": \"Osteopetrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number\", \"target\": \"Recurrent fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dense bone in this disease is brittle rather than strong, and fracture is a presenting feature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cranial Foramen and Optic Canal Narrowing\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compression of the optic nerve within a narrowed bony canal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cranial Foramen and Optic Canal Narrowing\", \"target\": \"Cranial nerve compression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Disproportion and Upper Airway Narrowing\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Renal Tubular Proton Secretion and Bicarbonate Reclamation\", \"target\": \"Systemic Hyperchloremic Metabolic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Hyperchloremic Metabolic Acidosis\", \"target\": \"Renal tubular acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Hyperchloremic Metabolic Acidosis\", \"target\": \"Hyperchloremic metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracranial Parenchymal Calcium Deposition\", \"target\": \"Cerebral calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oral alkali therapy\", \"target\": \"Systemic Hyperchloremic Metabolic Acidosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic hematopoietic stem cell transplantation\", \"target\": \"Osteoclast Resorption Lacuna Acidification Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Continuous positive airway pressure for obstructive sleep apnea\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic surveillance for compressive optic neuropathy\", \"target\": \"Optic atrophy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dental and orthodontic care\", \"target\": \"Amelogenesis imperfecta\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dental and orthodontic care\", \"target\": \"Delayed eruption of teeth\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Car-2 null mouse (ENU-induced)\", \"target\": \"Impaired Renal Tubular Proton Secretion and Bicarbonate Reclamation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Homozygous null mice develop renal tubular acidosis, as humans with the same enzyme defect do.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse renal defect has not been segment-resolved against the mixed proximal-and-distal pattern typical of human disease, and the mouse shows an additional intercalated-cell population phenotype whose human counterpart is unknown.\"}, {\"source\": \"Car-2 null mouse (ENU-induced)\", \"target\": \"Failure of Hydroxyapatite Dissolution and Bone Matrix Degradation\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The defining human phenotype is absent from the mouse null. Osteopetrosis could not be detected even in very old homozygotes.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"A negative result in this model is not evidence against the human mechanism. The most economical explanation is redundancy among carbonic anhydrase isoenzymes in mouse osteoclasts that human osteoclasts do not have, but that has not been demonstrated, so the species difference itself is unexplained. The model cannot be used to study the bone arm or to test bone-directed therapy.\"}, {\"source\": \"pathophysiology#Biallelic CA2 Loss of Function\", \"target\": \"Erythrocyte carbonic anhydrase II\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The erythrocyte is not an affected tissue in this disease, but it is the accessible one, and the enzyme is the same gene product.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\"}, {\"source\": \"c.232+1G\u003eT (intron 2 5\u0027 splice site; the \\\"Arabic\\\" founder allele)\", \"target\": \"CA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"His107Tyr (p.H107Y)\", \"target\": \"CA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Exon 7 single-base deletion (frameshift)\", \"target\": \"CA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.368G\u003eA p.W123X (nonsense)\", \"target\": \"CA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resorption fails while formation continues, so dense, poorly remodelled, mechanically brittle bone accumulates. Osteoclasts remain present and are not reduced in number - this is an osteoclast-rich osteopetrosis, the category shared with TCIRG1, CLCN7, OSTM1 and SNX10 disease and distinct from the osteoclast-poor RANKL/RANK forms, in which osteoclasts fail to be generated at all. The practical consequence is that supplying normal osteoclast precursors can rescue this arm, which is why transplantation works on the bone and on nothing else.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ossification continuing without matched resorption\"], \"locations\": [\"bone element\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Allogeneic hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transplantation supplies CA II-competent osteoclast precursors, which are hematopoietic in origin, and can resolve the osteopetrosis histologically and radiologically. It is an arm-specific therapy by construction: the renal tubule and the brain are not hematopoietic, keep their own enzyme defect, and are unaffected. Reported indications have been severe progressive visual and hearing loss rather than marrow failure. This is emphatically not the default management of CA2 deficiency the way it is for TCIRG1 malignant infantile osteopetrosis: this is an intermediate osteopetrosis whose skeletal phenotype often improves with age and which is compatible with a normal lifespan, so transplantation is reserved.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Amelogenesis imperfecta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in a single genetically confirmed patient, in whom it was presented as a newly recognised feature of the syndrome. Recorded as very rare accordingly - this is one report, not a cohort frequency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000705\"}}, {\"id\": \"Biallelic CA2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both CA2 alleles carry loss-of-function variants - splice-junction, nonsense, frameshift or missense - and carbonic anhydrase II protein is absent or catalytically dead in every tissue that normally expresses it. The erythrocyte is the accessible readout: the isoenzyme II peak, its esterase and CO2 hydratase activities, and immunoprecipitable enzyme are all essentially absent, while CA I is spared. Reported mechanisms of loss include abolished splicing (the intron 2 founder allele), premature termination with accelerated degradation and insoluble aggregation (the exon 7 frameshift), and destabilisation or disrupted zinc coordination of an otherwise full-length protein (His107Tyr, p.W123X).\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"erythrocyte\"], \"molecular_functions\": [\"carbonic anhydrase II (cytosolic CO2 hydratase) activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous in most reported families, including all patients carrying the intron 2 founder allele; compound heterozygosity is reported in the index American family.\", \"gene_terms\": [{\"label\": \"CA2\", \"id\": \"hgnc:1373\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"CA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"CA2\"], \"gene_terms\": [{\"label\": \"CA2\", \"id\": \"hgnc:1373\"}], \"presence\": \"Biallelic loss-of-function variants in all reported patients\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 4}}, {\"id\": \"Car-2 null mouse (ENU-induced)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An N-ethyl-N-nitrosourea-induced null allele at the mouse Car-2 locus on chromosome 3, with no detectable CA II protein in any tissue. This is the reference model for the disease and it splits the human phenotype cleanly in two: it reproduces the renal tubular acidosis and the growth failure, and it does not reproduce the osteopetrosis at any age. That dissociation is the single most important thing to know before using the model for the bone arm.\"}, {\"id\": \"Cerebral calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial parenchymal calcification, the feature behind the historical name \\\"marble brain disease\\\". Present in 70% of a modern 10-patient series and progressive on serial imaging, but age-dependent: a child without calcification at 9 years has been documented.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002514\"}}, {\"id\": \"Continuous positive airway pressure for obstructive sleep apnea\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CPAP for craniofacial obstructive sleep apnea. Reported in a single child in whom adherence built up gradually from a minimal starting pressure. Relevant because the airway obstruction in this disease is skeletal in origin, so adenotonsillectomy alone may not resolve it - in the reported family the twin had a severe respiratory complication after that surgery.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cranial Foramen and Optic Canal Narrowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unremodelled bone encroaches on the cranial foramina. Optic canal narrowing is the best-quantified instance: in a 23-patient cohort optic nerve involvement was present in half of eyes and correlated statistically with the degree of canal narrowing, which locates the lesion in the bony canal rather than in a primary optic neuropathy. Internal auditory canals in the same cohort were of normal size.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"bone element\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cranial nerve compression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Compression of cranial nerves in narrowed skull-base foramina, with palsy. The optic nerve is the best documented; the internal auditory canals were of normal calibre in the largest cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001293\"}}, {\"id\": \"Craniofacial Disproportion and Upper Airway Narrowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skeletal overgrowth of the skull produces a large cranial vault and broad forehead, with midfacial and mandibular disproportion. The inference that this geometry narrows the upper airway enough to cause obstructive sleep apnea rests on a case report plus the general osteopetrosis literature, so the node is recorded as provisional.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Delayed eruption of teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impaired tooth eruption, expected in a sclerosing bone disease where unresorbed bone obstructs the eruption path, and documented alongside malocclusion in a CA2-confirmed patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000684\"}}, {\"id\": \"Dental and orthodontic care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restorative and orthodontic dental management. The oral disease in this syndrome has two separate sources, which is why it needs dental care rather than only monitoring: unresorbed bone obstructs the eruption path, giving impaired tooth eruption and malocclusion (anterior open bite, posterior crossbite), and enamel formation itself can be defective, giving hypoplastic amelogenesis imperfecta.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Erythrocyte carbonic anhydrase II\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"presence\": \"Virtually absent in affected individuals by HPLC peak, esterase activity, CO2 hydratase activity and immunoprecipitation; approximately half-normal in asymptomatic obligate heterozygotes; carbonic anhydrase I unaffected.\", \"specificity\": \"Isoenzyme-specific. CA I levels are normal, so the assay distinguishes this disorder from a general carbonic anhydrase deficiency.\", \"term_id\": \"NCIT:C183174\", \"term_label\": \"Carbonic Anhydrase 2\", \"readouts\": [{\"target\": \"pathophysiology#Biallelic CA2 Loss of Function\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"interpretation\": \"Absence of erythrocyte CA II establishes the enzymatic diagnosis; the half-normal carrier level makes the same assay a carrier test.\", \"description\": \"The erythrocyte is not an affected tissue in this disease, but it is the accessible one, and the enzyme is the same gene product.\"}]}}, {\"id\": \"Exon 7 single-base deletion (frameshift)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Single-base deletion in exon 7 producing a frameshift and premature termination, homozygous in seven unrelated Hispanic families of Caribbean ancestry. The truncated 27-kD product is inactive, aggregates, and is rapidly degraded.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"frameshift\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Failure of Hydroxyapatite Dissolution and Bone Matrix Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With the resorption compartment at near-neutral pH the mineral phase is not dissolved and the organic matrix beneath it is not exposed to the osteoclast\u0027s proteolytic enzymes, so bone resorption fails at the tissue level while bone formation continues unchecked.\", \"meta\": {\"cell_types\": [\"osteoclast\"], \"biological_processes\": [\"osteoclastic bone resorption\", \"bone remodeling\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Car-2 null mouse (ENU-induced)\", \"species\": \"Mouse\", \"genotype\": \"Car-2 null (ENU-induced, homozygous)\", \"background\": \"(C57BL/6J x DBA/2J)F1-derived\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The defining human phenotype is absent from the mouse null. Osteopetrosis could not be detected even in very old homozygotes.\"}]}}, {\"id\": \"His107Tyr (p.H107Y)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"C-to-T transition substituting tyrosine for the invariant histidine at position 107, disrupting hydrogen bonding to Glu-117 and Tyr-194 and destabilising the protein. Unusually among CA2 alleles it leaves detectable residual activity, which has been proposed as the explanation for the milder phenotype and absent cognitive impairment in the families that carry it.\", \"meta\": {\"evidence_count\": 3, \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Hyperchloremic metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The systemic, measurable expression of the tubular defect: a normal-anion-gap metabolic acidosis, occasionally with hypokalemia and consequent paralysis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004918\"}}, {\"id\": \"Impaired Renal Tubular Proton Secretion and Bicarbonate Reclamation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytosolic carbonic anhydrase II supplies protons for secretion and bicarbonate for basolateral exit in the proximal tubule, and the same activity in collecting-duct alpha-intercalated cells supports distal proton secretion. Its loss impairs both bicarbonate reclamation and distal acidification, which is why the renal phenotype is most often mixed rather than purely distal. Two observations qualify the cellular picture. First, CA II-deficient patients still respond to intravenous acetazolamide with a rise in urinary pH and bicarbonate excretion, so a separate acetazolamide-sensitive carbonic anhydrase - most plausibly the membrane-bound luminal isoenzyme, which is a different gene product - remains active in their kidneys. Second, in the mouse null the intercalated cell population itself is depleted, so part of the renal defect may be a cell-population phenotype rather than a purely enzymatic one.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\", \"collecting-duct alpha-intercalated cell\"], \"biological_processes\": [\"tubular bicarbonate reclamation\", \"tubular proton secretion\"], \"locations\": [\"kidney\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Car-2 null mouse (ENU-induced)\", \"species\": \"Mouse\", \"genotype\": \"Car-2 null (ENU-induced, homozygous)\", \"background\": \"(C57BL/6J x DBA/2J)F1-derived\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Homozygous null mice develop renal tubular acidosis, as humans with the same enzyme defect do.\"}]}}, {\"id\": \"Intracranial Parenchymal Calcium Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Calcium deposits accumulate in the brain parenchyma from early childhood, predominantly in basal ganglia and thalami and at the frontal grey-white matter junction, and progress over years. This is the arm that named the disease and the one whose mechanism is least settled: it is not explained by the osteoclast or tubular defects, it does not track neurodevelopmental severity, and no demonstrated intervening step links CA II loss to mineral deposition at these sites. The node is therefore marked HYPOTHETICAL and carries a knowledge-gap discussion rather than a mechanism.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"basal ganglion\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Loss of Cytosolic Proton and Bicarbonate Supply\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Carbonic anhydrase II catalyses the reversible hydration of CO2 to bicarbonate and a proton, and it does so fast enough to supply transporters working at physiological rates. Its loss removes the rapid intracellular source of both ions simultaneously. This single molecular deficit is the branch point of the disease: the osteoclast loses the protons its ruffled-border pump secretes, the renal tubule loses both the protons it secretes and the bicarbonate it reclaims, and the brain loses the same activity for reasons that remain less well defined.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"one-carbon (CO2/bicarbonate) interconversion\"], \"molecular_functions\": [\"cytosolic CO2 hydration to proton and bicarbonate\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Obstructive sleep apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe obstructive sleep apnea attributable to craniofacial dysmorphism rather than to adenotonsillar hypertrophy alone, reported in one child and successfully managed with CPAP.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"Ophthalmologic surveillance for compressive optic neuropathy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Serial ophthalmologic assessment to detect optic nerve compression before vision is lost. The indication is specific to this disease rather than generic good practice: roughly half of eyes in the largest cohort had optic nerve involvement, the globes and retinae were normal so the lesion is compressive and in the bony canal, and involvement was random in occurrence - meaning it cannot be predicted from the rest of the phenotype and has to be looked for. Detected progressive visual loss is also what has driven the decision to escalate to transplantation.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Compressive optic nerve involvement, observed in 22.2% of one pediatric series and in half of eyes in the largest cohort, where it correlated with the degree of optic canal narrowing while globes and retinae were normal. Progressive visual loss has been a reason to pursue transplantation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Oral alkali therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral bicarbonate or citrate to correct the hyperchloremic metabolic acidosis. This is the mainstay for the renal arm and the only arm-directed therapy that is not a transplant. It is worth being precise about its standing: there is no standardised pharmacologic regimen for this disease, and the strongest statement available is an inference from a cohort whose overall phenotype was milder than historical series, whose authors raised the possibility that early bicarbonate treatment was responsible. Alkali therapy does not affect the skeletal or cerebral arms.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sodium bicarbonate\"]}}, {\"id\": \"Osteoclast Resorption Lacuna Acidification Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The osteoclast seals a resorption lacuna against the bone surface and acidifies it to roughly pH 4.5 by pumping protons across the ruffled border with the V-ATPase, with CLCN7 supplying the counter-ion chloride. Carbonic anhydrase II generates those protons in the cytosol. Without it the osteoclast is present, multinucleated and attached but cannot lower the pH of the compartment it has sealed. This is the defining contrast with TCIRG1 and CLCN7 disease, where the pump and the counter-ion conductance themselves fail: the lesion here is upstream of the transport machinery, in the substrate it transports.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoclast\"], \"biological_processes\": [\"acidification of the sealed resorption lacuna\", \"proton secretion across the osteoclast ruffled border\"], \"locations\": [\"bone tissue\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Osteopetrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised increase in bone density from failed osteoclastic resorption. Present in every reported patient and one of the three cardinal features.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0011002\"}}, {\"id\": \"Recurrent fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repeated fractures of dense but brittle bone, typically accumulating through childhood. Notably, fractures are reported as relatively infrequent in patients carrying the intron 2 founder allele compared with the His107Tyr families.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002757\"}}, {\"id\": \"Renal tubular acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bound to the parent HP term deliberately. The literature most often describes a mixed proximal and distal defect, with kindreds in which either predominates, so neither HP:0002049 (proximal) nor HP:0008341 (distal) is the correct single binding for the disease as a whole. Individual reports have described purely distal disease, type 2 (proximal) disease, and one proband with osteopetrosis and cerebral calcification but no detectable RTA at all.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001947\"}}, {\"id\": \"Systemic Hyperchloremic Metabolic Acidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Net acid retention from the tubular defect produces a chronic hyperchloremic, normal-anion-gap metabolic acidosis, occasionally with hypokalemia. It is the arm that alkali therapy addresses and the one that transplantation does not, and it is the feature that separates this osteopetrosis from every other recessive form.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"c.232+1G\u003eT (intron 2 5\u0027 splice site; the \\\"Arabic\\\" founder allele)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Splice donor-site variant at the 5\u0027 end of intron 2. The predominant cause of CA II deficiency in North African and Middle Eastern patients, found homozygously in all ten Tunisian patients of one series and in the Iranian patient who underwent transplantation. Associated with cognitive impairment and with relatively infrequent fractures.\", \"meta\": {\"evidence_count\": 3, \"variant_type\": \"splice site\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.368G\u003eA p.W123X (nonsense)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous nonsense variant in exon 4 identified in a five-generation Chinese family; minigene and structural work attributed the effect to altered protein modification, impaired zinc binding, and reduced CA2 protein expression.\", \"meta\": {\"evidence_count\": 2, \"variant_type\": \"nonsense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"pathophysiology#Biallelic CA2 Loss of Function\", \"node_type\": \"unknown\", \"color\": \"#f3f4f6\", \"is_orphan\": false}], \"edges\": [{\"source\": \"Biallelic CA2 Loss of Function\", \"target\": \"Loss of Cytosolic Proton and Bicarbonate Supply\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence of the enzyme removes the cytosolic reaction that generates H+ and HCO3- from CO2 and water.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Proton and Bicarbonate Supply\", \"target\": \"Osteoclast Resorption Lacuna Acidification Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The osteoclast arm: without cytosolic protons the ruffled-border pump has nothing to secrete into the sealed resorption compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Proton and Bicarbonate Supply\", \"target\": \"Impaired Renal Tubular Proton Secretion and Bicarbonate Reclamation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The renal arm: the same enzyme serves proton secretion and bicarbonate reclamation in proximal tubule and collecting-duct intercalated cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Proton and Bicarbonate Supply\", \"target\": \"Intracranial Parenchymal Calcium Deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cerebral arm. CA II is expressed in brain and its loss is uniquely associated with early-childhood intracranial calcification, but the intervening steps are not established - this edge is recorded as indirect with unknown intermediates rather than as a mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Osteoclast Resorption Lacuna Acidification Failure\", \"target\": \"Failure of Hydroxyapatite Dissolution and Bone Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hydroxyapatite dissolution is acid-dependent, so a lacuna that is not acidified does not release bone mineral.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Hydroxyapatite Dissolution and Bone Matrix Degradation\", \"target\": \"Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number\", \"target\": \"Cranial Foramen and Optic Canal Narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number\", \"target\": \"Craniofacial Disproportion and Upper Airway Narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number\", \"target\": \"Osteopetrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number\", \"target\": \"Recurrent fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dense bone in this disease is brittle rather than strong, and fracture is a presenting feature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cranial Foramen and Optic Canal Narrowing\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compression of the optic nerve within a narrowed bony canal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cranial Foramen and Optic Canal Narrowing\", \"target\": \"Cranial nerve compression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Disproportion and Upper Airway Narrowing\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Renal Tubular Proton Secretion and Bicarbonate Reclamation\", \"target\": \"Systemic Hyperchloremic Metabolic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Hyperchloremic Metabolic Acidosis\", \"target\": \"Renal tubular acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Hyperchloremic Metabolic Acidosis\", \"target\": \"Hyperchloremic metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracranial Parenchymal Calcium Deposition\", \"target\": \"Cerebral calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oral alkali therapy\", \"target\": \"Systemic Hyperchloremic Metabolic Acidosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic hematopoietic stem cell transplantation\", \"target\": \"Osteoclast Resorption Lacuna Acidification Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Continuous positive airway pressure for obstructive sleep apnea\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic surveillance for compressive optic neuropathy\", \"target\": \"Optic atrophy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dental and orthodontic care\", \"target\": \"Amelogenesis imperfecta\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dental and orthodontic care\", \"target\": \"Delayed eruption of teeth\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Car-2 null mouse (ENU-induced)\", \"target\": \"Impaired Renal Tubular Proton Secretion and Bicarbonate Reclamation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Homozygous null mice develop renal tubular acidosis, as humans with the same enzyme defect do.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse renal defect has not been segment-resolved against the mixed proximal-and-distal pattern typical of human disease, and the mouse shows an additional intercalated-cell population phenotype whose human counterpart is unknown.\"}, {\"source\": \"Car-2 null mouse (ENU-induced)\", \"target\": \"Failure of Hydroxyapatite Dissolution and Bone Matrix Degradation\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The defining human phenotype is absent from the mouse null. Osteopetrosis could not be detected even in very old homozygotes.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"A negative result in this model is not evidence against the human mechanism. The most economical explanation is redundancy among carbonic anhydrase isoenzymes in mouse osteoclasts that human osteoclasts do not have, but that has not been demonstrated, so the species difference itself is unexplained. The model cannot be used to study the bone arm or to test bone-directed therapy.\"}, {\"source\": \"pathophysiology#Biallelic CA2 Loss of Function\", \"target\": \"Erythrocyte carbonic anhydrase II\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The erythrocyte is not an affected tissue in this disease, but it is the accessible one, and the enzyme is the same gene product.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\"}, {\"source\": \"CA2\", \"target\": \"Biallelic CA2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.232+1G\u003eT (intron 2 5\u0027 splice site; the \\\"Arabic\\\" founder allele)\", \"target\": \"CA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"His107Tyr (p.H107Y)\", \"target\": \"CA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Exon 7 single-base deletion (frameshift)\", \"target\": \"CA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.368G\u003eA p.W123X (nonsense)\", \"target\": \"CA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6964,6 +7140,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">No `frequency` is recorded: the cohort data are directly discordant, so any enum value here would be an invention. Bound to the parent HP:0000365 rather than to HP:0000405 (conductive) because the mechanism is not established across reports.</div>
 
 
@@ -6983,6 +7162,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7010,6 +7190,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7031,6 +7212,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7096,6 +7278,9 @@ This clinical feature is Optic atrophy from optic canal narrowing, annotated wit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7110,6 +7295,7 @@ This clinical feature is Optic atrophy from optic canal narrowing, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7134,6 +7320,7 @@ This clinical feature is Optic atrophy from optic canal narrowing, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7190,6 +7377,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7204,6 +7394,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7266,6 +7457,9 @@ This clinical feature is Renal tubular acidosis, most often of mixed proximal an
                     </div>
 
 
+
+
+
                     <div class="item-desc">VERY_FREQUENT, not OBLIGATE. The supporting case for near-universality is strong - 23 of 23 patients in the largest cohort, and no exception had been found to the rule that coexistent osteopetrosis and RTA means CA II deficiency - but it is not 100%, and the counterexample is recorded in the REFUTE item below: a genetically confirmed CA II deficient proband had osteopetrosis, developmental delay and cerebral calcification with no detectable renal tubular acidosis (PMID:8128957).
 The distinction is queryable rather than cosmetic. OBLIGATE asserts that every affected individual has the feature, which licenses a downstream consumer to treat absent RTA as excluding the diagnosis. That inference is wrong here, and acting on it would have missed the Puerto Rican proband. VERY_FREQUENT says what the literature actually supports: present in the large majority, and its absence does not rule the disease out. Note that Osteopetrosis on this entry stays OBLIGATE, because no counterexample to that feature is recorded.</div>
 
@@ -7286,6 +7480,7 @@ The distinction is queryable rather than cosmetic. OBLIGATE asserts that every a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7313,6 +7508,7 @@ The distinction is queryable rather than cosmetic. OBLIGATE asserts that every a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7334,6 +7530,7 @@ The distinction is queryable rather than cosmetic. OBLIGATE asserts that every a
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7392,6 +7589,9 @@ This clinical feature is Medullary nephrocalcinosis, annotated with Nephrocalcin
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7406,6 +7606,7 @@ This clinical feature is Medullary nephrocalcinosis, annotated with Nephrocalcin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7459,6 +7660,9 @@ This clinical feature is Recurrent renal stones with hypercalciuria, annotated w
                     </div>
 
 
+
+
+
                     <div class="item-desc">HP:0000787 is returned as &#34;Kidney stone&#34; by the OLS HPO endpoint and as &#34;Nephrolithiasis&#34; by the cache that term validation reads, which is a build-lag divergence rather than a different term. The cached form is bound here because that is what the validator compares against and what the rest of the knowledge base uses.</div>
 
 
@@ -7478,6 +7682,7 @@ This clinical feature is Recurrent renal stones with hypercalciuria, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7543,6 +7748,9 @@ This clinical feature is Hypoplastic amelogenesis imperfecta, annotated with Ame
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7557,6 +7765,7 @@ This clinical feature is Hypoplastic amelogenesis imperfecta, annotated with Ame
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7611,6 +7820,9 @@ This clinical feature is Tooth eruption impairment, annotated with Delayed erupt
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7625,6 +7837,7 @@ This clinical feature is Tooth eruption impairment, annotated with Delayed erupt
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7679,6 +7892,9 @@ This clinical feature is Broad forehead with large cranial vault, annotated with
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7693,6 +7909,7 @@ This clinical feature is Broad forehead with large cranial vault, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7756,6 +7973,9 @@ This clinical feature is Hyperchloremic metabolic acidosis (HP:0004918). HP:0004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7770,6 +7990,7 @@ This clinical feature is Hyperchloremic metabolic acidosis (HP:0004918). HP:0004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7835,6 +8056,9 @@ This clinical feature is Osteopetrosis (HP:0011002). HP:0011002 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7849,6 +8073,7 @@ This clinical feature is Osteopetrosis (HP:0011002). HP:0011002 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7905,6 +8130,9 @@ This clinical feature is Cerebral calcification, predominantly basal ganglia and
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7919,6 +8147,7 @@ This clinical feature is Cerebral calcification, predominantly basal ganglia and
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7943,6 +8172,7 @@ This clinical feature is Cerebral calcification, predominantly basal ganglia and
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7999,6 +8229,9 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8013,6 +8246,7 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8037,6 +8271,7 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8102,6 +8337,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8116,6 +8354,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8172,6 +8411,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8186,6 +8428,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8213,6 +8456,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8234,6 +8478,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8285,6 +8530,9 @@ This clinical feature is Cranial nerve compression (HP:0001293). HP:0001293 is a
                     </div>
 
 
+
+
+
                     <div class="item-desc">The deep-research report offered HP:0031815 for this phenotype. That CURIE resolves to &#34;Abnormal oral physiology&#34; - the report&#39;s own Term Validation section flagged it as naming a different term - so HP:0001293 was looked up independently and bound instead.</div>
 
 
@@ -8304,6 +8552,7 @@ This clinical feature is Cranial nerve compression (HP:0001293). HP:0001293 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8360,6 +8609,9 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8374,6 +8626,7 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8439,6 +8692,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8453,6 +8709,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8553,6 +8810,9 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -8567,6 +8827,7 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8594,6 +8855,7 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8615,6 +8877,7 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8652,7 +8915,9 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice site</span>
@@ -8660,6 +8925,11 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Splice donor-site variant at the 5&#39; end of intron 2. The predominant cause of CA II deficiency in North African and Middle Eastern patients, found homozygously in all ten Tunisian patients of one series and in the Iranian patient who underwent transplantation. Associated with cognitive impairment and with relatively infrequent fractures.</div>
@@ -8689,6 +8959,7 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8713,6 +8984,7 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8734,6 +9006,7 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8769,7 +9042,9 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -8777,6 +9052,11 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">C-to-T transition substituting tyrosine for the invariant histidine at position 107, disrupting hydrogen bonding to Glu-117 and Tyr-194 and destabilising the protein. Unusually among CA2 alleles it leaves detectable residual activity, which has been proposed as the explanation for the milder phenotype and absent cognitive impairment in the families that carry it.</div>
@@ -8806,6 +9086,7 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8830,6 +9111,7 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8851,6 +9133,7 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8886,7 +9169,9 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
@@ -8894,6 +9179,11 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Single-base deletion in exon 7 producing a frameshift and premature termination, homozygous in seven unrelated Hispanic families of Caribbean ancestry. The truncated 27-kD product is inactive, aggregates, and is rapidly degraded.</div>
@@ -8920,6 +9210,7 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8955,7 +9246,9 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
@@ -8963,6 +9256,11 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous nonsense variant in exon 4 identified in a five-generation Chinese family; minigene and structural work attributed the effect to altered protein modification, impaired zinc binding, and reduced CA2 protein expression.</div>
@@ -8992,6 +9290,7 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9013,6 +9312,7 @@ This disease-associated gene is CA2 (hgnc:1373). hgnc:1373 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9125,6 +9425,9 @@ This treatment uses sodium bicarbonate, annotated with sodium hydrogencarbonate 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9135,6 +9438,9 @@ This treatment uses sodium bicarbonate, annotated with sodium hydrogencarbonate 
 
 
     </div>
+
+
+
 
 
 
@@ -9174,6 +9480,7 @@ This treatment uses sodium bicarbonate, annotated with sodium hydrogencarbonate 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9216,6 +9523,7 @@ This treatment uses sodium bicarbonate, annotated with sodium hydrogencarbonate 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9283,6 +9591,9 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9293,6 +9604,9 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
     </div>
+
+
+
 
 
 
@@ -9329,6 +9643,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9375,6 +9690,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9399,6 +9715,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9420,6 +9737,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9489,6 +9807,9 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9499,6 +9820,9 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
     </div>
+
+
+
 
 
 
@@ -9548,6 +9872,7 @@ This treatment targets Obstructive sleep apnea (HP:0002870). HP:0002870 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9620,6 +9945,12 @@ This treatment is serial ophthalmologic examination and optic canal assessment, 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Serial ophthalmologic assessment to detect optic nerve compression before vision is lost. The indication is specific to this disease rather than generic good practice: roughly half of eyes in the largest cohort had optic nerve involvement, the globes and retinae were normal so the lesion is compressive and in the bony canal, and involvement was random in occurrence - meaning it cannot be predicted from the rest of the phenotype and has to be looked for. Detected progressive visual loss is also what has driven the decision to escalate to transplantation.</div>
 
 
@@ -9666,6 +9997,7 @@ This treatment targets Optic atrophy (HP:0000648). HP:0000648 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9690,6 +10022,7 @@ This treatment targets Optic atrophy (HP:0000648). HP:0000648 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9711,6 +10044,7 @@ This treatment targets Optic atrophy (HP:0000648). HP:0000648 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9772,6 +10106,12 @@ This treatment is restorative and orthodontic dental procedures, annotated with 
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9848,6 +10188,7 @@ This treatment targets Delayed eruption of teeth (HP:0000684). HP:0000684 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9869,6 +10210,7 @@ This treatment targets Delayed eruption of teeth (HP:0000684). HP:0000684 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9940,6 +10282,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">The only available primary prevention. Relevant in high-consanguinity families and in communities carrying the intron 2 founder allele, where cascade testing is tractable because the variant is known. Carrier detection is possible biochemically (about half-normal erythrocyte CA II) and definitively by CA2 genotyping; prenatal diagnosis is molecular and has been performed on both cultured amniocytes and chorionic villus material.</div>
 
 
@@ -9961,6 +10309,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9988,6 +10337,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10009,6 +10359,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10094,6 +10445,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10136,6 +10488,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10157,6 +10510,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10230,6 +10584,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10282,6 +10637,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10303,6 +10659,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10355,6 +10712,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10426,6 +10784,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10476,6 +10835,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10645,6 +11005,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10701,6 +11062,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10763,6 +11125,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10802,6 +11165,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10881,6 +11245,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10920,6 +11285,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -10966,6 +11332,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13344,6 +13711,31 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Lump/split: curated as a single DISEASE. One enzymatic lesion (biallelic CA2 loss) produces a conserved three-arm pathograph, and gene-disease specificity is near-absolute in both directions (PMID:15300855; PMID:12566520), so there is no grouping to build and no parent entry to attach this to as a subtype.
+Relationship to existing dismech osteopetrosis entries: at the time of curation neither `Osteopetrosis` (MONDO:0017198) nor `Autosomal_Recessive_Osteopetrosis` (MONDO:0009816, ARO2) nor either autosomal dominant entry mentioned CA2, carbonic anhydrase, or renal tubular acidosis, and no `kb/` file bound hgnc:1373 - verified by grep over the working tree and over origin/main. This entry is therefore a gap fill rather than a re-curation. A `kb/groupings/` Grouping over the osteopetroses, keyed on failure of osteoclast-mediated bone resorption, is the right follow-up and is deliberately not built here.
+No `conforms_to` target was used. `osteoporosis_bone_resorption` is the mechanistic inverse (excess resorption producing low bone mass) and `defective_skeletal_mineralization` covers hypomineralization, so neither fits; `nephrolithiasis_crystal_nucleation` covers an occasional complication rather than this entry&#39;s core chain. The mechanism shared by CA2, TCIRG1, CLCN7 and OSTM1 - failure to acidify the osteoclast resorption lacuna - has no module in `kb/modules/` yet, and creating one is the natural companion to the grouping above.
+No ISDS group assignment was recorded beyond the one below: the cached 2023 nosology record (PMID:36779427) does not name CA2 or carbonic anhydrase, and the full group table was not available, so the assignment rests on the group&#39;s own stated scope rather than on an entry in its list.
+No GeneReviews chapter exists for CA2-related osteopetrosis. PubMed carries GeneReviews chapters for TCIRG1-Related Osteopetrosis (PMID:40875877) and CLCN7-Related Osteopetrosis (PMID:20301306) only, so the GeneReviews phenotype baseline could not be applied here.
+No `datasets:` block. A GEO search for carbonic anhydrase II deficiency and for CA2 returned nothing, and the whole `gds` database holds only eight osteopetrosis records. Three of those are human (GSE133937, GSE133938, GSE153885) but they are urine-derived iPSC studies of autosomal dominant osteopetrosis type 2 - CLCN7, a different gene and a different disease - so citing them here would be the dataset-search form of Named Entity Confusion the dataset-curation guidance warns about. The deep-research report independently found no transcriptomic, proteomic, metabolomic, single-cell or CRISPR-screen dataset specific to this disease.
+Deliberately omitted: interferon-gamma, and vitamin D/calcium supplementation. These appear in general osteopetrosis treatment reviews (PMID:42096006) but are not reported as therapy for CA2 deficiency, and importing the malignant infantile osteopetrosis treatment narrative into an intermediate, non-marrow-failure disease would misrepresent it.
+`treatments` covers both the arm-directed therapies (alkali for the acidosis, transplantation for the osteoclast lineage, CPAP for the airway) and the two surveillance/supportive arms that this disease specifically generates: ophthalmologic monitoring for compressive optic neuropathy, and dental and orthodontic care. Neither surveillance entry asserts a published interval or protocol, because none exists for CA2 deficiency; each cites the evidence for its indication only, and each uses `target_phenotypes` rather than `target_mechanisms` because no `TreatmentEffectEnum` value describes monitoring. Orthopaedic fracture management and audiologic follow-up are not modelled: the first has no CA2-specific source beyond the fracture phenotype itself, and the second would need a hearing phenotype whose frequency this entry could not establish in either direction.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Autosomal_Recessive_Osteopetrosis_3</strong> · 2026-09-10T17:29:03Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Osteopetrosis_3/2026-09-10T172903Z-claude-code-ef0882.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Autosomal_Recessive_Osteopetrosis_3.yaml (MONDO:0009818, carbonic anhydrase II deficiency / CA2, OMIM 259730) as a new DISEASE entry. Lump/split: single DISEASE — one enzymatic lesion, conserved three-arm pathograph, near-absolute bidirectional gene-disease specificity (PMID:15300855, PMID:12566520); no grouping built and no parent subtype attachment. Verified before curating that neither kb/disorders/Osteopetrosis.yaml nor Autosomal_Recessive_Osteopetrosis.yaml nor either autosomal dominant entry mentioned CA2, carbonic anhydrase or renal tubular acidosis, and that no kb/ file bound hgnc:1373, on the working tree and on origin/main. Deep research: &#39;just research-disorder falcon&#39; returned HTTP 402 (Edison account out of credits); re-run once with dr_fallback=&#39;--fallback&#39;, which fell back to openscientist and recorded fell_back/requested_provider/provider_attempts in the report frontmatter. Report used: research/Autosomal_Recessive_Osteopetrosis_3-deep-research-openscientist.md (18/18 references resolved, 17/18 on topic; term_validation needs_review=true). Acted on the report&#39;s Term Validation: did NOT bind HP:0031815 for cranial nerve compression (it resolves to &#39;Abnormal oral physiology&#39;); bound independently looked-up HP:0001293 instead. Also did not reuse the report&#39;s GO:0001618 &#39;ruffled border&#39; suggestion (that CURIE is virus receptor activity) or its GO:0051452-labelled &#39;regulation of intracellular pH&#39;. just preflight-dr emitted WARN on two counts, both false positives: the &#39;rival gene HP&#39; signal is HPO CURIE prefixes being read as the haptoglobin symbol, and the OMIM mismatch is the report citing the CA2 gene OMIM 611492 alongside the disease OMIM 259730 that MONDO xrefs. Gene binding verified bidirectionally against the HGNC REST API in the same step it was written (CA2 -&gt; HGNC:1373 and HGNC:1373 -&gt; CA2); hgnc:13733 is CDH23, which is the near-miss the task flagged. Pathograph: 10 nodes, each with biological_scale, running from Biallelic CA2 Loss of Function through Loss of Cytosolic Proton and Bicarbonate Supply, which branches into the osteoclast, renal and cerebral arms; the cerebral edge is typed INDIRECT_UNKNOWN_INTERMEDIATES and its node marked mechanism_confidence HYPOTHETICAL. No conforms_to: osteoporosis_bone_resorption is the mechanistic inverse, defective_skeletal_mineralization covers hypomineralization, and no osteoclast-acidification module exists yet — recorded in notes as a follow-up. 18 phenotypes with HP bindings, including two deliberate SUPPORT+REFUTE pairs where cohorts genuinely disagree (renal tubular acidosis as obligate, and hearing impairment). Car-2 null mouse recorded as RECAPITULATES for the renal arm and FAILS_TO_RECAPITULATE for the bone arm, with a HUMAN_MODEL_MISMATCH discussion. Five discussions: cerebral-calcification mechanism (KNOWLEDGE_GAP), mouse model mismatch (HUMAN_MODEL_MISMATCH), growth-failure attribution (KNOWLEDGE_GAP), residual renal carbonic anhydrase (OPEN_QUESTION), osteopetrosis+RTA phenocopy (INTERPRETATION). Deliberately omitted: interferon-gamma and vitamin D/calcium (general-osteopetrosis therapy, not CA2), datasets (GEO has no CA2-deficiency dataset; the three human osteopetrosis GEO series are CLCN7/ADO2, a different disease), and ISDS group membership beyond the group&#39;s own stated scope (the cached 2023 nosology record does not name CA2). No GeneReviews chapter exists for CA2-related osteopetrosis (PubMed carries TCIRG1 and CLCN7 chapters only), so that baseline could not be applied. Validators run and their results: just validate PASS (schema, terms, references); just validate-terms PASS; just count-verified-snippets 112/112 verified; just check-duplicate-keys PASS; just check-entity-refs PASS; just check-causal-targets PASS (no new dangling targets); just check-qualifier-terms PASS; just check-enum-values PASS; just normalize-cache clean; just check-term-cache-integrity PASS; just validate-disorders PASS (batched authoritative gate, 112/112); whole-KB just check-folded-hyphens, check-snippet-length, check-title-snippets and check-snippet-grading all PASS with no new findings. just compliance 95.2%. One label divergence handled explicitly: HP:0000787 is &#39;Kidney stone&#39; via OLS and &#39;Nephrolithiasis&#39; in cache/hp/terms.csv; the cached form is bound because that is what term validation compares against, and the divergence is recorded in the phenotype notes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

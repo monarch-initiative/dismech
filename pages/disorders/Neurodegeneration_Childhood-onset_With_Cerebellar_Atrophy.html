@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4224,6 +4292,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4245,6 +4314,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4517,6 +4587,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4538,6 +4609,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4659,6 +4731,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4820,6 +4893,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5158,6 +5232,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5246,6 +5321,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5267,6 +5343,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5348,6 +5425,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5488,6 +5566,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5514,6 +5593,7 @@ ties, feeding difficulties, ataxia, spasticity, and dystonia."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5535,6 +5615,7 @@ ties, feeding difficulties, ataxia, spasticity, and dystonia."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5621,6 +5702,7 @@ ties, feeding difficulties, ataxia, spasticity, and dystonia."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5645,6 +5727,7 @@ ties, feeding difficulties, ataxia, spasticity, and dystonia."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5666,6 +5749,7 @@ ties, feeding difficulties, ataxia, spasticity, and dystonia."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5703,6 +5787,13 @@ ties, feeding difficulties, ataxia, spasticity, and dystonia."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ccp1-deglutamylase-deficiency" data-dismech-node="CCP1 Deglutamylase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">CCP1 Deglutamylase Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Biallelic AGTPBP1 variants abolish functional cytosolic carboxypeptidase 1. Truncating alleles (nonsense, frameshift, canonical splice, multi-exon genomic deletion) eliminate the protein through nonsense-mediated decay or early truncation; tested missense alleles produce unstable protein that lacks detectable catalytic activity. CCP1 is a zinc metallocarboxypeptidase that shortens polyglutamate side chains on the tubulin C-terminal tail and converts detyrosinated alpha-tubulin into Delta2-tubulin, so its loss removes the eraser arm of the neuronal tubulin code.</div>
 
@@ -5798,6 +5889,8 @@ This pathophysiological event involves AGTPBP1 (hgnc:17258). hgnc:17258 is a gen
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5808,6 +5901,9 @@ This pathophysiological event involves AGTPBP1 (hgnc:17258). hgnc:17258 is a gen
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic germline AGTPBP1 alleles. Reported classes include nonsense, frameshift, canonical and intronic splice-site, multi-exon genomic deletion, and missense alleles; truncating alleles eliminate the protein and tested missense alleles produce unstable protein without detectable catalytic activity, so the category is loss of function rather than dominant-negative or gain of function. Zygosity is deliberately left unset: affected individuals are homozygous or compound heterozygous, and ZygosityEnum has no biallelic value that covers both without asserting one of them.</div>
 
@@ -5981,6 +6077,7 @@ This pathophysiological event involves decreased tubulin metallocarboxypeptidase
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6002,6 +6099,7 @@ This pathophysiological event involves decreased tubulin metallocarboxypeptidase
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6029,6 +6127,7 @@ This pathophysiological event involves decreased tubulin metallocarboxypeptidase
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6053,6 +6152,13 @@ This pathophysiological event involves decreased tubulin metallocarboxypeptidase
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tubulin-hyperglutamylation" data-dismech-node="Tubulin Hyperglutamylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Tubulin Hyperglutamylation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">With the CCP1 eraser gone, the TTLL-family glutamylase writers act unopposed and neuronal microtubules accumulate abnormally long polyglutamate side chains. TTLL1, which polyglutamylates alpha-tubulin, is the enzyme principally responsible for the pathological excess in CCP1 deficiency; TTLL7, which modifies beta-tubulin, is not. Delta2-tubulin generation falls in parallel. Genetic removal of TTLL1 normalises glutamylation and rescues the degeneration, which is the strongest available evidence that hyperglutamylation is the pathogenic lesion rather than an epiphenomenon. The rescue is not attributable to TTLL1 alone: a systematic survey across five TTLLs describes Ttll1 loss as attenuating rather than abolishing the degeneration and identifies TTLL4 as a second contributor.</div>
 
@@ -6234,6 +6340,7 @@ This pathophysiological event involves abnormal microtubule cytoskeleton organiz
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6255,6 +6362,7 @@ This pathophysiological event involves abnormal microtubule cytoskeleton organiz
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6282,6 +6390,7 @@ This pathophysiological event involves abnormal microtubule cytoskeleton organiz
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6306,6 +6415,13 @@ This pathophysiological event involves abnormal microtubule cytoskeleton organiz
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-microtubule-based-axonal-transport" data-dismech-node="Impaired Microtubule-Based Axonal Transport" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Microtubule-Based Axonal Transport</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Excess tubulin polyglutamylation reduces overall cargo motility in cultured mouse neurons. Mitochondria spend more time paused; velocity and run length need not decrease. Cargo specificity differs between hippocampal and cerebellar granule-cell experiments. CCP1-null epithelial cells and pcd neurons also show mitochondrial fragmentation and impaired fusion. These model results motivate a transport/fusion contribution to degeneration, but transport rescue has not established the complete causal sequence in human neurons.</div>
 
@@ -6507,6 +6623,7 @@ This pathophysiological event involves decreased mitochondrial fusion (GO:000805
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6528,6 +6645,7 @@ This pathophysiological event involves decreased mitochondrial fusion (GO:000805
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6555,6 +6673,7 @@ This pathophysiological event involves decreased mitochondrial fusion (GO:000805
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6579,6 +6698,13 @@ This pathophysiological event involves decreased mitochondrial fusion (GO:000805
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-cell-endoplasmic-reticulum-stress" data-dismech-node="Purkinje Cell Endoplasmic Reticulum Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Cell Endoplasmic Reticulum Stress</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In pcd mouse Purkinje neurons, ER-rich polyribosomal masses, ER-stress markers, unfolded protein response activation and reduced protein synthesis precede cell death. Perturbation experiments support an ER-mediated death pathway, but the authors retain competing mechanisms and uncertain human translation.</div>
 
@@ -6704,6 +6830,7 @@ This pathophysiological event involves increased response to endoplasmic reticul
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6725,6 +6852,7 @@ This pathophysiological event involves increased response to endoplasmic reticul
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6750,6 +6878,13 @@ This pathophysiological event involves increased response to endoplasmic reticul
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-neuron-degeneration" data-dismech-node="Purkinje Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Neuron Degeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Cerebellar Purkinje cells are the most conspicuously vulnerable population. In the pcd mouse the cerebellum is histologically normal at postnatal day 14 and then loses essentially all Purkinje cells within weeks, with reactive microgliosis and astrogliosis; lobule X is relatively spared. The degeneration is cell-autonomous - excessive polyglutamylation is sufficient to kill the neuron from within, independent of its neighbours. That does not exclude a contributing glial component: reactive microgliosis and astrogliosis accompany the loss, and minocycline, a glial-activation inhibitor, delays Purkinje cell death in pcd mice. Human autopsy in 2026 directly demonstrated marked Purkinje-cell and granular-layer loss. The observed human lesion is established, whereas cell-autonomous hyperglutamylation causality, lobule-specific resistance and the detailed death pathways still derive from models.</div>
 
@@ -6901,6 +7036,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6922,6 +7058,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6951,6 +7088,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6975,6 +7113,13 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lower-motor-neuron-and-peripheral-motor-axon-degeneration" data-dismech-node="Lower Motor Neuron and Peripheral Motor Axon Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Lower Motor Neuron and Peripheral Motor Axon Degeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In parallel with the cerebellar arm, spinal alpha-motor neurons are lost and peripheral myelinated motor axons degenerate, with reduced axon number and calibre and disorganised axoplasm. Electrophysiology in patients shows denervation and axonal motor neuropathy in proximal and distal muscles, while sensory nerve action potentials are preserved - the neuropathy is motor-predominant. Skeletal muscle change is secondary neurogenic atrophy, not a primary myopathy. Anterior horn-cell loss with reactive gliosis was directly confirmed in a human autopsy in 2026; peripheral motor-axon versus cell-body contributions in other patients remain based on clinical and electrophysiological localization.</div>
 
@@ -7118,6 +7263,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7139,6 +7285,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7166,6 +7313,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7190,6 +7338,13 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-ataxia-and-movement-disorder" data-dismech-node="Cerebellar Ataxia and Movement Disorder" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Ataxia and Movement Disorder</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of Purkinje cell output disrupts the cerebellar contribution to motor coordination, producing ataxia. In the most severely affected infants profound weakness may mask the ataxia because the child never achieves independent ambulation. Spasticity and dystonia are also consistently reported in these patients and are curated as phenotypes, but they are NOT attributed to this node: spasticity is a pyramidal/upper-motor-neuron sign and dystonia is extrapyramidal, and neither follows from loss of cerebellar cortical output. A single p.Gln816Pro case now documents caudate and putaminal atrophy, but a causal relationship between those lesions and the movement disorder is unresolved. The affected descending motor pathways are also unestablished.</div>
 
@@ -7251,6 +7406,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7272,6 +7428,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7297,6 +7454,13 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-neuronopathy-and-progressive-weakness" data-dismech-node="Motor Neuronopathy and Progressive Weakness" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor Neuronopathy and Progressive Weakness</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Denervation of proximal and distal muscles produces progressive generalised weakness, often reaching tetraparesis, with neurogenic muscle atrophy, absent or reduced deep tendon reflexes, and tongue fasciculations. Bulbar and respiratory muscle involvement generates the feeding difficulty and respiratory insufficiency that drive most of the mortality.</div>
 
@@ -7446,6 +7610,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7467,6 +7632,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7492,6 +7658,13 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-maintenance-failure" data-dismech-node="Neuronal Maintenance Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Maintenance Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">CCP1 loss disrupts maintenance of central and peripheral neurons and leads to progressive motor and cognitive deficits. Human neurodegeneration is established clinically and pathologically, but the circuits and developmental versus degenerative contributions to intellectual impairment remain incompletely localized.</div>
 
@@ -7569,6 +7742,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7590,6 +7764,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7617,6 +7792,13 @@ central and peripheral nervous systems in humans."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-thymic-tissue" data-dismech-node="Absent Thymic Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Thymic Tissue</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Thymic tissue was absent at autopsy in one infant with AGTPBP1-related neurodegeneration. The authors propose that this contributes to lymphopenia and infection susceptibility. The genetic cause of the thymic lesion and precise lymphocyte subset defect remain unresolved.</div>
 
@@ -7670,6 +7852,7 @@ central and peripheral nervous systems in humans."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7692,6 +7875,13 @@ central and peripheral nervous systems in humans."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-callosal-white-matter-loss" data-dismech-node="Callosal White Matter Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Callosal White Matter Loss</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The autopsied infant had a thin corpus callosum with marked myelin loss. This supports tissue loss as the substrate of thinning in that case, without establishing whether defective axonal development, primary myelin injury or secondary degeneration initiated the lesion.</div>
 
@@ -7745,6 +7935,7 @@ central and peripheral nervous systems in humans."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7790,7 +7981,7 @@ central and peripheral nervous systems in humans."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV-Mediated AGTPBP1 Gene Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PRECLINICAL ONLY - no human study. Neonatal delivery of a blood-brain-barrier-penetrating AAV vector expressing an N-terminally truncated but catalytically active Ccp1 prevented Purkinje cell degeneration and partially improved motor function in Ccp1-deficient mice. This is the most direct mechanistic rescue strategy for a recessive loss-of-function disorder, but no clinical trial, safety data, or human dosing information exists, and the mouse result required intervention before Purkinje cell loss.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Abnormal Eye Movements\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Heterogeneous oculomotor abnormalities are reported. The discovery-series authors consider muscle weakness and cerebellar dysfunction likely contributors. Oculomotor apraxia and esotropia have independent, more specific case evidence; hypometric saccades and poor eye contact were tabulated in the 2024 patient with a likely pathogenic variant.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000496\"}}, {\"id\": \"Absent Thymic Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thymic tissue was absent at autopsy in one infant with AGTPBP1-related neurodegeneration. The authors propose that this contributes to lymphopenia and infection susceptibility. The genetic cause of the thymic lesion and precise lymphocyte subset defect remain unresolved.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\"}}, {\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent deep tendon reflexes occur in motor-unit disease; increased reflexes in other cases are a separate phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001284\"}}, {\"id\": \"Aspiration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent aspiration during feeding was documented; it should not be inferred from feeding difficulty alone in every patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002835\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar incoordination of gait and limbs. In children able to sit or walk it may combine with spasticity to produce a spastic-ataxic movement disorder; in the most severely affected infants it is masked by profound weakness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Biallelic AGTPBP1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"AGTPBP1\"], \"gene_terms\": [{\"label\": \"AGTPBP1\", \"id\": \"hgnc:17258\"}], \"association\": \"CAUSAL\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CCP1 Deglutamylase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic AGTPBP1 variants abolish functional cytosolic carboxypeptidase 1. Truncating alleles (nonsense, frameshift, canonical splice, multi-exon genomic deletion) eliminate the protein through nonsense-mediated decay or early truncation; tested missense alleles produce unstable protein that lacks detectable catalytic activity. CCP1 is a zinc metallocarboxypeptidase that shortens polyglutamate side chains on the tubulin C-terminal tail and converts detyrosinated alpha-tubulin into Delta2-tubulin, so its loss removes the eraser arm of the neuronal tubulin code.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"tubulin side-chain deglutamylation\", \"C-terminal deglutamylation generating Delta2-tubulin\"], \"molecular_functions\": [\"tubulin metallocarboxypeptidase (deglutamylase) activity\"], \"genes\": [\"AGTPBP1\"], \"gene_terms\": [{\"label\": \"AGTPBP1\", \"id\": \"hgnc:17258\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic germline AGTPBP1 alleles. Reported classes include nonsense, frameshift, canonical and intronic splice-site, multi-exon genomic deletion, and missense alleles; truncating alleles eliminate the protein and tested missense alleles produce unstable protein without detectable catalytic activity, so the category is loss of function rather than dominant-negative or gain of function. Zygosity is deliberately left unset: affected individuals are homozygous or compound heterozygous, and ZygosityEnum has no biallelic value that covers both without asserting one of them.\"}, \"role\": \"trigger\"}}, {\"id\": \"Callosal White Matter Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The autopsied infant had a thin corpus callosum with marked myelin loss. This supports tissue loss as the substrate of thinning in that case, without establishing whether defective axonal development, primary myelin injury or secondary degeneration initiated the lesion.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\"}}, {\"id\": \"Cerebellar Ataxia and Movement Disorder\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of Purkinje cell output disrupts the cerebellar contribution to motor coordination, producing ataxia. In the most severely affected infants profound weakness may mask the ataxia because the child never achieves independent ambulation. Spasticity and dystonia are also consistently reported in these patients and are curated as phenotypes, but they are NOT attributed to this node: spasticity is a pyramidal/upper-motor-neuron sign and dystonia is extrapyramidal, and neither follows from loss of cerebellar cortical output. A single p.Gln816Pro case now documents caudate and putaminal atrophy, but a causal relationship between those lesions and the movement disorder is unresolved. The affected descending motor pathways are also unestablished.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Cerebellar Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar volume loss is characteristic but not obligatory. Early scans may not distinguish hypoplasia from atrophy, and normal-appearing cerebellar MRI does not exclude microscopic neuronal loss. A 2026 autopsy documented marked Purkinje and granular cell loss despite an antemortem MRI reported as unremarkable apart from callosal thinning.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001272\"}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of acquired motor and interactive abilities can follow an initially uneventful developmental period.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Difficulty eating solid food with recurrent aspiration is described in severe neuronopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain or failure to thrive may accompany feeding impairment and lead to gastrostomy placement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding impairment includes weak suck, difficulty managing solid food and aspiration. Some children require gastrostomy. Severe motor neuronopathy is a likely contributor, although the relative bulbar and central contributions have not been measured in every child.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gastrostomy and Nutritional Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Enteral feeding via gastrostomy when bulbar weakness produces unsafe swallow, aspiration risk or inadequate caloric intake.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global delay in the acquisition of developmental milestones, present from early infancy and followed by progressive loss of neurological function.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early muscular hypotonia can be congenital or emerge during infancy. Motor-unit hypotonia is documented in severe neuronopathic cases, but hypotonia also occurs in patients without demonstrated lower motor-neuron involvement or cerebellar atrophy.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Microtubule-Based Axonal Transport\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess tubulin polyglutamylation reduces overall cargo motility in cultured mouse neurons. Mitochondria spend more time paused; velocity and run length need not decrease. Cargo specificity differs between hippocampal and cerebellar granule-cell experiments. CCP1-null epithelial cells and pcd neurons also show mitochondrial fragmentation and impaired fusion. These model results motivate a transport/fusion contribution to degeneration, but transport rescue has not established the complete causal sequence in human neurons.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"axo-dendritic transport\", \"mitochondrion transport along microtubule\", \"mitochondrial fusion\"], \"role\": \"amplifier\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is reported in surviving children, including mild disability in the 14-year-old discovery-series patient. Severe developmental impairment in infants is described as global developmental delay rather than treated as a uniform formal intellectual-disability assessment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lacosamide (CRMP2 Modulation)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PRECLINICAL ONLY - no human study in CONDCA. AGTPBP1 knockout raises CRMP2 expression and causes mitochondrial dysfunction in differentiated neurons; lacosamide, which modulates CRMP2, improved cell morphology and mitochondrial function in vitro and rescued brain volume and swimming performance in AGTPBP1-deficient zebrafish. Lacosamide is an approved antiseizure medication in other indications, but its use here rests entirely on cell and zebrafish data.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"lacosamide\"]}}, {\"id\": \"Lower Motor Neuron Degeneration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Degeneration of spinal alpha-motor neurons in the anterior horn, producing a motor neuronopathy that overlaps clinically with spinal muscular atrophy and pontocerebellar hypoplasia type 1.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002398\"}}, {\"id\": \"Lower Motor Neuron and Peripheral Motor Axon Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In parallel with the cerebellar arm, spinal alpha-motor neurons are lost and peripheral myelinated motor axons degenerate, with reduced axon number and calibre and disorganised axoplasm. Electrophysiology in patients shows denervation and axonal motor neuropathy in proximal and distal muscles, while sensory nerve action potentials are preserved - the neuropathy is motor-predominant. Skeletal muscle change is secondary neurogenic atrophy, not a primary myopathy. Anterior horn-cell loss with reactive gliosis was directly confirmed in a human autopsy in 2026; peripheral motor-axon versus cell-body contributions in other patients remain based on clinical and electrophysiological localization.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"spinal alpha-motor neuron\", \"motor neuron\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Purkinje cell degeneration (pcd) mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Agtpbp1 (Nna1) loss-of-function; spontaneous alleles pcd, pcd2J, pcd3J, plus engineered knockouts\", \"category\": \"Spontaneous and engineered loss-of-function\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Peripheral nerve and spinal motor neuron degeneration in pcd mice was shown to reproduce the human motor neuronopathy.\"}]}}, {\"id\": \"Lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent absolute lymphopenia was observed in the infant with absent thymus and fatal adenovirus infection. Lymphocyte subsets were not measured, so specific T-cell deficiency is not asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001888\"}}, {\"id\": \"Microtubule Depolymerizer (Glutamylation Rebalancing)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PRECLINICAL ONLY - no human study. Treating pcd Purkinje neurons with a microtubule depolymerizer corrected the glutamylation/deglutamylation ratio and increased Purkinje neuron survival, acting on the glutamylation imbalance itself rather than on CCP1 or TTLL1 protein levels. The agent is not named in the cited abstract, no dosing or safety data exist, and microtubule-destabilising drugs are themselves neurotoxic, so this is a mechanistic proof of concept rather than a therapeutic candidate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor Axonal Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor-predominant axonal neuropathy or neuronopathy is supported by denervation on electromyography and preserved sensory responses in investigated patients. Electrophysiology alone may not separate anterior horn-cell injury from peripheral motor-axon injury; sensory sparing is not established in every affected individual.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007002\"}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor milestones may be delayed from early infancy, including failure to acquire independent sitting or standing. Developmental regression is represented separately.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001270\"}}, {\"id\": \"Motor Neuronopathy and Progressive Weakness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Denervation of proximal and distal muscles produces progressive generalised weakness, often reaching tetraparesis, with neurogenic muscle atrophy, absent or reduced deep tendon reflexes, and tongue fasciculations. Bulbar and respiratory muscle involvement generates the feeding difficulty and respiratory insufficiency that drive most of the mortality.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Neurogenic Muscle Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal muscle wasting secondary to denervation, affecting proximal and distal muscles. Muscle histology shows chronic neurogenic change rather than a primary myopathy.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003202\"}}, {\"id\": \"Neuronal Maintenance Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCP1 loss disrupts maintenance of central and peripheral neurons and leads to progressive motor and cognitive deficits. Human neurodegeneration is established clinically and pathologically, but the circuits and developmental versus degenerative contributions to intellectual impairment remain incompletely localized.\", \"meta\": {\"evidence_count\": 2, \"role\": \"central_effector\"}}, {\"id\": \"Noninvasive Ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Respiratory support for neuromuscular respiratory insufficiency, with airway clearance and prompt treatment of respiratory infections.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Physical and Occupational Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rehabilitation to maintain range of motion, prevent contractures, support positioning and seating, and provide mobility aids. Directed at the functional consequences of weakness, spasticity and ataxia; it does not modify the underlying neurodegeneration.\"}, {\"id\": \"Poor Suck\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weak sucking is documented as part of the feeding impairment in severe infantile disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002033\"}}, {\"id\": \"Progressive Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised muscle weakness of neurogenic origin that progresses over time and frequently reaches tetraparesis, limiting or preventing ambulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001324\"}}, {\"id\": \"Progressive Neurological Deterioration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive decline in neurological function is characteristic, with variable severity and survival. Regression can follow apparently normal early milestones or an initial developmental delay; not every cognitive deficit is proven to arise from the same regional lesion.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002180\"}}, {\"id\": \"Purkinje Cell Endoplasmic Reticulum Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In pcd mouse Purkinje neurons, ER-rich polyribosomal masses, ER-stress markers, unfolded protein response activation and reduced protein synthesis precede cell death. Perturbation experiments support an ER-mediated death pathway, but the authors retain competing mechanisms and uncertain human translation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\"], \"role\": \"amplifier\"}}, {\"id\": \"Purkinje Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cerebellar Purkinje cells are the most conspicuously vulnerable population. In the pcd mouse the cerebellum is histologically normal at postnatal day 14 and then loses essentially all Purkinje cells within weeks, with reactive microgliosis and astrogliosis; lobule X is relatively spared. The degeneration is cell-autonomous - excessive polyglutamylation is sufficient to kill the neuron from within, independent of its neighbours. That does not exclude a contributing glial component: reactive microgliosis and astrogliosis accompany the loss, and minocycline, a glial-activation inhibitor, delays Purkinje cell death in pcd mice. Human autopsy in 2026 directly demonstrated marked Purkinje-cell and granular-layer loss. The observed human lesion is established, whereas cell-autonomous hyperglutamylation causality, lobule-specific resistance and the detailed death pathways still derive from models.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Purkinje cell degeneration (pcd) mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Agtpbp1 (Nna1) loss-of-function; spontaneous alleles pcd, pcd2J, pcd3J, plus engineered knockouts\", \"category\": \"Spontaneous and engineered loss-of-function\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Near-complete Purkinje cell loss with the same molecular lesion (tubulin hyperglutamylation) as the human disease.\"}]}}, {\"id\": \"Purkinje cell degeneration (pcd) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The pcd mouse is the established genetic model of CONDCA and predates the human disease by decades. Homozygotes have a histologically normal cerebellum at postnatal day 14 and then lose almost all Purkinje cells within weeks, with ataxia from around P20. Retinal photoreceptors, olfactory bulb mitral cells, selected thalamic neurons and alpha-motor neurons also degenerate, and males are infertile. Peripheral nerve and spinal motor neuron degeneration were recognised only after the human disease was described, and they are what make the model a genuine phenocopy rather than a cerebellum-only model.\"}, {\"id\": \"Recombinant Human VEGF-B\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PRECLINICAL ONLY - no human study. Moderate-dose recombinant human VEGF-B was neuroprotective in the pcd mouse, increasing Purkinje cell survival and improving motor, cognitive and social behaviour, apparently by partial inhibition or delay of apoptosis. The dose-response was inverted-U: more frequent dosing was detrimental to Purkinje cell survival. Recombinant human IGF-1 tested in the same study showed no neuroprotective effect. No paediatric safety or efficacy data exist.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"recombinant human VEGF-B\"]}}, {\"id\": \"Reduced Tendon Reflexes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased deep tendon reflexes occur in the motor-neuron-predominant presentation. Areflexia is documented separately. Increased reflexes also occur in other patients, so the review\u0027s aggregate statement about almost universal reflex alterations cannot be assigned to the reduced-reflex subtype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001315\"}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory compromise may require assisted ventilation or tracheostomy in severe motor neuronopathy. Aspiration, atelectasis and infection can contribute. The autopsied infant had fatal adenovirus pneumonitis and bronchopneumonia, so a purely neuromuscular explanation does not account for every episode.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Velocity-dependent increase in muscle tone reflecting upper motor neuron involvement, coexisting with the lower motor neuron and cerebellar signs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"TTLL1-Directed Reduction of Tubulin Polyglutamylation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PRECLINICAL TARGET VALIDATION ONLY - no drug, no human study. Genetic deletion of the glutamylase TTLL1 fully rescues degeneration of vulnerable neurons and of peripheral myelinated axons in CCP1-deficient mice, identifying TTLL1 as the best-validated target in the disorder. No selective TTLL1 inhibitor suitable for clinical use has been reported. `treatment_term` deliberately carries no `term:` - the only candidate action term, NCIT:C49236 Therapeutic Procedure, is far broader than the concept and would assert a clinical intervention that does not exist. Needs term / NTR: \\\"tubulin polyglutamylase inhibition\\\".\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Thin Corpus Callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Callosal thinning was seen on MRI and at autopsy; histology showed marked myelin loss in the reported infant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033725\"}}, {\"id\": \"Tongue Fasciculations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tongue fasciculations occur in the motor-neuron-predominant presentation and contribute to the clinical overlap with spinal muscular atrophy. They are not obligatory; the autopsied infant lacked tongue fasciculations despite anterior horn-cell loss.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001308\"}}, {\"id\": \"Tubulin Hyperglutamylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With the CCP1 eraser gone, the TTLL-family glutamylase writers act unopposed and neuronal microtubules accumulate abnormally long polyglutamate side chains. TTLL1, which polyglutamylates alpha-tubulin, is the enzyme principally responsible for the pathological excess in CCP1 deficiency; TTLL7, which modifies beta-tubulin, is not. Delta2-tubulin generation falls in parallel. Genetic removal of TTLL1 normalises glutamylation and rescues the degeneration, which is the strongest available evidence that hyperglutamylation is the pathogenic lesion rather than an epiphenomenon. The rescue is not attributable to TTLL1 alone: a systematic survey across five TTLLs describes Ttll1 loss as attenuating rather than abolishing the degeneration and identifies TTLL4 as a second contributor.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"tubulin polyglutamylation\", \"microtubule cytoskeleton organization\"], \"role\": \"amplifier\"}}, {\"id\": \"Weak Cry\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weak cry occurs with progressive motor impairment in infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001612\"}}], \"edges\": [{\"source\": \"CCP1 Deglutamylase Deficiency\", \"target\": \"Tubulin Hyperglutamylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CCP1 Deglutamylase Deficiency\", \"target\": \"Neuronal Maintenance Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functional CCP1 compromises neuronal maintenance; the detailed routes beyond the demonstrated hyperglutamylation pathway remain incompletely resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CCP1 Deglutamylase Deficiency\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CCP1 loss causes spinal motor-neuron degeneration in the genetic mouse model and is associated with the corresponding human lesion. Human anterior horn-cell loss is directly documented, while the intervening lethal pathway remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulin Hyperglutamylation\", \"target\": \"Impaired Microtubule-Based Axonal Transport\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tubulin Hyperglutamylation\", \"target\": \"Purkinje Cell Endoplasmic Reticulum Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Model-supported ER-stress pathway; its human relevance and necessity for cell death remain provisional.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tubulin Hyperglutamylation\", \"target\": \"Purkinje Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetic rescue establishes hyperglutamylation-induced neuronal loss in mice, while the intervening lethal pathway is incompletely resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulin Hyperglutamylation\", \"target\": \"Lower Motor Neuron and Peripheral Motor Axon Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Counteracting TTLL1 deletion prevents peripheral motor-axon degeneration in CCP1-deficient mice. This establishes a hyperglutamylation-dependent lesion while its precise intermediates and human translation remain incompletely reconstructed.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Microtubule-Based Axonal Transport\", \"target\": \"Purkinje Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed transport-mediated contribution to neuronal degeneration. The transport defect is measured in models, but its causal mediation of neuronal death remains incompletely established and is not directly measured in human CONDCA neurons.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Microtubule-Based Axonal Transport\", \"target\": \"Lower Motor Neuron and Peripheral Motor Axon Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed transport-mediated contribution to neuronal degeneration. The transport defect is measured in models, but its causal mediation of neuronal death remains incompletely established and is not directly measured in human CONDCA neurons.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Purkinje Cell Endoplasmic Reticulum Stress\", \"target\": \"Purkinje Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional mouse ER-mediated apoptotic pathway; necessity of the pathway and its operation in human neurons remain unresolved.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Neuron Degeneration\", \"target\": \"Cerebellar Ataxia and Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Purkinje-cell loss produces cerebellar motor impairment in pcd mice. Human ataxia has a corresponding cerebellar substrate, while the exact functional intermediates are not directly measured in affected children.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Purkinje Neuron Degeneration\", \"target\": \"Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lower Motor Neuron and Peripheral Motor Axon Degeneration\", \"target\": \"Motor Neuronopathy and Progressive Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lower Motor Neuron and Peripheral Motor Axon Degeneration\", \"target\": \"Motor Axonal Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-axon injury is the peripheral component of the clinical motor neuropathy; electrophysiological localization can also reflect anterior horn-cell loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar Ataxia and Movement Disorder\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The phenotype records the cerebellar incoordination represented by this mechanism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar Ataxia and Movement Disorder\", \"target\": \"Abnormal Eye Movements\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The discovery-series authors propose combined muscle weakness and cerebellar dysfunction as contributors; the relative contribution and specific ocular-motor subtype vary.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Progressive Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the progressive limb weakness in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the muscular hypotonia in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Reduced Tendon Reflexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the depressed deep tendon reflexes in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the absent deep tendon reflexes in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Neurogenic Muscle Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the neurogenic muscle atrophy in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Tongue Fasciculations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the tongue fasciculations in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the failure to acquire motor milestones in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the feeding difficulties in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the respiratory insufficiency in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Weak Cry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the weak cry in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Poor Suck\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the weak suck in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the swallowing difficulty in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Abnormal Eye Movements\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The discovery-series authors propose combined muscle weakness and cerebellar dysfunction as contributors; the relative contribution and specific ocular-motor subtype vary.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Maintenance Failure\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical cognitive and developmental manifestations are attributed to neuronal dysfunction and degeneration. Regional circuitry and the balance of delayed development versus acquired loss are incompletely defined, so this is an indirect relation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Maintenance Failure\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical cognitive and developmental manifestations are attributed to neuronal dysfunction and degeneration. Regional circuitry and the balance of delayed development versus acquired loss are incompletely defined, so this is an indirect relation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Maintenance Failure\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical cognitive and developmental manifestations are attributed to neuronal dysfunction and degeneration. Regional circuitry and the balance of delayed development versus acquired loss are incompletely defined, so this is an indirect relation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Maintenance Failure\", \"target\": \"Progressive Neurological Deterioration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical cognitive and developmental manifestations are attributed to neuronal dysfunction and degeneration. Regional circuitry and the balance of delayed development versus acquired loss are incompletely defined, so this is an indirect relation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Absent Thymic Tissue\", \"target\": \"Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The report proposes immune deficiency secondary to thymic involvement. Lymphocyte subsets were unavailable, so the specific developmental mechanism and degree of T-cell depletion remain uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Callosal White Matter Loss\", \"target\": \"Thin Corpus Callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced white matter is the documented tissue substrate of callosal thinning in the autopsy case.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Feeding Difficulties\", \"target\": \"Failure to Thrive\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Impaired intake contributes to poor growth in the feeding-impaired presentation; the report describes choking, failure to thrive and gastrostomy together.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysphagia\", \"target\": \"Aspiration\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The clinical report explicitly attributes repeated aspiration to difficulty eating solid food.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Progressive Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Spasticity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gastrostomy and Nutritional Support\", \"target\": \"Feeding Difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Noninvasive Ventilation\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AAV-Mediated AGTPBP1 Gene Replacement\", \"target\": \"CCP1 Deglutamylase Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TTLL1-Directed Reduction of Tubulin Polyglutamylation\", \"target\": \"Tubulin Hyperglutamylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Microtubule Depolymerizer (Glutamylation Rebalancing)\", \"target\": \"Tubulin Hyperglutamylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Human VEGF-B\", \"target\": \"Purkinje Neuron Degeneration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lacosamide (CRMP2 Modulation)\", \"target\": \"Impaired Microtubule-Based Axonal Transport\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Purkinje cell degeneration (pcd) mouse\", \"target\": \"Purkinje Neuron Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Near-complete Purkinje cell loss with the same molecular lesion (tubulin hyperglutamylation) as the human disease.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Purkinje cell death in the mouse is temporally compressed into a few postnatal weeks, whereas human disease ranges from rapidly fatal infancy to survival into adolescence, so the therapeutic window observed in mice may not translate.\"}, {\"source\": \"Purkinje cell degeneration (pcd) mouse\", \"target\": \"Lower Motor Neuron and Peripheral Motor Axon Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Peripheral nerve and spinal motor neuron degeneration in pcd mice was shown to reproduce the human motor neuronopathy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Biallelic AGTPBP1 pathogenic variants\", \"target\": \"CCP1 Deglutamylase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV-Mediated AGTPBP1 Gene Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PRECLINICAL ONLY - no human study. Neonatal delivery of a blood-brain-barrier-penetrating AAV vector expressing an N-terminally truncated but catalytically active Ccp1 prevented Purkinje cell degeneration and partially improved motor function in Ccp1-deficient mice. This is the most direct mechanistic rescue strategy for a recessive loss-of-function disorder, but no clinical trial, safety data, or human dosing information exists, and the mouse result required intervention before Purkinje cell loss.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Abnormal Eye Movements\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Heterogeneous oculomotor abnormalities are reported. The discovery-series authors consider muscle weakness and cerebellar dysfunction likely contributors. Oculomotor apraxia and esotropia have independent, more specific case evidence; hypometric saccades and poor eye contact were tabulated in the 2024 patient with a likely pathogenic variant.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000496\"}}, {\"id\": \"Absent Thymic Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thymic tissue was absent at autopsy in one infant with AGTPBP1-related neurodegeneration. The authors propose that this contributes to lymphopenia and infection susceptibility. The genetic cause of the thymic lesion and precise lymphocyte subset defect remain unresolved.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent deep tendon reflexes occur in motor-unit disease; increased reflexes in other cases are a separate phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001284\"}}, {\"id\": \"Aspiration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent aspiration during feeding was documented; it should not be inferred from feeding difficulty alone in every patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002835\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar incoordination of gait and limbs. In children able to sit or walk it may combine with spasticity to produce a spastic-ataxic movement disorder; in the most severely affected infants it is masked by profound weakness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Biallelic AGTPBP1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"AGTPBP1\"], \"gene_terms\": [{\"label\": \"AGTPBP1\", \"id\": \"hgnc:17258\"}], \"association\": \"CAUSAL\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CCP1 Deglutamylase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic AGTPBP1 variants abolish functional cytosolic carboxypeptidase 1. Truncating alleles (nonsense, frameshift, canonical splice, multi-exon genomic deletion) eliminate the protein through nonsense-mediated decay or early truncation; tested missense alleles produce unstable protein that lacks detectable catalytic activity. CCP1 is a zinc metallocarboxypeptidase that shortens polyglutamate side chains on the tubulin C-terminal tail and converts detyrosinated alpha-tubulin into Delta2-tubulin, so its loss removes the eraser arm of the neuronal tubulin code.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"tubulin side-chain deglutamylation\", \"C-terminal deglutamylation generating Delta2-tubulin\"], \"molecular_functions\": [\"tubulin metallocarboxypeptidase (deglutamylase) activity\"], \"genes\": [\"AGTPBP1\"], \"gene_terms\": [{\"label\": \"AGTPBP1\", \"id\": \"hgnc:17258\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic germline AGTPBP1 alleles. Reported classes include nonsense, frameshift, canonical and intronic splice-site, multi-exon genomic deletion, and missense alleles; truncating alleles eliminate the protein and tested missense alleles produce unstable protein without detectable catalytic activity, so the category is loss of function rather than dominant-negative or gain of function. Zygosity is deliberately left unset: affected individuals are homozygous or compound heterozygous, and ZygosityEnum has no biallelic value that covers both without asserting one of them.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Callosal White Matter Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The autopsied infant had a thin corpus callosum with marked myelin loss. This supports tissue loss as the substrate of thinning in that case, without establishing whether defective axonal development, primary myelin injury or secondary degeneration initiated the lesion.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Cerebellar Ataxia and Movement Disorder\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of Purkinje cell output disrupts the cerebellar contribution to motor coordination, producing ataxia. In the most severely affected infants profound weakness may mask the ataxia because the child never achieves independent ambulation. Spasticity and dystonia are also consistently reported in these patients and are curated as phenotypes, but they are NOT attributed to this node: spasticity is a pyramidal/upper-motor-neuron sign and dystonia is extrapyramidal, and neither follows from loss of cerebellar cortical output. A single p.Gln816Pro case now documents caudate and putaminal atrophy, but a causal relationship between those lesions and the movement disorder is unresolved. The affected descending motor pathways are also unestablished.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cerebellar Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar volume loss is characteristic but not obligatory. Early scans may not distinguish hypoplasia from atrophy, and normal-appearing cerebellar MRI does not exclude microscopic neuronal loss. A 2026 autopsy documented marked Purkinje and granular cell loss despite an antemortem MRI reported as unremarkable apart from callosal thinning.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001272\"}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of acquired motor and interactive abilities can follow an initially uneventful developmental period.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Difficulty eating solid food with recurrent aspiration is described in severe neuronopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain or failure to thrive may accompany feeding impairment and lead to gastrostomy placement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding impairment includes weak suck, difficulty managing solid food and aspiration. Some children require gastrostomy. Severe motor neuronopathy is a likely contributor, although the relative bulbar and central contributions have not been measured in every child.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gastrostomy and Nutritional Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Enteral feeding via gastrostomy when bulbar weakness produces unsafe swallow, aspiration risk or inadequate caloric intake.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global delay in the acquisition of developmental milestones, present from early infancy and followed by progressive loss of neurological function.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early muscular hypotonia can be congenital or emerge during infancy. Motor-unit hypotonia is documented in severe neuronopathic cases, but hypotonia also occurs in patients without demonstrated lower motor-neuron involvement or cerebellar atrophy.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Microtubule-Based Axonal Transport\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess tubulin polyglutamylation reduces overall cargo motility in cultured mouse neurons. Mitochondria spend more time paused; velocity and run length need not decrease. Cargo specificity differs between hippocampal and cerebellar granule-cell experiments. CCP1-null epithelial cells and pcd neurons also show mitochondrial fragmentation and impaired fusion. These model results motivate a transport/fusion contribution to degeneration, but transport rescue has not established the complete causal sequence in human neurons.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"axo-dendritic transport\", \"mitochondrion transport along microtubule\", \"mitochondrial fusion\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is reported in surviving children, including mild disability in the 14-year-old discovery-series patient. Severe developmental impairment in infants is described as global developmental delay rather than treated as a uniform formal intellectual-disability assessment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lacosamide (CRMP2 Modulation)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PRECLINICAL ONLY - no human study in CONDCA. AGTPBP1 knockout raises CRMP2 expression and causes mitochondrial dysfunction in differentiated neurons; lacosamide, which modulates CRMP2, improved cell morphology and mitochondrial function in vitro and rescued brain volume and swimming performance in AGTPBP1-deficient zebrafish. Lacosamide is an approved antiseizure medication in other indications, but its use here rests entirely on cell and zebrafish data.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"lacosamide\"]}}, {\"id\": \"Lower Motor Neuron Degeneration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Degeneration of spinal alpha-motor neurons in the anterior horn, producing a motor neuronopathy that overlaps clinically with spinal muscular atrophy and pontocerebellar hypoplasia type 1.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002398\"}}, {\"id\": \"Lower Motor Neuron and Peripheral Motor Axon Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In parallel with the cerebellar arm, spinal alpha-motor neurons are lost and peripheral myelinated motor axons degenerate, with reduced axon number and calibre and disorganised axoplasm. Electrophysiology in patients shows denervation and axonal motor neuropathy in proximal and distal muscles, while sensory nerve action potentials are preserved - the neuropathy is motor-predominant. Skeletal muscle change is secondary neurogenic atrophy, not a primary myopathy. Anterior horn-cell loss with reactive gliosis was directly confirmed in a human autopsy in 2026; peripheral motor-axon versus cell-body contributions in other patients remain based on clinical and electrophysiological localization.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"spinal alpha-motor neuron\", \"motor neuron\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Purkinje cell degeneration (pcd) mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Agtpbp1 (Nna1) loss-of-function; spontaneous alleles pcd, pcd2J, pcd3J, plus engineered knockouts\", \"category\": \"Spontaneous and engineered loss-of-function\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Peripheral nerve and spinal motor neuron degeneration in pcd mice was shown to reproduce the human motor neuronopathy.\"}]}}, {\"id\": \"Lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent absolute lymphopenia was observed in the infant with absent thymus and fatal adenovirus infection. Lymphocyte subsets were not measured, so specific T-cell deficiency is not asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001888\"}}, {\"id\": \"Microtubule Depolymerizer (Glutamylation Rebalancing)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PRECLINICAL ONLY - no human study. Treating pcd Purkinje neurons with a microtubule depolymerizer corrected the glutamylation/deglutamylation ratio and increased Purkinje neuron survival, acting on the glutamylation imbalance itself rather than on CCP1 or TTLL1 protein levels. The agent is not named in the cited abstract, no dosing or safety data exist, and microtubule-destabilising drugs are themselves neurotoxic, so this is a mechanistic proof of concept rather than a therapeutic candidate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor Axonal Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor-predominant axonal neuropathy or neuronopathy is supported by denervation on electromyography and preserved sensory responses in investigated patients. Electrophysiology alone may not separate anterior horn-cell injury from peripheral motor-axon injury; sensory sparing is not established in every affected individual.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007002\"}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor milestones may be delayed from early infancy, including failure to acquire independent sitting or standing. Developmental regression is represented separately.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001270\"}}, {\"id\": \"Motor Neuronopathy and Progressive Weakness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Denervation of proximal and distal muscles produces progressive generalised weakness, often reaching tetraparesis, with neurogenic muscle atrophy, absent or reduced deep tendon reflexes, and tongue fasciculations. Bulbar and respiratory muscle involvement generates the feeding difficulty and respiratory insufficiency that drive most of the mortality.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Neurogenic Muscle Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal muscle wasting secondary to denervation, affecting proximal and distal muscles. Muscle histology shows chronic neurogenic change rather than a primary myopathy.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003202\"}}, {\"id\": \"Neuronal Maintenance Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCP1 loss disrupts maintenance of central and peripheral neurons and leads to progressive motor and cognitive deficits. Human neurodegeneration is established clinically and pathologically, but the circuits and developmental versus degenerative contributions to intellectual impairment remain incompletely localized.\", \"meta\": {\"evidence_count\": 2, \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Noninvasive Ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Respiratory support for neuromuscular respiratory insufficiency, with airway clearance and prompt treatment of respiratory infections.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Physical and Occupational Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rehabilitation to maintain range of motion, prevent contractures, support positioning and seating, and provide mobility aids. Directed at the functional consequences of weakness, spasticity and ataxia; it does not modify the underlying neurodegeneration.\"}, {\"id\": \"Poor Suck\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weak sucking is documented as part of the feeding impairment in severe infantile disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002033\"}}, {\"id\": \"Progressive Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised muscle weakness of neurogenic origin that progresses over time and frequently reaches tetraparesis, limiting or preventing ambulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001324\"}}, {\"id\": \"Progressive Neurological Deterioration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive decline in neurological function is characteristic, with variable severity and survival. Regression can follow apparently normal early milestones or an initial developmental delay; not every cognitive deficit is proven to arise from the same regional lesion.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002180\"}}, {\"id\": \"Purkinje Cell Endoplasmic Reticulum Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In pcd mouse Purkinje neurons, ER-rich polyribosomal masses, ER-stress markers, unfolded protein response activation and reduced protein synthesis precede cell death. Perturbation experiments support an ER-mediated death pathway, but the authors retain competing mechanisms and uncertain human translation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Purkinje Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cerebellar Purkinje cells are the most conspicuously vulnerable population. In the pcd mouse the cerebellum is histologically normal at postnatal day 14 and then loses essentially all Purkinje cells within weeks, with reactive microgliosis and astrogliosis; lobule X is relatively spared. The degeneration is cell-autonomous - excessive polyglutamylation is sufficient to kill the neuron from within, independent of its neighbours. That does not exclude a contributing glial component: reactive microgliosis and astrogliosis accompany the loss, and minocycline, a glial-activation inhibitor, delays Purkinje cell death in pcd mice. Human autopsy in 2026 directly demonstrated marked Purkinje-cell and granular-layer loss. The observed human lesion is established, whereas cell-autonomous hyperglutamylation causality, lobule-specific resistance and the detailed death pathways still derive from models.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Purkinje cell degeneration (pcd) mouse\", \"species\": \"Mus musculus\", \"genotype\": \"Agtpbp1 (Nna1) loss-of-function; spontaneous alleles pcd, pcd2J, pcd3J, plus engineered knockouts\", \"category\": \"Spontaneous and engineered loss-of-function\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Near-complete Purkinje cell loss with the same molecular lesion (tubulin hyperglutamylation) as the human disease.\"}]}}, {\"id\": \"Purkinje cell degeneration (pcd) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The pcd mouse is the established genetic model of CONDCA and predates the human disease by decades. Homozygotes have a histologically normal cerebellum at postnatal day 14 and then lose almost all Purkinje cells within weeks, with ataxia from around P20. Retinal photoreceptors, olfactory bulb mitral cells, selected thalamic neurons and alpha-motor neurons also degenerate, and males are infertile. Peripheral nerve and spinal motor neuron degeneration were recognised only after the human disease was described, and they are what make the model a genuine phenocopy rather than a cerebellum-only model.\"}, {\"id\": \"Recombinant Human VEGF-B\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PRECLINICAL ONLY - no human study. Moderate-dose recombinant human VEGF-B was neuroprotective in the pcd mouse, increasing Purkinje cell survival and improving motor, cognitive and social behaviour, apparently by partial inhibition or delay of apoptosis. The dose-response was inverted-U: more frequent dosing was detrimental to Purkinje cell survival. Recombinant human IGF-1 tested in the same study showed no neuroprotective effect. No paediatric safety or efficacy data exist.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"recombinant human VEGF-B\"]}}, {\"id\": \"Reduced Tendon Reflexes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased deep tendon reflexes occur in the motor-neuron-predominant presentation. Areflexia is documented separately. Increased reflexes also occur in other patients, so the review\u0027s aggregate statement about almost universal reflex alterations cannot be assigned to the reduced-reflex subtype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001315\"}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory compromise may require assisted ventilation or tracheostomy in severe motor neuronopathy. Aspiration, atelectasis and infection can contribute. The autopsied infant had fatal adenovirus pneumonitis and bronchopneumonia, so a purely neuromuscular explanation does not account for every episode.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Velocity-dependent increase in muscle tone reflecting upper motor neuron involvement, coexisting with the lower motor neuron and cerebellar signs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"TTLL1-Directed Reduction of Tubulin Polyglutamylation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PRECLINICAL TARGET VALIDATION ONLY - no drug, no human study. Genetic deletion of the glutamylase TTLL1 fully rescues degeneration of vulnerable neurons and of peripheral myelinated axons in CCP1-deficient mice, identifying TTLL1 as the best-validated target in the disorder. No selective TTLL1 inhibitor suitable for clinical use has been reported. `treatment_term` deliberately carries no `term:` - the only candidate action term, NCIT:C49236 Therapeutic Procedure, is far broader than the concept and would assert a clinical intervention that does not exist. Needs term / NTR: \\\"tubulin polyglutamylase inhibition\\\".\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Thin Corpus Callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Callosal thinning was seen on MRI and at autopsy; histology showed marked myelin loss in the reported infant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033725\"}}, {\"id\": \"Tongue Fasciculations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tongue fasciculations occur in the motor-neuron-predominant presentation and contribute to the clinical overlap with spinal muscular atrophy. They are not obligatory; the autopsied infant lacked tongue fasciculations despite anterior horn-cell loss.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001308\"}}, {\"id\": \"Tubulin Hyperglutamylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With the CCP1 eraser gone, the TTLL-family glutamylase writers act unopposed and neuronal microtubules accumulate abnormally long polyglutamate side chains. TTLL1, which polyglutamylates alpha-tubulin, is the enzyme principally responsible for the pathological excess in CCP1 deficiency; TTLL7, which modifies beta-tubulin, is not. Delta2-tubulin generation falls in parallel. Genetic removal of TTLL1 normalises glutamylation and rescues the degeneration, which is the strongest available evidence that hyperglutamylation is the pathogenic lesion rather than an epiphenomenon. The rescue is not attributable to TTLL1 alone: a systematic survey across five TTLLs describes Ttll1 loss as attenuating rather than abolishing the degeneration and identifies TTLL4 as a second contributor.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"tubulin polyglutamylation\", \"microtubule cytoskeleton organization\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Weak Cry\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weak cry occurs with progressive motor impairment in infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001612\"}}], \"edges\": [{\"source\": \"CCP1 Deglutamylase Deficiency\", \"target\": \"Tubulin Hyperglutamylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CCP1 Deglutamylase Deficiency\", \"target\": \"Neuronal Maintenance Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functional CCP1 compromises neuronal maintenance; the detailed routes beyond the demonstrated hyperglutamylation pathway remain incompletely resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CCP1 Deglutamylase Deficiency\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CCP1 loss causes spinal motor-neuron degeneration in the genetic mouse model and is associated with the corresponding human lesion. Human anterior horn-cell loss is directly documented, while the intervening lethal pathway remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulin Hyperglutamylation\", \"target\": \"Impaired Microtubule-Based Axonal Transport\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tubulin Hyperglutamylation\", \"target\": \"Purkinje Cell Endoplasmic Reticulum Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Model-supported ER-stress pathway; its human relevance and necessity for cell death remain provisional.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tubulin Hyperglutamylation\", \"target\": \"Purkinje Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetic rescue establishes hyperglutamylation-induced neuronal loss in mice, while the intervening lethal pathway is incompletely resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tubulin Hyperglutamylation\", \"target\": \"Lower Motor Neuron and Peripheral Motor Axon Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Counteracting TTLL1 deletion prevents peripheral motor-axon degeneration in CCP1-deficient mice. This establishes a hyperglutamylation-dependent lesion while its precise intermediates and human translation remain incompletely reconstructed.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Microtubule-Based Axonal Transport\", \"target\": \"Purkinje Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed transport-mediated contribution to neuronal degeneration. The transport defect is measured in models, but its causal mediation of neuronal death remains incompletely established and is not directly measured in human CONDCA neurons.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Microtubule-Based Axonal Transport\", \"target\": \"Lower Motor Neuron and Peripheral Motor Axon Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed transport-mediated contribution to neuronal degeneration. The transport defect is measured in models, but its causal mediation of neuronal death remains incompletely established and is not directly measured in human CONDCA neurons.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Purkinje Cell Endoplasmic Reticulum Stress\", \"target\": \"Purkinje Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Provisional mouse ER-mediated apoptotic pathway; necessity of the pathway and its operation in human neurons remain unresolved.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Neuron Degeneration\", \"target\": \"Cerebellar Ataxia and Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Purkinje-cell loss produces cerebellar motor impairment in pcd mice. Human ataxia has a corresponding cerebellar substrate, while the exact functional intermediates are not directly measured in affected children.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Purkinje Neuron Degeneration\", \"target\": \"Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lower Motor Neuron and Peripheral Motor Axon Degeneration\", \"target\": \"Motor Neuronopathy and Progressive Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lower Motor Neuron and Peripheral Motor Axon Degeneration\", \"target\": \"Motor Axonal Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-axon injury is the peripheral component of the clinical motor neuropathy; electrophysiological localization can also reflect anterior horn-cell loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar Ataxia and Movement Disorder\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The phenotype records the cerebellar incoordination represented by this mechanism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar Ataxia and Movement Disorder\", \"target\": \"Abnormal Eye Movements\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The discovery-series authors propose combined muscle weakness and cerebellar dysfunction as contributors; the relative contribution and specific ocular-motor subtype vary.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Progressive Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the progressive limb weakness in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the muscular hypotonia in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Reduced Tendon Reflexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the depressed deep tendon reflexes in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the absent deep tendon reflexes in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Neurogenic Muscle Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the neurogenic muscle atrophy in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Tongue Fasciculations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the tongue fasciculations in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the failure to acquire motor milestones in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the feeding difficulties in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the respiratory insufficiency in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Weak Cry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the weak cry in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Poor Suck\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the weak suck in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The documented motor neuronopathy and weakness account for the swallowing difficulty in the severe motor-unit presentation. This is a qualified clinical attribution; central contributions or additional causes may coexist.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuronopathy and Progressive Weakness\", \"target\": \"Abnormal Eye Movements\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The discovery-series authors propose combined muscle weakness and cerebellar dysfunction as contributors; the relative contribution and specific ocular-motor subtype vary.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Maintenance Failure\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical cognitive and developmental manifestations are attributed to neuronal dysfunction and degeneration. Regional circuitry and the balance of delayed development versus acquired loss are incompletely defined, so this is an indirect relation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Maintenance Failure\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical cognitive and developmental manifestations are attributed to neuronal dysfunction and degeneration. Regional circuitry and the balance of delayed development versus acquired loss are incompletely defined, so this is an indirect relation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Maintenance Failure\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical cognitive and developmental manifestations are attributed to neuronal dysfunction and degeneration. Regional circuitry and the balance of delayed development versus acquired loss are incompletely defined, so this is an indirect relation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Maintenance Failure\", \"target\": \"Progressive Neurological Deterioration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical cognitive and developmental manifestations are attributed to neuronal dysfunction and degeneration. Regional circuitry and the balance of delayed development versus acquired loss are incompletely defined, so this is an indirect relation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Absent Thymic Tissue\", \"target\": \"Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The report proposes immune deficiency secondary to thymic involvement. Lymphocyte subsets were unavailable, so the specific developmental mechanism and degree of T-cell depletion remain uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Callosal White Matter Loss\", \"target\": \"Thin Corpus Callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced white matter is the documented tissue substrate of callosal thinning in the autopsy case.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Feeding Difficulties\", \"target\": \"Failure to Thrive\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Impaired intake contributes to poor growth in the feeding-impaired presentation; the report describes choking, failure to thrive and gastrostomy together.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysphagia\", \"target\": \"Aspiration\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The clinical report explicitly attributes repeated aspiration to difficulty eating solid food.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Progressive Muscle Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical and Occupational Therapy\", \"target\": \"Spasticity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gastrostomy and Nutritional Support\", \"target\": \"Feeding Difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Noninvasive Ventilation\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AAV-Mediated AGTPBP1 Gene Replacement\", \"target\": \"CCP1 Deglutamylase Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TTLL1-Directed Reduction of Tubulin Polyglutamylation\", \"target\": \"Tubulin Hyperglutamylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Microtubule Depolymerizer (Glutamylation Rebalancing)\", \"target\": \"Tubulin Hyperglutamylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Human VEGF-B\", \"target\": \"Purkinje Neuron Degeneration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lacosamide (CRMP2 Modulation)\", \"target\": \"Impaired Microtubule-Based Axonal Transport\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Purkinje cell degeneration (pcd) mouse\", \"target\": \"Purkinje Neuron Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Near-complete Purkinje cell loss with the same molecular lesion (tubulin hyperglutamylation) as the human disease.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Purkinje cell death in the mouse is temporally compressed into a few postnatal weeks, whereas human disease ranges from rapidly fatal infancy to survival into adolescence, so the therapeutic window observed in mice may not translate.\"}, {\"source\": \"Purkinje cell degeneration (pcd) mouse\", \"target\": \"Lower Motor Neuron and Peripheral Motor Axon Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Peripheral nerve and spinal motor neuron degeneration in pcd mice was shown to reproduce the human motor neuronopathy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Biallelic AGTPBP1 pathogenic variants\", \"target\": \"CCP1 Deglutamylase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7872,6 +8063,9 @@ This clinical feature is Decreased total lymphocyte count (HP:0001888). HP:00018
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7886,6 +8080,7 @@ This clinical feature is Decreased total lymphocyte count (HP:0001888). HP:00018
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7949,6 +8144,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7963,6 +8161,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8019,6 +8218,9 @@ This clinical feature is Aplasia of the thymus (HP:0005359). HP:0005359 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8033,6 +8235,7 @@ This clinical feature is Aplasia of the thymus (HP:0005359). HP:0005359 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8094,6 +8297,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -8117,6 +8323,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8171,6 +8378,9 @@ This clinical feature is Poor suck (HP:0002033). HP:0002033 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8185,6 +8395,7 @@ This clinical feature is Poor suck (HP:0002033). HP:0002033 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8237,6 +8448,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -8260,6 +8474,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8325,6 +8540,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8339,6 +8557,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8404,6 +8623,9 @@ This clinical feature is Eye movement abnormality, annotated with Abnormality of
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8418,6 +8640,7 @@ This clinical feature is Eye movement abnormality, annotated with Abnormality of
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8444,6 +8667,7 @@ ties, feeding difficulties, ataxia, spasticity, and dystonia."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8498,6 +8722,9 @@ This clinical feature is Oculomotor apraxia (HP:0000657). HP:0000657 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8512,6 +8739,7 @@ This clinical feature is Oculomotor apraxia (HP:0000657). HP:0000657 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8566,6 +8794,9 @@ This clinical feature is Esotropia (HP:0000565). HP:0000565 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8580,6 +8811,7 @@ This clinical feature is Esotropia (HP:0000565). HP:0000565 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8643,6 +8875,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8657,6 +8892,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8681,6 +8917,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8735,6 +8972,9 @@ This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8749,6 +8989,7 @@ This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8773,6 +9014,7 @@ This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8837,6 +9079,9 @@ This clinical feature is Muscular hypotonia, annotated with Hypotonia (HP:000125
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8851,6 +9096,7 @@ This clinical feature is Muscular hypotonia, annotated with Hypotonia (HP:000125
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8879,6 +9125,7 @@ tion and a fatal course in six individuals."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8951,6 +9198,9 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as course progr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8965,6 +9215,7 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as course progr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9019,6 +9270,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9033,6 +9287,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9088,6 +9343,9 @@ This clinical feature is Neurogenic muscle atrophy, annotated with Skeletal musc
                     </div>
 
 
+
+
+
                     <div class="item-desc">The review reports muscle atrophy in half of the published patients. Neurogenic histology or electrophysiology was not assessed uniformly, so that denominator is not a frequency estimate of verified neurogenic atrophy.</div>
 
 
@@ -9107,6 +9365,7 @@ This clinical feature is Neurogenic muscle atrophy, annotated with Skeletal musc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9131,6 +9390,7 @@ This clinical feature is Neurogenic muscle atrophy, annotated with Skeletal musc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9194,6 +9454,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9208,6 +9471,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9266,6 +9530,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9280,6 +9547,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9332,6 +9600,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Loss of Purkinje and additional cerebellar neurons is the documented tissue substrate of atrophy in the autopsy case. The extent and timing vary; normal neonatal cerebellar development has not been documented in every patient. This clinical finding is reached from upstream neuronal loss, without a separate synonymous tissue-atrophy node.</div>
 
 
@@ -9351,6 +9622,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9379,6 +9651,7 @@ tion and a fatal course in six individuals."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9433,6 +9706,9 @@ This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9447,6 +9723,7 @@ This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9503,6 +9780,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9517,6 +9797,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9573,6 +9854,9 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9587,6 +9871,7 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9641,6 +9926,9 @@ This clinical feature is Reduced tendon reflexes (HP:0001315). HP:0001315 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9655,6 +9943,7 @@ This clinical feature is Reduced tendon reflexes (HP:0001315). HP:0001315 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9710,6 +9999,9 @@ This clinical feature is Motor axonal neuropathy (HP:0007002). HP:0007002 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9724,6 +10016,7 @@ This clinical feature is Motor axonal neuropathy (HP:0007002). HP:0007002 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9748,6 +10041,7 @@ This clinical feature is Motor axonal neuropathy (HP:0007002). HP:0007002 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9808,6 +10102,9 @@ This clinical feature is Degeneration of anterior horn cells (HP:0002398). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9822,6 +10119,7 @@ This clinical feature is Degeneration of anterior horn cells (HP:0002398). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9876,6 +10174,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9890,6 +10191,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9969,6 +10271,9 @@ This clinical feature is Neurodegeneration (HP:0002180), qualified as course pro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9983,6 +10288,7 @@ This clinical feature is Neurodegeneration (HP:0002180), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10007,6 +10313,7 @@ This clinical feature is Neurodegeneration (HP:0002180), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10064,6 +10371,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10078,6 +10388,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10132,6 +10443,9 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10146,6 +10460,7 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10200,6 +10515,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10214,6 +10532,7 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10268,6 +10587,9 @@ This clinical feature is Hand tremor (HP:0002378). HP:0002378 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10282,6 +10604,7 @@ This clinical feature is Hand tremor (HP:0002378). HP:0002378 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10338,6 +10661,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10352,6 +10678,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10406,6 +10733,9 @@ This clinical feature is Caudate atrophy (HP:0002340). HP:0002340 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10420,6 +10750,7 @@ This clinical feature is Caudate atrophy (HP:0002340). HP:0002340 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10476,6 +10807,9 @@ This clinical feature is Putaminal atrophy, annotated with Abnormal putamen morp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10490,6 +10824,7 @@ This clinical feature is Putaminal atrophy, annotated with Abnormal putamen morp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10553,6 +10888,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10567,6 +10905,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10621,6 +10960,9 @@ This clinical feature is Aspiration (HP:0002835). HP:0002835 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10635,6 +10977,7 @@ This clinical feature is Aspiration (HP:0002835). HP:0002835 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10700,6 +11043,9 @@ This clinical feature is Weak cry (HP:0001612). HP:0001612 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10714,6 +11060,7 @@ This clinical feature is Weak cry (HP:0001612). HP:0001612 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10777,6 +11124,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10791,6 +11141,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10892,6 +11243,9 @@ This disease-associated gene is AGTPBP1 (hgnc:17258). hgnc:17258 is a gene from 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -10914,6 +11268,7 @@ This disease-associated gene is AGTPBP1 (hgnc:17258). hgnc:17258 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10941,6 +11296,7 @@ This disease-associated gene is AGTPBP1 (hgnc:17258). hgnc:17258 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10965,6 +11321,7 @@ This disease-associated gene is AGTPBP1 (hgnc:17258). hgnc:17258 is a gene from 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11057,6 +11414,12 @@ This treatment is multidisciplinary supportive care, annotated with Supportive C
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying therapy. Management is supportive and multidisciplinary: nutrition and swallow-safety management, airway clearance and respiratory support, contracture and scoliosis surveillance, management of spasticity and dystonia, communication support, and palliative care in advanced disease.</div>
 
 
@@ -11078,6 +11441,7 @@ This treatment is multidisciplinary supportive care, annotated with Supportive C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11145,6 +11509,9 @@ This treatment is physical and occupational therapy, annotated with Physical The
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11155,6 +11522,9 @@ This treatment is physical and occupational therapy, annotated with Physical The
 
 
     </div>
+
+
+
 
 
 
@@ -11254,6 +11624,9 @@ This treatment is gastrostomy tube placement, annotated with Gastrostomy Tube Pr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11264,6 +11637,9 @@ This treatment is gastrostomy tube placement, annotated with Gastrostomy Tube Pr
 
 
     </div>
+
+
+
 
 
 
@@ -11316,6 +11692,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11382,6 +11759,9 @@ This treatment is noninvasive mechanical ventilation, annotated with Mechanical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11392,6 +11772,9 @@ This treatment is noninvasive mechanical ventilation, annotated with Mechanical 
 
 
     </div>
+
+
+
 
 
 
@@ -11444,6 +11827,7 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11514,6 +11898,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive recurrence counselling (25% per pregnancy for carrier couples), carrier testing of relatives, and discussion of prenatal diagnosis and preimplantation genetic testing once the familial variants are known.</div>
 
 
@@ -11538,6 +11928,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11603,6 +11994,9 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11613,6 +12007,9 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -11661,6 +12058,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11682,6 +12080,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11717,6 +12116,9 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11727,6 +12129,9 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -11775,6 +12180,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11799,6 +12205,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11820,6 +12227,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11886,6 +12294,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11896,6 +12307,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -11941,6 +12355,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12029,6 +12444,9 @@ This treatment uses recombinant human VEGF-B, annotated with Recombinant Vascula
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12039,6 +12457,9 @@ This treatment uses recombinant human VEGF-B, annotated with Recombinant Vascula
 
 
     </div>
+
+
+
 
 
 
@@ -12087,6 +12508,7 @@ This treatment uses recombinant human VEGF-B, annotated with Recombinant Vascula
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12108,6 +12530,7 @@ This treatment uses recombinant human VEGF-B, annotated with Recombinant Vascula
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12135,6 +12558,7 @@ This treatment uses recombinant human VEGF-B, annotated with Recombinant Vascula
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -12222,6 +12646,9 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12232,6 +12659,9 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -12280,6 +12710,7 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12301,6 +12732,7 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12376,6 +12808,7 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12397,6 +12830,7 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12514,6 +12948,7 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12578,6 +13013,7 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12625,6 +13061,7 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12678,6 +13115,7 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12699,6 +13137,7 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12767,6 +13206,7 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12865,6 +13305,7 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12932,6 +13373,7 @@ This treatment uses lacosamide (CHEBI:135939). CHEBI:135939 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13141,6 +13583,7 @@ This experimental model concerns AGTPBP1 (hgnc:17258). hgnc:17258 is a gene from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13165,6 +13608,7 @@ This experimental model concerns AGTPBP1 (hgnc:17258). hgnc:17258 is a gene from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13186,6 +13630,7 @@ This experimental model concerns AGTPBP1 (hgnc:17258). hgnc:17258 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16573,6 +17018,29 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">GeneReviews baseline: a PubMed search for a GeneReviews chapter covering AGTPBP1 or CONDCA (&#34;AGTPBP1 GeneReviews[All Fields]&#34; and a broader disease-name search) returned no results on 2026-08-31. No GeneReviews chapter exists for this disorder, so no GeneReviews-derived phenotype baseline was available and none is tagged in `references`.
+Childhood mortality is recorded under `progression`, not as a phenotype: the obvious HPO term (HP:0003819 Death in childhood) sits in the mortality/aging branch rather than under Phenotypic abnormality, so it is not a member of the PhenotypeTerm dynamic enum and cannot be bound in `phenotypes`.
+Scope decision on non-neurological AGTPBP1 phenotypes: biallelic AGTPBP1 missense variants have separately been linked to human teratozoospermia with sperm head and flagellar defects (PMID:37937809), consistent with the defective spermatogenesis of pcd mice. Those patients were ascertained for infertility, not neurodegeneration, and are not reported to have CONDCA. Male infertility is therefore not curated as a CONDCA phenotype in this entry; whether the two allelic presentations are one spectrum is unresolved.
+`evidence_source` grading rule used throughout this entry: the value describes what the QUOTED SENTENCE reports, not the study design of the paper as a whole. So a review&#39;s summary of published patient findings is HUMAN_CLINICAL, a review&#39;s description of the pcd mouse is MODEL_ORGANISM, and a review&#39;s own framing or overall judgement (a definitional statement, an assessment of model fidelity, a statement about the state of the treatment field) is OTHER. This matters most for PMID:34572343, which supplies clinical synthesis and model context.
+Module conformance: three pathophysiology nodes declare conformance to `cerebellar_purkinje_degeneration`. The module&#39;s amplifier node (Purkinje Cell Calcium and Proteostasis Dysregulation) is deliberately not claimed, because the amplifying step in CONDCA is a tubulin post-translational-modification and transport defect rather than a calcium-handling defect; the disorder-specific amplifier nodes (Tubulin Hyperglutamylation, Impaired Microtubule-Based Axonal Transport) occupy that position in the chain instead. The module&#39;s `Loss of Cerebellar Cortical Output` node is also not claimed: the human data establish neuronal loss and cerebellar atrophy, but do not directly measure Purkinje-to-deep-nuclei signalling. The redundant structural-atrophy node has been removed; neuronal loss remains upstream of the clinical atrophy and the qualified motor consequence. Conforming to an unmeasured human output node would overstate the available functional evidence.
+Deep research provenance: this entry used the Edison/falcon deep-research report at research/Neurodegeneration_Childhood-onset_With_Cerebellar_Atrophy-deep-research-falcon.md. Its own reference validation reported 9/9 references resolved with no confabulations, and its term validation 41/41 terms resolved with matching labels. Those numbers are narrower than they look, and are not why this entry is trustworthy. The report carries 38 citations but contains no PMIDs at all - it cites by author-year key - so only the 9 identifier-bearing citations were ever machine-checked, and the same frontmatter records `on_topic: 6` of those 9, with the remaining 3 undecided rather than cleared. The ~29 author-year citations were treated as unverified throughout. This review independently assessed the cited clinical sources and relevant mechanistic studies, restored the 2019 full text through the reference fetcher, added the DOI-keyed cardiac case and the 2026 human autopsy report, and verified every new quotation against generated caches. The report was generated with an empty mondo_id, so a Named Entity Confusion preflight against MONDO:0032650 was run explicitly; it returned a WARN because TTLL1 is mentioned frequently, but TTLL1 is the counteracting glutamylase central to this mechanism rather than a rival disease gene, and the report&#39;s OMIM ID (618276) matches the MONDO term. Every PMID, snippet and ontology CURIE used here was independently re-verified against the cached source.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Neurodegeneration_Childhood-onset_With_Cerebellar_Atrophy</strong> · 2026-09-01T03:14:40Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neurodegeneration_Childhood-onset_With_Cerebellar_Atrophy/2026-09-01T031440Z-claude-code-f24a64.yaml">View source</a></p>
+                        <p class="research-review-text">Created the CONDCA (AGTPBP1/CCP1) entry de novo from primary literature, using the Edison/falcon deep-research report at research/Neurodegeneration_Childhood-onset_With_Cerebellar_Atrophy-deep-research-falcon.md as leads only. GeneReviews baseline: searched PubMed for an AGTPBP1/CONDCA GeneReviews chapter (&#39;AGTPBP1 GeneReviews[All Fields]&#39; and a broader disease-name search); no chapter exists, so no GeneReviews phenotype baseline was available and none is tagged. Report handling: the falcon report was generated with an empty mondo_id, so a Named Entity Confusion preflight was run explicitly (just preflight-dr ... MONDO:0032650 --strict); it returned WARN only because TTLL1 is mentioned 10 times, but TTLL1 is the counteracting glutamylase central to this mechanism rather than a rival disease gene, and the report&#39;s OMIM ID 618276 matches the MONDO term, so the report is on-target. The report&#39;s own reference_validation reported 9/9 resolved and term_validation 41/41 resolved with matching labels, but the report carries 38 citations and contains ZERO PMIDs, so only 9 identifier-bearing citations were ever checked; the ~29 author-year-keyed citations were treated as unverified. Every DOI in the report was converted to a PMID via the PMC ID converter and re-fetched, so the entry cites 21 distinct PMIDs and NO DOI-keyed evidence at all -- every snippet is therefore covered by the gating CI validator, and no --unskip-prefix DOI run was needed. Content: 9-node causal pathophysiology chain (CCP1 deglutamylase deficiency -&gt; tubulin hyperglutamylation -&gt; impaired microtubule-based axonal transport and Purkinje cell ER stress -&gt; Purkinje neuron degeneration and lower motor neuron/peripheral axon degeneration -&gt; progressive cerebellar atrophy and motor neuronopathy -&gt; cerebellar ataxia/movement disorder and progressive weakness), with edge-level evidence including the TTLL1 genetic rescue experiments. Three nodes declare conforms_to against cerebellar_purkinje_degeneration (#Cerebellar Neuron Insult, #Purkinje Neuron Degeneration, #Cerebellar Ataxia); the module&#39;s calcium/proteostasis amplifier node is deliberately NOT claimed because the CONDCA amplifier is a tubulin post-translational-modification and transport defect. 19 phenotypes, all with at least one HUMAN_CLINICAL evidence item (mouse data is never the sole support for a human phenotype). Deliberate omissions recorded in the file: has_subtypes is NOT used (the literature describes a continuous severity spectrum with no named nosologic entities, and Shashi et al. explicitly cautioned against a definitive genotype-phenotype correlation) -- recorded as discussion condca-subtype-structure; frequency: is omitted on all but one phenotype (neurogenic muscle atrophy, FREQUENT, from an explicit &#39;half of the patients&#39; statement) because the published counts come from severity-ascertained case reports with differing denominators -- recorded as condca-frequency-data; the single 2023 dilated-cardiomyopathy case report is NOT curated as a phenotype because its journal has no PubMed record and no PMID-anchored snippet is possible -- recorded as condca-cardiac-involvement; childhood mortality is recorded under progression rather than phenotypes because HP:0003819 is outside the PhenotypeTerm dynamic enum; AGTPBP1-related teratozoospermia (PMID:37937809) is noted as out of scope. Five knowledge-gap discussions. Treatments: five supportive-care entries plus four clearly-labelled PRECLINICAL-ONLY investigational entries (AAV Ccp1 gene replacement, TTLL1-directed polyglutamylation reduction, rhVEGF-B, lacosamide/CRMP2), each with target_mechanisms linking to the pathograph. Treatment terms use NCIT throughout (MAXO is retired in this repo). No datasets block: just discover-datasets returned no GEO candidates, which is expected for an ultra-rare disorder. Validation: just validate passes (schema + terms + references, 107/107 snippets verified); check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms, check-folded-hyphens, check-snippet-length and check-snippet-grading all pass; compliance 86.3% global / 86.5% weighted. A red-team self-review (dismech-pr-review skill, run in a fresh-context subagent) was performed before opening the PR and found 6 critical and 11 important issues, all fixed in this same PR: three snippets truncated immediately before the clause carrying their claim (Nna1 deglutamatase, Delta2-tubulin, and the ataxia edge); two supports:REFUTE items pointed at objects they did not refute (the AGTPBP1 causal-gene entry, and a null result about a different drug attached to the rhVEGF-B entry); a bundled ataxia/spasticity/dystonia node whose causal attribution its own phenotype entry contradicted; two evidence items mixing IN_VITRO and MODEL_ORGANISM in one quote; a cultured-hippocampal-neuron result graded MODEL_ORGANISM; an inconsistent evidence_source policy for the PMID:34572343 review, now governed by an explicit rule recorded in notes (grade what the quoted sentence reports, not the paper&#39;s overall design); a cell-autonomy claim that wrongly excluded any glial contribution; and an ESTABLISHED confidence on a Purkinje-cell-degeneration node that no human study has ever confirmed. That last one produced the most substantive change: PMID:30420557 states outright that &#39;we could not yet obtain direct evidence for Purkinje cell degeneration in human patients as no postmortem examinations were conducted&#39;, so the node was downgraded to PROVISIONAL, that disclaimer was added as a supports:NO_EVIDENCE item, and a sixth discussion of kind HUMAN_MODEL_MISMATCH was added. The review also surfaced two content gaps now filled: a Tongue Fasciculations phenotype (HP:0001308) quotable from a snippet the entry already cited twice, and a microtubule-depolymerizer preclinical treatment from PMID:33004692. The frequency rationale was rewritten to state the real reason bands are mostly omitted (the counts sit in a table the reference cache does not capture as text, so no CI-verifiable snippet exists for them) rather than the post-hoc epistemic reason originally recorded.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

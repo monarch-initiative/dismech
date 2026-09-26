@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4219,6 +4287,7 @@ The two literatures should not be merged carelessly, and this entry keeps them a
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4243,6 +4312,7 @@ The two literatures should not be merged carelessly, and this entry keeps them a
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4486,6 +4556,13 @@ The question is worth resolving beyond tidiness, because it would say which dise
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-flii-variants" data-dismech-node="Biallelic FLII Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic FLII Variants</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion. Four variants were found across the three families: one predicted to introduce a premature stop codon, three missense changes at highly conserved residues. All were absent from gnomAD or present at very low frequency in the heterozygous state.
 The authors expected the mechanism to be hypomorphic rather than null, and that expectation is load-bearing for the whole entry: complete loss of FLII function is embryonic-lethal in Drosophila, zebrafish and mouse, so a viable human recessive disease has to involve alleles that leave some protein working. The zebrafish modelling is built around that distinction, with the patient-mimicking knock-ins compared against a pre-existing severe truncating line.</div>
 
@@ -4547,6 +4624,8 @@ This pathophysiological event involves FLII (hgnc:3750). hgnc:3750 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4557,6 +4636,9 @@ This pathophysiological event involves FLII (hgnc:3750). hgnc:3750 is a gene fro
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Curated as partial rather than complete loss of function on the authors&#39; own reasoning - null FLII is embryonic-lethal across three model species, and these patients are alive with a cardiac-restricted phenotype - and on the zebrafish result that the patient-mimicking alleles give a milder phenotype than the severe truncating line. Note this is an inference about the alleles&#39; consequence, not a direct measurement of residual flightless-I protein in a patient.</div>
 
@@ -4606,6 +4688,7 @@ This pathophysiological event involves FLII (hgnc:3750). hgnc:3750 is a gene fro
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4630,6 +4713,7 @@ This pathophysiological event involves FLII (hgnc:3750). hgnc:3750 is a gene fro
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4658,6 +4742,7 @@ This pathophysiological event involves FLII (hgnc:3750). hgnc:3750 is a gene fro
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4680,6 +4765,13 @@ This pathophysiological event involves FLII (hgnc:3750). hgnc:3750 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-flightless-i-function-in-cardiomyocytes" data-dismech-node="Reduced Flightless-I Function in Cardiomyocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Flightless-I Function in Cardiomyocytes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Flightless-I is a member of the gelsolin superfamily and was first described as a regulator of actin dynamics; it also localises at cell-adhesion sites. In the heart that combination gives it several jobs at once, and the three edges out of this node are the three the defining paper measured, with a fourth added from independent mouse work.
 The authors&#39; own summary of what the protein turned out to be doing is worth keeping intact rather than paraphrasing: Flii dysfunction affects the structural components of the ventricular myocardium - myofibrils and cell adhesion complexes - *and* dysregulates DCM-related signalling pathways during ventricular chamber morphogenesis. This is not a protein with one downstream consequence.</div>
@@ -4828,6 +4920,7 @@ This pathophysiological event involves decreased actin filament organization (GO
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4854,6 +4947,7 @@ This pathophysiological event involves decreased actin filament organization (GO
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4876,6 +4970,13 @@ This pathophysiological event involves decreased actin filament organization (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myofibril-disorganization" data-dismech-node="Myofibril Disorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Myofibril Disorganization</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Zebrafish carrying a patient-mimicking FLII missense allele have myofibrils and intercalated discs that are less densely packed and irregularly oriented, on transmission electron microscopy. The severe truncating line is worse still, with poorly defined filament organisation - a dose relationship that supports reading the patients&#39; alleles as hypomorphic rather than null.</div>
 
@@ -4987,6 +5088,7 @@ This pathophysiological event involves decreased myofibril assembly (GO:0030239)
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5009,6 +5111,13 @@ This pathophysiological event involves decreased myofibril assembly (GO:0030239)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-cell-adhesion-complex-failure" data-dismech-node="Cardiomyocyte Cell Adhesion Complex Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Cell Adhesion Complex Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The finding the defining paper puts in its own title, and the one that separates flightless-I from an ordinary sarcomeric protein. Vinculin, imaged live as a fusion protein in zebrafish cardiomyocytes, normally concentrates into discrete foci at the lateral membrane. In flii mutants it is dispersed along the membrane instead. The adhesion machinery is present but no longer organised into the discrete anchor points a cardiomyocyte needs to transmit force to its neighbours.
 Note what this claim rests on. The dispersal was measured in the severe truncating line, not in the patient-mimicking knock-in - so the strength of the evidence here is for flightless-I&#39;s role in adhesion-complex patterning, with the extension to the hypomorphic patient alleles resting on the shared myofibrillar and contractile phenotype rather than on a vinculin measurement in those animals.</div>
@@ -5161,6 +5270,7 @@ This pathophysiological event involves decreased cell-cell adhesion (GO:0098609)
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5183,6 +5293,13 @@ This pathophysiological event involves decreased cell-cell adhesion (GO:0098609)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-notch-and-hippo-signaling" data-dismech-node="Dysregulated Notch and Hippo Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Notch and Hippo Signaling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Two developmental signalling pathways, both independently linked to trabeculation and to dilated cardiomyopathy, are disturbed in flii-deficient myocardium. Notch reporter expression is strongly reduced in compact-layer cardiomyocytes while being preserved in the atrioventricular canal and outflow tract - a regionally specific loss rather than a global one. Nuclear localisation of the Hippo effector Wwtr1/Taz is strongly reduced in the same ventricular myocardium.
 Marked PROVISIONAL for two reasons that should not be collapsed. Both measurements come from the severe truncating zebrafish line rather than from the patient-mimicking alleles; and both are readouts, not mechanisms - what connects loss of an actin-remodelling protein to reduced Notch reporter activity and to Taz nuclear exclusion is not established here. The likely bridge is mechanotransduction, since Taz is a mechanosensitive effector and the myofibrillar and adhesion lesions upstream both change how force is generated and transmitted; but that is reasoning, not a result in this paper, and it is stated as such.</div>
@@ -5329,6 +5446,7 @@ This pathophysiological event involves dysregulated hippo signaling (GO:0035329)
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5355,6 +5473,7 @@ This pathophysiological event involves dysregulated hippo signaling (GO:0035329)
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5377,6 +5496,13 @@ This pathophysiological event involves dysregulated hippo signaling (GO:0035329)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcomeric-thin-filament-shortening" data-dismech-node="Sarcomeric Thin Filament Shortening" data-dismech-type="pathophysiology">
                 <div class="item-name">Sarcomeric Thin Filament Shortening</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A fourth arm, reached from a different direction and in a different genetic model. Mouse work driven by a common FLII variant found in cardiac-remodelling genome-wide association studies showed that Flii binds the sarcomeric actin thin filament and influences its length, acting together with tropomodulin-1, and that deleting Flii from the heart - or introducing the R1245H substitution - causes cardiomyopathy through thin-filament shortening.
 The rescue is the part that makes this more than an association: overexpressing leiomodin-2, which lengthens thin filaments, partially rescued the disease caused by cardiac Flii deletion. That is a manipulation of the proposed mechanism reversing the phenotype, which is stronger evidence than a correlation - and it links this entry to dilated cardiomyopathy 2G, the LMOD2 disease, at the level of one shared physical parameter.
@@ -5490,6 +5616,7 @@ This pathophysiological event involves abnormal actin cytoskeleton organization 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5514,6 +5641,7 @@ This pathophysiological event involves abnormal actin cytoskeleton organization 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5542,6 +5670,7 @@ This pathophysiological event involves abnormal actin cytoskeleton organization 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5564,6 +5693,13 @@ This pathophysiological event involves abnormal actin cytoskeleton organization 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-ventricular-trabeculation" data-dismech-node="Defective Ventricular Trabeculation" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Ventricular Trabeculation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Trabeculation is how the embryonic ventricle builds the muscular complexity it needs before a coronary circulation exists. In flii mutant zebrafish it fails: the patient-mimicking line has less organised, more primitive trabeculae, and the severe truncating line has almost none, together with cardiomyocytes extruding toward the abluminal side of the ventricle.
 This node is why CMD2J reads as a morphogenetic disease rather than a degenerative one. A ventricle that never trabeculated properly starts life with a structural deficit, which is consistent with presentation at two to five months rather than in later childhood.</div>
@@ -5656,6 +5792,7 @@ This pathophysiological event involves abnormal heart morphogenesis (GO:0003007)
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5678,6 +5815,13 @@ This pathophysiological event involves abnormal heart morphogenesis (GO:0003007)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ventricular-contractility" data-dismech-node="Impaired Ventricular Contractility" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Ventricular Contractility</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The convergence point, and the thing measured in both species. Dilated cardiomyopathy is by definition ventricular dilation with impaired myocardial contractility, and the zebrafish carrying the patients&#39; own variants reproduced key functional abnormalities of the heart seen in the patients.
 Note this node is tagged ORGANISM rather than TISSUE: the claim is about whole-heart pump function, which is what the ejection fraction measures and what the patients present with, rather than about the state of the myocardial tissue.</div>
@@ -5771,6 +5915,7 @@ Note this node is tagged ORGANISM rather than TISSUE: the claim is about whole-h
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5795,6 +5940,7 @@ Note this node is tagged ORGANISM rather than TISSUE: the claim is about whole-h
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5842,7 +5988,7 @@ Note this node is tagged ORGANISM rather than TISSUE: the claim is about whole-h
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic FLII Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Four variants were found across the three families: one predicted to introduce a premature stop codon, three missense changes at highly conserved residues. All were absent from gnomAD or present at very low frequency in the heterozygous state.\\nThe authors expected the mechanism to be hypomorphic rather than null, and that expectation is load-bearing for the whole entry: complete loss of FLII function is embryonic-lethal in Drosophila, zebrafish and mouse, so a viable human recessive disease has to involve alleles that leave some protein working. The zebrafish modelling is built around that distinction, with the patient-mimicking knock-ins compared against a pre-existing severe truncating line.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"FLII\"], \"gene_terms\": [{\"label\": \"FLII\", \"id\": \"hgnc:3750\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Curated as partial rather than complete loss of function on the authors\u0027 own reasoning - null FLII is embryonic-lethal across three model species, and these patients are alive with a cardiac-restricted phenotype - and on the zebrafish result that the patient-mimicking alleles give a milder phenotype than the severe truncating line. Note this is an inference about the alleles\u0027 consequence, not a direct measurement of residual flightless-I protein in a patient.\"}, \"role\": \"trigger\"}}, {\"id\": \"Cardiac-specific Flii deletion and R1245H knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Gain- and loss-of-function mice plus a knock-in of the residue syntenic to the human common variant R1243H. This is the model that produced the thin-filament-length mechanism and the leiomodin-2 rescue.\"}, {\"id\": \"Cardiomyocyte Cell Adhesion Complex Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The finding the defining paper puts in its own title, and the one that separates flightless-I from an ordinary sarcomeric protein. Vinculin, imaged live as a fusion protein in zebrafish cardiomyocytes, normally concentrates into discrete foci at the lateral membrane. In flii mutants it is dispersed along the membrane instead. The adhesion machinery is present but no longer organised into the discrete anchor points a cardiomyocyte needs to transmit force to its neighbours.\\nNote what this claim rests on. The dispersal was measured in the severe truncating line, not in the patient-mimicking knock-in - so the strength of the evidence here is for flightless-I\u0027s role in adhesion-complex patterning, with the extension to the hypomorphic patient alleles resting on the shared myofibrillar and contractile phenotype rather than on a vinculin measurement in those animals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cell-cell adhesion\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"flii D110fs severe truncating zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"flii D110fs homozygous premature stop in exon 5, lacking functional gelsolin domains\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Live imaging of a vinculin-EGFP fusion shows the protein dispersed along the lateral cardiomyocyte membrane instead of concentrated into foci.\"}]}}, {\"id\": \"Defective Ventricular Trabeculation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Trabeculation is how the embryonic ventricle builds the muscular complexity it needs before a coronary circulation exists. In flii mutant zebrafish it fails: the patient-mimicking line has less organised, more primitive trabeculae, and the severe truncating line has almost none, together with cardiomyocytes extruding toward the abluminal side of the ventricle.\\nThis node is why CMD2J reads as a morphogenetic disease rather than a degenerative one. A ventricle that never trabeculated properly starts life with a structural deficit, which is consistent with presentation at two to five months rather than in later childhood.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"heart morphogenesis\"], \"role\": \"effector\"}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining phenotype, present in all three reported patients and the reason each came to attention. Onset was within the first year of life in every case, between two and five months.\\nNo frequency band is recorded. Three patients is not a denominator, and the cohort was ascertained by starting from children who already had idiopathic early-onset dilated cardiomyopathy - so \\\"3 of 3\\\" describes the entry criterion of the study rather than the penetrance of the genotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Dysregulated Notch and Hippo Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two developmental signalling pathways, both independently linked to trabeculation and to dilated cardiomyopathy, are disturbed in flii-deficient myocardium. Notch reporter expression is strongly reduced in compact-layer cardiomyocytes while being preserved in the atrioventricular canal and outflow tract - a regionally specific loss rather than a global one. Nuclear localisation of the Hippo effector Wwtr1/Taz is strongly reduced in the same ventricular myocardium.\\nMarked PROVISIONAL for two reasons that should not be collapsed. Both measurements come from the severe truncating zebrafish line rather than from the patient-mimicking alleles; and both are readouts, not mechanisms - what connects loss of an actin-remodelling protein to reduced Notch reporter activity and to Taz nuclear exclusion is not established here. The likely bridge is mechanotransduction, since Taz is a mechanosensitive effector and the myofibrillar and adhesion lesions upstream both change how force is generated and transmitted; but that is reasoning, not a result in this paper, and it is stated as such.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Notch signaling pathway\", \"hippo signaling\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"flii D110fs severe truncating zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"flii D110fs homozygous premature stop in exon 5, lacking functional gelsolin domains\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reduced Notch reporter expression in compact-layer cardiomyocytes, and reduced nuclear Wwtr1/Taz in the ventricular myocardium.\"}]}}, {\"id\": \"FLII\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FLII\"], \"gene_terms\": [{\"label\": \"FLII\", \"id\": \"hgnc:3750\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Impaired Ventricular Contractility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point, and the thing measured in both species. Dilated cardiomyopathy is by definition ventricular dilation with impaired myocardial contractility, and the zebrafish carrying the patients\u0027 own variants reproduced key functional abnormalities of the heart seen in the patients.\\nNote this node is tagged ORGANISM rather than TISSUE: the claim is about whole-heart pump function, which is what the ejection fraction measures and what the patients present with, rather than about the state of the myocardial tissue.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\", \"animal_models\": [{\"name\": \"flii R1230C knock-in zebrafish (patient-mimicking missense)\", \"species\": \"Zebrafish\", \"genotype\": \"flii R1230C homozygous, the zebrafish equivalent of the patient allele p.(R1240C)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Functional imaging of the beating embryonic heart reproduced key functional abnormalities seen in the patients.\"}, {\"name\": \"Cardiac-specific Flii deletion and R1245H knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Cardiac Flii deletion; separately, Flii R1245H knock-in (syntenic to human R1243H)\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Overexpressing leiomodin-2, which lengthens thin filaments, partially rescued the cardiomyopathy of cardiac Flii deletion - a manipulation of the proposed mechanism reversing the phenotype.\"}]}}, {\"id\": \"Myofibril Disorganization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Zebrafish carrying a patient-mimicking FLII missense allele have myofibrils and intercalated discs that are less densely packed and irregularly oriented, on transmission electron microscopy. The severe truncating line is worse still, with poorly defined filament organisation - a dose relationship that supports reading the patients\u0027 alleles as hypomorphic rather than null.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"myofibril assembly\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"flii R1230C knock-in zebrafish (patient-mimicking missense)\", \"species\": \"Zebrafish\", \"genotype\": \"flii R1230C homozygous, the zebrafish equivalent of the patient allele p.(R1240C)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Transmission electron microscopy shows less densely packed, irregularly oriented myofibrils and intercalated discs, in an animal carrying the knocked-in equivalent of a patient\u0027s own allele.\"}]}}, {\"id\": \"Reduced Flightless-I Function in Cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Flightless-I is a member of the gelsolin superfamily and was first described as a regulator of actin dynamics; it also localises at cell-adhesion sites. In the heart that combination gives it several jobs at once, and the three edges out of this node are the three the defining paper measured, with a fourth added from independent mouse work.\\nThe authors\u0027 own summary of what the protein turned out to be doing is worth keeping intact rather than paraphrasing: Flii dysfunction affects the structural components of the ventricular myocardium - myofibrils and cell adhesion complexes - *and* dysregulates DCM-related signalling pathways during ventricular chamber morphogenesis. This is not a protein with one downstream consequence.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"actin filament organization\"], \"role\": \"central_effector\"}}, {\"id\": \"Reduced Left Ventricular Ejection Fraction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severely reduced in all three patients at presentation, in the range 23 to 32 percent against a normal floor of about 55 percent. Curated separately from the dilated-cardiomyopathy diagnosis because it is the quantitative measurement that tracks the disease and, in these patients, improved: at last follow-up between two and nine years of age all three were alive with stable or improved cardiac function.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012664\"}}, {\"id\": \"Sarcomeric Thin Filament Shortening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A fourth arm, reached from a different direction and in a different genetic model. Mouse work driven by a common FLII variant found in cardiac-remodelling genome-wide association studies showed that Flii binds the sarcomeric actin thin filament and influences its length, acting together with tropomodulin-1, and that deleting Flii from the heart - or introducing the R1245H substitution - causes cardiomyopathy through thin-filament shortening.\\nThe rescue is the part that makes this more than an association: overexpressing leiomodin-2, which lengthens thin filaments, partially rescued the disease caused by cardiac Flii deletion. That is a manipulation of the proposed mechanism reversing the phenotype, which is stronger evidence than a correlation - and it links this entry to dilated cardiomyopathy 2G, the LMOD2 disease, at the level of one shared physical parameter.\\nPROVISIONAL for this entity all the same, and the reason is genetic rather than experimental. The mouse work concerns a common heterozygous-state variant and a cardiac-specific deletion; CMD2J is a recessive disease of biallelic hypomorphic alleles in infants. Thin-filament length has not been measured in a CMD2J patient or in the patient-mimicking zebrafish, and the defining paper does not report it.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"actin cytoskeleton organization\"], \"role\": \"modulator\", \"animal_models\": [{\"name\": \"Cardiac-specific Flii deletion and R1245H knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Cardiac Flii deletion; separately, Flii R1245H knock-in (syntenic to human R1243H)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cardiac Flii deletion and the R1245H knock-in both produce cardiomyopathy attributed to shortening of the sarcomeric actin thin filaments, with Flii shown to bind the thin filament and to act with tropomodulin-1.\"}]}}, {\"id\": \"flii D110fs severe truncating zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A pre-existing severe truncating line, used as the strong end of an allelic series rather than as a model of the patients. It carries most of the mechanistic readouts in the paper - adhesion-complex patterning, Notch reporter activity, Taz nuclear localisation - because the hypomorphic knock-ins give changes too subtle to measure reliably.\"}, {\"id\": \"flii R1230C knock-in zebrafish (patient-mimicking missense)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"CRISPR/Cas9 knock-in of the zebrafish residue corresponding to a patient\u0027s missense variant, plus a compound-heterozygous line pairing the equivalent of the second family\u0027s missense allele with a premature-stop allele. These animals were viable to adulthood and morphologically normal at 120 hours post-fertilisation, which is itself the point: the phenotype is cardiac and subtle, as a hypomorphic allele should be.\"}], \"edges\": [{\"source\": \"Biallelic FLII Variants\", \"target\": \"Reduced Flightless-I Function in Cardiomyocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Flightless-I Function in Cardiomyocytes\", \"target\": \"Myofibril Disorganization\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Flightless-I Function in Cardiomyocytes\", \"target\": \"Cardiomyocyte Cell Adhesion Complex Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Flightless-I Function in Cardiomyocytes\", \"target\": \"Dysregulated Notch and Hippo Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Typed with unknown intermediates because the signalling changes were measured as endpoints - reduced Notch reporter expression, reduced nuclear Taz - without the steps connecting them to loss of an actin-remodelling protein being established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Flightless-I Function in Cardiomyocytes\", \"target\": \"Sarcomeric Thin Filament Shortening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Typed with unknown intermediates, and note it comes from a different genetic model: mouse cardiac Flii deletion and the R1243H/R1245H knock-in, not a biallelic patient allele.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myofibril Disorganization\", \"target\": \"Impaired Ventricular Contractility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyocyte Cell Adhesion Complex Failure\", \"target\": \"Impaired Ventricular Contractility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyocyte Cell Adhesion Complex Failure\", \"target\": \"Defective Ventricular Trabeculation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Notch and Hippo Signaling\", \"target\": \"Defective Ventricular Trabeculation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Sarcomeric Thin Filament Shortening\", \"target\": \"Impaired Ventricular Contractility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Ventricular Trabeculation\", \"target\": \"Impaired Ventricular Contractility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Ventricular Contractility\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Ventricular Contractility\", \"target\": \"Reduced Left Ventricular Ejection Fraction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"flii R1230C knock-in zebrafish (patient-mimicking missense)\", \"target\": \"Myofibril Disorganization\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Transmission electron microscopy shows less densely packed, irregularly oriented myofibrils and intercalated discs, in an animal carrying the knocked-in equivalent of a patient\u0027s own allele.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Zebrafish ventricular myocardium is two-layered and lacks the compact wall thickness and coronary circulation of a mammalian heart, so trabecular and wall-architecture findings do not transfer to human anatomy one for one. The residue numbering also differs between species.\"}, {\"source\": \"flii R1230C knock-in zebrafish (patient-mimicking missense)\", \"target\": \"Impaired Ventricular Contractility\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Functional imaging of the beating embryonic heart reproduced key functional abnormalities seen in the patients.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Ejection fraction in a five-day-old zebrafish larva measured by high-speed video is not the same measurement as a clinical echocardiogram, and the larval heart is not yet load-bearing in the way an infant\u0027s is.\"}, {\"source\": \"flii D110fs severe truncating zebrafish\", \"target\": \"Cardiomyocyte Cell Adhesion Complex Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Live imaging of a vinculin-EGFP fusion shows the protein dispersed along the lateral cardiomyocyte membrane instead of concentrated into foci.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a severe truncating allele, not a patient allele. It demonstrates what flightless-I does for adhesion-complex patterning; it does not show that the patients\u0027 hypomorphic alleles disturb vinculin in the same way, which was not measured.\"}, {\"source\": \"flii D110fs severe truncating zebrafish\", \"target\": \"Dysregulated Notch and Hippo Signaling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced Notch reporter expression in compact-layer cardiomyocytes, and reduced nuclear Wwtr1/Taz in the ventricular myocardium.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is low for CMD2J specifically. These are severe-allele findings in a fish embryo, the corresponding measurements have not been made in the patient-mimicking lines, and no signalling readout has been obtained from human FLII-deficient tissue.\"}, {\"source\": \"Cardiac-specific Flii deletion and R1245H knock-in mouse\", \"target\": \"Sarcomeric Thin Filament Shortening\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cardiac Flii deletion and the R1245H knock-in both produce cardiomyopathy attributed to shortening of the sarcomeric actin thin filaments, with Flii shown to bind the thin filament and to act with tropomodulin-1.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This models a different genetic situation from CMD2J. The disease modelled is a common-variant risk allele and a cardiac-specific deletion, not a biallelic hypomorphic infantile genotype, and no thin-filament measurement has been made in a CMD2J patient or in the patient-mimicking zebrafish. Fidelity is moderate for the mechanism and low for the entity.\"}, {\"source\": \"Cardiac-specific Flii deletion and R1245H knock-in mouse\", \"target\": \"Impaired Ventricular Contractility\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Overexpressing leiomodin-2, which lengthens thin filaments, partially rescued the cardiomyopathy of cardiac Flii deletion - a manipulation of the proposed mechanism reversing the phenotype.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The rescue is partial, it is in the deletion model rather than in a patient-allele model, and leiomodin-2 overexpression is not a therapy. Its value here is as a mechanistic test, and as the link to the LMOD2 disease curated as dilated cardiomyopathy 2G.\"}, {\"source\": \"FLII\", \"target\": \"Biallelic FLII Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic FLII Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Four variants were found across the three families: one predicted to introduce a premature stop codon, three missense changes at highly conserved residues. All were absent from gnomAD or present at very low frequency in the heterozygous state.\\nThe authors expected the mechanism to be hypomorphic rather than null, and that expectation is load-bearing for the whole entry: complete loss of FLII function is embryonic-lethal in Drosophila, zebrafish and mouse, so a viable human recessive disease has to involve alleles that leave some protein working. The zebrafish modelling is built around that distinction, with the patient-mimicking knock-ins compared against a pre-existing severe truncating line.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"FLII\"], \"gene_terms\": [{\"label\": \"FLII\", \"id\": \"hgnc:3750\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Curated as partial rather than complete loss of function on the authors\u0027 own reasoning - null FLII is embryonic-lethal across three model species, and these patients are alive with a cardiac-restricted phenotype - and on the zebrafish result that the patient-mimicking alleles give a milder phenotype than the severe truncating line. Note this is an inference about the alleles\u0027 consequence, not a direct measurement of residual flightless-I protein in a patient.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cardiac-specific Flii deletion and R1245H knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Gain- and loss-of-function mice plus a knock-in of the residue syntenic to the human common variant R1243H. This is the model that produced the thin-filament-length mechanism and the leiomodin-2 rescue.\"}, {\"id\": \"Cardiomyocyte Cell Adhesion Complex Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The finding the defining paper puts in its own title, and the one that separates flightless-I from an ordinary sarcomeric protein. Vinculin, imaged live as a fusion protein in zebrafish cardiomyocytes, normally concentrates into discrete foci at the lateral membrane. In flii mutants it is dispersed along the membrane instead. The adhesion machinery is present but no longer organised into the discrete anchor points a cardiomyocyte needs to transmit force to its neighbours.\\nNote what this claim rests on. The dispersal was measured in the severe truncating line, not in the patient-mimicking knock-in - so the strength of the evidence here is for flightless-I\u0027s role in adhesion-complex patterning, with the extension to the hypomorphic patient alleles resting on the shared myofibrillar and contractile phenotype rather than on a vinculin measurement in those animals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cell-cell adhesion\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"flii D110fs severe truncating zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"flii D110fs homozygous premature stop in exon 5, lacking functional gelsolin domains\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Live imaging of a vinculin-EGFP fusion shows the protein dispersed along the lateral cardiomyocyte membrane instead of concentrated into foci.\"}]}}, {\"id\": \"Defective Ventricular Trabeculation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Trabeculation is how the embryonic ventricle builds the muscular complexity it needs before a coronary circulation exists. In flii mutant zebrafish it fails: the patient-mimicking line has less organised, more primitive trabeculae, and the severe truncating line has almost none, together with cardiomyocytes extruding toward the abluminal side of the ventricle.\\nThis node is why CMD2J reads as a morphogenetic disease rather than a degenerative one. A ventricle that never trabeculated properly starts life with a structural deficit, which is consistent with presentation at two to five months rather than in later childhood.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"heart morphogenesis\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining phenotype, present in all three reported patients and the reason each came to attention. Onset was within the first year of life in every case, between two and five months.\\nNo frequency band is recorded. Three patients is not a denominator, and the cohort was ascertained by starting from children who already had idiopathic early-onset dilated cardiomyopathy - so \\\"3 of 3\\\" describes the entry criterion of the study rather than the penetrance of the genotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Dysregulated Notch and Hippo Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two developmental signalling pathways, both independently linked to trabeculation and to dilated cardiomyopathy, are disturbed in flii-deficient myocardium. Notch reporter expression is strongly reduced in compact-layer cardiomyocytes while being preserved in the atrioventricular canal and outflow tract - a regionally specific loss rather than a global one. Nuclear localisation of the Hippo effector Wwtr1/Taz is strongly reduced in the same ventricular myocardium.\\nMarked PROVISIONAL for two reasons that should not be collapsed. Both measurements come from the severe truncating zebrafish line rather than from the patient-mimicking alleles; and both are readouts, not mechanisms - what connects loss of an actin-remodelling protein to reduced Notch reporter activity and to Taz nuclear exclusion is not established here. The likely bridge is mechanotransduction, since Taz is a mechanosensitive effector and the myofibrillar and adhesion lesions upstream both change how force is generated and transmitted; but that is reasoning, not a result in this paper, and it is stated as such.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Notch signaling pathway\", \"hippo signaling\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"flii D110fs severe truncating zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"flii D110fs homozygous premature stop in exon 5, lacking functional gelsolin domains\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reduced Notch reporter expression in compact-layer cardiomyocytes, and reduced nuclear Wwtr1/Taz in the ventricular myocardium.\"}]}}, {\"id\": \"FLII\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FLII\"], \"gene_terms\": [{\"label\": \"FLII\", \"id\": \"hgnc:3750\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Impaired Ventricular Contractility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point, and the thing measured in both species. Dilated cardiomyopathy is by definition ventricular dilation with impaired myocardial contractility, and the zebrafish carrying the patients\u0027 own variants reproduced key functional abnormalities of the heart seen in the patients.\\nNote this node is tagged ORGANISM rather than TISSUE: the claim is about whole-heart pump function, which is what the ejection fraction measures and what the patients present with, rather than about the state of the myocardial tissue.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"flii R1230C knock-in zebrafish (patient-mimicking missense)\", \"species\": \"Zebrafish\", \"genotype\": \"flii R1230C homozygous, the zebrafish equivalent of the patient allele p.(R1240C)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Functional imaging of the beating embryonic heart reproduced key functional abnormalities seen in the patients.\"}, {\"name\": \"Cardiac-specific Flii deletion and R1245H knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Cardiac Flii deletion; separately, Flii R1245H knock-in (syntenic to human R1243H)\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Overexpressing leiomodin-2, which lengthens thin filaments, partially rescued the cardiomyopathy of cardiac Flii deletion - a manipulation of the proposed mechanism reversing the phenotype.\"}]}}, {\"id\": \"Myofibril Disorganization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Zebrafish carrying a patient-mimicking FLII missense allele have myofibrils and intercalated discs that are less densely packed and irregularly oriented, on transmission electron microscopy. The severe truncating line is worse still, with poorly defined filament organisation - a dose relationship that supports reading the patients\u0027 alleles as hypomorphic rather than null.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"myofibril assembly\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"flii R1230C knock-in zebrafish (patient-mimicking missense)\", \"species\": \"Zebrafish\", \"genotype\": \"flii R1230C homozygous, the zebrafish equivalent of the patient allele p.(R1240C)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Transmission electron microscopy shows less densely packed, irregularly oriented myofibrils and intercalated discs, in an animal carrying the knocked-in equivalent of a patient\u0027s own allele.\"}]}}, {\"id\": \"Reduced Flightless-I Function in Cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Flightless-I is a member of the gelsolin superfamily and was first described as a regulator of actin dynamics; it also localises at cell-adhesion sites. In the heart that combination gives it several jobs at once, and the three edges out of this node are the three the defining paper measured, with a fourth added from independent mouse work.\\nThe authors\u0027 own summary of what the protein turned out to be doing is worth keeping intact rather than paraphrasing: Flii dysfunction affects the structural components of the ventricular myocardium - myofibrils and cell adhesion complexes - *and* dysregulates DCM-related signalling pathways during ventricular chamber morphogenesis. This is not a protein with one downstream consequence.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"actin filament organization\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced Left Ventricular Ejection Fraction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severely reduced in all three patients at presentation, in the range 23 to 32 percent against a normal floor of about 55 percent. Curated separately from the dilated-cardiomyopathy diagnosis because it is the quantitative measurement that tracks the disease and, in these patients, improved: at last follow-up between two and nine years of age all three were alive with stable or improved cardiac function.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012664\"}}, {\"id\": \"Sarcomeric Thin Filament Shortening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A fourth arm, reached from a different direction and in a different genetic model. Mouse work driven by a common FLII variant found in cardiac-remodelling genome-wide association studies showed that Flii binds the sarcomeric actin thin filament and influences its length, acting together with tropomodulin-1, and that deleting Flii from the heart - or introducing the R1245H substitution - causes cardiomyopathy through thin-filament shortening.\\nThe rescue is the part that makes this more than an association: overexpressing leiomodin-2, which lengthens thin filaments, partially rescued the disease caused by cardiac Flii deletion. That is a manipulation of the proposed mechanism reversing the phenotype, which is stronger evidence than a correlation - and it links this entry to dilated cardiomyopathy 2G, the LMOD2 disease, at the level of one shared physical parameter.\\nPROVISIONAL for this entity all the same, and the reason is genetic rather than experimental. The mouse work concerns a common heterozygous-state variant and a cardiac-specific deletion; CMD2J is a recessive disease of biallelic hypomorphic alleles in infants. Thin-filament length has not been measured in a CMD2J patient or in the patient-mimicking zebrafish, and the defining paper does not report it.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"actin cytoskeleton organization\"], \"role\": \"modulator\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Cardiac-specific Flii deletion and R1245H knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Cardiac Flii deletion; separately, Flii R1245H knock-in (syntenic to human R1243H)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cardiac Flii deletion and the R1245H knock-in both produce cardiomyopathy attributed to shortening of the sarcomeric actin thin filaments, with Flii shown to bind the thin filament and to act with tropomodulin-1.\"}]}}, {\"id\": \"flii D110fs severe truncating zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A pre-existing severe truncating line, used as the strong end of an allelic series rather than as a model of the patients. It carries most of the mechanistic readouts in the paper - adhesion-complex patterning, Notch reporter activity, Taz nuclear localisation - because the hypomorphic knock-ins give changes too subtle to measure reliably.\"}, {\"id\": \"flii R1230C knock-in zebrafish (patient-mimicking missense)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"CRISPR/Cas9 knock-in of the zebrafish residue corresponding to a patient\u0027s missense variant, plus a compound-heterozygous line pairing the equivalent of the second family\u0027s missense allele with a premature-stop allele. These animals were viable to adulthood and morphologically normal at 120 hours post-fertilisation, which is itself the point: the phenotype is cardiac and subtle, as a hypomorphic allele should be.\"}], \"edges\": [{\"source\": \"Biallelic FLII Variants\", \"target\": \"Reduced Flightless-I Function in Cardiomyocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Flightless-I Function in Cardiomyocytes\", \"target\": \"Myofibril Disorganization\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Flightless-I Function in Cardiomyocytes\", \"target\": \"Cardiomyocyte Cell Adhesion Complex Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Flightless-I Function in Cardiomyocytes\", \"target\": \"Dysregulated Notch and Hippo Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Typed with unknown intermediates because the signalling changes were measured as endpoints - reduced Notch reporter expression, reduced nuclear Taz - without the steps connecting them to loss of an actin-remodelling protein being established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Flightless-I Function in Cardiomyocytes\", \"target\": \"Sarcomeric Thin Filament Shortening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Typed with unknown intermediates, and note it comes from a different genetic model: mouse cardiac Flii deletion and the R1243H/R1245H knock-in, not a biallelic patient allele.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myofibril Disorganization\", \"target\": \"Impaired Ventricular Contractility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyocyte Cell Adhesion Complex Failure\", \"target\": \"Impaired Ventricular Contractility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiomyocyte Cell Adhesion Complex Failure\", \"target\": \"Defective Ventricular Trabeculation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Notch and Hippo Signaling\", \"target\": \"Defective Ventricular Trabeculation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Sarcomeric Thin Filament Shortening\", \"target\": \"Impaired Ventricular Contractility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Ventricular Trabeculation\", \"target\": \"Impaired Ventricular Contractility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Ventricular Contractility\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Ventricular Contractility\", \"target\": \"Reduced Left Ventricular Ejection Fraction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"flii R1230C knock-in zebrafish (patient-mimicking missense)\", \"target\": \"Myofibril Disorganization\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Transmission electron microscopy shows less densely packed, irregularly oriented myofibrils and intercalated discs, in an animal carrying the knocked-in equivalent of a patient\u0027s own allele.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Zebrafish ventricular myocardium is two-layered and lacks the compact wall thickness and coronary circulation of a mammalian heart, so trabecular and wall-architecture findings do not transfer to human anatomy one for one. The residue numbering also differs between species.\"}, {\"source\": \"flii R1230C knock-in zebrafish (patient-mimicking missense)\", \"target\": \"Impaired Ventricular Contractility\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Functional imaging of the beating embryonic heart reproduced key functional abnormalities seen in the patients.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Ejection fraction in a five-day-old zebrafish larva measured by high-speed video is not the same measurement as a clinical echocardiogram, and the larval heart is not yet load-bearing in the way an infant\u0027s is.\"}, {\"source\": \"flii D110fs severe truncating zebrafish\", \"target\": \"Cardiomyocyte Cell Adhesion Complex Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Live imaging of a vinculin-EGFP fusion shows the protein dispersed along the lateral cardiomyocyte membrane instead of concentrated into foci.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a severe truncating allele, not a patient allele. It demonstrates what flightless-I does for adhesion-complex patterning; it does not show that the patients\u0027 hypomorphic alleles disturb vinculin in the same way, which was not measured.\"}, {\"source\": \"flii D110fs severe truncating zebrafish\", \"target\": \"Dysregulated Notch and Hippo Signaling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced Notch reporter expression in compact-layer cardiomyocytes, and reduced nuclear Wwtr1/Taz in the ventricular myocardium.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is low for CMD2J specifically. These are severe-allele findings in a fish embryo, the corresponding measurements have not been made in the patient-mimicking lines, and no signalling readout has been obtained from human FLII-deficient tissue.\"}, {\"source\": \"Cardiac-specific Flii deletion and R1245H knock-in mouse\", \"target\": \"Sarcomeric Thin Filament Shortening\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cardiac Flii deletion and the R1245H knock-in both produce cardiomyopathy attributed to shortening of the sarcomeric actin thin filaments, with Flii shown to bind the thin filament and to act with tropomodulin-1.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This models a different genetic situation from CMD2J. The disease modelled is a common-variant risk allele and a cardiac-specific deletion, not a biallelic hypomorphic infantile genotype, and no thin-filament measurement has been made in a CMD2J patient or in the patient-mimicking zebrafish. Fidelity is moderate for the mechanism and low for the entity.\"}, {\"source\": \"Cardiac-specific Flii deletion and R1245H knock-in mouse\", \"target\": \"Impaired Ventricular Contractility\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Overexpressing leiomodin-2, which lengthens thin filaments, partially rescued the cardiomyopathy of cardiac Flii deletion - a manipulation of the proposed mechanism reversing the phenotype.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The rescue is partial, it is in the deletion model rather than in a patient-allele model, and leiomodin-2 overexpression is not a therapy. Its value here is as a mechanistic test, and as the link to the LMOD2 disease curated as dilated cardiomyopathy 2G.\"}, {\"source\": \"FLII\", \"target\": \"Biallelic FLII Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5917,6 +6063,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644), qualified as infan
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5934,6 +6083,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644), qualified as infan
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5987,6 +6137,9 @@ This clinical feature is Reduced left ventricular ejection fraction (HP:0012664)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6004,6 +6157,7 @@ This clinical feature is Reduced left ventricular ejection fraction (HP:0012664)
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6030,6 +6184,7 @@ This clinical feature is Reduced left ventricular ejection fraction (HP:0012664)
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6080,6 +6235,9 @@ This clinical feature is Secundum atrial septal defect (HP:0001684). HP:0001684 
                 </div>
 
 
+
+
+
                 <div class="item-desc">Deliberately not wired into the pathograph. No node in this entry causes atrial septation to fail: the morphogenetic lesion that is evidenced here is ventricular - trabeculation, myofibril organisation, cardiomyocyte adhesion in the ventricular wall - and nothing in either source connects flightless-I loss to atrial septation. Drawing an edge from the ventricular trabeculation node would assert a developmental relationship that no source supports. It stays as an unattached observation until a second patient or a mechanism supplies one.</div>
 
 
@@ -6102,6 +6260,7 @@ This clinical feature is Secundum atrial septal defect (HP:0001684). HP:0001684 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6170,6 +6329,9 @@ This clinical feature is Tachycardia (HP:0001649), qualified as temporality tran
                 </div>
 
 
+
+
+
                 <div class="item-desc">Deliberately not wired into the pathograph. Tachycardia in an infant with a severely reduced ejection fraction is the expected compensatory response to low cardiac output, and drawing that edge would be physiologically reasonable - but the source reports the finding without asserting the causal relationship, and this entry does not add causal edges that no cited source states. The reasoning is recorded here so a later curator can wire it against a source that does make the claim.</div>
 
 
@@ -6192,6 +6354,7 @@ This clinical feature is Tachycardia (HP:0001649), qualified as temporality tran
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6265,6 +6428,9 @@ This disease-associated gene is FLII (hgnc:3750). hgnc:3750 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6282,6 +6448,7 @@ This disease-associated gene is FLII (hgnc:3750). hgnc:3750 is a gene from the H
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6310,6 +6477,7 @@ This disease-associated gene is FLII (hgnc:3750). hgnc:3750 is a gene from the H
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6334,6 +6502,7 @@ This disease-associated gene is FLII (hgnc:3750). hgnc:3750 is a gene from the H
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6421,6 +6590,7 @@ Two practical points for a laboratory encountering a novel FLII variant. The abs
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6447,6 +6617,7 @@ Two practical points for a laboratory encountering a novel FLII variant. The abs
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6471,6 +6642,7 @@ Two practical points for a laboratory encountering a novel FLII variant. The abs
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6542,6 +6714,7 @@ Two practical points for a laboratory encountering a novel FLII variant. The abs
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6594,6 +6767,7 @@ Two practical points for a laboratory encountering a novel FLII variant. The abs
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6667,6 +6841,7 @@ For the denominator rather than for this entity: pediatric cardiomyopathy as a w
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6691,6 +6866,7 @@ For the denominator rather than for this entity: pediatric cardiomyopathy as a w
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6777,6 +6953,7 @@ For the denominator rather than for this entity: pediatric cardiomyopathy as a w
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6833,6 +7010,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6983,6 +7161,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7025,6 +7204,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7081,6 +7261,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7219,6 +7400,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7280,6 +7462,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7322,6 +7505,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7402,6 +7586,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7463,6 +7648,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7505,6 +7691,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7643,6 +7830,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7685,6 +7873,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7765,6 +7954,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7807,6 +7997,7 @@ Clinically they separate on course rather than on presentation: CMD2G is frequen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9351,6 +9542,52 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation level. CMD2J is curated as a standalone entry, in line with how this knowledge base already handles the numbered dilated-cardiomyopathy loci - CMD2G (LMOD2), CMD1GG (SDHA), CMD1R (ACTC1) and many others are separate files. It is a distinct gene with a distinct mechanism and a distinct inheritance pattern from its neighbours, not a severity band on a parent entry.
+The whole entity rests on one paper and three patients. Everything clinical here comes from that report, and the numerators are given per phenotype because with three patients a percentage would be theatre. No frequency band is recorded on any phenotype for the same reason.
+Two sources, two genetic claims, kept separate. The defining paper reports biallelic, recessive, infantile disease. The mouse and GWAS paper concerns R1243H, a common variant associated with cardiac remodelling in the general population, studied in heterozygous-equivalent knock-in and in cardiac-specific deletion mice. Both are cited here, but only the first establishes CMD2J. The thin-filament-length mechanism is drawn from the second and is marked PROVISIONAL in this entry precisely because it has not been shown in a patient with biallelic FLII variants.
+The LMOD2 connection is real and is worth following. In the mouse work, overexpressing leiomodin-2 partially rescued cardiomyopathy caused by cardiac Flii deletion. Leiomodin-2 is the gene of dilated cardiomyopathy 2G, curated in this knowledge base as a thin-filament-length disease. That two of the numbered DCM loci converge on the same physical parameter - from opposite directions, one shortening and one failing to elongate - is the kind of observation a grouping could be built on later. It is recorded here rather than acted on.
+What this entry does not contain. No `treatments:` block: nothing has been published on treating CMD2J specifically, and importing standard heart-failure management would put therapies in the exported graph that no FLII patient has been reported to receive. No `biochemical:` block: no biomarker distinguishes this entity. Both absences are decisions, not gaps in the search.
+Two phenotypes are deliberately left unwired in the pathograph - the secundum atrial septal defect and the tachycardia - each with its reason recorded in its own `notes:`. Neither is an oversight.
+GeneReviews scope. There is no FLII-specific GeneReviews chapter, but the disease-level &#34;Dilated Cardiomyopathy Overview&#34; (PMID:20301486) applies and is tagged accordingly in `references`. Its indexed PubMed record is content_type abstract_only and carries only the chapter&#39;s purpose statement - not the Clinical Characteristics, Management, Genetic Counseling or Surveillance sections - so section-by-section GeneReviews mining is not possible from the cache. The one substantive sentence it does carry, on the proband evaluation strategy for nonsyndromic dilated cardiomyopathy, is quoted on the sequencing `diagnosis` entry; nothing else in the chapter is quotable. This follows the disposition already taken by the numbered-series peers `Cardiomyopathy_Dilated_2G`, `Cardiomyopathy_Dilated_100`, `Dilated_Cardiomyopathy_1AA` and `Dilated_Cardiomyopathy_1EE`, none of which has a gene-specific chapter either. The clinical baseline for this entry is therefore built entirely from the defining primary report.
+On the deep-research report committed with this entry. A falcon report was run with a disambiguating query naming FLII, the OMIM number and the recessive biallelic mechanism. `just preflight-dr` PASSed - FLII mentioned 45 times, the report&#39;s OMIM number matching MONDO&#39;s cross-reference - and the report independently reached this entry&#39;s framing, including the point this entry is most careful about: it states explicitly that the rs8821 p.Arg1243His susceptibility allele studied in adults and mice is not one of the four family alleles that define CMD2J.
+Two of its details are recorded here as uncited leads rather than curated, because they come from the defining paper&#39;s Table 1 rather than from any text that can be quoted against the cached record: two of the three patients presented with overt heart failure and one with a tachyarrhythmia, and the ages at last review were 2, 6 and 9 years. Heart failure is consequently not curated as a phenotype here, although it plainly belongs in the entity - a curator with the table in front of them should add it.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Dilated Cardiomyopathy 2J (MONDO:0957984, FLII)</strong> · 2026-09-04T21:45:34Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cardiomyopathy_Dilated_2J/2026-09-04T214534Z-claude-code-b6b1dc.yaml">View source</a></p>
+                        <p class="research-review-text">New standalone Disease entry for CMD2J (OMIM 620635), the FLII-related recessive infantile dilated cardiomyopathy.
+
+entry_type decision: DISEASE. dismech already curates the numbered DCM loci as standalone files - CMD2G (LMOD2), CMD1GG (SDHA), CMD1R (ACTC1) and roughly forty others are separate entries. MONDO records no descendants for MONDO:0957984 and a single causal gene, so this is a leaf. Confirmed there is no existing kb/ coverage under a different term by grepping origin/main for the MONDO ID and for FLII.
+
+The mechanism, and why it is not just another sarcomeric DCM. Flightless-I is a gelsolin-superfamily actin-remodelling protein, and the defining paper measured three separable consequences of losing it in the heart: myofibril disorganisation, failure of cardiomyocyte cell-adhesion complexes to concentrate into foci, and dysregulated Notch and Hippo signalling in the compact myocardium, all converging on defective ventricular trabeculation. That makes CMD2J a disease of ventricular chamber morphogenesis as much as of contraction, which fits presentation at 2-5 months.
+
+Two separate genetic claims about FLII, deliberately kept apart. PMID:37561591 reports biallelic hypomorphic variants causing recessive infantile DCM in three families - that is CMD2J. PMID:37126682 reports the common variant R1243H associated with cardiac remodelling in GWAS, studied in cardiac-deletion and knock-in mice, where the mechanism is sarcomeric thin-filament shortening with TMOD1 and where LMOD2 overexpression partially rescues. The thin-filament node is curated but marked PROVISIONAL and its edge typed INDIRECT_UNKNOWN_INTERMEDIATES for exactly that reason, and a KNOWLEDGE_GAP discussion asks whether it operates in the recessive disease at all. The LMOD2 rescue links this entry to Cardiomyopathy_Dilated_2G, curated here as a thin-filament-length disease; that convergence is recorded in notes and as a differential rather than acted on.
+
+A second discussion records a HUMAN_MODEL_MISMATCH that is easy to miss when reading the paper: the adhesion-complex and Notch/Hippo findings were all measured in the severe truncating fliiD110fs zebrafish line, not in the patient-mimicking knock-ins, which carry only the myofibrillar and contractile phenotypes. The paper is explicit about why - hypomorphic alleles give subtle differences - but that means the entry&#39;s title-level claim about adhesion is an extrapolation across alleles.
+
+animal_models: three linked models with modeled_mechanisms, readouts and per-link limitations - the patient-mimicking flii R1230C knock-in zebrafish (RECAPITULATES, HIGH/MODERATE), the severe flii D110fs line (RECAPITULATES at MODERATE for adhesion and LOW for signalling, with the allele mismatch stated in limitations), and the mouse cardiac Flii deletion / R1245H knock-in, which carries both a RECAPITULATES link for thin-filament shortening and a RESCUES link for the LMOD2 experiment.
+
+Evidence: 44/44 snippets verified. No DOI-prefixed citations, so nothing skipped by prefix. Sources: PMID:37561591 (defining paper, full text cached), PMID:37126682 (mouse/GWAS thin-filament work), PMID:32870709 (the earlier consanguineous cohort in which two of the three families first appeared, listed under references only).
+
+Phenotype wiring: dilated cardiomyopathy and reduced LVEF are wired from Impaired Ventricular Contractility. The secundum atrial septal defect and the tachycardia are deliberately left unwired, each with the reason in its own notes - no evidenced node in this entry causes atrial septation to fail, and the tachycardia-from-low-output edge is physiologically reasonable but is not asserted by the source.
+
+No frequency bands on any phenotype: three patients ascertained by starting from children who already had idiopathic early-onset DCM, so a proportion would describe the study design. Numerators are given per phenotype instead. No treatments block and no biochemical block, both by decision and both stated in notes.
+
+Deep research: falcon, disambiguated query. preflight-dr PASS (FLII x45, report OMIM 620635 matches MONDO). The report independently reached the same framing and explicitly makes the same R1243H distinction this entry insists on. Its Table 1 details - two of three patients presenting in overt heart failure, one with tachyarrhythmia, ages at last review 2, 6 and 9 years - are recorded in notes as uncited leads, and heart failure is consequently not curated as a phenotype.
+
+Validation: just validate, validate-terms, count-verified-snippets, validate-disorders, check-entity-refs, check-duplicate-keys, check-causal-targets, check-enum-values, check-qualifier-terms, check-stubs all pass; whole-KB check-title-snippets passes. Pathograph orphan audit: no orphan downstream, target_mechanisms or animal-model targets; every model readout target repeats its link target; no isolated nodes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4246,6 +4314,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4267,6 +4336,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4351,6 +4421,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5224,6 +5295,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glcat-i-loss-of-function" data-dismech-node="GlcAT-I Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">GlcAT-I Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic B3GAT3 missense, start-loss, or in-frame deletion variants reduce or abolish the galactosylgalactosylxylosylprotein 3-beta-glucuronosyltransferase activity of GlcAT-I. Disease-associated substitutions cluster in the two functional halves of the catalytic domain: the donor (UDP-GlcA) substrate-binding subdomain (p.Pro140Leu, p.Thr139Met, p.Arg161Trp) and the acceptor substrate-binding subdomain (p.Arg277Gln, p.Gly223Ser, p.Leu224Gln, p.Arg297Trp). Reduced activity is demonstrable both in patient-derived cells and for recombinant mutant protein.
 </div>
 
@@ -5378,6 +5450,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5399,6 +5472,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5426,6 +5500,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5448,6 +5523,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-incomplete-gag-protein-tetrasaccharide-linker-assembly" data-dismech-node="Incomplete GAG-Protein Tetrasaccharide Linker Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Incomplete GAG-Protein Tetrasaccharide Linker Assembly</div>
+
 
                 <div class="item-desc">All glycosaminoglycan chains — heparan sulfate and chondroitin/dermatan sulfate alike — are built on a single shared GlcA-Gal-Gal-Xyl tetrasaccharide linker attached to a serine of the proteoglycan core protein. GlcAT-I catalyzes the final, committing step of linker assembly, so its deficiency is a bottleneck upstream of every downstream GAG polymerase and sulfotransferase. This shared-bottleneck position is what defines the &#34;linkeropathy&#34; disease class and explains why one enzyme defect produces a pleiotropic connective tissue phenotype.
 </div>
@@ -5541,6 +5617,7 @@ This pathophysiological event involves decreased proteoglycan biosynthesis, anno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5562,6 +5639,7 @@ This pathophysiological event involves decreased proteoglycan biosynthesis, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5587,6 +5665,7 @@ This pathophysiological event involves decreased proteoglycan biosynthesis, anno
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-heparan-and-chondroitin-dermatan-sulfate-proteoglycan-deficiency" data-dismech-node="Combined Heparan and Chondroitin/Dermatan Sulfate Proteoglycan Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Heparan and Chondroitin/Dermatan Sulfate Proteoglycan Deficiency</div>
+
 
                 <div class="item-desc">Patient fibroblasts and lymphoblastoid cells carry reduced numbers of GAG side chains and reduced levels of heparan sulfate, chondroitin sulfate, and dermatan sulfate proteoglycans. Proteoglycans are not only structural space-filling ECM components but also co-receptors and morphogen reservoirs (FGF, BMP, Wnt, Hedgehog), so their simultaneous depletion degrades both the mechanical and the signalling functions of the matrix. The b3gat3 zebrafish mutant qualifies this picture: there, CS synthesis is virtually abolished while roughly half of normal HS output is retained, implying the two arms may not be equally sensitive to loss of the shared linker step.
 </div>
@@ -5748,6 +5827,7 @@ This pathophysiological event involves decreased chondroitin sulfate proteoglyca
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5769,6 +5849,7 @@ This pathophysiological event involves decreased chondroitin sulfate proteoglyca
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5796,6 +5877,7 @@ This pathophysiological event involves decreased chondroitin sulfate proteoglyca
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5818,6 +5900,7 @@ This pathophysiological event involves decreased chondroitin sulfate proteoglyca
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proteoglycan-deficient-extracellular-matrix" data-dismech-node="Proteoglycan-Deficient Extracellular Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Proteoglycan-Deficient Extracellular Matrix</div>
+
 
                 <div class="item-desc">The proteoglycan-poor matrix is mechanically weaker and signals abnormally in the tissues where B3GAT3 is most highly expressed — cartilage, bone, tendon, skeletal muscle, heart and aorta. This is the convergence point from which the three principal clinical arms of the disease diverge: skeletal, articular, and cardiovascular.
 </div>
@@ -6041,6 +6124,7 @@ This pathophysiological event occurs in musculoskeletal system (UBERON:0002204).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6063,6 +6147,7 @@ This pathophysiological event occurs in musculoskeletal system (UBERON:0002204).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-skeletal-growth-and-bone-mineralization" data-dismech-node="Impaired Skeletal Growth and Bone Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Skeletal Growth and Bone Mineralization</div>
+
 
                 <div class="item-desc">Chondrocyte and osteoblast function in a proteoglycan-poor matrix yields disproportionate short stature, metaphyseal flaring and epiphyseal dysplasia, radioulnar synostosis, kyphoscoliosis, and reduced bone mineral density that in severely affected individuals progresses to generalized osteoporosis with multiple fractures. In the most severe (acceptor-subdomain) genotypes the cranial sutures fuse prematurely, producing craniosynostosis and an Antley-Bixler-like prenatal presentation.
 </div>
@@ -6347,6 +6432,7 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6368,6 +6454,7 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6393,6 +6480,7 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-joint-capsule-and-ligament-laxity" data-dismech-node="Joint Capsule and Ligament Laxity" data-dismech-type="pathophysiology">
                 <div class="item-name">Joint Capsule and Ligament Laxity</div>
+
 
                 <div class="item-desc">Ligaments, joint capsules and tendons depend on proteoglycan-rich matrix for tensile integrity. Their weakening produces the cardinal congenital large-joint dislocations (hips, elbows, knees) and generalized joint hypermobility, while the same abnormal periarticular tissue also gives rise to fixed joint contractures — an unusual coexistence of laxity and contracture that is characteristic of B3GAT3 (and B3GALT6) disease among the linkeropathies.
 </div>
@@ -6505,6 +6593,7 @@ This pathophysiological event occurs in skeletal joint (UBERON:0000982). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6526,6 +6615,7 @@ This pathophysiological event occurs in skeletal joint (UBERON:0000982). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6551,6 +6641,7 @@ This pathophysiological event occurs in skeletal joint (UBERON:0000982). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cardiac-valve-and-great-vessel-development" data-dismech-node="Impaired Cardiac Valve and Great Vessel Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cardiac Valve and Great Vessel Development</div>
+
 
                 <div class="item-desc">Proteoglycan-rich cardiac jelly and valve interstitial matrix are required for endocardial cushion remodelling and semilunar/atrioventricular valve morphogenesis, and proteoglycans are structural constituents of the aortic media. GlcAT-I deficiency therefore yields bicuspid aortic valve, mitral valve prolapse, atrial and ventricular septal defects, and progressive aortic root dilatation. Cardiovascular involvement is the feature that most sharply distinguishes B3GAT3-related disease from the B4GALT7/B3GALT6 spondylodysplastic Ehlers-Danlos linkeropathies, and it is genotype-dependent: the Nias p.Pro140Leu donor-subdomain family had no detectable cardiac phenotype.
 </div>
@@ -6709,6 +6800,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6733,6 +6825,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6754,6 +6847,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6880,6 +6974,9 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6894,6 +6991,7 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6918,6 +7016,7 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6992,6 +7091,9 @@ This clinical feature is Aortic root dilatation, annotated with Aortic root aneu
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7006,6 +7108,7 @@ This clinical feature is Aortic root dilatation, annotated with Aortic root aneu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7030,6 +7133,7 @@ This clinical feature is Aortic root dilatation, annotated with Aortic root aneu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7086,6 +7190,9 @@ This clinical feature is Atrial and ventricular septal defects, annotated with A
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7100,6 +7207,7 @@ This clinical feature is Atrial and ventricular septal defects, annotated with A
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7124,6 +7232,7 @@ This clinical feature is Atrial and ventricular septal defects, annotated with A
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7178,6 +7287,9 @@ This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7192,6 +7304,7 @@ This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7259,6 +7372,9 @@ This clinical feature is Hearing loss, annotated with Hearing impairment (HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7273,6 +7389,7 @@ This clinical feature is Hearing loss, annotated with Hearing impairment (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7336,6 +7453,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7350,6 +7470,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7404,6 +7525,9 @@ This clinical feature is Blue sclerae (HP:0000592). HP:0000592 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7418,6 +7542,7 @@ This clinical feature is Blue sclerae (HP:0000592). HP:0000592 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7442,6 +7567,7 @@ This clinical feature is Blue sclerae (HP:0000592). HP:0000592 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7498,6 +7624,9 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7512,6 +7641,7 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7568,6 +7698,9 @@ This clinical feature is Bilateral corneal clouding, annotated with Corneal opac
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7582,6 +7715,7 @@ This clinical feature is Bilateral corneal clouding, annotated with Corneal opac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7647,6 +7781,9 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7661,6 +7798,7 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7717,6 +7855,9 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7731,6 +7872,7 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7755,6 +7897,7 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7809,6 +7952,9 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7823,6 +7969,7 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7886,6 +8033,9 @@ This clinical feature is Skin hyperextensibility, wrinkling and cutis laxa, anno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7900,6 +8050,7 @@ This clinical feature is Skin hyperextensibility, wrinkling and cutis laxa, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7927,6 +8078,7 @@ This clinical feature is Skin hyperextensibility, wrinkling and cutis laxa, anno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7948,6 +8100,7 @@ This clinical feature is Skin hyperextensibility, wrinkling and cutis laxa, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8013,6 +8166,9 @@ This clinical feature is Radioulnar synostosis (HP:0002974). HP:0002974 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8027,6 +8183,7 @@ This clinical feature is Radioulnar synostosis (HP:0002974). HP:0002974 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8051,6 +8208,7 @@ This clinical feature is Radioulnar synostosis (HP:0002974). HP:0002974 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8107,6 +8265,9 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8121,6 +8282,7 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8175,6 +8337,9 @@ This clinical feature is Broad fingertip (HP:0011300). HP:0011300 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8189,6 +8354,7 @@ This clinical feature is Broad fingertip (HP:0011300). HP:0011300 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8243,6 +8409,9 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8257,6 +8426,7 @@ This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8320,6 +8490,9 @@ This clinical feature is Lymphedema (HP:0001004). HP:0001004 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8334,6 +8507,7 @@ This clinical feature is Lymphedema (HP:0001004). HP:0001004 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8419,6 +8593,9 @@ This clinical feature is Multiple congenital joint dislocations, annotated with 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8433,6 +8610,7 @@ This clinical feature is Multiple congenital joint dislocations, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8460,6 +8638,7 @@ This clinical feature is Multiple congenital joint dislocations, annotated with 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8481,6 +8660,7 @@ This clinical feature is Multiple congenital joint dislocations, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8535,6 +8715,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8549,6 +8732,7 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8603,6 +8787,9 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8617,6 +8804,7 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8693,6 +8881,9 @@ This clinical feature is Osteopenia (HP:0000938), qualified as course progressiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8707,6 +8898,7 @@ This clinical feature is Osteopenia (HP:0000938), qualified as course progressiv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8731,6 +8923,7 @@ This clinical feature is Osteopenia (HP:0000938), qualified as course progressiv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8787,6 +8980,9 @@ This clinical feature is Increased susceptibility to fractures (HP:0002659). HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8801,6 +8997,7 @@ This clinical feature is Increased susceptibility to fractures (HP:0002659). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8825,6 +9022,7 @@ This clinical feature is Increased susceptibility to fractures (HP:0002659). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8897,6 +9095,9 @@ This clinical feature is Kyphoscoliosis (HP:0002751), qualified as course progre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8911,6 +9112,7 @@ This clinical feature is Kyphoscoliosis (HP:0002751), qualified as course progre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8935,6 +9137,7 @@ This clinical feature is Kyphoscoliosis (HP:0002751), qualified as course progre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8991,6 +9194,9 @@ This clinical feature is Atlantoaxial and atlanto-occipital instability, annotat
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9005,6 +9211,7 @@ This clinical feature is Atlantoaxial and atlanto-occipital instability, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9029,6 +9236,7 @@ This clinical feature is Atlantoaxial and atlanto-occipital instability, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9083,6 +9291,9 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9097,6 +9308,7 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9153,6 +9365,9 @@ This clinical feature is Muscular hypotonia, annotated with Hypotonia (HP:000125
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9167,6 +9382,7 @@ This clinical feature is Muscular hypotonia, annotated with Hypotonia (HP:000125
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9191,6 +9407,7 @@ This clinical feature is Muscular hypotonia, annotated with Hypotonia (HP:000125
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9247,6 +9464,9 @@ This clinical feature is Congenital diaphragmatic hernia (HP:0000776). HP:000077
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9261,6 +9481,7 @@ This clinical feature is Congenital diaphragmatic hernia (HP:0000776). HP:000077
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9285,6 +9506,7 @@ This clinical feature is Congenital diaphragmatic hernia (HP:0000776). HP:000077
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9352,6 +9574,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9366,6 +9591,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9390,6 +9616,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9455,6 +9682,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9469,6 +9699,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9493,6 +9724,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9593,6 +9825,9 @@ This disease-associated gene is B3GAT3 (hgnc:923). hgnc:923 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9607,6 +9842,7 @@ This disease-associated gene is B3GAT3 (hgnc:923). hgnc:923 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9634,6 +9870,7 @@ This disease-associated gene is B3GAT3 (hgnc:923). hgnc:923 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9655,6 +9892,7 @@ This disease-associated gene is B3GAT3 (hgnc:923). hgnc:923 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9741,6 +9979,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9751,6 +9992,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -9801,6 +10045,7 @@ This treatment targets Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9868,6 +10113,9 @@ This treatment is bisphosphonate pharmacotherapy, annotated with Pharmacotherapy
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9878,6 +10126,9 @@ This treatment is bisphosphonate pharmacotherapy, annotated with Pharmacotherapy
 
 
     </div>
+
+
+
 
 
 
@@ -9928,6 +10179,7 @@ This treatment targets Osteopenia (HP:0000938). HP:0000938 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9995,6 +10247,9 @@ This treatment is cardiac surgical procedure, annotated with Surgical Procedure 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10005,6 +10260,9 @@ This treatment is cardiac surgical procedure, annotated with Surgical Procedure 
 
 
     </div>
+
+
+
 
 
 
@@ -10072,6 +10330,7 @@ This treatment targets Aortic root dilatation, annotated with Aortic root aneury
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10144,6 +10403,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive inheritance implies a 25% recurrence risk for siblings. Counseling is particularly relevant given the high proportion of consanguineous families, the availability of recurrent founder alleles for targeted testing (p.Arg277Gln in the United Arab Emirates, p.Thr139Met in Turkey, p.Pro140Leu on Nias), and the prenatal detectability of the severe craniosynostosis/synostosis phenotype on ultrasound.
 </div>
 
@@ -10166,6 +10431,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10242,6 +10508,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10263,6 +10530,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10318,6 +10586,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10388,6 +10657,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10437,6 +10707,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10505,6 +10776,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10610,6 +10882,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10689,6 +10962,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10710,6 +10984,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10785,6 +11060,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10864,6 +11140,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10885,6 +11162,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10958,6 +11236,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11036,6 +11315,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11107,6 +11387,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11258,6 +11539,7 @@ This experimental model concerns B3GAT3 (hgnc:923). hgnc:923 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11279,6 +11561,7 @@ This experimental model concerns B3GAT3 (hgnc:923). hgnc:923 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13844,6 +14127,28 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Naming decision: the entry is titled &#34;Larsen-like Syndrome B3GAT3 Type&#34; to match the canonical MONDO:0009511 label and the curation issue, with &#34;B3GAT3-related linkeropathy&#34; / &#34;B3GAT3-related disorder&#34; and the OMIM/Orphanet descriptive name (JDSCD) carried as synonyms. The literature is split — Ritelli et al. (PMID:31438591) argue for gene-prefixed linkeropathy naming — but MONDO alignment is the governing convention here and the eponymic name remains the one most readers will search for.
+Scope boundaries. This entry deliberately does NOT cover: (a) classic Larsen syndrome, the dominant FLNB disorder curated separately as Larsen_Syndrome (MONDO:0007875); (b) the B4GALT7/B3GALT6/SLC39A13 spondylodysplastic Ehlers-Danlos syndromes, curated separately as Spondylodysplastic_Ehlers-Danlos_Syndrome (MONDO:0007526); or (c) CHST3-related skeletal dysplasia (MONDO:0007738), a downstream chondroitin 6-O-sulfotransferase defect rather than a linker-region defect. All three are captured as differential diagnoses instead.
+Not curated for lack of verifiable evidence: (i) PMID:29318063 reports short stature, growth hormone deficiency and ketotic hypoglycaemia with a *heterozygous* B3GAT3 splice variant; because the disorder is autosomal recessive and the report does not establish a second allele, that case is not used to support disease phenotypes here. (ii) Quantitative GAG figures surfaced by the Edison deep-research run (GlcAT-I activity ~3-5% of control; CS ~65% and HS ~53% of control in p.Arg277Gln fibroblasts) come from the body of PMID:21763480, which is cached abstract-only, so they could not be snippet-verified and are not asserted. (iii) Numeric phenotype frequencies are unavailable for most features — the cumulative published cohort is ~26 patients — so `frequency:` is populated only where a source states a qualitative frequency (&#34;ubiquitous&#34;, &#34;very common&#34;, &#34;high rate of incidence&#34;, &#34;present only in some patients&#34;) that maps cleanly onto the enum, and omitted elsewhere. (iv) No prevalence rate is asserted; the Prevalence record uses CASES_IN_LITERATURE with the published case count. (v) There is no GeneReviews chapter for B3GAT3 or for Larsen-like syndrome B3GAT3 type (PubMed search for &#34;B3GAT3 GeneReviews&#34; returned no results), so the GeneReviews phenotype-baseline step could not be applied.
+Deep research: Edison (falcon) run at research/Larsen-like_Syndrome_B3GAT3_Type-deep-research-falcon.md. Its report independently confirmed MONDO:0009511 / OMIM 245600 / B3GAT3 (NEC preflight passed) and contributed the zebrafish b3gat3 model lead (PMID:22869369) and the CHST3 differential. Every PMID it cited was independently fetched and every snippet used here was verified against the cached abstract.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Larsen-like Syndrome B3GAT3 Type</strong> · 2026-08-01T17:46:09Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Larsen-like_Syndrome_B3GAT3_Type/2026-08-01T174609Z-claude-code-fc5a50.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of Larsen-like syndrome, B3GAT3 type [MONDO:0009511, OMIM 245600, B3GAT3 / hgnc:923], the GlcAT-I linkeropathy. NEC preflight against the MONDO record confirmed gene B3GAT3 and OMIM:245600 before any deep-research content was used; duplicate preflight against origin/main, all PRs and all issues -- including synonyms JDSCD, B3GAT3-related linkeropathy, GlcAT-I deficiency -- found no existing entry. Deliberately kept distinct from Larsen_Syndrome [FLNB, MONDO:0007875], Spondylodysplastic_Ehlers-Danlos_Syndrome [B4GALT7/B3GALT6/SLC39A13, MONDO:0007526] and CHST3-related skeletal dysplasia [MONDO:0007738]; all three are modeled as differential diagnoses instead. Deep research: Edison/falcon, at research/Larsen-like_Syndrome_B3GAT3_Type-deep-research-falcon.md, which corroborated the identity anchors and contributed the zebrafish b3gat3 model and the CHST3 differential as leads. Curated a seven-node pathograph running from GlcAT-I loss of function through incomplete tetrasaccharide linker assembly and combined heparan plus chondroitin/dermatan sulfate proteoglycan deficiency to a proteoglycan-deficient ECM branching into skeletal, articular and cardiovascular arms; 24 phenotypes with HPO terms; a B3GAT3 genetic block; autosomal recessive inheritance; a CASES_IN_LITERATURE prevalence record; two progression phases; two diagnostic modalities; seven differential diagnoses; four supportive treatments; the zebrafish animal model; one EMERGING mechanistic hypothesis on the catalytic-subdomain severity gradient; and three discussions, two KNOWLEDGE_GAP plus one HUMAN_MODEL_MISMATCH on the zebrafish CS-versus-HS asymmetry. Every PMID was fetched with just fetch-reference and every snippet verified as an exact substring of the cached abstract. Validation: just validate PASS, just validate-terms PASS, just validate-references PASS with 91/91 snippets verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

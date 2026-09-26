@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4230,6 +4298,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4254,6 +4323,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4275,6 +4345,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4365,6 +4436,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4389,6 +4461,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4410,6 +4483,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4603,6 +4677,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kmt2b-haploinsufficiency" data-dismech-node="KMT2B Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">KMT2B Haploinsufficiency</div>
 
+
                 <div class="item-desc">Heterozygous loss-of-function variants in KMT2B, or heterozygous deletions of 19q13.11-19q13.12 that remove one copy of the gene, halve the dose of the KMT2B histone methyltransferase. Truncating alleles introduce a premature termination codon and reduce KMT2B transcript in patient fibroblasts; microdeletion carriers show the same dystonic presentation, which is the independent argument that gene dosage rather than a mutant protein product is the lesion. Missense alleles are presumed to act by the same route, but for those the haploinsufficiency claim is inferred rather than measured.</div>
 
 
@@ -4742,6 +4817,7 @@ This pathophysiological event involves histone H3K4 methyltransferase activity (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4763,6 +4839,7 @@ This pathophysiological event involves histone H3K4 methyltransferase activity (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4790,6 +4867,7 @@ This pathophysiological event involves histone H3K4 methyltransferase activity (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4814,6 +4892,7 @@ This pathophysiological event involves histone H3K4 methyltransferase activity (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-h3k4-methylation-at-target-promoters" data-dismech-node="Reduced H3K4 Methylation at Target Promoters" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced H3K4 Methylation at Target Promoters</div>
+
 
                 <div class="item-desc">KMT2B is one of the SET1/MLL-family enzymes that deposit methyl marks on histone H3 lysine 4 at promoters and enhancers. Reduced enzyme dose lowers H3K4 methylation across the loci KMT2B normally licenses, changing chromatin state rather than deleting any single downstream gene. Note that the loss of the activating mark is only half the lesion: the same loss of KMT2B occupancy also removes a barrier to repressive machinery, and that arm is drawn as a parallel branch from the haploinsufficiency node rather than from here.</div>
 
@@ -4903,6 +4982,7 @@ This pathophysiological event involves decreased chromatin organization (GO:0006
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4925,6 +5005,7 @@ This pathophysiological event involves decreased chromatin organization (GO:0006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-promoter-dna-hypermethylation" data-dismech-node="Promoter DNA Hypermethylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Promoter DNA Hypermethylation</div>
+
 
                 <div class="item-desc">KMT2B haploinsufficiency produces non-random genome-wide DNA hypermethylation that is selectively enriched at promoters and other positively acting regulatory elements. This is the one step in the chain measured directly in patients rather than inferred: the pattern is reproducible enough in peripheral blood to serve as a diagnostic episignature, which is also why it can reclassify variants of uncertain significance.</div>
 
@@ -4993,6 +5074,7 @@ This pathophysiological event involves decreased chromatin organization (GO:0006
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5015,6 +5097,7 @@ This pathophysiological event involves decreased chromatin organization (GO:0006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-transcriptional-dysregulation-at-kmt2b-target-loci" data-dismech-node="Transcriptional Dysregulation at KMT2B Target Loci" data-dismech-type="pathophysiology">
                 <div class="item-name">Transcriptional Dysregulation at KMT2B Target Loci</div>
+
 
                 <div class="item-desc">Loss of the activating H3K4 mark together with gain of promoter DNA methylation disturbs transcription at a broad set of KMT2B target loci, including neurodevelopmental and neuronal-identity programs. Which of those targets actually drives the dystonic phenotype is not established, and this is the weakest link in the chain — the epigenetic lesion is well characterized while its motor-specific effectors are not.</div>
 
@@ -5194,6 +5277,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5216,6 +5300,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pallidal-motor-circuit-dysfunction" data-dismech-node="Pallidal Motor Circuit Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Pallidal Motor Circuit Dysfunction</div>
+
 
                 <div class="item-desc">Transcriptional dysregulation disturbs basal-ganglia motor output at the level of pallidal outflow. The circuit-level location of the lesion is inferred clinically rather than molecularly: no cell-type-resolved patient data localize it. Two independent lines of clinical evidence point at the pallidum — the substantial and sustained response to bilateral globus pallidus internus deep brain stimulation, and the symmetrical hypointense streaks reported on MRI in about a quarter of published cases. Neither is decisive alone, and they do not agree on segment: the imaging sign is in the external pallidum while stimulation targets the internal.</div>
 
@@ -5269,6 +5354,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5295,6 +5381,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5317,6 +5404,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ascending-generalization-of-dystonic-posturing" data-dismech-node="Ascending Generalization of Dystonic Posturing" data-dismech-type="pathophysiology">
                 <div class="item-name">Ascending Generalization of Dystonic Posturing</div>
+
 
                 <div class="item-desc">Abnormal basal-ganglia output produces sustained co-contraction of agonist and antagonist muscles. The disorder characteristically starts focally in a lower limb during early childhood, then spreads caudocranially to trunk, upper limbs, neck, oromandibular musculature and larynx. This rostral progression is the clinical signature of the disease and generates the bulbar and speech burden that dominates long-term disability.</div>
 
@@ -5410,6 +5498,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5431,6 +5520,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5556,6 +5646,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band recorded: the cited source says impaired swallowing needs gastrostomy &#34;in some&#34; without giving a proportion, and guessing a band from that phrasing is what the frequency vocabulary is meant to prevent.</div>
 
 
@@ -5582,6 +5675,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5647,6 +5741,9 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5661,6 +5758,7 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5685,6 +5783,7 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5747,6 +5846,9 @@ This clinical feature is Endocrinopathy, annotated with Abnormality of the endoc
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bound at the level the source states. The cohort reports &#34;endocrinopathies&#34; without naming which axes, so the general endocrine-abnormality term is co-extensive with the claim; a specific axis term would assert more.</div>
 
 
@@ -5766,6 +5868,7 @@ This clinical feature is Endocrinopathy, annotated with Abnormality of the endoc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5831,6 +5934,9 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5845,6 +5951,7 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5910,6 +6017,9 @@ This clinical feature is Cervical dystonia, annotated with Torticollis (HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5924,6 +6034,7 @@ This clinical feature is Cervical dystonia, annotated with Torticollis (HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5975,6 +6086,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band: the only citable source here is a single pre-symptomatic proband, not a cohort proportion.</div>
 
 
@@ -5994,6 +6108,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6052,6 +6167,9 @@ This clinical feature is Characteristic facial appearance, annotated with Abnorm
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6066,6 +6184,7 @@ This clinical feature is Characteristic facial appearance, annotated with Abnorm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6129,6 +6248,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6143,6 +6265,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6208,6 +6331,9 @@ This clinical feature is Lower-limb focal dystonia, annotated with Leg dystonia 
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6231,6 +6357,7 @@ This clinical feature is Lower-limb focal dystonia, annotated with Leg dystonia 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6303,6 +6430,9 @@ This clinical feature is Generalized dystonia (HP:0007325), qualified as course 
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6326,6 +6456,7 @@ This clinical feature is Generalized dystonia (HP:0007325), qualified as course 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6353,6 +6484,7 @@ This clinical feature is Generalized dystonia (HP:0007325), qualified as course 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6374,6 +6506,7 @@ This clinical feature is Generalized dystonia (HP:0007325), qualified as course 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6428,6 +6561,9 @@ This clinical feature is Laryngeal dystonia (HP:0012049). HP:0012049 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6442,6 +6578,7 @@ This clinical feature is Laryngeal dystonia (HP:0012049). HP:0012049 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6498,6 +6635,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6512,6 +6652,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6566,6 +6707,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6580,6 +6724,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6634,6 +6779,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6648,6 +6796,7 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6702,6 +6851,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6716,6 +6868,7 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6770,6 +6923,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6784,6 +6940,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6838,6 +6995,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6852,6 +7012,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6906,6 +7067,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6920,6 +7084,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6974,6 +7139,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6988,6 +7156,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7044,6 +7213,9 @@ This clinical feature is Obsessive-compulsive disorder, annotated with Compulsiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7058,6 +7230,7 @@ This clinical feature is Obsessive-compulsive disorder, annotated with Compulsiv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7112,6 +7285,9 @@ This clinical feature is Oromandibular dystonia (HP:0012048). HP:0012048 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7126,6 +7302,7 @@ This clinical feature is Oromandibular dystonia (HP:0012048). HP:0012048 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7182,6 +7359,9 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7196,6 +7376,7 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7250,6 +7431,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7264,6 +7448,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7327,6 +7512,9 @@ This clinical feature is Aspiration (HP:0002835). HP:0002835 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7341,6 +7529,7 @@ This clinical feature is Aspiration (HP:0002835). HP:0002835 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7408,6 +7597,9 @@ This clinical feature is Hypophonia, annotated with Weak voice (HP:0001621). HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7422,6 +7614,7 @@ This clinical feature is Hypophonia, annotated with Weak voice (HP:0001621). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7487,6 +7680,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7501,6 +7697,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7525,6 +7722,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7579,6 +7777,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7593,6 +7794,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7636,6 +7838,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </div>
 
 
+
+
+
                     <div class="item-desc">HPO has no term for status dystonicus; binding the generic Dystonia term here would lose the acute-emergency meaning that is the whole point of recording it, so the phenotype is left unbound.</div>
 
 
@@ -7655,6 +7860,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7755,6 +7961,9 @@ This disease-associated gene is KMT2B (hgnc:15840). hgnc:15840 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -7769,6 +7978,7 @@ This disease-associated gene is KMT2B (hgnc:15840). hgnc:15840 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7796,6 +8006,7 @@ This disease-associated gene is KMT2B (hgnc:15840). hgnc:15840 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7817,6 +8028,7 @@ This disease-associated gene is KMT2B (hgnc:15840). hgnc:15840 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7926,6 +8138,9 @@ This treatment uses trihexyphenidyl (CHEBI:9720). CHEBI:9720 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7936,6 +8151,9 @@ This treatment uses trihexyphenidyl (CHEBI:9720). CHEBI:9720 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -7979,6 +8197,7 @@ This treatment uses trihexyphenidyl (CHEBI:9720). CHEBI:9720 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8046,6 +8265,9 @@ This treatment is bilateral globus pallidus internus deep brain stimulation, ann
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8056,6 +8278,9 @@ This treatment is bilateral globus pallidus internus deep brain stimulation, ann
 
 
     </div>
+
+
+
 
 
 
@@ -8135,6 +8360,7 @@ This treatment targets Generalized dystonia (HP:0007325). HP:0007325 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8159,6 +8385,7 @@ This treatment targets Generalized dystonia (HP:0007325). HP:0007325 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8180,6 +8407,7 @@ This treatment targets Generalized dystonia (HP:0007325). HP:0007325 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8262,6 +8490,9 @@ This treatment uses botulinum toxin.</span>
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8272,6 +8503,9 @@ This treatment uses botulinum toxin.</span>
 
 
     </div>
+
+
+
 
 
 
@@ -8299,6 +8533,7 @@ This treatment uses botulinum toxin.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8387,6 +8622,9 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8397,6 +8635,9 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
     </div>
+
+
+
 
 
 
@@ -8427,6 +8668,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8448,6 +8690,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8525,6 +8768,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8581,6 +8825,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8605,6 +8850,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8626,6 +8872,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8682,6 +8929,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8834,6 +9082,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8858,6 +9107,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8879,6 +9129,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8943,6 +9194,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9011,6 +9263,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9193,6 +9446,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9252,6 +9506,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9291,6 +9546,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11185,6 +11441,38 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: KMT2B-Related Dystonia</strong> · 2026-09-04T04:05:00Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/KMT2B-Related_Dystonia/2026-09-04T040500Z-claude-code-0f6243.yaml">View source</a></p>
+                        <p class="research-review-text">New kb/disorders/ entry for KMT2B-related dystonia (DYT-KMT2B / dystonia 28, MONDO:0015004), claimed via issue #10875. Deep research: requested falcon, which is not configured in this environment; ran with --fallback so the run recorded the substitution, and the report was produced by claude_code (research/KMT2B-Related_Dystonia-deep-research-claude_code.md, fell_back: true, requested_provider: falcon). The report&#39;s own validation flagged needs_review on both axes and I acted on it: its one unsupported quote (DOI:10.1186/s13148-021-01145-y, &#39;indicating a general repression of transcriptional activity&#39;) was not reused; the three obsolete GO terms it suggested (GO:0051568, GO:0034968, GO:0006306) were not bound; and its mislabelled HP:0001608 (called &#39;Dysphonia&#39;, HPO calls it &#39;Abnormality of the voice&#39;) was not used. The report cited almost entirely by URL rather than PMID, so the seven primary references were recovered by PubMed lookup on title/author and fetched fresh. GeneReviews baseline: PMID:29697234 (KMT2B-Related Disorders) fetched, tagged GeneReviews in the top-level references block, and every phenotype in its Clinical Characteristics paragraph either curated or, for the KMT2B-related non-dystonic NDD, left out as outside this entry&#39;s MONDO scope and recorded as an open question instead. Pathophysiology is a six-node chain from KMT2B haploinsufficiency through reduced H3K4 methylation and promoter DNA hypermethylation to transcriptional repression, striatal/pallidal circuit dysfunction and caudocranial generalization; the hypermethylation node is the one step measured directly in patients (PMID:34380541) and the step to circuit dysfunction is marked INDIRECT_UNKNOWN_INTERMEDIATES because no cell-type-resolved patient data connect them. Status dystonicus and the adult-onset subtype are deliberately left unbound with notes explaining why no accurate term exists. Poor laryngeal and gait response to GPi-DBS is curated as a REFUTE evidence item rather than omitted.
+
+A pre-PR adversarial self-review was then run against the dismech-pr-review skill and its findings were applied in a second pass. Two were substantive. First, the adult-onset subtype description asserted that those cases carry the KMT2B episignature; PMID:36483457 reports the opposite -- they cluster with controls against the early-onset signature and their distinguishing probes do not overlap it, which the authors read as a different molecular mechanism. The description was rewritten to say that, the two supporting quotes were added, the authors&#39; own segregation caveat on p.S640T and p.R2339Q was recorded, and the entry no longer claims its causal chain applies to the subtype. Second, the pivot pathophysiology node asserted transcriptional repression with modifier DECREASED, but neither attached quote gives a direction -- the claim traced back to the same sentence the report&#39;s validator could not verify. The node was renamed to Transcriptional Dysregulation at KMT2B Target Loci, the modifier changed to ABNORMAL, the misapplied diagnostic-utility quote removed, and the top-level description corrected; a note records that repression is the usual reading but that no patient transcriptomic data exist for this disorder. Also in that pass: four uncited prose assertions imported from the deep-research narrative were removed or attributed (CXXC/PHD missense clustering, which came from a KMT2A paralog argument; the DNMT/Polycomb repulsion step, which is mouse embryonic stem cell work and is now recorded in notes as such rather than asserted as human mechanism; an imaging claim no cited reference makes; and a genotype-does-not-predict-DBS-response negative absent from the cached abstract). The DNA hypermethylation edge was re-parented from the reduced-H3K4 node onto haploinsufficiency, because the barrier function is reported to be catalysis-independent. The striatal half of the circuit node and its CL:1001474 medium spiny neuron binding were dropped, since the localization rests entirely on DBS response and reaches only the pallidum. Eleven frequency bands inferred from qualitative words such as &#39;prominent&#39; or &#39;in some&#39; were removed, and the one quantified figure available (dystonia in &gt;80% of cases, PMID:38425714) was cited for the band that remains. HP:0031959 Leg dystonia replaced HP:0002451 Limb dystonia, which includes the arm; endocrinopathy was bound to HP:0000818; microcephaly was added from PMID:38425714. NCIT:C21024 Deep Brain Stimulation replaced the generic NCIT:C15329 Surgical Procedure, and therapeutic_agent was added to both pharmacotherapies (CHEBI:9720 trihexyphenidyl, CHEBI:15765 L-dopa). Botulinum toxin was added as a treatment with its agent left unbound and the reason recorded: the source names no serotype, CHEBI codes only type A, and NCIT&#39;s generic term is not reachable from the ChemicalEntityTerm roots. The levodopa evidence item was split into a SUPPORT for the recommendation and a REFUTE for sustained efficacy; the in-silico loss-of-function prediction was regraded COMPUTATIONAL. Three nodes now declare conforms_to against epigenetic_machinery_neurodevelopmental_dysregulation, matching the KMT2A paralog entry Wiedemann-Steiner Syndrome. Pathograph connectivity went from 5 of 26 phenotypes reachable to 25 of 27; the two that remain unreachable are the initiating lower-limb feature, which has an outgoing edge, and sensorineural hearing loss, left unlinked because the reporting authors call the association possibly coincidental. Three further references already fetched but uncited were brought in (PMID:38425714 episignature/pre-symptomatic diagnosis, PMID:41738007 Austrian long-term DBS cohort, both also used to add a prevalence record and a misdiagnosis-as-cerebral-palsy diagnosis entry).
+
+One reviewer suggestion was not taken: adding OMIM 617284/619934 to a mappings block, because the DiseaseMappings class admits only ICD10CM, ICD11F, MONDO and NCIT. The OMIM codes are recorded in the entry&#39;s notes instead.
+
+Validation after both passes: just validate and just validate-disorders passed (schema, terms, 74/74 snippets verified); check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence all clean; pytest -k KMT2B 22 passed. just compliance fell from 89.1% to 80.5% across the review pass. That is the expected cost of the corrections rather than a regression: the score rewards filled slots, and the pass removed eleven unsourced frequency bands, a cell-type binding and a process annotation that the evidence did not support.
+
+A third pass then addressed the ai4c-reviewer CHANGES_REQUESTED review on PR #10919. Its one blocking finding was correct: the entry carried no neuroimaging content, and the external-globus-pallidus MRI sign is quotable from PMID:41738007, a reference the entry already cited. The earlier removal of an imaging claim on the grounds that no cited reference made one had overshot, because that reference&#39;s cache was upgraded from abstract-only to PMC full text during the same run. Added an imaging_findings block bound to HP:0002453 and UBERON:0002476, using the purpose-built slot rather than the diagnosis section the reviewer suggested. Curated with the negative the reviewer&#39;s excerpt omitted: the same cohort reporting the ~27% literature figure saw no indicative MRI abnormality in any of its own nine patients and attributes that to age-dependency, so that sentence is carried as a REFUTE item and the notes state that a normal MRI argues nothing. Also recorded that the streaks sit in the external pallidal segment while deep brain stimulation targets the internal segment, so the imaging corroborates pallidal involvement without confirming the segment. The over-absolute clause in the Pallidal Motor Circuit Dysfunction node -- that the whole localization rests on DBS response -- was rewritten to name both lines of evidence and their disagreement on segment.
+
+Five of the six suggestions were taken: GeneReviews genetic-counseling content (50% transmission risk, prenatal and preimplantation testing availability) added to inheritance; a diagnosis entry for molecular genetic testing, noting that a deletion carrier is missed by sequence-only testing; freezing of gait as a second post-DBS complication; epilepsy as a phenotype together with the cohort&#39;s own statement that the literature under-reports it; and a progression record for the seventh-decade life-expectancy observation, framed as the absence of survival data that it is. The stale repression wording in the kmt2b_effector_genes rationale, left over from the node rename, was corrected. The sixth suggestion, that the PR body said nine references when there are eleven, had already been fixed in the body before the review was submitted.
+
+Validation after the third pass: just validate and just validate-disorders pass, 82/82 snippets verified; all ten offline gates clean; pytest -k KMT2B 22 passed; compliance 81.9%.
+A fourth pass followed the ai4c-reviewer APPROVE on PR #10919 and was forced by a merge conflict rather than chosen. Curation PRs merging into main in the interim added rows to cache/mondo/terms.csv and cache/enums/diseaseterm_f618932bb23f.csv at the same insertion point as this entry&#39;s MONDO:0015004 rows, and GitHub&#39;s merge queue dropped the PR without a stated reason once the branch stopped being mergeable. Both conflicts were pure additions on each side (MONDO:0015003 from main, MONDO:0015004 from this branch) and were resolved as a union in canonical CURIE order rather than by hand-writing any label or timestamp; check-term-cache-integrity and check-cache-order both pass on the result. Since resolving the conflict costs the approval regardless, the four non-blocking suggestions left over from the approving review were bundled into the same push rather than deferred to a further round.
+
+The mouse embryonic stem cell work that the Promoter DNA Hypermethylation node&#39;s notes decline to assert as human mechanism is now an experimental_models entry. The primary source was located by PubMed search and fetched fresh: PMID:23358417 (Ladopoulos et al., Mol Cell Biol 2013), a conditional Mll2 knockout embryonic stem cell line in which KMT2B depletion is followed by loss of the active chromatin marks and then rapid methylation of the MagohB CpG island promoter, with re-expression of the enzyme reinstating an active promoter. It is linked to that node as PARTIALLY_RECAPITULATES with fidelity LOW and model_scale MOLECULAR, carrying two readouts (methylation after depletion, INCREASED; promoter reactivation after rescue, RESTORED) and three typed divergences: SPECIES_MISMATCH, BOUNDARY_OMISSION and POPULATION_MISMATCH, the last because the model applies complete conditional loss where the disease is heterozygous. Note that this corrects the deep-research report&#39;s framing as well as making the caveat structural: the report attributed a PRC2-and-DNMT repulsion mechanism to this literature, and the paper measures protection from DNA methylation without naming PRC2, so the model notes say so explicitly and the wider claim is still not asserted.
+
+The absence of any whole-organism model is now a KNOWLEDGE_GAP discussion (kmt2b_no_in_vivo_model) attached to the empty animal_models section and to the Pallidal Motor Circuit Dysfunction node, recording that the search found no published Kmt2b animal model of the dystonic phenotype, that the contrast with TOR1A/DYT1 is what makes the absence notable, and that the consequence is that the epigenetic-lesion-to-pallidal-dysfunction step has no system in which it can be tested. A classifications block was added with harrisons_chapter NEUROLOGIC and GENETICS_ENVIRONMENT_DISEASE; no mechanistic_category value fits, since the mechanistic nosology enum has no chromatinopathy or epigenetic-machinery value. The deep brain stimulation description now names freezing of gait alongside mild parkinsonism as a post-operative complication, matching the evidence already beneath it. The imaging_findings frequency slot is still empty, but the notes now say that this is deliberate: a single band would flatten the conflict between the ~27% literature figure and the zero-of-nine cohort result that the record exists to preserve.
+
+Validation after the fourth pass: just validate passes with 85/85 snippets verified; just validate-terms passes; check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading and check-environmental-evidence all clean; check-term-cache-integrity and check-cache-order clean after the conflict resolution; pytest -k KMT2B 22 passed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

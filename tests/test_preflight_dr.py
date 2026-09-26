@@ -28,6 +28,7 @@ from dismech.preflight_dr import (
     HeuristicLexicon,
     HgncLexicon,
     LexiconUnavailable,
+    MondoBuildUnavailable,
     MondoRecord,
     assess,
     default_lexicon,
@@ -108,6 +109,9 @@ def _stub_adapter(monkeypatch, record):
         "dismech.preflight_dr.fetch_mondo_record",
         lambda mondo_id, adapter=None, **kwargs: record,
     )
+    # ``main`` opens MONDO before anything else; the record above stands in for
+    # what that adapter would have returned.
+    monkeypatch.setattr("dismech.preflight_dr.open_mondo_adapter", lambda: object())
 
 
 # --------------------------------------------------------------------------
@@ -235,6 +239,56 @@ def test_rival_at_or_above_ratio_triggers_a_warning():
     counts = Counter({"CHSY1": 100, "JAG1": 25})
     result = assess(REC_TEMTAMY_PREAXIAL, counts, rival_ratio=0.25)
     assert result.verdict == WARN
+
+
+# KDM1A-related adrenal hyperplasia (#9826): GIP is the disease's own effector
+# (KDM1A loss derepresses GIPR), yet at 21/48 = 0.44 it clears the ratio by
+# more than the Temtamy rival (0.40) the threshold was tuned on.
+REC_AIMAH3 = MondoRecord(
+    id="MONDO:0700299",
+    label="ACTH-independent macronodular adrenal hyperplasia 3",
+    genes=("KDM1A",),
+)
+
+
+def test_effector_gene_warning_does_not_tell_the_curator_to_exclude_sections():
+    counts = Counter({"KDM1A": 48, "GIP": 21, "GIPR": 21, "ARMC5": 10, "GNAS": 2})
+    result = assess(REC_AIMAH3, counts)
+
+    assert result.verdict == WARN
+    assert result.rival_genes[0] == ("GIP", 21)
+    reason = next(r for r in result.reasons if "GIP" in r)
+    assert "44% of KDM1A" in reason
+    assert "modifier gene" in reason
+    assert "exclude them only if they are about a different disease" in reason
+    assert "exclude those sections before curating" not in reason
+
+
+def test_bare_ontology_prefixes_in_prose_are_not_rival_genes():
+    """ "HP calls it ..." survives CURIE stripping but is the ontology, not haptoglobin."""
+    text = "ACO2 " * 46 + 'The report calls it "Physical"; HP calls it Optic atrophy. ' * 14
+    counts = extract_gene_mentions(text, FakeLexicon({"ACO2", "HP"}))
+    assert counts["HP"] == 14
+    record = MondoRecord(id="MONDO:0013802", label="ICRD", genes=("ACO2",))
+
+    result = assess(record, counts)
+
+    assert result.verdict == PASS
+    assert all(sym != "HP" for sym, _ in result.rival_genes)
+
+
+def test_an_ontology_prefix_alone_cannot_manufacture_a_fail():
+    record = MondoRecord(id="MONDO:0014572", label="LIKNS", genes=("SLC9A1",))
+    result = assess(record, Counter({"HP": 40}))
+    assert result.verdict != FAIL
+
+
+def test_a_prefix_symbol_that_is_the_expected_gene_is_still_counted():
+    """HP (haptoglobin) is excluded from the rival pool, never from the expected gene."""
+    record = MondoRecord(id="MONDO:0000001", label="hypohaptoglobinemia", genes=("HP",))
+    result = assess(record, Counter({"HP": 12}))
+    assert result.verdict == PASS
+    assert result.expected_mentions == {"HP": 12}
 
 
 def test_no_gene_mentions_at_all_warns_rather_than_fails():
@@ -613,6 +667,80 @@ def test_no_hgnc_mode_never_opens_the_hgnc_adapter(monkeypatch):
     assert record.lookup_errors == ()
 
 
+def _no_local_builds(monkeypatch, tmp_path):
+    """Point OAK's build directory at an empty dir, and make opening fatal.
+
+    Opening ``sqlite:obo:*`` on a missing build downloads it rather than
+    failing, so the test must prove the adapter is never opened at all.
+    """
+    monkeypatch.setenv("PYSTOW_HOME", str(tmp_path))
+
+    def _explode(spec, *_args, **_kwargs):  # pragma: no cover - must never run
+        raise AssertionError(f"{spec} was opened; it would have been downloaded")
+
+    monkeypatch.setattr("oaklib.get_adapter", _explode)
+
+
+def test_fetch_mondo_record_refuses_to_download_a_missing_mondo_build(
+    monkeypatch, tmp_path
+):
+    """#12687: no local ``mondo.db`` is a hard error, never a lazy download.
+
+    Nor an empty record: that would read as "MONDO records no causal gene"
+    and come out as a SKIP verdict.
+    """
+    _no_local_builds(monkeypatch, tmp_path)
+    with pytest.raises(MondoBuildUnavailable, match="just fetch-ontology-dbs mondo"):
+        fetch_mondo_record("MONDO:0014572", use_hgnc=False)
+
+
+def test_cli_exits_2_without_the_mondo_build_before_opening_hgnc(
+    monkeypatch, tmp_path, capsys
+):
+    """The CLI fails fast, and before the HGNC lexicon can fetch its own build."""
+    _no_local_builds(monkeypatch, tmp_path)
+
+    def _no_lexicon(**_kwargs):  # pragma: no cover - must never run
+        raise AssertionError("HGNC lexicon was built for a run that cannot finish")
+
+    monkeypatch.setattr("dismech.preflight_dr.default_lexicon", _no_lexicon)
+    report = tmp_path / "report.md"
+    report.write_text("SLC9A1 SLC9A1 SLC9A1\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as excinfo:
+        main([str(report), "MONDO:0014572"])
+    assert excinfo.value.code == 2
+    err = capsys.readouterr().err
+    assert "just fetch-ontology-dbs mondo" in err
+    assert str(tmp_path / "oaklib" / "mondo.db") in err
+
+
+def test_cli_opens_mondo_when_the_build_is_present(monkeypatch, tmp_path, capsys):
+    """With ``mondo.db`` on disk the guard lets the adapter through."""
+    monkeypatch.setenv("PYSTOW_HOME", str(tmp_path))
+    (tmp_path / "oaklib").mkdir()
+    (tmp_path / "oaklib" / "mondo.db").write_bytes(b"")
+    adapter = StubMondoAdapter(
+        labels={
+            "MONDO:0014572": "Lichtenstein-Knorr syndrome",
+            "HGNC:11071": "SLC9A1",
+        },
+        relationships=[("MONDO:0014572", "RO:0004003", "HGNC:11071")],
+    )
+    opened = []
+
+    def _get_adapter(spec, *_args, **_kwargs):
+        opened.append(spec)
+        return adapter
+
+    monkeypatch.setattr("oaklib.get_adapter", _get_adapter)
+    report = tmp_path / "report.md"
+    report.write_text("SLC9A1 " * 5 + "\n", encoding="utf-8")
+    assert main([str(report), "MONDO:0014572", "--no-hgnc"]) == 0
+    assert opened == ["sqlite:obo:mondo"]
+    assert capsys.readouterr().out.startswith("PASS")
+
+
+@pytest.mark.oak_db
 @pytest.mark.skipif(
     os.environ.get("DISMECH_OAK_INTEGRATION") != "1",
     reason="set DISMECH_OAK_INTEGRATION=1 to check the live sqlite:obo:mondo adapter",
@@ -624,6 +752,10 @@ def test_integration_live_mondo_adapter_resolves_the_canonical_gene_symbol():
     that ``sqlite:obo:mondo`` really carries the ``RO:0004003`` edge *and* a
     resolvable gene symbol on the other end of it.
     """
+    from dismech.oak_db import local_build_present
+
+    if not local_build_present("sqlite:obo:mondo"):
+        pytest.skip("local mondo.db absent; `just fetch-ontology-dbs mondo`")
     record = fetch_mondo_record("MONDO:0014572")
     assert record.lookup_errors == ()
     assert record.genes == ("SLC9A1",)

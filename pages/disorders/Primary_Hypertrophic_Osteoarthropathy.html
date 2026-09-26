@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Primary%20Hypertrophic%20Osteoarthropathy"
@@ -3977,7 +4045,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4175,6 +4243,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4222,6 +4291,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4295,6 +4365,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                HPGD
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:5154" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:5154</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in HPGD (hgnc:5154). hgnc:5154 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Caused by biallelic loss-of-function variants in HPGD encoding 15-hydroxyprostaglandin dehydrogenase, leading to failure of PGE2 degradation. Earlier onset (childhood) and elevated urinary PGE2 with decreased PGE-M.</div>
@@ -4317,6 +4406,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4359,6 +4449,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                SLCO2A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:10955" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:10955</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SLCO2A1 (hgnc:10955). hgnc:10955 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Caused by biallelic loss-of-function variants in SLCO2A1 encoding the prostaglandin transporter (PGT), impairing cellular uptake of PGE2 for degradation. Most common form worldwide. Later onset (puberty), all-male predominance, and associated with peptic ulcers and myelofibrosis.</div>
@@ -4381,6 +4490,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4423,6 +4533,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                SLCO2A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:10955" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:10955</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SLCO2A1 (hgnc:10955). hgnc:10955 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Caused by monoallelic mutations in SLCO2A1. Milder phenotype with less severe pachydermia and periostosis compared to PHOAR2. Onset in puberty.</div>
@@ -4445,6 +4574,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4493,6 +4623,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-pge2-degradation-hpgd" data-dismech-node="Defective PGE2 Degradation (HPGD)" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective PGE2 Degradation (HPGD)</div>
 
+
                 <div class="item-desc">Loss-of-function mutations in HPGD impair 15-hydroxyprostaglandin dehydrogenase activity, the main enzyme of prostaglandin degradation. This leads to chronically elevated prostaglandin E2 levels and failure of the two-step PGE2 catabolic pathway.</div>
 
 
@@ -4507,11 +4638,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4533,6 +4664,115 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        HPGD
+
+
+    <a href="https://bioregistry.io/hgnc:5154" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:5154</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HPGD (hgnc:5154). hgnc:5154 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        HPGD
+
+
+    <a href="https://bioregistry.io/hgnc:5154" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:5154</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns HPGD (hgnc:5154). hgnc:5154 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HOMOZYGOUS</span>
+
+
+
+        <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
+
+    </div>
+
+
+
+
+    <div class="context-detail">Biallelic HPGD loss-of-function variants; the recurrent c.310_311delCT allele is a hotspot in reported Chinese patients.</div>
+
 
 
 
@@ -4548,11 +4788,11 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1905344" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:1905344</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1905344" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:1905344</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Prostaglandin catabolic process (GO:1905344). GO:1905344 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4625,6 +4865,7 @@ This pathophysiological event involves decreased Prostaglandin catabolic process
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4648,6 +4889,7 @@ This pathophysiological event involves decreased Prostaglandin catabolic process
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pge2-transport-slco2a1" data-dismech-node="Impaired PGE2 Transport (SLCO2A1)" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired PGE2 Transport (SLCO2A1)</div>
 
+
                 <div class="item-desc">Loss-of-function mutations in SLCO2A1 impair the prostaglandin transporter, which is required for cellular uptake of PGE2 prior to intracellular degradation by HPGD. Both biallelic (PHOAR2) and monoallelic (PHOAD) mutations cause disease. SLCO2A1-deficient individuals have elevated urinary PGE2 and also excrete considerable quantities of the PGE2 metabolite PGE-M.</div>
 
 
@@ -4662,11 +4904,11 @@ This pathophysiological event involves decreased Prostaglandin catabolic process
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4688,6 +4930,113 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SLCO2A1
+
+
+    <a href="https://bioregistry.io/hgnc:10955" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:10955</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLCO2A1 (hgnc:10955). hgnc:10955 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SLCO2A1
+
+
+    <a href="https://bioregistry.io/hgnc:10955" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:10955</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns SLCO2A1 (hgnc:10955). hgnc:10955 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
+
+    </div>
+
+
+
+
+    <div class="context-detail">SLCO2A1 loss-of-function variants. Biallelic variants give the recessive PHOAR2 form; monoallelic variants give the milder dominant PHOAD form, so no single zygosity is recorded for this node.</div>
+
 
 
 
@@ -4703,11 +5052,11 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015732" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0015732</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015732" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0015732</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Prostaglandin transport (GO:0015732). GO:0015732 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4788,6 +5137,7 @@ This pathophysiological event involves decreased Prostaglandin transport (GO:001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4809,6 +5159,7 @@ This pathophysiological event involves decreased Prostaglandin transport (GO:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4835,6 +5186,7 @@ This pathophysiological event involves decreased Prostaglandin transport (GO:001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-periosteal-new-bone-formation" data-dismech-node="Periosteal New Bone Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Periosteal New Bone Formation</div>
 
+
                 <div class="item-desc">Excess PGE2 stimulates osteoblast activity and periosteal new bone formation in tubular bones, leading to periostosis, arthralgia, and digital clubbing.</div>
 
 
@@ -4849,11 +5201,11 @@ This pathophysiological event involves decreased Prostaglandin transport (GO:001
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000062</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4890,11 +5242,11 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001503</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0001503</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Bone formation, annotated with ossification (GO:0001503). GO:0001503 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4944,6 +5296,7 @@ This pathophysiological event involves increased Bone formation, annotated with 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4967,6 +5320,7 @@ This pathophysiological event involves increased Bone formation, annotated with 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-connective-tissue-proliferation" data-dismech-node="Connective Tissue Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Connective Tissue Proliferation</div>
 
+
                 <div class="item-desc">PGE2 excess drives dermal fibroblast proliferation and collagen deposition, resulting in pachydermia (skin thickening), cutis verticis gyrata, and sebaceous gland hyperplasia.</div>
 
 
@@ -4981,11 +5335,11 @@ This pathophysiological event involves increased Bone formation, annotated with 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5022,11 +5376,11 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032964" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0032964</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032964" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0032964</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Collagen biosynthetic process (GO:0032964). GO:0032964 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5076,6 +5430,7 @@ This pathophysiological event involves increased Collagen biosynthetic process (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5099,6 +5454,7 @@ This pathophysiological event involves increased Collagen biosynthetic process (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myelofibrosis-slco2a1" data-dismech-node="Myelofibrosis (SLCO2A1)" data-dismech-type="pathophysiology">
                 <div class="item-name">Myelofibrosis (SLCO2A1)</div>
 
+
                 <div class="item-desc">SLCO2A1-deficient individuals have a high frequency of severe anemia due to myelofibrosis. This may reflect prostaglandin-dependent effects on hematopoietic stem cell maintenance.</div>
 
 
@@ -5113,11 +5469,11 @@ This pathophysiological event involves increased Collagen biosynthetic process (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000037" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000037</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000037" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000037</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hematopoietic stem cell (CL:0000037). CL:0000037 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5139,6 +5495,49 @@ This pathophysiological event involves hematopoietic stem cell (CL:0000037). CL:
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SLCO2A1
+
+
+    <a href="https://bioregistry.io/hgnc:10955" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:10955</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLCO2A1 (hgnc:10955). hgnc:10955 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5154,11 +5553,11 @@ This pathophysiological event involves hematopoietic stem cell (CL:0000037). CL:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030097" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030097</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030097" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0030097</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated Hematopoiesis, annotated with hemopoiesis (GO:0030097). GO:0030097 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5208,6 +5607,7 @@ This pathophysiological event involves dysregulated Hematopoiesis, annotated wit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5253,7 +5653,7 @@ This pathophysiological event involves dysregulated Hematopoiesis, annotated wit
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Connective Tissue Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PGE2 excess drives dermal fibroblast proliferation and collagen deposition, resulting in pachydermia (skin thickening), cutis verticis gyrata, and sebaceous gland hyperplasia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"Collagen biosynthetic process\"]}}, {\"id\": \"Defective PGE2 Degradation (HPGD)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in HPGD impair 15-hydroxyprostaglandin dehydrogenase activity, the main enzyme of prostaglandin degradation. This leads to chronically elevated prostaglandin E2 levels and failure of the two-step PGE2 catabolic pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"Prostaglandin catabolic process\"]}}, {\"id\": \"Impaired PGE2 Transport (SLCO2A1)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in SLCO2A1 impair the prostaglandin transporter, which is required for cellular uptake of PGE2 prior to intracellular degradation by HPGD. Both biallelic (PHOAR2) and monoallelic (PHOAD) mutations cause disease. SLCO2A1-deficient individuals have elevated urinary PGE2 and also excrete considerable quantities of the PGE2 metabolite PGE-M.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"Prostaglandin transport\"]}}, {\"id\": \"Myelofibrosis (SLCO2A1)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLCO2A1-deficient individuals have a high frequency of severe anemia due to myelofibrosis. This may reflect prostaglandin-dependent effects on hematopoietic stem cell maintenance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"Hematopoiesis\"]}}, {\"id\": \"Periosteal New Bone Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess PGE2 stimulates osteoblast activity and periosteal new bone formation in tubular bones, leading to periostosis, arthralgia, and digital clubbing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"Bone formation\"]}}], \"edges\": [{\"source\": \"Defective PGE2 Degradation (HPGD)\", \"target\": \"Periosteal New Bone Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess PGE2 stimulates osteoblast-mediated periosteal bone formation.\"}, {\"source\": \"Defective PGE2 Degradation (HPGD)\", \"target\": \"Connective Tissue Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PGE2 excess drives dermal fibroblast proliferation and collagen deposition.\"}, {\"source\": \"Impaired PGE2 Transport (SLCO2A1)\", \"target\": \"Periosteal New Bone Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired PGE2 clearance leads to sustained osteoblast stimulation.\"}, {\"source\": \"Impaired PGE2 Transport (SLCO2A1)\", \"target\": \"Connective Tissue Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extracellular PGE2 accumulation drives dermal changes.\"}, {\"source\": \"Impaired PGE2 Transport (SLCO2A1)\", \"target\": \"Myelofibrosis (SLCO2A1)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired prostaglandin transporter activity disrupts hematopoietic stem cell maintenance, leading to myelofibrosis.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Connective Tissue Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PGE2 excess drives dermal fibroblast proliferation and collagen deposition, resulting in pachydermia (skin thickening), cutis verticis gyrata, and sebaceous gland hyperplasia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"Collagen biosynthetic process\"]}}, {\"id\": \"Defective PGE2 Degradation (HPGD)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in HPGD impair 15-hydroxyprostaglandin dehydrogenase activity, the main enzyme of prostaglandin degradation. This leads to chronically elevated prostaglandin E2 levels and failure of the two-step PGE2 catabolic pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"Prostaglandin catabolic process\"], \"genes\": [\"HPGD\"], \"gene_terms\": [{\"label\": \"HPGD\", \"id\": \"hgnc:5154\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic HPGD loss-of-function variants; the recurrent c.310_311delCT allele is a hotspot in reported Chinese patients.\", \"gene_terms\": [{\"label\": \"HPGD\", \"id\": \"hgnc:5154\"}]}, \"subtypes\": [\"PHOAR1\"]}}, {\"id\": \"HPGD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HPGD\"], \"gene_terms\": [{\"label\": \"HPGD\", \"id\": \"hgnc:5154\"}], \"subtypes\": [\"PHOAR1\"], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Impaired PGE2 Transport (SLCO2A1)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in SLCO2A1 impair the prostaglandin transporter, which is required for cellular uptake of PGE2 prior to intracellular degradation by HPGD. Both biallelic (PHOAR2) and monoallelic (PHOAD) mutations cause disease. SLCO2A1-deficient individuals have elevated urinary PGE2 and also excrete considerable quantities of the PGE2 metabolite PGE-M.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"Prostaglandin transport\"], \"genes\": [\"SLCO2A1\"], \"gene_terms\": [{\"label\": \"SLCO2A1\", \"id\": \"hgnc:10955\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"SLCO2A1 loss-of-function variants. Biallelic variants give the recessive PHOAR2 form; monoallelic variants give the milder dominant PHOAD form, so no single zygosity is recorded for this node.\", \"gene_terms\": [{\"label\": \"SLCO2A1\", \"id\": \"hgnc:10955\"}]}, \"subtypes\": [\"PHOAR2\", \"PHOAD\"]}}, {\"id\": \"Myelofibrosis (SLCO2A1)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLCO2A1-deficient individuals have a high frequency of severe anemia due to myelofibrosis. This may reflect prostaglandin-dependent effects on hematopoietic stem cell maintenance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"Hematopoiesis\"], \"genes\": [\"SLCO2A1\"], \"gene_terms\": [{\"label\": \"SLCO2A1\", \"id\": \"hgnc:10955\"}], \"subtypes\": [\"PHOAR2\"]}}, {\"id\": \"Periosteal New Bone Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess PGE2 stimulates osteoblast activity and periosteal new bone formation in tubular bones, leading to periostosis, arthralgia, and digital clubbing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"Bone formation\"]}}, {\"id\": \"SLCO2A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLCO2A1\"], \"gene_terms\": [{\"label\": \"SLCO2A1\", \"id\": \"hgnc:10955\"}], \"subtypes\": [\"PHOAR2\"], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SLCO2A1 (Dominant)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLCO2A1\"], \"gene_terms\": [{\"label\": \"SLCO2A1\", \"id\": \"hgnc:10955\"}], \"subtypes\": [\"PHOAD\"], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}], \"edges\": [{\"source\": \"Defective PGE2 Degradation (HPGD)\", \"target\": \"Periosteal New Bone Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess PGE2 stimulates osteoblast-mediated periosteal bone formation.\"}, {\"source\": \"Defective PGE2 Degradation (HPGD)\", \"target\": \"Connective Tissue Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PGE2 excess drives dermal fibroblast proliferation and collagen deposition.\"}, {\"source\": \"Impaired PGE2 Transport (SLCO2A1)\", \"target\": \"Periosteal New Bone Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired PGE2 clearance leads to sustained osteoblast stimulation.\"}, {\"source\": \"Impaired PGE2 Transport (SLCO2A1)\", \"target\": \"Connective Tissue Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extracellular PGE2 accumulation drives dermal changes.\"}, {\"source\": \"Impaired PGE2 Transport (SLCO2A1)\", \"target\": \"Myelofibrosis (SLCO2A1)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired prostaglandin transporter activity disrupts hematopoietic stem cell maintenance, leading to myelofibrosis.\"}, {\"source\": \"HPGD\", \"target\": \"Defective PGE2 Degradation (HPGD)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLCO2A1\", \"target\": \"Impaired PGE2 Transport (SLCO2A1)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLCO2A1\", \"target\": \"Myelofibrosis (SLCO2A1)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLCO2A1 (Dominant)\", \"target\": \"Impaired PGE2 Transport (SLCO2A1)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLCO2A1 (Dominant)\", \"target\": \"Myelofibrosis (SLCO2A1)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5317,15 +5717,18 @@ This pathophysiological event involves dysregulated Hematopoiesis, annotated wit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001903</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5345,6 +5748,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5369,6 +5773,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5418,15 +5823,18 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001643</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001643</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5446,6 +5854,7 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5495,15 +5904,18 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0004398</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004398</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peptic ulcer (HP:0004398). HP:0004398 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5523,6 +5935,7 @@ This clinical feature is Peptic ulcer (HP:0004398). HP:0004398 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5574,15 +5987,18 @@ This clinical feature is Peptic ulcer (HP:0004398). HP:0004398 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010541</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0010541</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cutis verticis gyrata, annotated with Cutis gyrata of scalp (HP:0010541). HP:0010541 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5602,6 +6018,7 @@ This clinical feature is Cutis verticis gyrata, annotated with Cutis gyrata of s
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5642,10 +6059,10 @@ This clinical feature is Cutis verticis gyrata, annotated with Cutis gyrata of s
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed cranial suture closure (HP:0000270). HP:0000270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5656,9 +6073,12 @@ This clinical feature is Delayed cranial suture closure (HP:0000270). HP:0000270
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -5673,6 +6093,7 @@ This clinical feature is Delayed cranial suture closure (HP:0000270). HP:0000270
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5681,6 +6102,31 @@ This clinical feature is Delayed cranial suture closure (HP:0000270). HP:0000270
 
 
                 <div class="evidence-explanation">Delayed cranial suture closure is a documented feature in HPGD-related PHO cases.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40140750" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40140750" target="_blank">PMID:40140750</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Less frequent manifestations encompassed joint effusion (11.3%), delayed closure of cranial sutures (16.9%), acne (21.3%), skin hyperkeratosis (7.9%), Wormian bones (7.9%), and knee valgus (4.5%), watery diarrhea (5.6%), and anemia (5.6%)."</div>
+
+
+                <div class="evidence-explanation">Sources the 16.9% frequency stated in this phenotype&#39;s description, from the paper&#39;s pooled review of reported HPGD-variant cases. Found while auditing prose figures during the dismech#12205 genetics pass; the figure was already in the entry and uncited.</div>
 
 
 
@@ -5719,15 +6165,18 @@ This clinical feature is Delayed cranial suture closure (HP:0000270). HP:0000270
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001061</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001061</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acne (HP:0001061). HP:0001061 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5747,6 +6196,7 @@ This clinical feature is Acne (HP:0001061). HP:0001061 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5800,15 +6250,18 @@ This clinical feature is Acne (HP:0001061). HP:0001061 is a phenotype from the H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001072</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pachydermia, annotated with Thickened skin (HP:0001072). HP:0001072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5828,6 +6281,7 @@ This clinical feature is Pachydermia, annotated with Thickened skin (HP:0001072)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5868,15 +6322,18 @@ This clinical feature is Pachydermia, annotated with Thickened skin (HP:0001072)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000975</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000975</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5896,6 +6353,7 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5947,15 +6405,18 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001217" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001217</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001217" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001217</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Digital clubbing, annotated with Clubbing (HP:0001217). HP:0001217 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5975,6 +6436,7 @@ This clinical feature is Digital clubbing, annotated with Clubbing (HP:0001217).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5999,6 +6461,7 @@ This clinical feature is Digital clubbing, annotated with Clubbing (HP:0001217).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6048,15 +6511,18 @@ This clinical feature is Digital clubbing, annotated with Clubbing (HP:0001217).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001386</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001386</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6076,6 +6542,7 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6127,15 +6594,18 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030314" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030314</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030314" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0030314</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Periostosis (HP:0030314). HP:0030314 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6155,6 +6625,7 @@ This clinical feature is Periostosis (HP:0030314). HP:0030314 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6204,15 +6675,18 @@ This clinical feature is Periostosis (HP:0030314). HP:0030314 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002829</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002829</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6232,6 +6706,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6315,17 +6790,24 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                         Gene: HPGD
 
 
-    <a href="https://bioregistry.io/hgnc:5154" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:5154</a>
+    <a href="https://bioregistry.io/hgnc:5154" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:5154</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is HPGD (hgnc:5154). hgnc:5154 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6344,6 +6826,7 @@ This disease-associated gene is HPGD (hgnc:5154). hgnc:5154 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6368,6 +6851,7 @@ This disease-associated gene is HPGD (hgnc:5154). hgnc:5154 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6410,17 +6894,24 @@ This disease-associated gene is HPGD (hgnc:5154). hgnc:5154 is a gene from the H
                         Gene: SLCO2A1
 
 
-    <a href="https://bioregistry.io/hgnc:10955" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:10955</a>
+    <a href="https://bioregistry.io/hgnc:10955" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:10955</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SLCO2A1 (hgnc:10955). hgnc:10955 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6439,6 +6930,7 @@ This disease-associated gene is SLCO2A1 (hgnc:10955). hgnc:10955 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6463,6 +6955,7 @@ This disease-associated gene is SLCO2A1 (hgnc:10955). hgnc:10955 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6495,6 +6988,35 @@ This disease-associated gene is SLCO2A1 (hgnc:10955). hgnc:10955 is a gene from 
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SLCO2A1
+
+
+    <a href="https://bioregistry.io/hgnc:10955" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:10955</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLCO2A1 (hgnc:10955). hgnc:10955 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
 
 
 
@@ -6512,6 +7034,7 @@ This disease-associated gene is SLCO2A1 (hgnc:10955). hgnc:10955 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6562,7 +7085,7 @@ This disease-associated gene is SLCO2A1 (hgnc:10955). hgnc:10955 is a gene from 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6603,16 +7126,22 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6339" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:6339</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6339" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:6339</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses etoricoxib (CHEBI:6339). CHEBI:6339 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6648,6 +7177,7 @@ This treatment uses etoricoxib (CHEBI:6339). CHEBI:6339 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6672,6 +7202,7 @@ This treatment uses etoricoxib (CHEBI:6339). CHEBI:6339 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6693,6 +7224,7 @@ This treatment uses etoricoxib (CHEBI:6339). CHEBI:6339 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6724,7 +7256,7 @@ This treatment uses etoricoxib (CHEBI:6339). CHEBI:6339 is a therapeutic agent f
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6764,6 +7296,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Non-steroidal anti-inflammatory drugs provide symptomatic relief of arthralgia and were the mainstay of treatment before discovery of the underlying genetic cause.</div>
 
 
@@ -6782,7 +7320,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6809,6 +7347,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6876,6 +7420,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6897,6 +7442,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6949,6 +7495,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6995,6 +7542,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7070,6 +7618,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7223,6 +7772,11 @@ has_subtypes:
       15-hydroxyprostaglandin dehydrogenase, leading to failure of PGE2
       degradation. Earlier onset (childhood) and elevated urinary PGE2
       with decreased PGE-M.
+    genes:
+      - preferred_term: HPGD
+        term:
+          id: hgnc:5154
+          label: HPGD
     evidence:
       - reference: PMID:18500342
         reference_title: &#34;Mutations in 15-hydroxyprostaglandin dehydrogenase cause primary hypertrophic osteoarthropathy.&#34;
@@ -7245,6 +7799,11 @@ has_subtypes:
       prostaglandin transporter (PGT), impairing cellular uptake of PGE2 for
       degradation. Most common form worldwide. Later onset (puberty), all-male
       predominance, and associated with peptic ulcers and myelofibrosis.
+    genes:
+      - preferred_term: SLCO2A1
+        term:
+          id: hgnc:10955
+          label: SLCO2A1
     evidence:
       - reference: PMID:22553128
         reference_title: &#34;Prostaglandin transporter mutations cause pachydermoperiostosis with myelofibrosis.&#34;
@@ -7264,6 +7823,11 @@ has_subtypes:
     description: &gt;-
       Caused by monoallelic mutations in SLCO2A1. Milder phenotype with less
       severe pachydermia and periostosis compared to PHOAR2. Onset in puberty.
+    genes:
+      - preferred_term: SLCO2A1
+        term:
+          id: hgnc:10955
+          label: SLCO2A1
     evidence:
       - reference: PMID:33852188
         reference_title: &#34;Monoallelic mutations in SLCO2A1 cause autosomal dominant primary hypertrophic osteoarthropathy.&#34;
@@ -7281,6 +7845,25 @@ pathophysiology:
       dehydrogenase activity, the main enzyme of prostaglandin degradation.
       This leads to chronically elevated prostaglandin E2 levels and failure
       of the two-step PGE2 catabolic pathway.
+    genes:
+      - preferred_term: HPGD
+        term:
+          id: hgnc:5154
+          label: HPGD
+    genetic_context:
+      gene:
+        preferred_term: HPGD
+        term:
+          id: hgnc:5154
+          label: HPGD
+      variant_origin: GERMLINE
+      zygosity: HOMOZYGOUS
+      functional_impact_category: LOSS_OF_FUNCTION
+      description: &gt;-
+        Biallelic HPGD loss-of-function variants; the recurrent
+        c.310_311delCT allele is a hotspot in reported Chinese patients.
+    subtypes:
+      - PHOAR1
     cell_types:
       - preferred_term: fibroblast
         term:
@@ -7318,6 +7901,26 @@ pathophysiology:
       monoallelic (PHOAD) mutations cause disease. SLCO2A1-deficient
       individuals have elevated urinary PGE2 and also excrete considerable
       quantities of the PGE2 metabolite PGE-M.
+    genes:
+      - preferred_term: SLCO2A1
+        term:
+          id: hgnc:10955
+          label: SLCO2A1
+    genetic_context:
+      gene:
+        preferred_term: SLCO2A1
+        term:
+          id: hgnc:10955
+          label: SLCO2A1
+      variant_origin: GERMLINE
+      functional_impact_category: LOSS_OF_FUNCTION
+      description: &gt;-
+        SLCO2A1 loss-of-function variants. Biallelic variants give the
+        recessive PHOAR2 form; monoallelic variants give the milder dominant
+        PHOAD form, so no single zygosity is recorded for this node.
+    subtypes:
+      - PHOAR2
+      - PHOAD
     cell_types:
       - preferred_term: fibroblast
         term:
@@ -7417,6 +8020,13 @@ pathophysiology:
       SLCO2A1-deficient individuals have a high frequency of severe anemia
       due to myelofibrosis. This may reflect prostaglandin-dependent effects
       on hematopoietic stem cell maintenance.
+    genes:
+      - preferred_term: SLCO2A1
+        term:
+          id: hgnc:10955
+          label: SLCO2A1
+    subtypes:
+      - PHOAR2
     cell_types:
       - preferred_term: hematopoietic stem cell
         term:
@@ -7636,6 +8246,20 @@ phenotypes:
         explanation: &gt;-
           Delayed cranial suture closure is a documented feature in
           HPGD-related PHO cases.
+      - reference: PMID:40140750
+        reference_title: &#34;Two cases of primary hypertrophic osteoarthropathy caused by HPGD variants: a case report and literature review.&#34;
+        supports: SUPPORT
+        evidence_source: HUMAN_CLINICAL
+        snippet: &gt;-
+          Less frequent manifestations encompassed joint effusion (11.3%),
+          delayed closure of cranial sutures (16.9%), acne (21.3%), skin
+          hyperkeratosis (7.9%), Wormian bones (7.9%), and knee valgus (4.5%),
+          watery diarrhea (5.6%), and anemia (5.6%).
+        explanation: &gt;-
+          Sources the 16.9% frequency stated in this phenotype&#39;s description,
+          from the paper&#39;s pooled review of reported HPGD-variant cases. Found
+          while auditing prose figures during the dismech#12205 genetics pass;
+          the figure was already in the entry and uncited.
   - name: Anemia
     category: Hematologic
     subtype: PHOAR2
@@ -7716,6 +8340,8 @@ genetic:
         id: hgnc:5154
         label: HPGD
     association: Pathogenic Variants
+    relationship_type: CAUSATIVE
+    variant_origin: GERMLINE
     subtype: PHOAR1
     notes: &gt;-
       Biallelic loss-of-function variants in HPGD encoding
@@ -7749,6 +8375,8 @@ genetic:
         id: hgnc:10955
         label: SLCO2A1
     association: Pathogenic Variants
+    relationship_type: CAUSATIVE
+    variant_origin: GERMLINE
     subtype: PHOAR2
     notes: &gt;-
       Biallelic loss-of-function variants in SLCO2A1 encoding the
@@ -7774,7 +8402,14 @@ genetic:
         explanation: &gt;-
           Confirms male predominance and later onset in PHOAR2 compared to PHOAR1.
   - name: SLCO2A1 (Dominant)
+    gene_term:
+      preferred_term: SLCO2A1
+      term:
+        id: hgnc:10955
+        label: SLCO2A1
     association: Pathogenic Variants
+    relationship_type: CAUSATIVE
+    variant_origin: GERMLINE
     subtype: PHOAD
     notes: &gt;-
       Monoallelic mutations in SLCO2A1 cause autosomal dominant PHO
@@ -7940,6 +8575,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8385,7 +9022,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Primary Hypertrophic Osteoarthropathy", "mondoId": "MONDO:0016620", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Primary_Hypertrophic_Osteoarthropathy", "yamlRevision": "a01789054a0b"};
+        const OS_CONFIG = {"diseaseName": "Primary Hypertrophic Osteoarthropathy", "mondoId": "MONDO:0016620", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Primary_Hypertrophic_Osteoarthropathy", "yamlRevision": "e48d238834da"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
