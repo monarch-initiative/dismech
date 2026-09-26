@@ -8,6 +8,30 @@
 # constraint (issues #7514 and #11921).
 unknown_prefix_severity: ERROR
 
+# serve_stale_html_full_text: serve a cached `full_text_html` entry as evidence
+# even when it predates the extractor stamps, instead of withholding it.
+#
+# Upstream withholds it by default, and that default is right in general: a
+# pre-stamp HTML entry might be a publisher landing page rather than the article,
+# and the guard assumes a re-fetch can repair it. Here it cannot. PMC answers a
+# Python HTTP client with a bot-check interstitial carried on an HTTP 200 --
+# regardless of User-Agent, including curl's own -- so for a PMC-only article
+# every repair route the fetcher has is closed, and the guard withholds text
+# that nothing can recover.
+#
+# What that cost: 1,654 committed cache files lack the stamp, and about 294 of
+# them have at least one snippet that is not in the abstract. Those failed in the
+# merge queue, on files the pull request never touched, after its own CI lane had
+# passed and a reviewer had approved (dismech#12672, and #12637 lost curated
+# phenotypes to it).
+#
+# Turning this on is defensible *here* specifically because this cache is
+# committed and reviewed: a landing page stored as full text is a content bug to
+# fix in a PR, not a reason to withhold every pre-stamp entry. It affects serving
+# only -- never whether an entry may be overwritten -- and the entry stays
+# un-stamped, so a later run that can reach the source still repairs it.
+serve_stale_html_full_text: true
+
 # literal_bracket_patterns: regexes matched against the text *inside* square
 # brackets. Content matching any of them is kept as literal source text; content
 # matching none of them is stripped before the snippet is compared with the
