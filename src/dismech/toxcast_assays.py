@@ -45,8 +45,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
-from collections.abc import Iterable
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -189,7 +188,7 @@ class AnnotationSnapshot:
     def __len__(self) -> int:
         return len(self.endpoints)
 
-    def __iter__(self) -> Iterable[AssayEndpoint]:
+    def __iter__(self) -> Iterator[AssayEndpoint]:
         return iter(self.endpoints.values())
 
     def get(self, aeid: int) -> AssayEndpoint | None:
@@ -452,7 +451,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     count = annotations.refresh(force=args.force)
-    print(f"{count} assay-endpoint annotations cached at {annotations.annotations_path}")
+    print(
+        f"{count} assay-endpoint annotations cached at {annotations.annotations_path}"
+    )
     print(f"provenance recorded in {annotations.manifest_path}")
     return 0
 
