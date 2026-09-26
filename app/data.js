@@ -30197,7 +30197,10 @@ window.searchData = [
     ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "glycosaminoglycan catabolic process",
+      "extracellular matrix organization"
+    ],
     "phenotypes": [
       "Limitation of joint mobility",
       "Joint contracture",
@@ -30339,10 +30342,14 @@ window.searchData = [
       "CFI-aHUS",
       "CFB-aHUS",
       "C3-aHUS",
-      "Anti-FH-aHUS"
+      "Anti-FH-aHUS",
+      "DGKE-aHUS"
     ],
     "description": "Atypical hemolytic-uremic syndrome (aHUS) is a complement-mediated thrombotic microangiopathy (TMA) characterized by the triad of microangiopathic hemolytic anemia, thrombocytopenia, and acute kidney injury. Unlike typical HUS caused by Shiga toxin-producing E. coli, aHUS results from dysregulation of the alternative complement pathway due to genetic mutations in complement regulators (CFH, CFI, MCP/CD46) or complement effectors (CFB, C3), or from autoantibodies against factor H. Uncontrolled complement activation on endothelial surfaces leads to endothelial injury, platelet activation, and microvascular thrombosis predominantly affecting the renal microvasculature. aHUS can present at any age, with approximately 60% of cases having an identifiable genetic cause. Without treatment, it carries high morbidity with progression to end-stage renal disease. The introduction of eculizumab, a monoclonal antibody targeting complement component C5, has transformed the prognosis.",
     "pathophysiology": [
+      "Loss of Surface Complement Regulation",
+      "Gain-of-Function C3 Convertase Activity",
+      "DGKE Loss and Prothrombotic Endothelial Signaling",
       "Alternative Complement Pathway Dysregulation",
       "MAC-Mediated Endothelial Activation",
       "Platelet Aggregation and Microthrombus Formation",
@@ -30360,6 +30367,7 @@ window.searchData = [
       "CL:0000232"
     ],
     "biological_processes": [
+      "Negative Regulation of the Alternative Complement Pathway",
       "Complement Activation, Alternative Pathway",
       "Regulation of Complement Activation",
       "Complement-Dependent Cytotoxicity",
@@ -30441,11 +30449,11 @@ window.searchData = [
     "source_file": "Atypical_Hemolytic_Uremic_Syndrome.yaml",
     "page_url": "../pages/disorders/Atypical_Hemolytic_Uremic_Syndrome.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 8,
     "num_genes": 8,
     "num_treatments": 6,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Atypical Teratoid/Rhabdoid Tumor",
@@ -67865,7 +67873,12 @@ window.searchData = [
     ],
     "creation_date": "2026-05-10T15:03:39Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "CHNG8",
+      "CHNG9",
+      "IGSF1-Related Central Hypothyroidism",
+      "CHNG7"
+    ],
     "description": "Central congenital hypothyroidism is congenital thyroid hormone deficiency caused by insufficient hypothalamic or pituitary stimulation of thyroid hormone production. Its core biochemical signature is low free thyroxine with a TSH concentration that is low, normal, or only mildly elevated relative to the degree of hypothyroxinemia.",
     "pathophysiology": [
       "Impaired Hypothalamic-Pituitary TSH Drive",
@@ -67927,9 +67940,11 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "Established isolated central congenital hypothyroidism genes",
+      "IGSF1 pathogenic variants",
       "TSHB pathogenic variants",
-      "TRHR pathogenic variants"
+      "TRHR pathogenic variants",
+      "TBL1X pathogenic variants",
+      "IRS4 pathogenic variants"
     ],
     "treatments": [
       "Levothyroxine Replacement",
@@ -67944,10 +67959,10 @@ window.searchData = [
     "page_url": "../pages/disorders/Central_Congenital_Hypothyroidism.html",
     "num_phenotypes": 10,
     "num_pathophysiology": 3,
-    "num_genes": 3,
+    "num_genes": 5,
     "num_treatments": 2,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Central Core Myopathy",
@@ -81755,7 +81770,17 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "CSS4",
-      "CSS6"
+      "CSS6",
+      "CSS1",
+      "CSS2",
+      "CSS3",
+      "CSS5",
+      "CSS7",
+      "CSS8",
+      "CSS10",
+      "CSS11",
+      "CSS12",
+      "SOX11"
     ],
     "description": "Coffin-Siris syndrome is a genetically heterogeneous autosomal dominant neurodevelopmental disorder caused by pathogenic variants in genes encoding subunits of the BAF/SWI-SNF chromatin remodeling complex. Core manifestations include developmental delay or intellectual disability, coarse facial features, hypoplasia or aplasia of the fifth digit nails or distal phalanges, hypotonia, feeding difficulties, hypertrichosis, sparse scalp hair, short stature, and additional congenital anomalies including cardiac, renal, and brain malformations. Epilepsy and hearing impairment are frequent complications.",
     "pathophysiology": [
@@ -81887,7 +81912,9 @@ window.searchData = [
       "SOX11",
       "SMARCC2",
       "SMARCA2",
-      "BICRA"
+      "BICRA",
+      "SOX4",
+      "SMARCD1"
     ],
     "treatments": [
       "Multidisciplinary supportive care and surveillance",
@@ -81903,9 +81930,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Coffin-Siris_syndrome.html",
     "num_phenotypes": 20,
     "num_pathophysiology": 11,
-    "num_genes": 11,
+    "num_genes": 13,
     "num_treatments": 6,
-    "causal_graph_edges": "47",
+    "causal_graph_edges": "50",
     "causal_graph_longest_path": "2"
   },
   {
@@ -88195,7 +88222,16 @@ window.searchData = [
       "Permanent Primary",
       "Transient",
       "Central",
-      "Dyshormonogenesis"
+      "Dyshormonogenesis",
+      "TSHR Resistance",
+      "CHNG2",
+      "CHNG5",
+      "TDH1",
+      "TDH2A",
+      "TDH3",
+      "TDH4",
+      "TDH5",
+      "TDH6"
     ],
     "description": "Congenital hypothyroidism is thyroid hormone deficiency present at birth and is one of the most common preventable causes of intellectual disability worldwide. The primary form, caused by thyroid dysgenesis or dyshormonogenesis, accounts for the vast majority of cases with an incidence of 1 in 2000 to 1 in 3000. Universal newborn screening enables early detection and treatment with levothyroxine, which prevents irreversible neurodevelopmental damage when initiated within the first two weeks of life.",
     "pathophysiology": [
@@ -88203,7 +88239,8 @@ window.searchData = [
       "Defective Thyroid Hormone Biosynthesis",
       "Impaired Hypothalamic-Pituitary TSH Drive",
       "Transient Thyroid Dysfunction",
-      "Neurodevelopmental Impairment from Thyroid Hormone Deficiency"
+      "Neurodevelopmental Impairment from Thyroid Hormone Deficiency",
+      "Iodide Salvage Failure"
     ],
     "cell_types": [
       "thyroid follicular cell",
@@ -88274,7 +88311,9 @@ window.searchData = [
       "TG",
       "SLC5A5",
       "DUOXA2",
-      "SLC26A4"
+      "SLC26A4",
+      "NKX2-5",
+      "IYD"
     ],
     "treatments": [
       "Levothyroxine Replacement",
@@ -88289,11 +88328,11 @@ window.searchData = [
     "source_file": "Congenital_Hypothyroidism.yaml",
     "page_url": "../pages/disorders/Congenital_Hypothyroidism.html",
     "num_phenotypes": 13,
-    "num_pathophysiology": 5,
-    "num_genes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 12,
     "num_treatments": 3,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Congenital Insensitivity to Pain",
@@ -112237,11 +112276,15 @@ window.searchData = [
       "PFBMFT8",
       "NAF1",
       "STN1",
-      "ZCCHC8"
+      "ZCCHC8",
+      "DKCD",
+      "DCLRE1B"
     ],
     "description": "Dyskeratosis congenita (DC) is a rare inherited multisystem telomere biology disorder (TBD) caused by impaired telomere maintenance resulting in abnormally short or dysfunctional telomeres. Classic DC is defined by a mucocutaneous triad of dysplastic nails, lacy reticular skin pigmentation, and oral leukoplakia, and is complicated by progressive bone marrow failure, predisposition to myelodysplastic syndrome / acute myeloid leukemia and squamous cell carcinoma, and pulmonary and hepatic fibrosis. DC sits at the early-onset, classic end of the broader telomere biology disorder spectrum, with Hoyeraal-Hreidarsson syndrome (with cerebellar hypoplasia) and Revesz syndrome (with exudative retinopathy) representing severe variants. Pathogenic germline variants in at least 16 genes spanning the telomerase core (TERT, TERC), the H/ACA snoRNP (DKC1, NHP2, NOP10, NAF1), telomerase trafficking (WRAP53), the shelterin complex (TINF2, ACD, POT1), the CST replication complex (CTC1, STN1, RPA1), the RTEL1 helicase, and RNA-processing factors (PARN, ZCCHC8) cause DC, with X-linked, autosomal dominant, and autosomal recessive inheritance depending on the gene. Diagnosis relies on multicolor flow-FISH lymphocyte telomere length testing (very short telomeres, often below the 1st percentile for age) and germline genetic testing, which identifies a pathogenic variant in approximately 80% of clinically diagnosed individuals. At the opposite, adult end of the same spectrum sit the numbered telomere-related pulmonary fibrosis / bone marrow failure entities, in which dominant variants in the same genes present decades later with lung disease rather than the mucocutaneous triad; the POT1 member of that series (PFBMFT8) is curated here as a subtype alongside the recessive POT1 form.",
     "pathophysiology": [
       "Impaired Telomere Maintenance",
+      "Thymidylate Synthase Deficiency",
+      "Apollo Exonuclease Deficiency",
       "Critically Short Telomeres and Replicative Senescence",
       "Stem Cell Exhaustion in High-Turnover Tissues"
     ],
@@ -112258,6 +112301,8 @@ window.searchData = [
     "biological_processes": [
       "Telomere maintenance",
       "Telomere maintenance via telomerase",
+      "deoxyribonucleoside triphosphate metabolic process",
+      "DNA repair",
       "Replicative senescence",
       "Apoptotic process",
       "p53-mediated DNA damage response"
@@ -112335,7 +112380,10 @@ window.searchData = [
       "POLA1",
       "NAF1",
       "STN1",
-      "ZCCHC8"
+      "ZCCHC8",
+      "TYMS",
+      "ENOSF1",
+      "DCLRE1B"
     ],
     "treatments": [
       "Hematopoietic stem cell transplantation",
@@ -112349,11 +112397,11 @@ window.searchData = [
     "source_file": "Dyskeratosis_Congenita.yaml",
     "page_url": "../pages/disorders/Dyskeratosis_Congenita.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 3,
-    "num_genes": 20,
+    "num_pathophysiology": 5,
+    "num_genes": 23,
     "num_treatments": 5,
-    "causal_graph_edges": "40",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "45",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Dyskeratosis Congenita Autosomal Recessive 2",
@@ -119497,6 +119545,69 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "32",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Erysipelothrix Rhusiopathiae Infectious Disease",
+    "disease_id": "MONDO:0006752",
+    "category": "Infectious Disease",
+    "parents": [
+      "Erysipelothrix infectious disease"
+    ],
+    "creation_date": "2026-09-25T16:49:06Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Erysipelothrix rhusiopathiae infectious disease is a bacterial infection caused by Erysipelothrix rhusiopathiae. Human infection is acquired mainly through occupational contact with contaminated animals, animal products, wastes, or soil and ranges from localized cutaneous erysipeloid to a rare septicemic form often complicated by endocarditis.",
+    "pathophysiology": [
+      "Neuraminidase-mediated host cell attachment and invasion",
+      "Cutaneous erysipeloid infection",
+      "Generalized (diffuse) cutaneous infection",
+      "Septicemic dissemination",
+      "Endocardial valve infection"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Localized erysipeloid lesion",
+      "Endocarditis",
+      "Lymphadenopathy",
+      "Arthritis",
+      "Tenosynovitis",
+      "Fever"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0011355",
+      "HP:0100584",
+      "HP:0002716",
+      "HP:0001369",
+      "HP:6001438",
+      "HP:0001945"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antibiotic therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Erysipelothrix_Rhusiopathiae_Infectious_Disease.yaml",
+    "page_url": "../pages/disorders/Erysipelothrix_Rhusiopathiae_Infectious_Disease.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Erythrokeratodermia Variabilis",
@@ -136036,6 +136147,82 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Gas Gangrene",
+    "disease_id": "MONDO:0005767",
+    "category": "Infectious Disease",
+    "parents": [
+      "bacterial infectious disease with sepsis",
+      "commensal bacterial infectious disease",
+      "infection due to clostridium perfringens",
+      "skin disease caused by bacterial infection",
+      "vesiculobullous skin disease"
+    ],
+    "creation_date": "2026-09-25T18:27:16Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Gas gangrene, or clostridial myonecrosis, is a rapidly progressive toxin-mediated soft-tissue infection caused mainly by Clostridium perfringens after trauma or surgery and less often by spontaneous Clostridium septicum infection in immunosuppressed or malignancy-associated settings.",
+    "pathophysiology": [
+      "Anaerobic clostridial toxin production in infected muscle",
+      "Alpha-toxin membrane injury",
+      "Alpha-toxin and theta-toxin vascular leukostasis",
+      "Systemic shock and hemolysis"
+    ],
+    "cell_types": [
+      "vascular endothelial cell",
+      "skeletal muscle cell",
+      "erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000188",
+      "CL:0000232"
+    ],
+    "biological_processes": [
+      "platelet aggregation"
+    ],
+    "phenotypes": [
+      "Myonecrosis",
+      "Fever",
+      "Pain",
+      "Edema",
+      "Shock",
+      "Hemolytic anemia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003713",
+      "HP:0001945",
+      "HP:0012531",
+      "HP:0000969",
+      "HP:0031273",
+      "HP:0001878"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Radical surgical debridement",
+      "Antibiotic therapy",
+      "Hyperbaric oxygen therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Gas_Gangrene.yaml",
+    "page_url": "../pages/disorders/Gas_Gangrene.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Gastric Adenocarcinoma",
@@ -156690,11 +156877,14 @@ window.searchData = [
     "subtypes": [],
     "description": "Human African trypanosomiasis (sleeping sickness) is a tsetse fly\u2013borne infection caused by Trypanosoma brucei subspecies, characterized by an early hemolymphatic stage and a later meningoencephalitic stage with sleep-wake disturbances.",
     "pathophysiology": [
+      "VSG Antigenic Variation and Immune Evasion",
       "Central nervous system infection after BBB traversal"
     ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "antigenic variation"
+    ],
     "phenotypes": [
       "Sleep-wake cycle disturbance"
     ],
@@ -156724,11 +156914,11 @@ window.searchData = [
     "source_file": "Human_African_Trypanosomiasis.yaml",
     "page_url": "../pages/disorders/Human_African_trypanosomiasis.html",
     "num_phenotypes": 1,
-    "num_pathophysiology": 1,
+    "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Human Metapneumovirus Infection",
@@ -158629,7 +158819,8 @@ window.searchData = [
       "Polygenic Hypercholesterolemia",
       "Familial Combined Hyperlipidemia",
       "Hypertriglyceridemia",
-      "Mixed Hyperlipidemia"
+      "Mixed Hyperlipidemia",
+      "Hyperlipoproteinemia Type V"
     ],
     "description": "Hyperlipidemia is a heterogeneous dyslipidemia state characterized by elevated apoB-containing lipoproteins and/or triglyceride-rich lipoproteins. This entry focuses on common/polygenic and mixed hyperlipidemia mechanisms with shared downstream atherogenic consequences; monogenic familial hypercholesterolemia is curated separately.\n",
     "pathophysiology": [
@@ -158704,6 +158895,7 @@ window.searchData = [
       "APOB",
       "LPL",
       "APOE",
+      "APOA5",
       "APOC3"
     ],
     "treatments": [
@@ -158733,10 +158925,10 @@ window.searchData = [
     "page_url": "../pages/disorders/Hyperlipidemia.html",
     "num_phenotypes": 7,
     "num_pathophysiology": 8,
-    "num_genes": 6,
+    "num_genes": 7,
     "num_treatments": 8,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Hypermobile Ehlers-Danlos Syndrome",
@@ -195136,7 +195328,13 @@ window.searchData = [
       "Tubulinopathy/TUBA1A",
       "ARX-related",
       "RELN-related",
-      "Cobblestone"
+      "Cobblestone",
+      "LIS10/CEP85L",
+      "LIS6/KATNB1",
+      "LIS7/CDK5",
+      "LIS8/TMTC3",
+      "LIS9/MACF1",
+      "CDCBM9/CTNNA2"
     ],
     "description": "Lissencephaly spectrum disorders are a genetically heterogeneous group of malformations of cortical development characterized by abnormal cortical folding (reduced gyrification) due chiefly to impaired neuronal migration and disordered cortical lamination during embryonic development. The spectrum ranges from agyria (near-absent gyri) and pachygyria (broad, reduced gyri) to subcortical band heterotopia (SBH, \"double cortex\"). Most affected individuals present congenitally with a structural brain malformation and develop early intellectual disability, hypotonia, and drug-resistant seizures. Causal genes include PAFAH1B1 (LIS1), DCX, TUBA1A, ARX, RELN, DYNC1H1 and TUBG1, among others, with classic, X-linked, tubulinopathy, ARX-related, RELN-related and cobblestone (glycosylation-pathway) forms.",
     "pathophysiology": [
@@ -195145,17 +195343,25 @@ window.searchData = [
       "LIS1-NUDEL-Dynein Nucleokinesis Failure",
       "DCX Microtubule Stabilization Failure",
       "LIS1 Progenitor Spindle Orientation Defect",
-      "Reelin Signaling Deficiency"
+      "Reelin Signaling Deficiency",
+      "Pericentriolar CEP85L Deficiency",
+      "CDK5 Activation Failure at the Centrosome",
+      "Katanin p80 Deficiency in Dividing Neural Progenitors",
+      "ARP2/3 De-repression from \u03b1N-Catenin Loss",
+      "Neuronal Overmigration Across the Pial Boundary"
     ],
     "cell_types": [
       "migrating cortical neuron",
       "radial glial progenitor",
-      "neuroepithelial stem cell"
+      "neuroepithelial stem cell",
+      "cerebral cortex neuron"
     ],
     "cell_type_ids": [
       "CL:0000540",
       "CL:0000681",
-      "CL:0011020"
+      "CL:0011020",
+      "CL:0002259",
+      "CL:0010012"
     ],
     "biological_processes": [
       "radial neuronal migration in cerebral cortex",
@@ -195165,7 +195371,11 @@ window.searchData = [
       "microtubule cytoskeleton organization",
       "cytoplasmic microtubule organization",
       "mitotic spindle organization",
-      "cell division"
+      "cell division",
+      "microtubule severing",
+      "Arp2/3 complex-mediated actin nucleation",
+      "actin filament branching",
+      "cerebral cortex radial glia-guided migration"
     ],
     "phenotypes": [
       "Lissencephaly",
@@ -195179,9 +195389,12 @@ window.searchData = [
       "Feeding Difficulties",
       "Progressive Microcephaly",
       "Cerebellar Hypoplasia",
-      "Visual Impairment"
+      "Visual Impairment",
+      "Cobblestone lissencephaly"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neurological"
+    ],
     "phenotype_hpo_categories": [
       "Digestive",
       "Eye",
@@ -195201,7 +195414,8 @@ window.searchData = [
       "HP:0011968",
       "HP:0000252",
       "HP:0001321",
-      "HP:0000505"
+      "HP:0000505",
+      "HP:0007260"
     ],
     "frequencies": [
       "VERY_FREQUENT"
@@ -195212,7 +195426,13 @@ window.searchData = [
       "TUBA1A",
       "DYNC1H1",
       "RELN",
-      "ARX"
+      "ARX",
+      "CEP85L",
+      "CDK5",
+      "KATNB1",
+      "MACF1",
+      "TMTC3",
+      "CTNNA2"
     ],
     "treatments": [
       "Anti-Seizure Medication",
@@ -195226,12 +195446,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Lissencephaly_Spectrum_Disorders.yaml",
     "page_url": "../pages/disorders/Lissencephaly_Spectrum_Disorders.html",
-    "num_phenotypes": 12,
-    "num_pathophysiology": 6,
-    "num_genes": 6,
+    "num_phenotypes": 13,
+    "num_pathophysiology": 11,
+    "num_genes": 12,
     "num_treatments": 6,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Listeriosis",
@@ -219282,6 +219502,162 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Mucous Membrane Pemphigoid",
+    "disease_id": "MONDO:0018746",
+    "category": "Autoimmune",
+    "parents": [
+      "Dermatological Disease",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-09-25T10:34:21Z",
+    "updated_date": null,
+    "subtypes": [
+      "Ocular MMP",
+      "Anti-laminin 332 MMP"
+    ],
+    "description": "Mucous membrane pemphigoid (MMP) is a heterogeneous group of chronic autoantibody-mediated subepithelial blistering diseases defined by predominant involvement of mucous membranes and a tendency to heal with scarring. IgG and/or IgA autoantibodies target structural proteins of the epithelial basement membrane zone - principally the C-terminal portion of BP180 (type XVII collagen, COL17A1), and less often laminin 332 (LAMA3/LAMB3/LAMC2), BP230, integrin alpha6beta4 and type VII collagen. Autoantibody binding engages Fc-gamma receptors and complement, recruits neutrophils and separates the epithelium from the underlying stroma. In contrast to bullous pemphigoid, lesions outside the mouth heal with fibrosis driven by persistently activated profibrotic fibroblasts, so that conjunctival scarring can progress to blindness and laryngeal, nasal and oesophageal scarring to airway obstruction, stricture and death. The oral mucosa is the commonest site. Anti-laminin 332 MMP is associated with solid malignancy in about a quarter of patients. Treatment is systemic and site-tailored: dapsone, methotrexate, tetracyclines and topical corticosteroids for mild or moderate disease, and cyclophosphamide, systemic corticosteroids, rituximab or intravenous immunoglobulin for severe or refractory disease.",
+    "pathophysiology": [
+      "HLA Class II-Associated Loss of Tolerance to Basement Membrane Antigens",
+      "Anti-Basement Membrane Zone Autoantibody Production",
+      "Fc Receptor and Complement Activation at the Basement Membrane Zone",
+      "Neutrophil Recruitment via the LTB4-BLT1 Axis",
+      "Subepithelial Blister Formation",
+      "IL-13-Producing T Cell Infiltration of the Conjunctiva",
+      "Profibrotic Conjunctival Fibroblast Activation",
+      "Mucosal Subepithelial Fibrosis"
+    ],
+    "cell_types": [
+      "T cell",
+      "B cell",
+      "plasma cell",
+      "neutrophil",
+      "fibroblast of the conjunctiva"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000236",
+      "CL:0000786",
+      "CL:0000775",
+      "CL:0002550"
+    ],
+    "biological_processes": [
+      "antigen processing and presentation of peptide antigen via MHC class II",
+      "immunoglobulin production",
+      "complement activation, classical pathway",
+      "Fc receptor mediated stimulatory signaling pathway",
+      "neutrophil chemotaxis",
+      "leukotriene biosynthetic process",
+      "interleukin-13 production",
+      "fibroblast proliferation",
+      "retinoic acid biosynthetic process",
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Oral Mucosal Erosions and Blisters",
+      "Desquamative Gingivitis",
+      "Chronic Conjunctivitis",
+      "Conjunctival Subepithelial Fibrosis",
+      "Conjunctival Fornix Foreshortening",
+      "Symblepharon",
+      "Entropion",
+      "Trichiasis",
+      "Dry Eye",
+      "Limbal Stem Cell Deficiency",
+      "Corneal Neovascularization",
+      "Blindness",
+      "Nasal Involvement",
+      "Laryngeal Stenosis",
+      "Dysphonia",
+      "Dyspnea",
+      "Esophageal Stricture",
+      "Esophageal Web",
+      "Dysphagia",
+      "Genital Mucosal Lesions",
+      "Skin Blistering",
+      "Associated Solid Malignancy"
+    ],
+    "phenotype_categories": [
+      "Oral",
+      "Ocular",
+      "Respiratory",
+      "Digestive",
+      "Genitourinary",
+      "Integument",
+      "Neoplasm"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0031446",
+      "HP:0000230",
+      "HP:0000509",
+      "HP:6001090",
+      "HP:6001091",
+      "HP:0430007",
+      "HP:0000621",
+      "HP:0001128",
+      "HP:0001097",
+      "HP:0032107",
+      "HP:0011496",
+      "HP:0000618",
+      "HP:0002257",
+      "HP:0001602",
+      "HP:0001618",
+      "HP:0002094",
+      "HP:0002043",
+      "HP:0100594",
+      "HP:0002015",
+      "HP:0003249",
+      "HP:0008066",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HLA-DQB1*03:01 Susceptibility",
+      "HLA-DRB1*11 Susceptibility"
+    ],
+    "treatments": [
+      "Topical Corticosteroids",
+      "Dapsone",
+      "Tetracyclines",
+      "Methotrexate",
+      "Cyclophosphamide",
+      "Systemic Corticosteroids",
+      "Mycophenolate Mofetil",
+      "Rituximab",
+      "Intravenous Immunoglobulin",
+      "Azathioprine",
+      "Etanercept",
+      "Surgical Release of Scarring and Strictures"
+    ],
+    "environmental": [
+      "Dipeptidyl Peptidase-4 Inhibitor (Gliptin) Exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Mucous_Membrane_Pemphigoid.yaml",
+    "page_url": "../pages/disorders/Mucous_Membrane_Pemphigoid.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 12,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Muenke Syndrome",
     "disease_id": "MONDO:0011274",
     "category": "Mendelian",
@@ -231808,7 +232184,13 @@ window.searchData = [
     "subtypes": [
       "CLN1 Disease",
       "CLN2 Disease",
-      "CLN3 Disease"
+      "CLN3 Disease",
+      "CLN5 Disease",
+      "CLN6 Disease",
+      "CLN7 Disease",
+      "CLN8 Disease",
+      "CLN10 Disease",
+      "CLN11 Disease"
     ],
     "description": "Neuronal ceroid lipofuscinosis (NCL; Batten disease) is a genetically heterogeneous group of lysosomal neurodegenerative disorders that primarily affect children and are characterized by toxic endo-lysosomal storage with abnormal autofluorescent ceroid/lipopigment material, progressive visual and cognitive decline, seizures, myoclonus, and worsening motor dysfunction.\n",
     "pathophysiology": [
@@ -250469,7 +250851,19 @@ window.searchData = [
     ],
     "creation_date": "2025-12-18T17:01:35Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "PARK1",
+      "PARK4",
+      "PARK6",
+      "PARK15",
+      "PARK17",
+      "PARK19A",
+      "PARK19B",
+      "PARK20",
+      "PARK22",
+      "PARK23",
+      "PARK25"
+    ],
     "description": "Parkinson's disease is a progressive neurodegenerative movement disorder caused by the loss of dopaminergic neurons in the substantia nigra pars compacta, producing striatal dopamine deficiency and basal ganglia circuit dysfunction. It manifests as bradykinesia, resting tremor, rigidity, and postural instability, with non-motor features. The pathological hallmark is intraneuronal aggregation of misfolded alpha-synuclein (Lewy bodies), with mitochondrial dysfunction and oxidative stress contributing to neurodegeneration.",
     "pathophysiology": [
       "Dopaminergic Neuron Loss",
@@ -250501,7 +250895,8 @@ window.searchData = [
       "Synaptic Dysfunction",
       "Iron Accumulation and Ferroptosis",
       "Blood-Brain Barrier Dysfunction",
-      "Metabolic Dysfunction and Weight Loss"
+      "Metabolic Dysfunction and Weight Loss",
+      "PP2A Phosphatase Activation Failure"
     ],
     "cell_types": [
       "Dopaminergic Neuron",
@@ -250647,7 +251042,13 @@ window.searchData = [
       "GBA1",
       "PARK7",
       "PRKN",
-      "VPS35"
+      "VPS35",
+      "CHCHD2",
+      "PTPA",
+      "VPS13C",
+      "SYNJ1",
+      "DNAJC6",
+      "FBXO7"
     ],
     "treatments": [
       "Levodopa/Carbidopa",
@@ -250668,10 +251069,10 @@ window.searchData = [
     "source_file": "Parkinsons_Disease.yaml",
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
     "num_phenotypes": 19,
-    "num_pathophysiology": 30,
-    "num_genes": 7,
+    "num_pathophysiology": 31,
+    "num_genes": 13,
     "num_treatments": 8,
-    "causal_graph_edges": "75",
+    "causal_graph_edges": "90",
     "causal_graph_longest_path": "14"
   },
   {
@@ -267032,10 +267433,18 @@ window.searchData = [
     ],
     "creation_date": "2026-04-14T05:24:49Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "PRAAS1",
+      "PRAAS2",
+      "PRAAS3",
+      "PRAAS4",
+      "PRAAS5",
+      "PRAAS6"
+    ],
     "description": "Proteasome-associated autoinflammatory syndrome (PRAAS) is a genetically heterogeneous Mendelian type I interferonopathy caused by loss-of-function defects in proteasome or immunoproteasome subunits and proteasome assembly factors. The disease spectrum encompasses the historically named CANDLE, Nakajo-Nishimura, and JMP syndromes and is characterized by proteotoxic stress, chronic interferon activation, inflammatory skin disease, progressive lipodystrophy, joint contractures, and systemic inflammatory complications.\n",
     "pathophysiology": [
-      "Proteasome Subunit and Assembly-Factor Loss of Function",
+      "Proteasome Subunit Loss of Function",
+      "Proteasome Assembly Chaperone Loss of Function",
       "Impaired Proteasome Biogenesis and Activity",
       "Proteotoxic and Endoplasmic Reticulum Stress",
       "PKR-Mediated Type I Interferon Signaling",
@@ -267087,7 +267496,13 @@ window.searchData = [
     "frequencies": [],
     "genes": [
       "Proteasome subunit and assembly-factor loss-of-function variants",
-      "PSMB8"
+      "PSMB8",
+      "PSMA3",
+      "POMP",
+      "PSMB4",
+      "PSMG2",
+      "PSMB10",
+      "PSMB9"
     ],
     "treatments": [
       "Baricitinib therapy",
@@ -267098,11 +267513,11 @@ window.searchData = [
     "source_file": "Proteasome_Associated_Autoinflammatory_Syndrome.yaml",
     "page_url": "../pages/disorders/Proteasome-Associated_Autoinflammatory_Syndrome.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 5,
-    "num_genes": 2,
+    "num_pathophysiology": 6,
+    "num_genes": 8,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Protein S Deficiency",
@@ -291462,6 +291877,77 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Septicemic Plague",
+    "disease_id": "MONDO:0005956",
+    "category": "Infectious Disease",
+    "parents": [
+      "Plague"
+    ],
+    "creation_date": "2026-09-25T15:30:29Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Septicemic plague is the bloodstream form of plague: Yersinia pestis enters the blood, produces systemic infection with dysregulated inflammation, and can cause disseminated intravascular coagulation, purpura, and rapidly fatal multi-organ dysfunction.",
+    "pathophysiology": [
+      "Yersinia pestis Innate Immune Evasion",
+      "Systemic Yersinia pestis Bacteremia",
+      "Dysregulated Systemic Inflammatory Response"
+    ],
+    "cell_types": [
+      "macrophage",
+      "neutrophil",
+      "monocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000775",
+      "CL:0000576"
+    ],
+    "biological_processes": [
+      "innate immune response",
+      "phagocytosis",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Sepsis",
+      "Disseminated Intravascular Coagulation",
+      "Purpura",
+      "Fever"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Hematologic",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0100806",
+      "HP:0005521",
+      "HP:0000979",
+      "HP:0001945"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Early antibiotic therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Septicemic_Plague.yaml",
+    "page_url": "../pages/disorders/Septicemic_Plague.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Severe Combined Immunodeficiency",
@@ -335334,17 +335820,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3175,
-  "total_subtypes": 4126,
-  "total_disorders_and_subtypes": 7301,
-  "total_unique_evidence_sources": 46081,
-  "total_unique_publications": 43304,
+  "total_disorder_pages": 3179,
+  "total_subtypes": 4184,
+  "total_disorders_and_subtypes": 7363,
+  "total_unique_evidence_sources": 46183,
+  "total_unique_publications": 43396,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 286,
-  "total_pathographs": 3170,
-  "total_unique_pathological_events": 20002,
+  "total_pathographs": 3174,
+  "total_unique_pathological_events": 20036,
   "total_modules": 178,
-  "total_research_reports": 3287,
+  "total_research_reports": 3291,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 105
