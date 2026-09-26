@@ -16850,6 +16850,72 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Agoraphobia",
+    "disease_id": "MONDO:0003709",
+    "category": "Psychiatric",
+    "parents": [
+      "Anxiety Disorder",
+      "Mental Health Disorder"
+    ],
+    "creation_date": "2026-09-07T15:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Agoraphobia is a phobic anxiety disorder characterized by marked fear or anxiety about situations such as public transport, open spaces, enclosed places, crowds or queues, and being outside the home alone, arising from the thought that escape might be difficult or help unavailable should panic-like or other incapacitating symptoms occur. DSM-5 and ICD-11 established agoraphobia as a diagnosis independent of panic disorder rather than a residual panic disorder specifier. Two partly separable mechanistic strands are described: a fear-learning strand in which heightened startle and fear-network reactivity support catastrophic agoraphobic cognitions, and a spatial-orientation strand in which vestibular dysfunction drives a compensatory dependence on visual and proprioceptive cues, producing discomfort precisely in the settings where those cues are unreliable.",
+    "pathophysiology": [
+      "GLRB Glycine Receptor Variation",
+      "Exaggerated Startle and Fear Network Activation",
+      "Vestibular Dysfunction",
+      "Non-Vestibular Balance Control Strategy",
+      "Space and Motion Discomfort",
+      "Agoraphobic Cognitions",
+      "Situational Fear and Avoidance"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "startle response"
+    ],
+    "phenotypes": [
+      "Agoraphobia",
+      "Anxiety",
+      "Exaggerated startle response",
+      "Abnormal vestibular function"
+    ],
+    "phenotype_categories": [
+      "Behavioral",
+      "Clinical Sign"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000756",
+      "HP:0000739",
+      "HP:0002267",
+      "HP:0001751"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GLRB",
+      "TMEM132D"
+    ],
+    "treatments": [
+      "Exposure in vivo combined with antidepressant pharmacotherapy",
+      "Antidepressant pharmacotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Agoraphobia.yaml",
+    "page_url": "../pages/disorders/Agoraphobia.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Aicardi-Goutieres Syndrome",
     "disease_id": "MONDO:0018866",
     "category": "Mendelian",
@@ -32916,7 +32982,12 @@ window.searchData = [
     "subtypes": [
       "ADCA-I",
       "ADCA-II",
-      "ADCA-III"
+      "ADCA-III",
+      "SCA10",
+      "SCA44",
+      "SCA50",
+      "SCA51",
+      "SCA52"
     ],
     "description": "Autosomal dominant cerebellar ataxia (ADCA) comprises genetically heterogeneous disorders that impair the cerebellum and its connections. Progressive gait or limb incoordination, dysarthria and abnormal eye movements are characteristic, but the combination, onset and course vary by molecular subtype; episodic or predominantly ocular presentations also occur. Historical Harding classes distinguish predominantly cerebellar disease, disease with extracerebellar features, and ataxia with retinal degeneration. These clinical classes differ from numbered molecular spinocerebellar ataxias. Coding repeat expansions, noncoding repeat expansions and conventional pathogenic variants cause distinct molecular disturbances, with subtype-dependent neuronal vulnerability rather than universal Purkinje-cell loss.",
     "pathophysiology": [
@@ -32994,7 +33065,13 @@ window.searchData = [
     "frequencies": [],
     "genes": [
       "Polyglutamine SCA genes",
-      "Noncoding-repeat and conventional-variant causes"
+      "Noncoding-repeat and conventional-variant causes",
+      "ATXN7",
+      "ATXN10",
+      "GRM1",
+      "NPTX1",
+      "THAP11",
+      "RAB3A"
     ],
     "treatments": [
       "Physical rehabilitation and mobility support",
@@ -33018,9 +33095,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Autosomal_Dominant_Cerebellar_Ataxia.html",
     "num_phenotypes": 17,
     "num_pathophysiology": 12,
-    "num_genes": 2,
+    "num_genes": 8,
     "num_treatments": 14,
-    "causal_graph_edges": "45",
+    "causal_graph_edges": "52",
     "causal_graph_longest_path": "6"
   },
   {
@@ -93458,10 +93535,14 @@ window.searchData = [
       "CED1",
       "CED2",
       "CED3",
-      "CED4"
+      "CED4",
+      "CED5",
+      "CED6",
+      "IFT52-associated"
     ],
-    "description": "Cranioectodermal dysplasia (CED), also known as Sensenbrenner syndrome, is a rare autosomal recessive skeletal ciliopathy characterized by craniofacial, skeletal, and ectodermal anomalies (dolichocephaly often secondary to sagittal craniosynostosis, narrow thorax, shortened proximal limbs, brachydactyly, polydactyly, sparse hair, widely spaced hypoplastic teeth, and abnormal nails), frequently complicated by nephronophthisis-type progressive renal failure, hepatic fibrosis, and retinal dystrophy. CED is caused by biallelic mutations in genes encoding intraflagellar transport (IFT) components. The four classically recognized molecular subtypes are CED1 (IFT122), CED2 (WDR35), CED3 (IFT43), and CED4 (WDR19); additional IFT genes (IFT140, IFT52) have since been associated with the syndrome. Loss of IFT function disrupts ciliary transport and primary cilium function, converging on the shared ciliopathy mechanism.\n",
+    "description": "Cranioectodermal dysplasia (CED), also known as Sensenbrenner syndrome, is a rare autosomal recessive skeletal ciliopathy characterized by craniofacial, skeletal, and ectodermal anomalies (dolichocephaly often secondary to sagittal craniosynostosis, narrow thorax, shortened proximal limbs, brachydactyly, polydactyly, sparse hair, widely spaced hypoplastic teeth, and abnormal nails), frequently complicated by nephronophthisis-type progressive renal failure, hepatic fibrosis, and retinal dystrophy. Most CED is caused by biallelic mutations in genes encoding intraflagellar transport (IFT) components. The four classically recognized molecular subtypes are CED1 (IFT122), CED2 (WDR35), CED3 (IFT43), and CED4 (WDR19); further IFT genes (IFT140, now designated CED5, and IFT52) have since been associated with the syndrome. CED6 is caused by a variant in the non-catalytic domain of the ciliary kinase CILK1, the first reported CED gene that is not itself an IFT subunit. Loss of IFT function disrupts ciliary transport and primary cilium function, converging on the shared ciliopathy mechanism.\n",
     "pathophysiology": [
+      "CILK1 Ciliary Kinase Deficiency",
       "Intraflagellar Transport Dysfunction",
       "Cilium-Dependent Signaling Failure",
       "Craniofacial, Skeletal, and Ectodermal Dysplasia",
@@ -93548,7 +93629,8 @@ window.searchData = [
       "IFT43",
       "WDR19",
       "IFT140",
-      "IFT52"
+      "IFT52",
+      "CILK1"
     ],
     "treatments": [
       "Craniosynostosis Surgery",
@@ -93561,11 +93643,11 @@ window.searchData = [
     "source_file": "Cranioectodermal_Dysplasia.yaml",
     "page_url": "../pages/disorders/Cranioectodermal_Dysplasia.html",
     "num_phenotypes": 18,
-    "num_pathophysiology": 4,
-    "num_genes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 7,
     "num_treatments": 4,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Craniofacial-Deafness-Hand Syndrome",
@@ -152864,7 +152946,10 @@ window.searchData = [
     ],
     "creation_date": "2026-05-09T19:32:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "SMDP4",
+      "SMDP5"
+    ],
     "description": "Hereditary pulmonary alveolar proteinosis is a rare autosomal recessive interstitial lung disease caused by biallelic defects in GM-CSF receptor subunits encoded by CSF2RA or CSF2RB. Impaired GM-CSF receptor signaling prevents normal alveolar macrophage maturation and surfactant/cholesterol clearance, allowing periodic acid-Schiff-positive proteinaceous surfactant material and foamy macrophages to accumulate in alveoli while alveolar walls are relatively preserved. Clinical severity ranges from asymptomatic disease to childhood-onset dyspnea, cough, hypoxemia, restrictive ventilatory defect, infections, and respiratory failure requiring assisted ventilation.\n",
     "pathophysiology": [
       "Biallelic GM-CSF receptor subunit dysfunction",
@@ -152958,8 +153043,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Hereditary Sensory Neuropathy Type 1D",
@@ -300623,6 +300708,68 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Spirillary Rat-Bite Fever",
+    "disease_id": "MONDO:0020532",
+    "category": "Infectious Disease",
+    "parents": [
+      "Rat-Bite Fever"
+    ],
+    "creation_date": "2026-09-25T16:46:44Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spirillary rat-bite fever, or sodoku, is a zoonotic rat-bite fever syndrome caused by Spirillum minus in which rat-bite exposure can produce a systemic febrile illness with rash.",
+    "pathophysiology": [
+      "Rat-Bite Spirillum Minus Inoculation",
+      "Local Bite-Site Reactivation",
+      "Regional Lymphatic Spread",
+      "Spirillum Minus Systemic Infection"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Fever",
+      "Skin Rash",
+      "Bite-site ulcer",
+      "Regional lymphadenopathy",
+      "Relapsing fever"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Dermatologic",
+      "Immunologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0000988",
+      "HP:0200042",
+      "HP:0002716",
+      "HP:0001954"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antibiotic therapy",
+      "Surgical wound debridement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spirillary_Rat-Bite_Fever.yaml",
+    "page_url": "../pages/disorders/Spirillary_Rat-Bite_Fever.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Splenic artery aneurysm",
     "disease_id": "MONDO:0001856",
     "category": "Complex",
@@ -335187,17 +335334,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3173,
-  "total_subtypes": 4116,
-  "total_disorders_and_subtypes": 7289,
-  "total_unique_evidence_sources": 46059,
-  "total_unique_publications": 43281,
+  "total_disorder_pages": 3175,
+  "total_subtypes": 4126,
+  "total_disorders_and_subtypes": 7301,
+  "total_unique_evidence_sources": 46081,
+  "total_unique_publications": 43304,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 286,
-  "total_pathographs": 3168,
-  "total_unique_pathological_events": 19990,
+  "total_pathographs": 3170,
+  "total_unique_pathological_events": 20002,
   "total_modules": 178,
-  "total_research_reports": 3285,
+  "total_research_reports": 3287,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 105
