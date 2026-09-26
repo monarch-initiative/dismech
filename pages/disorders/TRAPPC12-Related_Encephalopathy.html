@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4224,6 +4292,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4330,6 +4399,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4473,6 +4543,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4494,6 +4565,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4578,6 +4650,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4602,6 +4675,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4623,6 +4697,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4709,6 +4784,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4743,6 +4819,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-trappc12-dysfunction" data-dismech-node="Biallelic TRAPPC12 Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic TRAPPC12 Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Biallelic pathogenic variants in TRAPPC12 (also known as TTC15 or TRAMM) perturb protein abundance or function. Full-length protein was absent from fibroblasts of all three founding individuals, who carried homozygous or compound-heterozygous frameshift/missense genotypes. A later homozygous Phe227Val fibroblast study likewise found absent or markedly reduced mature protein but only mild organelle abnormalities. Separately, compound-heterozygous c.954del and c.1677+5G&gt;A variants were found in a family with recurrent fetal hydrocephalus; the former causes premature termination and the latter was shown to alter splicing. A surviving child with a homozygous frameshift means complete loss of detectable full-length protein should not be described as uniformly embryonic lethal.</div>
 
@@ -4960,6 +5043,7 @@ This pathophysiological event involves TRAPPC12 (hgnc:24284). hgnc:24284 is a ge
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4981,6 +5065,7 @@ This pathophysiological event involves TRAPPC12 (hgnc:24284). hgnc:24284 is a ge
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5008,6 +5093,7 @@ This pathophysiological event involves TRAPPC12 (hgnc:24284). hgnc:24284 is a ge
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5032,6 +5118,13 @@ This pathophysiological event involves TRAPPC12 (hgnc:24284). hgnc:24284 is a ge
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-copii-outer-coat-assembly" data-dismech-node="Reduced COPII Outer-Coat Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced COPII Outer-Coat Assembly</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In TRAPPC12-null cell systems, Sec31A turns over more slowly at ER exit sites and less Sec31A is recruited to budded COPII vesicles, while inner-coat Sec23A is unchanged. This is a measured outer-coat assembly defect in engineered cells, not proof of a patient-specific Rab-GEF deficit.</div>
 
@@ -5157,6 +5250,7 @@ This pathophysiological event involves endoplasmic reticulum to Golgi vesicle-me
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5179,6 +5273,13 @@ This pathophysiological event involves endoplasmic reticulum to Golgi vesicle-me
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-golgi-fragmentation" data-dismech-node="Golgi Fragmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Golgi Fragmentation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Fibroblasts from affected individuals show a fragmented Golgi apparatus and re-expression of wild-type TRAPPC12 rescues that morphology in the founding lines. Phe227Val fibroblasts show milder Golgi disorganization, so severity is genotype-dependent. Rescue has not been shown for the separately measured cargo-transport delay.</div>
 
@@ -5324,6 +5425,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5345,6 +5447,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5370,6 +5473,13 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-er-to-golgi-transport" data-dismech-node="Delayed ER-to-Golgi Transport" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed ER-to-Golgi Transport</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Founding affected-person fibroblasts show delayed protein transport from the endoplasmic reticulum to and through the Golgi. Engineered TRAPPC12-null cells independently reproduce delayed cargo movement. The 2025 Phe227Val fibroblast study used Nile-red lipid-vesicle distribution rather than a matched ER-to-Golgi cargo assay, so it cannot establish whether this atomic transport phenotype is present or absent for that genotype.</div>
 
@@ -5547,6 +5657,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5568,6 +5679,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5593,6 +5705,13 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prolonged-mitotic-progression" data-dismech-node="Prolonged Mitotic Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">Prolonged Mitotic Progression</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Fibroblasts from all three founding individuals took significantly longer from prophase to anaphase than control fibroblasts. This is a direct patient-cell readout, but no experiment shows that it contributes to neural development, brain atrophy, or the clinical encephalopathy.</div>
 
@@ -5682,6 +5801,7 @@ This pathophysiological event involves mitotic cell cycle (GO:0000278). GO:00002
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5704,6 +5824,13 @@ This pathophysiological event involves mitotic cell cycle (GO:0000278). GO:00002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-oligodendrocyte-differentiation" data-dismech-node="Impaired Oligodendrocyte Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Oligodendrocyte Differentiation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">TRAPPC12 associates with COPII components at endoplasmic-reticulum exit sites and interacts with MEA6/cTAGE5. TRAPPC12 deficiency in CG4 cells and cultured oligodendrocyte progenitor cells impairs differentiation and maturation. The in-vivo hypomyelinating mouse in the same study is an oligodendrocyte-lineage Mea6 conditional knockout, not a Trappc12 knockout; it therefore cannot be treated as a TRAPPC12 disease animal model.</div>
 
@@ -5932,6 +6059,7 @@ This pathophysiological event involves myelination (GO:0042552). GO:0042552 is a
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5953,6 +6081,7 @@ This pathophysiological event involves myelination (GO:0042552). GO:0042552 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5978,6 +6107,13 @@ This pathophysiological event involves myelination (GO:0042552). GO:0042552 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-brain-atrophy" data-dismech-node="Progressive Brain Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Brain Atrophy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Serial imaging in reported children shows progressive cerebral cortical atrophy, with variable cerebellar involvement. Pontine and callosal hypoplasia and white-matter abnormalities are curated separately as structural phenotypes rather than bundled into this single atrophic process.</div>
 
@@ -6063,6 +6199,7 @@ This pathophysiological event involves myelination (GO:0042552). GO:0042552 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6085,6 +6222,13 @@ This pathophysiological event involves myelination (GO:0042552). GO:0042552 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-encephalopathy" data-dismech-node="Progressive Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Encephalopathy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The integrated clinical phenotype is a progressive childhood encephalopathy: severe global developmental delay that can evolve to regression, microcephaly, hearing impairment, a mixed movement disorder and, frequently, epilepsy.</div>
 
@@ -6250,6 +6394,7 @@ This pathophysiological event involves myelination (GO:0042552). GO:0042552 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6295,7 +6440,7 @@ This pathophysiological event involves myelination (GO:0042552). GO:0042552 is a
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary fibroblasts from all three founding individuals lack full-length TRAPPC12, reproduce fragmented Golgi morphology and delayed ER-to-Golgi transport, and show prolonged prophase-to-anaphase timing. Re-expression of wild-type TRAPPC12 rescues Golgi fragmentation; rescue of the separate transport and mitotic readouts was not reported.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:28777934\"}}, {\"id\": \"Agenesis of corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One founding individual had complete callosal agenesis; the other two had severe thinning with absent posterior segments.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001274\"}}, {\"id\": \"Antiseizure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Epilepsy may be treated symptomatically with antiseizure medication. No TRAPPC12-specific drug, comparative response series, or disease-modifying therapy was identified.\", \"meta\": {\"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Axial hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Truncal (axial) hypotonia is present from infancy and coexists with the appendicular spasticity. Reported in all three founding individuals (Milev et al., 2017); documented in the full text rather than the abstract.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008936\"}}, {\"id\": \"Biallelic TRAPPC12 Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in TRAPPC12 (also known as TTC15 or TRAMM) perturb protein abundance or function. Full-length protein was absent from fibroblasts of all three founding individuals, who carried homozygous or compound-heterozygous frameshift/missense genotypes. A later homozygous Phe227Val fibroblast study likewise found absent or markedly reduced mature protein but only mild organelle abnormalities. Separately, compound-heterozygous c.954del and c.1677+5G\u003eA variants were found in a family with recurrent fetal hydrocephalus; the former causes premature termination and the latter was shown to alter splicing. A surviving child with a homozygous frameshift means complete loss of detectable full-length protein should not be described as uniformly embryonic lethal.\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"TRAPPC12\"], \"gene_terms\": [{\"label\": \"TRAPPC12\", \"id\": \"hgnc:24284\"}], \"role\": \"root\", \"experimental_models\": [{\"name\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The affected-person lines directly reproduce absence of full-length TRAPPC12 for both the homozygous and compound-heterozygous genotypes.\"}, {\"name\": \"Homozygous Phe227Val affected-person fibroblast model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Directly tests the Phe227Val genotype and reproduces absent or highly reduced mature TRAPPC12 protein in affected-person fibroblasts.\"}]}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy, which can be severe, accompanies the cortical changes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001272\"}}, {\"id\": \"Cerebellar hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild cerebellar hypoplasia was recorded in two of three founding individuals; this developmental finding is distinct from later-reported cerebellar atrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001321\"}}, {\"id\": \"Cerebral cortical atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebral cortical atrophy on serial imaging.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002120\"}}, {\"id\": \"Cerebral visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cortical/cerebral visual impairment was reported in two of the three founding individuals, distinct from the optic atrophy in the third.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100704\"}}, {\"id\": \"Delayed ER-to-Golgi Transport\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Founding affected-person fibroblasts show delayed protein transport from the endoplasmic reticulum to and through the Golgi. Engineered TRAPPC12-null cells independently reproduce delayed cargo movement. The 2025 Phe227Val fibroblast study used Nile-red lipid-vesicle distribution rather than a matched ER-to-Golgi cargo assay, so it cannot establish whether this atomic transport phenotype is present or absent for that genotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"endoplasmic reticulum to Golgi vesicle-mediated transport\"], \"experimental_models\": [{\"name\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Directly reproduces delayed cargo movement from the ER to and through the Golgi in all three founding affected-person lines.\"}, {\"name\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces delayed ER-to-Golgi transport independently of the founding affected-person fibroblast system.\"}]}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of previously acquired skills accompanies the progressive course. Reported in all three individuals of the founding discovery cohort (Milev et al., 2017); documented in the full-text case descriptions rather than the abstract, so it is recorded here without a quotable abstract snippet.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The founding table records a combined \\\"dysphagia and/or reflux\\\" finding in all three individuals, with two gastrostomy dependent. It does not resolve how many had dysphagia specifically.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A combined dystonia and/or myoclonus category was positive in all three founding individuals, but the table does not resolve how many had dystonia specifically.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001332\"}}, {\"id\": \"Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures/epilepsy are common but not universal; one reported patient with a missense genotype lacked clinically manifest epilepsy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The founding table records a combined \\\"dysphagia and/or reflux\\\" finding in all three individuals, with two gastrostomy dependent. It does not resolve how many had gastroesophageal reflux specifically.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected children show severe global or neurodevelopmental delay from infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Golgi Fragmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibroblasts from affected individuals show a fragmented Golgi apparatus and re-expression of wild-type TRAPPC12 rescues that morphology in the founding lines. Phe227Val fibroblasts show milder Golgi disorganization, so severity is genotype-dependent. Rescue has not been shown for the separately measured cargo-transport delay.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Golgi organization\"], \"experimental_models\": [{\"name\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Directly reproduces fragmented Golgi morphology, with genetic complementation tying that readout to TRAPPC12 deficiency.\"}, {\"name\": \"Homozygous Phe227Val affected-person fibroblast model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reproduces a milder Golgi disorganization and slight ER enlargement rather than the marked founding-cell phenotype.\"}, {\"name\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces dispersed ERGIC and, to a lesser extent, Golgi organization.\"}]}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing impairment is a cardinal feature. The founding cohort failed newborn or otoacoustic screening, and measured loss in the two siblings was mixed; the evidence does not justify restricting the phenotype to sensorineural loss.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Homozygous Phe227Val affected-person fibroblast model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary skin fibroblasts from one affected individual homozygous for c.679T\u003eG (p.Phe227Val) show absent or highly reduced mature TRAPPC12, mild Golgi disorganization, slight ER enlargement, and altered neutral-lipid vesicle distribution. The authors described persisting vesicle trafficking, but Nile-red distribution is not a direct ER-to-Golgi cargo assay and cannot establish presence or absence of the atomic transport-delay phenotype.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"DOI:10.26650/experimed.1584823\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"At the most severe (fetal/lethal) end of the TRAPPC12 spectrum, compound heterozygous variants were associated with recurrent fetal hydrocephaly and pregnancy loss; the cited report describes a possible developmental mechanism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000238\"}}, {\"id\": \"Hyperintensity of cerebral white matter on MRI\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The founding MRIs show increased T2 signal in cortical white matter. The authors interpreted this as decreased myelination, but the observed human phenotype is curated as the MRI signal rather than inferred delayed myelination.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030890\"}}, {\"id\": \"Hypoplasia of the corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe thinning with absence of posterior callosal segments occurred in two founding individuals; complete agenesis is curated separately.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002079\"}}, {\"id\": \"Hypoplasia of the pons\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pontine (brainstem) hypoplasia is part of the characteristic imaging signature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012110\"}}, {\"id\": \"Hypoplastic optic chiasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A small optic chiasm was recorded in two of three founding MRIs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034311\"}}, {\"id\": \"Impaired Oligodendrocyte Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TRAPPC12 associates with COPII components at endoplasmic-reticulum exit sites and interacts with MEA6/cTAGE5. TRAPPC12 deficiency in CG4 cells and cultured oligodendrocyte progenitor cells impairs differentiation and maturation. The in-vivo hypomyelinating mouse in the same study is an oligodendrocyte-lineage Mea6 conditional knockout, not a Trappc12 knockout; it therefore cannot be treated as a TRAPPC12 disease animal model.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte precursor cell\", \"oligodendrocyte\"], \"biological_processes\": [\"oligodendrocyte differentiation\", \"myelination\"], \"experimental_models\": [{\"name\": \"TRAPPC12-knockout rat CG4 oligodendroglial cell-line model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Trappc12 knockout directly reduces the differentiated morphology and complexity of the CG4 lineage.\"}, {\"name\": \"TRAPPC12-knockdown primary mouse oligodendrocyte-progenitor model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Trappc12 knockdown reduces the MBP-positive differentiated-cell fraction in a primary oligodendrocyte-lineage culture.\"}], \"animal_models\": [{\"name\": \"Oligodendrocyte-lineage Mea6 conditional-knockout mouse\", \"species\": \"Mouse (Mus musculus)\", \"genotype\": \"Conditional Mea6/cTAGE5 ablation in oligodendrocyte progenitor cells\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reproduces an oligodendrocyte differentiation and myelination phenotype in vivo through perturbation of the interacting MEA6 protein.\"}]}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the three founding individuals presented at five months with flexion seizures and an EEG showing hypsarrhythmia compatible with West syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012469\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is a cardinal feature, present in all three individuals of the founding discovery cohort. Onset is heterogeneous \\u2014 congenital in two of the three and acquired/postnatal in one \\u2014 so the unqualified term is used for the general finding, with the progressive subset recorded separately below. Microcephaly is not fully penetrant: a later-reported patient with a novel TRAPPC12 variant lacked it.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A combined dystonia and/or myoclonus category was positive in all three founding individuals, but the table does not resolve how many had myoclonus specifically.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001336\"}}, {\"id\": \"Neurogenic bladder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurogenic bladder developed in one of the three founding individuals.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000011\"}}, {\"id\": \"Oligodendrocyte-lineage Mea6 conditional-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"This interacting-pathway model develops impaired oligodendrocyte proliferation and differentiation, marked hypomyelination, synaptic dysfunction, and behavioral abnormalities. It is not a TRAPPC12 knockout and therefore models a cooperating MEA6 pathway rather than TRAPPC12-related encephalopathy itself.\"}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy was recorded in one founding individual. All three had a broader eye or vision abnormality, but the other two instead had optic-nerve/cup-disk findings with cortical visual impairment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Progressive Brain Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Serial imaging in reported children shows progressive cerebral cortical atrophy, with variable cerebellar involvement. Pontine and callosal hypoplasia and white-matter abnormalities are curated separately as structural phenotypes rather than bundled into this single atrophic process.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The integrated clinical phenotype is a progressive childhood encephalopathy: severe global developmental delay that can evolve to regression, microcephaly, hearing impairment, a mixed movement disorder and, frequently, epilepsy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In one founding child, microcephaly was acquired/postnatal and the clinical course included arrested head growth. Recorded separately from the general Microcephaly entry because this serial-growth qualifier applies to only one of the three individuals in the founding cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000253\"}}, {\"id\": \"Prolonged Mitotic Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibroblasts from all three founding individuals took significantly longer from prophase to anaphase than control fibroblasts. This is a direct patient-cell readout, but no experiment shows that it contributes to neural development, brain atrophy, or the clinical encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitotic cell cycle\"], \"experimental_models\": [{\"name\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"All three affected-person fibroblast lines show significantly prolonged progression from prophase to anaphase.\"}]}}, {\"id\": \"Reduced COPII Outer-Coat Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In TRAPPC12-null cell systems, Sec31A turns over more slowly at ER exit sites and less Sec31A is recruited to budded COPII vesicles, while inner-coat Sec23A is unchanged. This is a measured outer-coat assembly defect in engineered cells, not proof of a patient-specific Rab-GEF deficit.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"endoplasmic reticulum to Golgi vesicle-mediated transport\"], \"experimental_models\": [{\"name\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Direct genetic deletion tests how TRAPPC12 affects COPII outer-coat recruitment and early secretory-pathway organization.\"}]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis develops in the context of severe hypotonia and neurologic impairment. Reported in all three founding individuals (Milev et al., 2017); documented in the full text rather than the abstract.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Simplified gyral pattern\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Simplified frontal gyri were recorded in all three founding MRIs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009879\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Appendicular spasticity, often with spastic tetraplegia, on a background of axial hypotonia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"TRAPPC12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TRAPPC12\"], \"gene_terms\": [{\"label\": \"TRAPPC12\", \"id\": \"hgnc:24284\"}], \"presence\": \"Biallelic pathogenic or likely pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR deletion of TRAPPC12 in HeLa and HEK293T-derived cell systems was used to study TRAPPIII interaction with Sec13/Sec31, COPII outer-coat assembly, ERGIC/Golgi organization, and ER-to-Golgi cargo transport.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:28240221\"}}, {\"id\": \"TRAPPC12-knockdown primary mouse oligodendrocyte-progenitor model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Lentiviral shRNA knockdown of Trappc12 in primary neonatal mouse oligodendrocyte progenitor cells reduced the proportion of MBP-positive cells after six days of differentiation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:38439956\"}}, {\"id\": \"TRAPPC12-knockout rat CG4 oligodendroglial cell-line model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR-Cas9 knockout of Trappc12 in the rat-derived CG4 oligodendrocyte progenitor cell line reduced cell complexity after differentiation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:38439956\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ventriculomegaly beyond that expected for cortical volume loss occurred in one founding child without signs of raised intracranial pressure. Fetal hydrocephalus is curated separately.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}, {\"id\": \"Widened subarachnoid space\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent extra-axial spaces were recorded in all three founding MRIs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012704\"}}], \"edges\": [{\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Reduced COPII Outer-Coat Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TRAPPC12-null cytosol supports less efficient Sec13/Sec31 outer-coat assembly on COPII vesicles in an in-vitro budding assay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Golgi Fragmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Founding affected-person fibroblasts show Golgi fragmentation, and wild-type TRAPPC12 rescues this morphology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Delayed ER-to-Golgi Transport\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cargo transport from the endoplasmic reticulum to and through the Golgi is delayed in founding affected-person fibroblasts; this readout was measured separately from Golgi rescue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Prolonged Mitotic Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"All three founding affected-person fibroblast lines showed prolonged prophase-to-anaphase timing, although its relevance to neural disease is unknown.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Hypoplasia of the pons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic TRAPPC12 dysfunction is causal for the disorder, but the cellular route to pontine underdevelopment has not been resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Hypoplasia of the corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The gene-to-structural-phenotype relationship is established clinically, while the intervening developmental mechanism remains unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Agenesis of corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complete callosal agenesis occurred in one founding individual and severe partial agenesis/thinning in the other two; the developmental route is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular enlargement is linked to biallelic TRAPPC12 disease through unresolved neurodevelopmental intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Widened subarachnoid space\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prominent extra-axial spaces were present in all three founding individuals, but whether they reflect developmental volume loss or another process is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Simplified gyral pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Simplified frontal gyri were present in all three founding individuals; the cortical-development mechanism is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Cerebellar hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mild cerebellar hypoplasia was present in two founding individuals, with no resolved developmental mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Hypoplastic optic chiasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A small optic chiasm was present in two founding individuals; the tissue-specific route from TRAPPC12 dysfunction is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compound-heterozygous TRAPPC12 variants segregated with recurrent fetal hydrocephalus, but the intervening developmental mechanism is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced COPII Outer-Coat Assembly\", \"target\": \"Delayed ER-to-Golgi Transport\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TRAPPC12 deletion produces both reduced outer-coat assembly and delayed ER-to-Golgi cargo movement, but the coat defect was not independently rescued to prove mediation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Golgi Fragmentation\", \"target\": \"Progressive Brain Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient-cell trafficking dysfunction and progressive brain atrophy coexist in the disorder, but no neuronal or glial death pathway has been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Delayed ER-to-Golgi Transport\", \"target\": \"Impaired Oligodendrocyte Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TRAPPC12-deficient oligodendroglial cultures show impaired differentiation, but transport delay has not been shown to mediate that phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Delayed ER-to-Golgi Transport\", \"target\": \"Progressive Brain Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient-cell transport delay and brain atrophy coexist, but the neuronal or glial injury pathway connecting them is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Oligodendrocyte Differentiation\", \"target\": \"Hyperintensity of cerebral white matter on MRI\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cell-culture differentiation phenotype is compatible with the reported human white-matter MRI signal, but no in-vivo TRAPPC12 model links them.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Brain Atrophy\", \"target\": \"Progressive Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural brain loss tracks clinical progression, but the neuronal and circuit intermediates producing the encephalopathy are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Brain Atrophy\", \"target\": \"Cerebral cortical atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral cortical atrophy is the principal measured imaging manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Brain Atrophy\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is a variable measured component of the imaging phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Brain Atrophy\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced head growth commonly accompanies the atrophic course, although it is not obligate and can be congenital rather than progressive.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Brain Atrophy\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal progressive microcephaly can track brain-volume loss, but this temporal route has not been quantified across the small reported cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe developmental impairment is a defining manifestation of the encephalopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of previously acquired abilities marks clinical progression.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss is characteristic, but its cellular route is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Appendicular spasticity is part of the evolving motor syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Axial hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial hypotonia accompanies the mixed motor phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dystonia is a reported hyperkinetic manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myoclonus is a reported hyperkinetic manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epilepsy is variably present and is not required for diagnosis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Infantile spasms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile spasms with hypsarrhythmia occurred in one founding individual.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic-pathway atrophy is reported, but the tissue-specific route is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Cerebral visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral visual impairment occurred in two founding individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar and motor impairment can produce clinically important dysphagia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reflux accompanies dysphagia and feeding difficulty in the founding cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Neurogenic bladder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurogenic bladder was reported in one founding individual.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scoliosis is a secondary musculoskeletal complication of severe neurologic impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antiseizure pharmacotherapy\", \"target\": \"Epilepsy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"target\": \"Biallelic TRAPPC12 Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The affected-person lines directly reproduce absence of full-length TRAPPC12 for both the homozygous and compound-heterozygous genotypes.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblast protein abundance does not by itself define the consequences in neural lineages or the residual activity of every allele.\"}, {\"source\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"target\": \"Golgi Fragmentation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Directly reproduces fragmented Golgi morphology, with genetic complementation tying that readout to TRAPPC12 deficiency.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts do not reproduce neural cell-type vulnerability, progressive brain atrophy, or the clinical encephalopathy.\"}, {\"source\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"target\": \"Delayed ER-to-Golgi Transport\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Directly reproduces delayed cargo movement from the ER to and through the Golgi in all three founding affected-person lines.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The transport delay was measured in fibroblasts and was not shown to be rescued by wild-type TRAPPC12 or to mediate neural degeneration.\"}, {\"source\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"target\": \"Prolonged Mitotic Progression\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"All three affected-person fibroblast lines show significantly prolonged progression from prophase to anaphase.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The readout is direct, but its contribution to human neural development and encephalopathy remains unknown.\"}, {\"source\": \"Homozygous Phe227Val affected-person fibroblast model\", \"target\": \"Biallelic TRAPPC12 Dysfunction\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Directly tests the Phe227Val genotype and reproduces absent or highly reduced mature TRAPPC12 protein in affected-person fibroblasts.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The study uses cells from one affected individual and one control line; residual protein identity and allele-specific function remain incompletely resolved.\"}, {\"source\": \"Homozygous Phe227Val affected-person fibroblast model\", \"target\": \"Golgi Fragmentation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces a milder Golgi disorganization and slight ER enlargement rather than the marked founding-cell phenotype.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The organelle analysis included only one patient line, one control line, and 12 imaged cells per group, limiting precision and generalizability.\"}, {\"source\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"target\": \"Reduced COPII Outer-Coat Assembly\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Direct genetic deletion tests how TRAPPC12 affects COPII outer-coat recruitment and early secretory-pathway organization.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model uses transformed cell lines and a complete engineered deletion, not patient-derived neural cells or specific human disease alleles.\"}, {\"source\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"target\": \"Golgi Fragmentation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces dispersed ERGIC and, to a lesser extent, Golgi organization.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The engineered cancer-cell model does not establish tissue selectivity or progression in the nervous system.\"}, {\"source\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"target\": \"Delayed ER-to-Golgi Transport\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces delayed ER-to-Golgi transport independently of the founding affected-person fibroblast system.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The complete deletion in transformed cells differs from patient alleles, and no complementation assay showed that rescue of this readout reverses the disease-associated cellular phenotype.\"}, {\"source\": \"TRAPPC12-knockout rat CG4 oligodendroglial cell-line model\", \"target\": \"Impaired Oligodendrocyte Differentiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Trappc12 knockout directly reduces the differentiated morphology and complexity of the CG4 lineage.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"CG4 is a rat-derived immortalized progenitor line, not patient-derived neural tissue, and cell complexity does not establish the mechanism of the human MRI phenotype.\"}, {\"source\": \"TRAPPC12-knockdown primary mouse oligodendrocyte-progenitor model\", \"target\": \"Impaired Oligodendrocyte Differentiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Trappc12 knockdown reduces the MBP-positive differentiated-cell fraction in a primary oligodendrocyte-lineage culture.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The neonatal mouse culture is not patient-derived, shRNA may leave residual Trappc12 or have off-target effects, and no human white-matter imaging correlate was measured.\"}, {\"source\": \"Oligodendrocyte-lineage Mea6 conditional-knockout mouse\", \"target\": \"Impaired Oligodendrocyte Differentiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces an oligodendrocyte differentiation and myelination phenotype in vivo through perturbation of the interacting MEA6 protein.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The perturbed gene is Mea6, not Trappc12; the model cannot establish that TRAPPC12 disease alleles cause the same in-vivo pathway or human MRI pattern.\"}, {\"source\": \"TRAPPC12\", \"target\": \"Biallelic TRAPPC12 Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary fibroblasts from all three founding individuals lack full-length TRAPPC12, reproduce fragmented Golgi morphology and delayed ER-to-Golgi transport, and show prolonged prophase-to-anaphase timing. Re-expression of wild-type TRAPPC12 rescues Golgi fragmentation; rescue of the separate transport and mitotic readouts was not reported.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:28777934\"}}, {\"id\": \"Agenesis of corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One founding individual had complete callosal agenesis; the other two had severe thinning with absent posterior segments.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001274\"}}, {\"id\": \"Antiseizure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Epilepsy may be treated symptomatically with antiseizure medication. No TRAPPC12-specific drug, comparative response series, or disease-modifying therapy was identified.\", \"meta\": {\"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Axial hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Truncal (axial) hypotonia is present from infancy and coexists with the appendicular spasticity. Reported in all three founding individuals (Milev et al., 2017); documented in the full text rather than the abstract.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008936\"}}, {\"id\": \"Biallelic TRAPPC12 Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in TRAPPC12 (also known as TTC15 or TRAMM) perturb protein abundance or function. Full-length protein was absent from fibroblasts of all three founding individuals, who carried homozygous or compound-heterozygous frameshift/missense genotypes. A later homozygous Phe227Val fibroblast study likewise found absent or markedly reduced mature protein but only mild organelle abnormalities. Separately, compound-heterozygous c.954del and c.1677+5G\u003eA variants were found in a family with recurrent fetal hydrocephalus; the former causes premature termination and the latter was shown to alter splicing. A surviving child with a homozygous frameshift means complete loss of detectable full-length protein should not be described as uniformly embryonic lethal.\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"TRAPPC12\"], \"gene_terms\": [{\"label\": \"TRAPPC12\", \"id\": \"hgnc:24284\"}], \"role\": \"root\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The affected-person lines directly reproduce absence of full-length TRAPPC12 for both the homozygous and compound-heterozygous genotypes.\"}, {\"name\": \"Homozygous Phe227Val affected-person fibroblast model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Directly tests the Phe227Val genotype and reproduces absent or highly reduced mature TRAPPC12 protein in affected-person fibroblasts.\"}]}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy, which can be severe, accompanies the cortical changes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001272\"}}, {\"id\": \"Cerebellar hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild cerebellar hypoplasia was recorded in two of three founding individuals; this developmental finding is distinct from later-reported cerebellar atrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001321\"}}, {\"id\": \"Cerebral cortical atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cerebral cortical atrophy on serial imaging.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002120\"}}, {\"id\": \"Cerebral visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cortical/cerebral visual impairment was reported in two of the three founding individuals, distinct from the optic atrophy in the third.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100704\"}}, {\"id\": \"Delayed ER-to-Golgi Transport\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Founding affected-person fibroblasts show delayed protein transport from the endoplasmic reticulum to and through the Golgi. Engineered TRAPPC12-null cells independently reproduce delayed cargo movement. The 2025 Phe227Val fibroblast study used Nile-red lipid-vesicle distribution rather than a matched ER-to-Golgi cargo assay, so it cannot establish whether this atomic transport phenotype is present or absent for that genotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"endoplasmic reticulum to Golgi vesicle-mediated transport\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Directly reproduces delayed cargo movement from the ER to and through the Golgi in all three founding affected-person lines.\"}, {\"name\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces delayed ER-to-Golgi transport independently of the founding affected-person fibroblast system.\"}]}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of previously acquired skills accompanies the progressive course. Reported in all three individuals of the founding discovery cohort (Milev et al., 2017); documented in the full-text case descriptions rather than the abstract, so it is recorded here without a quotable abstract snippet.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The founding table records a combined \\\"dysphagia and/or reflux\\\" finding in all three individuals, with two gastrostomy dependent. It does not resolve how many had dysphagia specifically.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A combined dystonia and/or myoclonus category was positive in all three founding individuals, but the table does not resolve how many had dystonia specifically.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001332\"}}, {\"id\": \"Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures/epilepsy are common but not universal; one reported patient with a missense genotype lacked clinically manifest epilepsy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The founding table records a combined \\\"dysphagia and/or reflux\\\" finding in all three individuals, with two gastrostomy dependent. It does not resolve how many had gastroesophageal reflux specifically.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected children show severe global or neurodevelopmental delay from infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Golgi Fragmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibroblasts from affected individuals show a fragmented Golgi apparatus and re-expression of wild-type TRAPPC12 rescues that morphology in the founding lines. Phe227Val fibroblasts show milder Golgi disorganization, so severity is genotype-dependent. Rescue has not been shown for the separately measured cargo-transport delay.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Golgi organization\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Directly reproduces fragmented Golgi morphology, with genetic complementation tying that readout to TRAPPC12 deficiency.\"}, {\"name\": \"Homozygous Phe227Val affected-person fibroblast model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reproduces a milder Golgi disorganization and slight ER enlargement rather than the marked founding-cell phenotype.\"}, {\"name\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces dispersed ERGIC and, to a lesser extent, Golgi organization.\"}]}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing impairment is a cardinal feature. The founding cohort failed newborn or otoacoustic screening, and measured loss in the two siblings was mixed; the evidence does not justify restricting the phenotype to sensorineural loss.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Homozygous Phe227Val affected-person fibroblast model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary skin fibroblasts from one affected individual homozygous for c.679T\u003eG (p.Phe227Val) show absent or highly reduced mature TRAPPC12, mild Golgi disorganization, slight ER enlargement, and altered neutral-lipid vesicle distribution. The authors described persisting vesicle trafficking, but Nile-red distribution is not a direct ER-to-Golgi cargo assay and cannot establish presence or absence of the atomic transport-delay phenotype.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"DOI:10.26650/experimed.1584823\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"At the most severe (fetal/lethal) end of the TRAPPC12 spectrum, compound heterozygous variants were associated with recurrent fetal hydrocephaly and pregnancy loss; the cited report describes a possible developmental mechanism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000238\"}}, {\"id\": \"Hyperintensity of cerebral white matter on MRI\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The founding MRIs show increased T2 signal in cortical white matter. The authors interpreted this as decreased myelination, but the observed human phenotype is curated as the MRI signal rather than inferred delayed myelination.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030890\"}}, {\"id\": \"Hypoplasia of the corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe thinning with absence of posterior callosal segments occurred in two founding individuals; complete agenesis is curated separately.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002079\"}}, {\"id\": \"Hypoplasia of the pons\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pontine (brainstem) hypoplasia is part of the characteristic imaging signature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012110\"}}, {\"id\": \"Hypoplastic optic chiasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A small optic chiasm was recorded in two of three founding MRIs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034311\"}}, {\"id\": \"Impaired Oligodendrocyte Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TRAPPC12 associates with COPII components at endoplasmic-reticulum exit sites and interacts with MEA6/cTAGE5. TRAPPC12 deficiency in CG4 cells and cultured oligodendrocyte progenitor cells impairs differentiation and maturation. The in-vivo hypomyelinating mouse in the same study is an oligodendrocyte-lineage Mea6 conditional knockout, not a Trappc12 knockout; it therefore cannot be treated as a TRAPPC12 disease animal model.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte precursor cell\", \"oligodendrocyte\"], \"biological_processes\": [\"oligodendrocyte differentiation\", \"myelination\"], \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"TRAPPC12-knockout rat CG4 oligodendroglial cell-line model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Trappc12 knockout directly reduces the differentiated morphology and complexity of the CG4 lineage.\"}, {\"name\": \"TRAPPC12-knockdown primary mouse oligodendrocyte-progenitor model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Trappc12 knockdown reduces the MBP-positive differentiated-cell fraction in a primary oligodendrocyte-lineage culture.\"}], \"animal_models\": [{\"name\": \"Oligodendrocyte-lineage Mea6 conditional-knockout mouse\", \"species\": \"Mouse (Mus musculus)\", \"genotype\": \"Conditional Mea6/cTAGE5 ablation in oligodendrocyte progenitor cells\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reproduces an oligodendrocyte differentiation and myelination phenotype in vivo through perturbation of the interacting MEA6 protein.\"}]}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the three founding individuals presented at five months with flexion seizures and an EEG showing hypsarrhythmia compatible with West syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012469\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is a cardinal feature, present in all three individuals of the founding discovery cohort. Onset is heterogeneous \\u2014 congenital in two of the three and acquired/postnatal in one \\u2014 so the unqualified term is used for the general finding, with the progressive subset recorded separately below. Microcephaly is not fully penetrant: a later-reported patient with a novel TRAPPC12 variant lacked it.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A combined dystonia and/or myoclonus category was positive in all three founding individuals, but the table does not resolve how many had myoclonus specifically.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001336\"}}, {\"id\": \"Neurogenic bladder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurogenic bladder developed in one of the three founding individuals.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000011\"}}, {\"id\": \"Oligodendrocyte-lineage Mea6 conditional-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"This interacting-pathway model develops impaired oligodendrocyte proliferation and differentiation, marked hypomyelination, synaptic dysfunction, and behavioral abnormalities. It is not a TRAPPC12 knockout and therefore models a cooperating MEA6 pathway rather than TRAPPC12-related encephalopathy itself.\"}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy was recorded in one founding individual. All three had a broader eye or vision abnormality, but the other two instead had optic-nerve/cup-disk findings with cortical visual impairment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Progressive Brain Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Serial imaging in reported children shows progressive cerebral cortical atrophy, with variable cerebellar involvement. Pontine and callosal hypoplasia and white-matter abnormalities are curated separately as structural phenotypes rather than bundled into this single atrophic process.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Progressive Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The integrated clinical phenotype is a progressive childhood encephalopathy: severe global developmental delay that can evolve to regression, microcephaly, hearing impairment, a mixed movement disorder and, frequently, epilepsy.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In one founding child, microcephaly was acquired/postnatal and the clinical course included arrested head growth. Recorded separately from the general Microcephaly entry because this serial-growth qualifier applies to only one of the three individuals in the founding cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000253\"}}, {\"id\": \"Prolonged Mitotic Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibroblasts from all three founding individuals took significantly longer from prophase to anaphase than control fibroblasts. This is a direct patient-cell readout, but no experiment shows that it contributes to neural development, brain atrophy, or the clinical encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitotic cell cycle\"], \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"All three affected-person fibroblast lines show significantly prolonged progression from prophase to anaphase.\"}]}}, {\"id\": \"Reduced COPII Outer-Coat Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In TRAPPC12-null cell systems, Sec31A turns over more slowly at ER exit sites and less Sec31A is recruited to budded COPII vesicles, while inner-coat Sec23A is unchanged. This is a measured outer-coat assembly defect in engineered cells, not proof of a patient-specific Rab-GEF deficit.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"endoplasmic reticulum to Golgi vesicle-mediated transport\"], \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Direct genetic deletion tests how TRAPPC12 affects COPII outer-coat recruitment and early secretory-pathway organization.\"}]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis develops in the context of severe hypotonia and neurologic impairment. Reported in all three founding individuals (Milev et al., 2017); documented in the full text rather than the abstract.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Simplified gyral pattern\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Simplified frontal gyri were recorded in all three founding MRIs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009879\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Appendicular spasticity, often with spastic tetraplegia, on a background of axial hypotonia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"TRAPPC12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TRAPPC12\"], \"gene_terms\": [{\"label\": \"TRAPPC12\", \"id\": \"hgnc:24284\"}], \"presence\": \"Biallelic pathogenic or likely pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR deletion of TRAPPC12 in HeLa and HEK293T-derived cell systems was used to study TRAPPIII interaction with Sec13/Sec31, COPII outer-coat assembly, ERGIC/Golgi organization, and ER-to-Golgi cargo transport.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:28240221\"}}, {\"id\": \"TRAPPC12-knockdown primary mouse oligodendrocyte-progenitor model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Lentiviral shRNA knockdown of Trappc12 in primary neonatal mouse oligodendrocyte progenitor cells reduced the proportion of MBP-positive cells after six days of differentiation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:38439956\"}}, {\"id\": \"TRAPPC12-knockout rat CG4 oligodendroglial cell-line model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR-Cas9 knockout of Trappc12 in the rat-derived CG4 oligodendrocyte progenitor cell line reduced cell complexity after differentiation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:38439956\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ventriculomegaly beyond that expected for cortical volume loss occurred in one founding child without signs of raised intracranial pressure. Fetal hydrocephalus is curated separately.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}, {\"id\": \"Widened subarachnoid space\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent extra-axial spaces were recorded in all three founding MRIs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012704\"}}], \"edges\": [{\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Reduced COPII Outer-Coat Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TRAPPC12-null cytosol supports less efficient Sec13/Sec31 outer-coat assembly on COPII vesicles in an in-vitro budding assay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Golgi Fragmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Founding affected-person fibroblasts show Golgi fragmentation, and wild-type TRAPPC12 rescues this morphology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Delayed ER-to-Golgi Transport\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cargo transport from the endoplasmic reticulum to and through the Golgi is delayed in founding affected-person fibroblasts; this readout was measured separately from Golgi rescue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Prolonged Mitotic Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"All three founding affected-person fibroblast lines showed prolonged prophase-to-anaphase timing, although its relevance to neural disease is unknown.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Hypoplasia of the pons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic TRAPPC12 dysfunction is causal for the disorder, but the cellular route to pontine underdevelopment has not been resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Hypoplasia of the corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The gene-to-structural-phenotype relationship is established clinically, while the intervening developmental mechanism remains unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Agenesis of corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complete callosal agenesis occurred in one founding individual and severe partial agenesis/thinning in the other two; the developmental route is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular enlargement is linked to biallelic TRAPPC12 disease through unresolved neurodevelopmental intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Widened subarachnoid space\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prominent extra-axial spaces were present in all three founding individuals, but whether they reflect developmental volume loss or another process is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Simplified gyral pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Simplified frontal gyri were present in all three founding individuals; the cortical-development mechanism is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Cerebellar hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mild cerebellar hypoplasia was present in two founding individuals, with no resolved developmental mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Hypoplastic optic chiasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A small optic chiasm was present in two founding individuals; the tissue-specific route from TRAPPC12 dysfunction is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic TRAPPC12 Dysfunction\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compound-heterozygous TRAPPC12 variants segregated with recurrent fetal hydrocephalus, but the intervening developmental mechanism is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced COPII Outer-Coat Assembly\", \"target\": \"Delayed ER-to-Golgi Transport\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TRAPPC12 deletion produces both reduced outer-coat assembly and delayed ER-to-Golgi cargo movement, but the coat defect was not independently rescued to prove mediation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Golgi Fragmentation\", \"target\": \"Progressive Brain Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient-cell trafficking dysfunction and progressive brain atrophy coexist in the disorder, but no neuronal or glial death pathway has been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Delayed ER-to-Golgi Transport\", \"target\": \"Impaired Oligodendrocyte Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TRAPPC12-deficient oligodendroglial cultures show impaired differentiation, but transport delay has not been shown to mediate that phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Delayed ER-to-Golgi Transport\", \"target\": \"Progressive Brain Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient-cell transport delay and brain atrophy coexist, but the neuronal or glial injury pathway connecting them is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Oligodendrocyte Differentiation\", \"target\": \"Hyperintensity of cerebral white matter on MRI\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cell-culture differentiation phenotype is compatible with the reported human white-matter MRI signal, but no in-vivo TRAPPC12 model links them.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Brain Atrophy\", \"target\": \"Progressive Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural brain loss tracks clinical progression, but the neuronal and circuit intermediates producing the encephalopathy are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Brain Atrophy\", \"target\": \"Cerebral cortical atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral cortical atrophy is the principal measured imaging manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Brain Atrophy\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is a variable measured component of the imaging phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Brain Atrophy\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced head growth commonly accompanies the atrophic course, although it is not obligate and can be congenital rather than progressive.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Brain Atrophy\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal progressive microcephaly can track brain-volume loss, but this temporal route has not been quantified across the small reported cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe developmental impairment is a defining manifestation of the encephalopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of previously acquired abilities marks clinical progression.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss is characteristic, but its cellular route is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Appendicular spasticity is part of the evolving motor syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Axial hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial hypotonia accompanies the mixed motor phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dystonia is a reported hyperkinetic manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myoclonus is a reported hyperkinetic manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epilepsy is variably present and is not required for diagnosis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Infantile spasms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile spasms with hypsarrhythmia occurred in one founding individual.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic-pathway atrophy is reported, but the tissue-specific route is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Cerebral visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral visual impairment occurred in two founding individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar and motor impairment can produce clinically important dysphagia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reflux accompanies dysphagia and feeding difficulty in the founding cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Neurogenic bladder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurogenic bladder was reported in one founding individual.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Encephalopathy\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scoliosis is a secondary musculoskeletal complication of severe neurologic impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antiseizure pharmacotherapy\", \"target\": \"Epilepsy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"target\": \"Biallelic TRAPPC12 Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The affected-person lines directly reproduce absence of full-length TRAPPC12 for both the homozygous and compound-heterozygous genotypes.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblast protein abundance does not by itself define the consequences in neural lineages or the residual activity of every allele.\"}, {\"source\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"target\": \"Golgi Fragmentation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Directly reproduces fragmented Golgi morphology, with genetic complementation tying that readout to TRAPPC12 deficiency.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts do not reproduce neural cell-type vulnerability, progressive brain atrophy, or the clinical encephalopathy.\"}, {\"source\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"target\": \"Delayed ER-to-Golgi Transport\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Directly reproduces delayed cargo movement from the ER to and through the Golgi in all three founding affected-person lines.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The transport delay was measured in fibroblasts and was not shown to be rescued by wild-type TRAPPC12 or to mediate neural degeneration.\"}, {\"source\": \"Affected-person fibroblast Golgi and secretory-transport model\", \"target\": \"Prolonged Mitotic Progression\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"All three affected-person fibroblast lines show significantly prolonged progression from prophase to anaphase.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The readout is direct, but its contribution to human neural development and encephalopathy remains unknown.\"}, {\"source\": \"Homozygous Phe227Val affected-person fibroblast model\", \"target\": \"Biallelic TRAPPC12 Dysfunction\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Directly tests the Phe227Val genotype and reproduces absent or highly reduced mature TRAPPC12 protein in affected-person fibroblasts.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The study uses cells from one affected individual and one control line; residual protein identity and allele-specific function remain incompletely resolved.\"}, {\"source\": \"Homozygous Phe227Val affected-person fibroblast model\", \"target\": \"Golgi Fragmentation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces a milder Golgi disorganization and slight ER enlargement rather than the marked founding-cell phenotype.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The organelle analysis included only one patient line, one control line, and 12 imaged cells per group, limiting precision and generalizability.\"}, {\"source\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"target\": \"Reduced COPII Outer-Coat Assembly\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Direct genetic deletion tests how TRAPPC12 affects COPII outer-coat recruitment and early secretory-pathway organization.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model uses transformed cell lines and a complete engineered deletion, not patient-derived neural cells or specific human disease alleles.\"}, {\"source\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"target\": \"Golgi Fragmentation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces dispersed ERGIC and, to a lesser extent, Golgi organization.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The engineered cancer-cell model does not establish tissue selectivity or progression in the nervous system.\"}, {\"source\": \"TRAPPC12-deleted human cell-line COPII trafficking model\", \"target\": \"Delayed ER-to-Golgi Transport\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces delayed ER-to-Golgi transport independently of the founding affected-person fibroblast system.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The complete deletion in transformed cells differs from patient alleles, and no complementation assay showed that rescue of this readout reverses the disease-associated cellular phenotype.\"}, {\"source\": \"TRAPPC12-knockout rat CG4 oligodendroglial cell-line model\", \"target\": \"Impaired Oligodendrocyte Differentiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Trappc12 knockout directly reduces the differentiated morphology and complexity of the CG4 lineage.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"CG4 is a rat-derived immortalized progenitor line, not patient-derived neural tissue, and cell complexity does not establish the mechanism of the human MRI phenotype.\"}, {\"source\": \"TRAPPC12-knockdown primary mouse oligodendrocyte-progenitor model\", \"target\": \"Impaired Oligodendrocyte Differentiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Trappc12 knockdown reduces the MBP-positive differentiated-cell fraction in a primary oligodendrocyte-lineage culture.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The neonatal mouse culture is not patient-derived, shRNA may leave residual Trappc12 or have off-target effects, and no human white-matter imaging correlate was measured.\"}, {\"source\": \"Oligodendrocyte-lineage Mea6 conditional-knockout mouse\", \"target\": \"Impaired Oligodendrocyte Differentiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces an oligodendrocyte differentiation and myelination phenotype in vivo through perturbation of the interacting MEA6 protein.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The perturbed gene is Mea6, not Trappc12; the model cannot establish that TRAPPC12 disease alleles cause the same in-vivo pathway or human MRI pattern.\"}, {\"source\": \"TRAPPC12\", \"target\": \"Biallelic TRAPPC12 Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6367,6 +6512,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6381,6 +6529,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6435,6 +6584,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6449,6 +6601,7 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6512,6 +6665,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6526,6 +6682,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6550,6 +6707,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6613,6 +6771,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6627,6 +6788,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6681,6 +6843,9 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6695,6 +6860,7 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6749,6 +6915,9 @@ This clinical feature is Hypoplastic optic chiasm (HP:0034311). HP:0034311 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6763,6 +6932,7 @@ This clinical feature is Hypoplastic optic chiasm (HP:0034311). HP:0034311 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6826,6 +6996,9 @@ This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6840,6 +7013,7 @@ This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6903,6 +7077,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6917,6 +7094,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6941,6 +7119,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6995,6 +7174,9 @@ This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7009,6 +7191,7 @@ This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7072,6 +7255,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7086,6 +7272,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7140,6 +7327,9 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7154,6 +7344,7 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7208,6 +7399,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7222,6 +7416,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7285,6 +7480,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7299,6 +7497,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7355,6 +7554,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7369,6 +7571,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7423,6 +7626,9 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7437,6 +7643,7 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7491,6 +7698,9 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7505,6 +7715,7 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7559,6 +7770,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7573,6 +7787,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7627,6 +7842,9 @@ This clinical feature is Hypoplasia of the pons (HP:0012110). HP:0012110 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7641,6 +7859,7 @@ This clinical feature is Hypoplasia of the pons (HP:0012110). HP:0012110 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7695,6 +7914,9 @@ This clinical feature is Hyperintensity of cerebral white matter on MRI (HP:0030
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7709,6 +7931,7 @@ This clinical feature is Hyperintensity of cerebral white matter on MRI (HP:0030
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7763,6 +7986,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7777,6 +8003,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7831,6 +8058,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7845,6 +8075,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7899,6 +8130,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7913,6 +8147,7 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7967,6 +8202,9 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7981,6 +8219,7 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8035,6 +8274,9 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8049,6 +8291,7 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8103,6 +8346,9 @@ This clinical feature is Widened subarachnoid space (HP:0012704). HP:0012704 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8117,6 +8363,7 @@ This clinical feature is Widened subarachnoid space (HP:0012704). HP:0012704 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8171,6 +8418,9 @@ This clinical feature is Simplified gyral pattern (HP:0009879). HP:0009879 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8185,6 +8435,7 @@ This clinical feature is Simplified gyral pattern (HP:0009879). HP:0009879 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8239,6 +8490,9 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8253,6 +8507,7 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8307,6 +8562,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8321,6 +8579,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8375,6 +8634,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8389,6 +8651,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8487,6 +8750,9 @@ This disease-associated gene is TRAPPC12 (hgnc:24284). hgnc:24284 is a gene from
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8509,6 +8775,7 @@ This disease-associated gene is TRAPPC12 (hgnc:24284). hgnc:24284 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8536,6 +8803,7 @@ This disease-associated gene is TRAPPC12 (hgnc:24284). hgnc:24284 is a gene from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8557,6 +8825,7 @@ This disease-associated gene is TRAPPC12 (hgnc:24284). hgnc:24284 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8666,6 +8935,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8676,6 +8948,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -8759,6 +9034,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8769,6 +9047,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -8830,6 +9111,9 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8840,6 +9124,9 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -8901,6 +9188,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8911,6 +9201,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9016,6 +9309,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9105,6 +9399,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9126,6 +9421,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9220,6 +9516,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9241,6 +9538,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9356,6 +9654,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9453,6 +9752,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9556,6 +9856,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9653,6 +9954,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9756,6 +10058,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9853,6 +10156,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9956,6 +10260,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10053,6 +10358,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10156,6 +10462,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10253,6 +10560,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10356,6 +10664,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10424,6 +10733,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10527,6 +10837,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10712,6 +11023,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10763,6 +11075,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10820,6 +11133,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10874,6 +11188,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10918,6 +11233,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11044,6 +11360,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11098,6 +11415,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11142,6 +11460,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11268,6 +11587,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11319,6 +11639,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11376,6 +11697,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11420,6 +11742,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11546,6 +11869,7 @@ This experimental model is built in rat, annotated with Rattus norvegicus (NCBIT
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11590,6 +11914,7 @@ This experimental model is built in rat, annotated with Rattus norvegicus (NCBIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11716,6 +12041,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11760,6 +12086,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11878,6 +12205,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11919,6 +12247,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14501,6 +14830,19 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: TRAPPC12-Related Encephalopathy</strong> · 2026-08-05T22:01:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/TRAPPC12-Related_Encephalopathy/2026-08-05T220152Z-claude-code-e78d80.yaml">View source</a></p>
+                        <p class="research-review-text">Created new ultra-rare disorder entry for TRAPPC12-related encephalopathy, PEBAS; MONDO:0044696, ORPHA:500144, OMIM:617669. NEC preflight via MONDO RO:0004003 confirmed the causal gene is TRAPPC12 HGNC:24284, not the phenotypically similar PRUNE1/NMIHBA. Curated a 6-node membrane-trafficking mechanism chain: TRAPPC12 loss of function to TRAPP/Rab-GEF deficiency to Golgi fragmentation and delayed ER-to-Golgi transport to oligodendrocyte maturation failure and hypomyelination to progressive brain atrophy and pontine hypoplasia to progressive encephalopathy; plus 10 ontology-bound phenotypes, autosomal-recessive inheritance, prevalence, genetics, and supportive treatments. Evidence anchored on PMID:28777934 seminal Milev 2017, PMID:32369837 Aslanger 2020 expanding phenotype, PMID:38439956 oligodendrocyte/white-matter mechanism, PMID:34018214 TRAPPIII cryo-EM/Rab1 GEF. No GeneReviews article exists. Deep research falcon in progress for phenotype-spectrum enrichment in a follow-up. Validated: schema and terms pass, 26/26 snippets verified, weighted compliance 88 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4213,6 +4281,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4284,6 +4353,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4305,6 +4375,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4464,6 +4535,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4485,6 +4557,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4623,6 +4696,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4647,6 +4721,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4668,6 +4743,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4799,6 +4875,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4820,6 +4897,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4958,6 +5036,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4979,6 +5058,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5016,6 +5096,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-neural-crest-and-second-heart-field-program-disruption" data-dismech-node="Cardiac neural crest and second heart field program disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac neural crest and second heart field program disruption</div>
+
 
                 <div class="item-desc">The outflow tract is built by two cell populations acting together: cardiac neural crest cells migrating through pharyngeal arches three, four, and six to form the elastogenic smooth muscle of the aorticopulmonary septum, and second heart field mesoderm adding myocardium to the elongating outflow tract. Their crosstalk is patterned by TBX, GATA, and NKX transcription factors and by FGF, BMP, and Wnt signalling. Disruption anywhere in this unit, whether by 22q11.2 deletion, a monogenic variant, or a teratogen, converges on the same failure.
 </div>
@@ -5227,6 +5308,7 @@ This pathophysiological event occurs in Outflow tract (UBERON:0004145). UBERON:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5249,6 +5331,7 @@ This pathophysiological event occurs in Outflow tract (UBERON:0004145). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-aorticopulmonary-septation" data-dismech-node="Failure of aorticopulmonary septation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of aorticopulmonary septation</div>
+
 
                 <div class="item-desc">The defining embryologic event, occurring in weeks five to eight of human gestation. The conotruncal ridges fail to fuse and spiral, so no aorticopulmonary septum divides the common trunk into aorta and pulmonary trunk. The same septal deficiency accounts for the ventricular septal defect, because the conal septum that would have closed the outflow portion of the interventricular septum is absent or malformed. That is why the ventricular septal defect here is not an independent second lesion but part of the same failure.
 </div>
@@ -5409,6 +5492,7 @@ This pathophysiological event occurs in Outflow tract septum (UBERON:0004142). U
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5431,6 +5515,7 @@ This pathophysiological event occurs in Outflow tract septum (UBERON:0004142). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-single-arterial-trunk-overriding-a-ventricular-septal-defect" data-dismech-node="Single arterial trunk overriding a ventricular septal defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Single arterial trunk overriding a ventricular septal defect</div>
+
 
                 <div class="item-desc">The anatomic result. One vessel leaves the heart through a single semilunar valve and gives rise to the coronary arteries, the pulmonary arteries, and the systemic circulation. Because both ventricles eject into it across a large non-restrictive ventricular septal defect, systemic and pulmonary venous return mix obligatorily at the trunk, and both ventricles see systemic pressure.
 </div>
@@ -5534,6 +5619,7 @@ This pathophysiological event occurs in Interventricular septum (UBERON:0002094)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5556,6 +5642,7 @@ This pathophysiological event occurs in Interventricular septum (UBERON:0002094)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obligatory-mixing-of-systemic-and-pulmonary-venous-return" data-dismech-node="Obligatory mixing of systemic and pulmonary venous return" data-dismech-type="pathophysiology">
                 <div class="item-name">Obligatory mixing of systemic and pulmonary venous return</div>
+
 
                 <div class="item-desc">Because there is one outlet, mixing is complete and is not modulated by shunt size or direction. Arterial saturation is therefore set by the proportion of pulmonary to systemic flow rather than by any restrictive orifice, which has a counterintuitive consequence: the more the lungs are flooded, the pinker the baby looks, so improving colour in an untreated infant is a sign of worsening physiology rather than improvement.
 </div>
@@ -5611,6 +5698,7 @@ This pathophysiological event occurs in Interventricular septum (UBERON:0002094)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5633,6 +5721,7 @@ This pathophysiological event occurs in Interventricular septum (UBERON:0002094)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unobstructed-pulmonary-blood-flow-at-systemic-pressure" data-dismech-node="Unobstructed pulmonary blood flow at systemic pressure" data-dismech-type="pathophysiology">
                 <div class="item-name">Unobstructed pulmonary blood flow at systemic pressure</div>
+
 
                 <div class="item-desc">In most anatomic subtypes nothing restricts flow into the pulmonary arteries. The pulmonary bed therefore sees systemic pressure directly, and pulmonary blood flow is governed purely by the ratio of pulmonary to systemic vascular resistance. In the first hours of life high neonatal pulmonary resistance masks the problem; over the following days that resistance falls physiologically, flow rises steeply, and the infant decompensates. The clinical corollary is that a well-looking newborn with this lesion is not reassuring, merely early.
 </div>
@@ -5718,6 +5807,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5740,6 +5830,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-truncal-valve-dysfunction" data-dismech-node="Truncal valve dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Truncal valve dysfunction</div>
+
 
                 <div class="item-desc">The single semilunar valve is frequently abnormal, with two, three, four, or rarely five cusps, and is often dysplastic. Regurgitation adds volume load on top of the pulmonary overcirculation. Stenosis is less common but worse tolerated, because both ventricles eject through this one valve, so a single stenotic orifice imposes pressure load on the whole heart at once. Truncal valve disease is a principal determinant of both operative difficulty and long-term reoperation.
 </div>
@@ -5795,6 +5886,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5817,6 +5909,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coronary-ostial-anomaly" data-dismech-node="Coronary ostial anomaly" data-dismech-type="pathophysiology">
                 <div class="item-name">Coronary ostial anomaly</div>
+
 
                 <div class="item-desc">Coronary origins are abnormal in a large fraction of cases, because the coronary buds address a single unseptated root rather than the normal paired aortic sinuses. There is no single consistent pattern, which is precisely the problem: the surgeon must map the coronaries individually before repair, and an unrecognised anomalous course is an independent driver of perioperative mortality.
 </div>
@@ -5872,6 +5965,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5893,6 +5987,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5918,6 +6013,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-overcirculation-and-volume-overload-heart-failure" data-dismech-node="Pulmonary overcirculation and volume-overload heart failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary overcirculation and volume-overload heart failure</div>
+
 
                 <div class="item-desc">The clinical presentation in the first weeks: tachypnoea, poor feeding, sweating, failure to thrive, and hepatomegaly, in an infant who is only mildly desaturated. It is high-output failure from excessive pulmonary blood flow, not pump failure, which is why the treatment before surgery is to limit pulmonary flow rather than to augment contractility.
 </div>
@@ -5961,6 +6057,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-vascular-obstructive-disease" data-dismech-node="Pulmonary vascular obstructive disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary vascular obstructive disease</div>
+
 
                 <div class="item-desc">The end of the untreated natural history, and the reason this is a neonatal surgical disease rather than an elective one. Sustained exposure of the pulmonary bed to systemic pressure and high flow produces fixed obstructive remodelling within the first year or two of life. Once resistance is fixed, closing the ventricular septal defect is contraindicated for the same reason it is in Eisenmenger physiology, and the operation that would have been curative at two weeks becomes lethal.
 </div>
@@ -6010,6 +6107,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perioperative-myocardial-ischaemia" data-dismech-node="Perioperative myocardial ischaemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Perioperative myocardial ischaemia</div>
 
+
                 <div class="item-desc">Ischaemic injury around the time of repair, from anomalous coronary anatomy, from coronary distortion during root reconstruction, or from the mismatch between a volume-loaded ventricle and a diastolic pressure lowered by truncal regurgitation. It is one of the mechanisms behind an in-hospital mortality that remains around one in ten even in the contemporary era.
 </div>
 
@@ -6048,6 +6146,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6070,6 +6169,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyanosis" data-dismech-node="Cyanosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cyanosis</div>
+
 
                 <div class="item-desc">Present from birth but characteristically mild, because pulmonary blood flow is high. This is why the lesion is easy to miss on inspection and why newborn pulse-oximetry screening matters more here than a visual assessment does.
 </div>
@@ -6190,6 +6290,9 @@ This clinical feature is Truncus arteriosus (HP:0001660). HP:0001660 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6204,6 +6307,7 @@ This clinical feature is Truncus arteriosus (HP:0001660). HP:0001660 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6260,6 +6364,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6274,6 +6381,7 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6352,6 +6460,9 @@ This clinical feature is Congestive heart failure (HP:0001635), qualified as tem
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-regurgitation" data-dismech-node="Aortic regurgitation" data-dismech-type="phenotype">
@@ -6384,6 +6495,9 @@ This clinical feature is Truncal valve regurgitation, annotated with Aortic regu
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6398,6 +6512,7 @@ This clinical feature is Truncal valve regurgitation, annotated with Aortic regu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6454,6 +6569,9 @@ This clinical feature is Abnormal coronary artery origin (HP:0011636). HP:001163
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6468,6 +6586,7 @@ This clinical feature is Abnormal coronary artery origin (HP:0011636). HP:001163
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6492,6 +6611,7 @@ This clinical feature is Abnormal coronary artery origin (HP:0011636). HP:001163
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6546,6 +6666,9 @@ This clinical feature is Right aortic arch (HP:0012020). HP:0012020 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6560,6 +6683,7 @@ This clinical feature is Right aortic arch (HP:0012020). HP:0012020 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6616,6 +6740,9 @@ This clinical feature is Interrupted aortic arch (HP:0011611). HP:0011611 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6630,6 +6757,7 @@ This clinical feature is Interrupted aortic arch (HP:0011611). HP:0011611 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6704,6 +6832,9 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092), qualified
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6718,6 +6849,7 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092), qualified
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6805,6 +6937,9 @@ This clinical feature is Cyanosis (HP:0000961), qualified as temporality chronic
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6846,6 +6981,9 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6860,6 +6998,7 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6929,6 +7068,9 @@ This clinical feature is Tachypnea (HP:0002789). HP:0002789 is a phenotype from 
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6983,6 +7125,9 @@ This clinical feature is Failure to thrive (HP:0001508), qualified as course pro
 
 
                     </div>
+
+
+
 
 
 
@@ -7068,6 +7213,9 @@ This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7082,6 +7230,7 @@ This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7106,6 +7255,7 @@ This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7165,6 +7315,9 @@ This disease-associated gene is TMEM260 (hgnc:20185). hgnc:20185 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7179,6 +7332,7 @@ This disease-associated gene is TMEM260 (hgnc:20185). hgnc:20185 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7203,6 +7357,7 @@ This disease-associated gene is TMEM260 (hgnc:20185). hgnc:20185 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7262,6 +7417,9 @@ This disease-associated gene is NKX2-6 (hgnc:32940). hgnc:32940 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7276,6 +7434,7 @@ This disease-associated gene is NKX2-6 (hgnc:32940). hgnc:32940 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7300,6 +7459,7 @@ This disease-associated gene is NKX2-6 (hgnc:32940). hgnc:32940 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7359,6 +7519,9 @@ This disease-associated gene is GATA6 (hgnc:4174). hgnc:4174 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7373,6 +7536,7 @@ This disease-associated gene is GATA6 (hgnc:4174). hgnc:4174 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7432,6 +7596,9 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7446,6 +7613,7 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7532,6 +7700,9 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7542,6 +7713,9 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -7580,6 +7754,7 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7631,6 +7806,7 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7671,6 +7847,7 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7738,6 +7915,9 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7748,6 +7928,9 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -7849,6 +8032,9 @@ This treatment uses diuretic (NCIT:C448). NCIT:C448 is a therapeutic agent from 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7859,6 +8045,9 @@ This treatment uses diuretic (NCIT:C448). NCIT:C448 is a therapeutic agent from 
 
 
     </div>
+
+
+
 
 
 
@@ -7939,6 +8128,9 @@ This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C1715
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7949,6 +8141,9 @@ This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C1715
 
 
     </div>
+
+
+
 
 
 
@@ -7987,6 +8182,7 @@ This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C1715
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8030,6 +8226,7 @@ This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C1715
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8100,6 +8297,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8121,6 +8319,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8173,6 +8372,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8337,6 +8537,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8358,6 +8559,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8449,6 +8651,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8537,6 +8740,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8620,6 +8824,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8641,6 +8846,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8692,6 +8898,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8781,6 +8988,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8840,6 +9048,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8861,6 +9070,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8934,6 +9144,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8955,6 +9166,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9028,6 +9240,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9084,6 +9297,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9137,6 +9351,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9296,6 +9511,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9320,6 +9536,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9341,6 +9558,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9481,6 +9699,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9502,6 +9721,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11037,6 +11257,119 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Terminology. Curated as persistent truncus arteriosus, MONDO:0018072, which is the same entity as common arterial trunk. One source notes that a common arterial trunk is often labelled persistent truncus arteriosus without embryologic confirmation, so the two names are treated as synonyms of a single curated entity here rather than as separable entities.
+Anatomic subtypes. The Collett and Edwards and Van Praagh classifications are referenced in descriptions but are not curated as has_subtypes entries, because the mechanism curated here is shared across all of them and the subtypes differ in the origin pattern of the pulmonary arteries rather than in pathogenesis. Van Praagh type A4, with interrupted aortic arch, is captured through the interrupted aortic arch phenotype instead.
+Module conformance. One node conforms to pulmonary_vascular_remodeling. The fit is at the obstructive-remodelling node only: the upstream trigger here is unrestricted high-pressure high-flow exposure of a normal pulmonary bed rather than the endothelial and BMPR2 lesion the module&#39;s earlier nodes model, so conformance is deliberately declared at the single node where the mechanisms genuinely converge.
+Truncal valve ontology. Truncal valve regurgitation is curated against HP:0001659 Aortic regurgitation, because HPO has no truncal valve term and the truncal valve is the common semilunar valve from which the aortic valve would otherwise have formed. The preferred_term states the specific claim. This is a deliberate looser binding, not an oversight.
+Phenotypes not curated. Truncal valve stenosis and coarctation of the aorta are real features of this lesion, but no cached reference states either in a quotable sentence, and unlike right aortic arch there is not even a case-series observation to cite. They are named here so the gap is recorded rather than invisible. The frequencies quoted in the deep-research narrative (roughly 25 percent and 10 percent) are not used, since their sources were not fetched.
+Deliberately unevidenced descriptions. Several nodes, phenotypes, treatments, and progression phases carry a description with no evidence block: the single-trunk physiology consequences (cyanosis, overcirculation, pulmonary vascular obstructive disease), the clinical presentation (tachypnoea, failure to thrive, congestive heart failure), conduit reintervention, and preoperative anticongestive therapy. These are well-established, but the cached references for this entry do not contain a sentence that states them. Following the evidence SOP, the description is kept and the evidence block omitted rather than attaching a methods or objective sentence that would verify as an exact quote while supporting a different claim. This lowers the compliance score, which is the correct trade.
+Deep-research provenance. Curated from a claude_code deep-research report (research/Persistent_Truncus_Arteriosus-deep-research-claude_code.md) treated as leads only. The NEC preflight returned SKIP because MONDO records no causal gene for MONDO:0018072; manual checks confirmed the entity, with the report&#39;s gene profile (TMEM260, NKX2-6, TBX1, NKX2-5) and its OMIM 217095 consistent with the intended disease. Five identifiers suggested by the provider were verified against OAK and found to point at unrelated concepts (HP:0001719 is Double outlet right ventricle, not Truncus arteriosus, which is HP:0001660; CL:0002350 is endocardial cell, not cardiac neural crest cell; UBERON:0004151 is cardiac chamber, not outflow tract; hgnc:2673 is DAP3, not NKX2-6; hgnc:26160 is THNSL1, not TMEM260). All were corrected before curation. The report itself correctly warned against curating OMIM 226000, endocardial fibroelastosis, against this entity.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response: Persistent Truncus Arteriosus</strong> · 2026-08-09T23:15:01Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Persistent_Truncus_Arteriosus/2026-08-09T231501Z-claude-code-dc20a9.yaml">View source</a></p>
+                        <p class="research-review-text">Review-response session on PR 8274. Addressed both blocking findings from the
+ai4c-reviewer review.
+
+Evidence padding, the first and sharper finding. Twenty-five evidence items whose
+snippets were methods, objective, or prevalence sentences have been removed. The
+clearest case was the sentence &#34;TA accounts for 4 percent of all critical
+congenital heart diseases&#34;, a prevalence statement used eight times to support
+cyanosis, pulmonary vascular obstructive disease, coronary anomaly, and fetal
+progression; it now appears once, in the prevalence record where it belongs.
+Several of the removed items carried explanations that had conceded the mismatch
+in writing, which should have been the signal to drop the citation rather than to
+hedge it with PARTIAL.
+
+Where a real source exists it was substituted rather than dropped. The coronary
+ostial anomaly node and phenotype now cite a thirty-heart autopsy series,
+including a counted thirty-two percent figure that grounds the FREQUENT band in a
+denominator rather than a review estimate. Truncal valve morphology cites the
+same series. Where no source exists the description is kept and the evidence
+block omitted, per the evidence SOP; the affected items are listed explicitly in
+the entry notes so the absence is visible rather than merely missing. Compliance
+falls from 95.2 to 82.7 percent as a direct result, which is the correct trade.
+
+Research under-consumption, the second finding. Added environmental for maternal
+pregestational diabetes, the one modifiable risk factor for this malformation.
+Added experimental_models for the Splotch mutant mouse and the Tbx1 conditional
+null with beta-catenin dosage rescue. Added inheritance distinguishing the
+dominant 22q11.2 route from the recessive TMEM260 and NKX2-6 routes, which give
+opposite recurrence counselling. Set classifications to CARDIOVASCULAR.
+
+Five references fetched and verified: PMID 837493 the coronary origin autopsy
+series, PMID 32198970 the second biallelic NKX2-6 report, PMID 2619088 the
+Splotch mouse, PMID 28346476 the Tbx1 conditional null with rescue, PMID 31454511
+the National Birth Defects Prevention Study analysis of maternal diabetes.
+
+The NKX2-6 mouse and human discrepancy discussion was strengthened with the
+replication, which also supplies the fact that NKX2-6 is a downstream target of
+TBX1 and therefore places the recessive and dominant routes on one pathway.
+
+Not done: the truncal valve stenosis, right aortic arch, and coarctation
+phenotypes. Their frequencies come from the deep-research narrative and no cached
+source states them in a quotable sentence, so adding them would reintroduce the
+problem this session fixed.
+
+Validation: schema, ontology terms, and references all pass. Snippets checked 70
+of 70 verified against cached references.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Persistent Truncus Arteriosus</strong> · 2026-08-09T22:33:09Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Persistent_Truncus_Arteriosus/2026-08-09T223309Z-claude-code-4a73ec.yaml">View source</a></p>
+                        <p class="research-review-text">New disorder entry for persistent truncus arteriosus, MONDO:0018072, curated from
+a claude_code deep-research report treated as leads only.
+
+Content: 11 pathophysiology nodes running from cardiac neural crest and second
+heart field program disruption through failure of aorticopulmonary septation to
+the single arterial trunk, then splitting into the obligatory mixing arm, the
+unobstructed pulmonary flow arm ending in fixed pulmonary vascular obstructive
+disease, the truncal valve arm, and the coronary anomaly arm. Also 12 phenotypes,
+4 progression phases, 4 diagnostic modalities, 4 treatments, 5 genes, 2 prevalence
+records, 3 differential diagnoses, clinical burden, and 4 discussions. One node
+declares conformance to pulmonary_vascular_remodeling at the obstructive
+remodelling node only.
+
+Discussions: the deletion-positive survival paradox CONTROVERSY, the NKX2-6 mouse
+and human discrepancy HUMAN_MODEL_MISMATCH, population-specific genetic
+architecture OPEN_QUESTION, and the genetically unexplained majority
+KNOWLEDGE_GAP. Each carries a proposed experiment with an explicit decision
+criterion.
+
+Deliberate curation decisions: NOTCH1 is curated relationship_type UNKNOWN because
+the source itself hedges the variant classification; the extracorporeal membrane
+oxygenation mortality association is recorded as directionally uninterpretable
+because of confounding by indication; anatomic subtypes are not curated as
+has_subtypes because the mechanism is shared across them; truncal valve
+regurgitation is bound to HP:0001659 aortic regurgitation with the looser binding
+stated explicitly.
+
+Provider error correction: five provider-suggested identifiers were verified
+against OAK and found to point at unrelated concepts, HP:0001719 double outlet
+right ventricle rather than truncus arteriosus, CL:0002350 endocardial cell rather
+than cardiac neural crest cell, UBERON:0004151 cardiac chamber rather than outflow
+tract, hgnc:2673 DAP3 rather than NKX2-6, and hgnc:26160 THNSL1 rather than
+TMEM260. All corrected before curation and recorded in the entry notes. The report
+itself correctly warned against curating OMIM 226000 against this entity.
+
+Validation: just validate passed on schema, ontology terms, and references.
+Snippets checked 76/76 verified against cached references. just validate-disorders
+passed in a batched run over this and two sibling entries, 258/258 snippets.
+Compliance 95.2 percent global, 95.7 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4396,6 +4464,7 @@ This subtype is caused by variation in PRKD1 (hgnc:9407). hgnc:9407 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4513,6 +4582,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4594,6 +4664,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4659,6 +4730,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4680,6 +4752,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4856,6 +4929,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4877,6 +4951,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4954,6 +5029,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4978,6 +5054,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4999,6 +5076,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5123,6 +5201,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5144,6 +5223,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5355,6 +5435,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5415,6 +5496,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5449,6 +5531,7 @@ This subtype is caused by variation in PRKD3 (hgnc:9408). hgnc:9408 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prkd1-hotspot-activating-mutation" data-dismech-node="PRKD1 Hotspot Activating Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">PRKD1 Hotspot Activating Mutation</div>
+
 
                 <div class="item-desc">A recurrent somatic missense mutation in PRKD1 encoding p.Glu710Asp occurs in the catalytic kinase domain of protein kinase D1 and is present in the majority of conventional polymorphous adenocarcinomas. Functional work showed the substitution is kinase-activating and behaves as a driver. The mutation is essentially absent from other salivary gland tumor types, making it both the initiating lesion and the most specific molecular diagnostic marker for this entity.</div>
 
@@ -5544,6 +5627,8 @@ This pathophysiological event involves PRKD1 (hgnc:9407). hgnc:9407 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -5552,6 +5637,9 @@ This pathophysiological event involves PRKD1 (hgnc:9407). hgnc:9407 is a gene fr
 
 
     </div>
+
+
+
 
 
 
@@ -5637,6 +5725,7 @@ This pathophysiological event involves increased protein serine/threonine kinase
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5658,6 +5747,7 @@ This pathophysiological event involves increased protein serine/threonine kinase
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5683,6 +5773,7 @@ This pathophysiological event involves increased protein serine/threonine kinase
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prkd-family-gene-rearrangement" data-dismech-node="PRKD Family Gene Rearrangement" data-dismech-type="pathophysiology">
                 <div class="item-name">PRKD Family Gene Rearrangement</div>
+
 
                 <div class="item-desc">Rearrangements involving PRKD1, PRKD2, or PRKD3 generate fusion genes that place a PRKD kinase domain under new regulatory control. First identified as ARID1A-PRKD1 and DDX3X-PRKD1 fusions in cribriform adenocarcinoma, the partner repertoire is unusually diverse for a salivary gland malignancy, with ARID1A and ARID1B the most common partners. These rearrangements are the characteristic driver of the cribriform subtype and are mutually exclusive with the PRKD1 hotspot mutation, representing a parallel route to the same deregulated kinase output.</div>
 
@@ -5973,6 +6064,8 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -5981,6 +6074,9 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
 
 
     </div>
+
+
+
 
 
 
@@ -6028,6 +6124,7 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6049,6 +6146,7 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6076,6 +6174,7 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6100,6 +6199,7 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-protein-kinase-d-signaling" data-dismech-node="Deregulated Protein Kinase D Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Protein Kinase D Signaling</div>
+
 
                 <div class="item-desc">Both driver classes converge on deregulated protein kinase D activity in the neoplastic ductal epithelium. The PRKD kinases are diacylglycerol-activated serine/threonine kinases acting in the diacylglycerol and protein kinase C signal transduction pathway, and the shared membership of PRKD1, PRKD2, and PRKD3 in that pathway is what makes lesions in any of the three interchangeable drivers. Genetic alterations targeting PRKD genes are present in roughly four fifths of tumors across the PAC histologic spectrum, supporting a convergent phenotype driven by one pathway.</div>
 
@@ -6259,6 +6359,7 @@ This pathophysiological event involves increased positive regulation of cell pop
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6280,6 +6381,7 @@ This pathophysiological event involves increased positive regulation of cell pop
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6305,6 +6407,7 @@ This pathophysiological event involves increased positive regulation of cell pop
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-architecturally-polymorphous-infiltrative-growth" data-dismech-node="Architecturally Polymorphous Infiltrative Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Architecturally Polymorphous Infiltrative Growth</div>
+
 
                 <div class="item-desc">The transformed cells form a single tumor displaying multiple coexisting architectural patterns (tubular, trabecular, cribriform, papillary, solid, single-file) while remaining cytologically bland and uniform, and infiltrate surrounding tissue with an unencapsulated advancing border. The dissociation of architectural variability from cytological uniformity is the defining morphological property of the entity and the origin of the name.</div>
 
@@ -6389,6 +6492,7 @@ This pathophysiological event involves salivary gland cell (CL:0009005). CL:0009
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perineural-invasion" data-dismech-node="Perineural Invasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Perineural Invasion</div>
 
+
                 <div class="item-desc">Tumor cells stream circumferentially around small nerves in concentric, targetoid whorls. Neurotropism is frequent, yet in the largest published series it coexisted with excellent long-term outcome after surgical excision alone.</div>
 
 
@@ -6426,6 +6530,7 @@ This pathophysiological event involves salivary gland cell (CL:0009005). CL:0009
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6447,6 +6552,7 @@ This pathophysiological event involves salivary gland cell (CL:0009005). CL:0009
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6472,6 +6578,7 @@ This pathophysiological event involves salivary gland cell (CL:0009005). CL:0009
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regional-lymph-node-metastasis" data-dismech-node="Regional Lymph Node Metastasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Regional Lymph Node Metastasis</div>
+
 
                 <div class="item-desc">Spread to cervical lymph nodes is the principal clinically actionable difference within the entity. Fusion-positive tumors metastasized to nodes in 50% of cases at primary resection whereas hotspot-mutation-positive tumors did so in none, and pooled review data show nodal metastasis in about half of cribriform tumors against a much lower rate across PAC as a whole. This is why subtype and genotype assignment carries surgical consequences for neck management.</div>
 
@@ -6510,6 +6617,7 @@ This pathophysiological event involves salivary gland cell (CL:0009005). CL:0009
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6531,6 +6639,7 @@ This pathophysiological event involves salivary gland cell (CL:0009005). CL:0009
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6590,6 +6699,7 @@ This pathophysiological event involves salivary gland cell (CL:0009005). CL:0009
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6679,6 +6789,7 @@ This pathophysiological event involves salivary gland cell (CL:0009005). CL:0009
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6754,6 +6865,7 @@ This pathophysiological event involves salivary gland cell (CL:0009005). CL:0009
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6798,6 +6910,7 @@ This pathophysiological event involves salivary gland cell (CL:0009005). CL:0009
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6905,6 +7018,9 @@ This clinical feature is Cervical lymph node metastasis, annotated with Cervical
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6919,6 +7035,7 @@ This clinical feature is Cervical lymph node metastasis, annotated with Cervical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7004,6 +7121,9 @@ This clinical feature is Palatal mass, annotated with Palate neoplasm (HP:003136
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7018,6 +7138,7 @@ This clinical feature is Palatal mass, annotated with Palate neoplasm (HP:003136
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7045,6 +7166,7 @@ This clinical feature is Palatal mass, annotated with Palate neoplasm (HP:003136
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7066,6 +7188,7 @@ This clinical feature is Palatal mass, annotated with Palate neoplasm (HP:003136
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7120,6 +7243,9 @@ This clinical feature is Salivary gland neoplasm (HP:0100684). HP:0100684 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7134,6 +7260,7 @@ This clinical feature is Salivary gland neoplasm (HP:0100684). HP:0100684 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7188,6 +7315,9 @@ This clinical feature is Neoplasm of the oral cavity (HP:0100649). HP:0100649 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7202,6 +7332,7 @@ This clinical feature is Neoplasm of the oral cavity (HP:0100649). HP:0100649 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7256,6 +7387,9 @@ This clinical feature is Base of tongue neoplasm, annotated with Neoplasm of the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7270,6 +7404,7 @@ This clinical feature is Base of tongue neoplasm, annotated with Neoplasm of the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7370,6 +7505,9 @@ This disease-associated gene is PRKD1 (hgnc:9407). hgnc:9407 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7384,6 +7522,7 @@ This disease-associated gene is PRKD1 (hgnc:9407). hgnc:9407 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7443,6 +7582,9 @@ This disease-associated gene is PRKD2 (hgnc:17293). hgnc:17293 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7457,6 +7599,7 @@ This disease-associated gene is PRKD2 (hgnc:17293). hgnc:17293 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7481,6 +7624,7 @@ This disease-associated gene is PRKD2 (hgnc:17293). hgnc:17293 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7540,6 +7684,9 @@ This disease-associated gene is PRKD3 (hgnc:9408). hgnc:9408 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7554,6 +7701,7 @@ This disease-associated gene is PRKD3 (hgnc:9408). hgnc:9408 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7613,6 +7761,9 @@ This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7627,6 +7778,7 @@ This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7686,6 +7838,9 @@ This disease-associated gene is DDX3X (hgnc:2745). hgnc:2745 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7700,6 +7855,7 @@ This disease-associated gene is DDX3X (hgnc:2745). hgnc:2745 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7786,6 +7942,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7796,6 +7955,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7844,6 +8006,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7868,6 +8031,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7889,6 +8053,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7956,6 +8121,9 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7966,6 +8134,9 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -7996,6 +8167,7 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8017,6 +8189,7 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8084,6 +8257,9 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8094,6 +8270,9 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8142,6 +8321,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8163,6 +8343,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8228,6 +8409,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8249,6 +8431,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8299,6 +8482,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8320,6 +8504,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8370,6 +8555,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8394,6 +8580,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8415,6 +8602,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8465,6 +8653,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8486,6 +8675,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8533,6 +8723,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8635,6 +8826,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8719,6 +8911,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8809,6 +9002,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8896,6 +9090,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8961,6 +9156,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8982,6 +9178,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9032,6 +9229,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9103,6 +9301,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9124,6 +9323,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9180,6 +9380,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9201,6 +9402,7 @@ This treatment is neck dissection (NCIT:C15643). NCIT:C15643 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11201,6 +11403,55 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Address PR review findings on Salivary Gland Polymorphous Adenocarcinoma</strong> · 2026-08-18T20:44:17Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Salivary_Gland_Polymorphous_Adenocarcinoma/2026-08-18T204417Z-claude-code-71d41f.yaml">View source</a></p>
+                        <p class="research-review-text">Responded to the ai4c-reviewer CHANGES_REQUESTED review on PR #8839, which raised four blocking findings. All four were legitimate and all four were addressed.
+
+1. HP term specificity: cervical lymph node metastasis was bound to HP:0002716 Lymphadenopathy; swapped to HP:0025289 Cervical lymphadenopathy.
+
+2. Unevidenced comparative prognostic claim (the substantive one). The Perineural Invasion pathophysiology node and histopathology finding both asserted that, unlike in adenoid cystic carcinoma, perineural invasion is not an adverse prognostic factor in PAC. Neither carried evidence, and no cached reference contained the string &#34;perineural&#34; — confirmed independently. Fetched PMID:10421256, the 164-case AFIP series, and restated the claim at the strength the evidence supports: neurotropism is frequent (histopathology finding now carries frequency FREQUENT) and coexists with approximately 97.6% of patients alive or dead without disease at an average of 115.4 months after excision alone. The comparative assertion was demoted to notes on both objects, stating explicitly that no cited source analyses perineural invasion as an independent prognostic variable within PAC, and that the 164-case series attributes the prognostic separation from ACC to the entity rather than to perineural invasion specifically.
+
+3. Missing diagnosis section, with a diagnostic claim miscurated as treatment evidence. Added a diagnosis section with four entries: incisional biopsy (NCIT:C15386), immunohistochemical panel (NCIT:C23020), PRKD1 hotspot sequencing (NCIT:C19641), and PRKD1/2/3 rearrangement testing (NCIT:C101293). The &#34;diagnosis is mainly based on an incisional biopsy&#34; evidence item was moved off the Wide Surgical Excision treatment into the diagnosis section and replaced there with two genuine treatment-evidence items from PMID:10421256. Note that NCIT:C16722 Immunohistochemistry is NOT reachable from NCIT:C25218 and fails the TreatmentActionTerm enum; NCIT:C23020 Immunohistochemistry Staining Method is reachable and was used instead. Imaging work-up (MRI/CT/ultrasound) was deliberately NOT added: the only source for it was the falcon deep-research report, and unverified DR content is not curated into this entry.
+
+4. Biomarker term specificity: PRKD1 E710D hotspot testing now uses NCIT:C202963 (PRKD1 NP_002733.2:p.E710D, the analyte) rather than NCIT:C95258 (the protein); PRKD1/2/3 rearrangement testing gained NCIT:C201783 PRKD1 Gene Rearrangement, having previously had no biomarker_term.
+
+Suggestions also acted on: softened the CL:0009005 preferred_term from &#34;salivary gland ductal epithelial cell&#34; to &#34;salivary gland cell&#34;, since the term asserts neither epithelial nor ductal identity and the cell of origin is not established; and added a KNOWLEDGE_GAP discussion (pac_no_model_systems_gap) on the absence of PAC experimental models, with three proposed experiments, attached to the two nodes whose connecting edge is INDIRECT_UNKNOWN_INTERMEDIATES for exactly that reason.
+
+New conflict discovered and recorded rather than smoothed over: PMID:10421256 states that adjuvant therapy does not appear to alter the prognosis, which contradicts the systematic review (PMID:42438055) describing resection plus adjuvant radiotherapy as conventional and effective. This is now a REFUTE evidence item on the Adjuvant Radiotherapy treatment, and the treatment description records the benefit as unestablished. The same source also prompted a wording change on Wide Surgical Excision, which now notes that sources differ on conservative versus wide excision.
+
+Deliberately not done: supportive and rehabilitative care treatments, and symptomatic phenotypes such as pain and dysphagia (reviewer suggestions 6 and 8). The only source for either was the DR report, which supplies no PMIDs and no frequencies; adding them would trade a coverage gap for an evidence gap.
+
+Validation: just validate passes (schema, terms, references); 73/73 snippets verified against cached references, up from 62/62; weighted compliance 86.5%; check-duplicate-keys and check-title-snippets clean; 6,035 targeted integrity tests pass.
+
+Note: the model id is omitted from this record because the operating environment prohibits writing the model identifier into repository artifacts.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Salivary Gland Polymorphous Adenocarcinoma</strong> · 2026-08-18T15:13:21Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Salivary_Gland_Polymorphous_Adenocarcinoma/2026-08-18T151321Z-claude-code-d212b2.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of polymorphous adenocarcinoma (PAC) of salivary gland, formerly polymorphous low-grade adenocarcinoma (PLGA).
+
+Deep research: falcon (Edison Scientific) run, research/Salivary_Gland_Polymorphous_Adenocarcinoma-deep-research-falcon.md. The report corroborated the PRKD-driven model but had a thin citation base (2 distinct sources) and one unverifiable figure: it asserted an odds ratio of 801.32 with counts &#34;PAC 38/39 vs ACC 1/155&#34; for the p63+/p40- pattern, which is NOT present in the cited abstract (PMID:35507302). That figure was discarded and replaced with the verified meta-analysis percentages. All other evidence was sourced independently from PubMed.
+
+NEC preflight: &#34;just preflight-dr&#34; returned SKIP because the anchor MONDO term records no causal gene, so the manual check was run instead. Gene mentions in the report are dominated by PRKD1 (17) with PRKD2/PRKD3 present; &#34;pleomorphic adenoma&#34; appears only twice and in differential-diagnosis context; there is no PLAG1/HMGA2 (pleomorphic adenoma) or MYB-NFIB (adenoid cystic carcinoma) signal. This disease is NEC-prone because &#34;polymorphous adenocarcinoma&#34; collides with the benign &#34;pleomorphic adenoma&#34; and with adenoid cystic carcinoma; the manual check cleared it.
+
+Ontology decision: MONDO has NO class for polymorphous adenocarcinoma (searched labels and exact synonyms; no MONDO term xrefs NCIT:C35702 or its parent NCIT:C8021). disease_term is therefore anchored to the nearest MONDO superclass, MONDO:0000521 salivary gland carcinoma, with exact identity carried in mappings.ncit_mappings as skos:exactMatch to NCIT:C35702. This is recorded as an open CURATION_TODO discussion (pac_mondo_term_gap) proposing a MONDO term request. Subtypes are grounded to NCIT:C201781 (conventional) and NCIT:C201786 (cribriform).
+
+Mechanism is modeled as a five-node pathograph converging on one pathway: the PRKD1 p.Glu710Asp hotspot mutation and PRKD1/2/3 rearrangement are mutually exclusive parallel drivers that both feed a Deregulated Protein Kinase D Signaling node, then architecturally polymorphous infiltrative growth, then perineural invasion and regional nodal metastasis. The one-entity-versus-two-entity question about cribriform adenocarcinoma (CASG) is recorded as competing mechanistic_hypotheses (CANONICAL single-spectrum vs ALTERNATIVE pathogenetic dichotomy) rather than silently resolved, plus a CONTROVERSY discussion, because it has real surgical consequences for neck management. Two KNOWLEDGE_GAP discussions cover the ~21.6% PRKD-wild-type cases and the unresolved prognostic significance of PRKD alterations.
+
+Validation: just validate passes (schema, terms, references); 59/59 snippets verified against cached references. Weighted compliance 86.3%. Remaining compliance gaps are datasets (no relevant public omics dataset for this rare tumor) and evidence on proposed_experiments (hypothetical future work).
+
+Note: the model id was omitted from this record because the operating environment prohibits writing the model identifier into repository artifacts.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

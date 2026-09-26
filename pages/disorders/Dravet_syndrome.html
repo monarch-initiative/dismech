@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3996,7 +4064,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -4310,6 +4378,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4395,6 +4464,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4431,7 +4501,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">5 support</span>
+                    <span class="evidence-support support-SUPPORT">7 support</span>
 
                 </div>
 
@@ -4439,7 +4509,7 @@
                 <div class="item-desc" style="margin-top: 8px;">A seizure-count-independent arm: a convulsive seizure transiently impairs brainstem serotonergic neurons, which are central CO2 chemoreceptors, so the hypercapnic ventilatory response is depressed for a prolonged period after the seizure ends. A patient whose chemoreflex gain is already low then fails to clear postictal hypercapnia and dies. Under this model fenfluramine protects by restoring postictal 5-HT tone, an action distinct from and additional to its anticonvulsant effect, and the hypercapnic ventilatory response becomes a candidate risk biomarker rather than merely a physiological curiosity. The model predicts a fenfluramine effect on the chemoreflex that is not proportional to its effect on seizure count, which is what makes it separable from the canonical model.</div>
 
 
-                <div class="mapping-notes">All direct support for the protective arm is model-organism pharmacology. No human study has yet measured any effect of fenfluramine on CO2 chemoreception; NCT07112365 is the first attempt. Two scope caveats from the OpenScientist hypothesis review (see kb/hypotheses/Dravet_syndrome/sudep_serotonergic_chemoreflex_model/): the single-target 5-HT4 framing above is narrower than the wider literature, which implicates several 5-HT receptors plus noradrenergic co-signalling in a dorsal raphe-locus coeruleus-preBotzinger circuit; and serotonergic protection may act through autoresuscitation rather than chemoreflex gain, since fluoxetine blocks seizure-induced respiratory arrest without raising basal ventilation while breathing stimulants that do raise it fail to protect (PMID:26272185). That experiment measured basal ventilation, not the CO2 response slope this model claims, so it narrows the mechanism rather than refuting it.</div>
+                <div class="mapping-notes">All direct support for the protective arm is model-organism pharmacology. No human study has yet measured any effect of fenfluramine on CO2 chemoreception; NCT07112365 is the first attempt. Two scope caveats from the OpenScientist hypothesis review (see kb/hypotheses/Dravet_syndrome/sudep_serotonergic_chemoreflex_model/): the single-target 5-HT4 framing above is narrower than the wider literature, which implicates several 5-HT receptors plus noradrenergic co-signalling in a dorsal raphe-locus coeruleus-preBotzinger circuit (PMID:38820310, PMID:41208885, both now cited above); and serotonergic protection may act through autoresuscitation rather than chemoreflex gain, since fluoxetine blocks seizure-induced respiratory arrest without raising basal ventilation while breathing stimulants that do raise it fail to protect (PMID:26272185). That experiment measured basal ventilation, not the CO2 response slope this model claims, so it narrows the mechanism rather than refuting it; the locus question is carried as gap_dravet_chemoreflex_gain_versus_autoresuscitation_locus.</div>
 
 
                 <div class="crosslink-block">
@@ -4538,7 +4608,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (5 references)
+            Show evidence (7 references)
         </summary>
         <div class="evidence-list">
 
@@ -4550,6 +4620,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4577,6 +4648,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4601,6 +4673,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4615,7 +4688,7 @@
             </div>
 
 
-            <div class="evidence-more">+ 2 more references</div>
+            <div class="evidence-more">+ 4 more references</div>
 
         </div>
     </details>
@@ -4632,7 +4705,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">7</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="gap_dravet_interneuron_hypothesis_completeness">
@@ -5114,6 +5187,7 @@ This readout is measured by patch-clamp electrophysiology.</span>
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5135,6 +5209,7 @@ This readout is measured by patch-clamp electrophysiology.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5547,6 +5622,7 @@ This readout is measured by whole-cell voltage-clamp electrophysiology.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5568,6 +5644,7 @@ This readout is measured by whole-cell voltage-clamp electrophysiology.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6176,6 +6253,7 @@ This readout is measured by multielectrode array recording.</span>
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6197,6 +6275,7 @@ This readout is measured by multielectrode array recording.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6640,6 +6719,7 @@ This readout is measured by CO2 rebreathing hypercapnic ventilatory response tes
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6661,6 +6741,7 @@ This readout is measured by CO2 rebreathing hypercapnic ventilatory response tes
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7019,6 +7100,305 @@ This readout is measured by CO2 rebreathing hypercapnic ventilatory response tes
     </div>
 
 
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Sigma-1 versus serotonergic dissociation of fenfluramine respiratory protection</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-26">
+
+        pharmacological target-dissociation experiment
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">Relation: this experiment is of type this experiment type
+This experiment is of type pharmacological target-dissociation experiment.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_dravet_fenfluramine_sigma1_dissociation</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">In Scn1a haploinsufficient and DBA/1 mice, compare fenfluramine against a serotonin releaser without sigma-1 activity and against a selective sigma-1 modulator, measuring both seizure-induced respiratory arrest and the hypercapnic ventilatory response. Repeat the fenfluramine arm under sigma-1 antagonism to test whether protection survives loss of the sigma-1 contribution.</div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Perturbations</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Fenfluramine versus sigma-1-sparing releaser versus sigma-1 modulator</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-postictal-serotonergic-neuron-dysfunction">pathophysiology#Postictal Serotonergic Neuron Dysfunction</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Three drug arms matched for serotonin release or sigma-1 modulation, so that each pharmacology is present alone and in combination.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Hypercapnic ventilatory response and seizure-induced respiratory arrest</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-co2-chemoreception-and-postictal-hypoventilation">pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation</a>
+
+    </div>
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        response to carbon dioxide
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0010037" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0010037</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on decreased response to carbon dioxide (GO:0010037). GO:0010037 is a biological process from the Gene Ontology.</span>
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-28">
+
+        whole-body plethysmography hypercapnic challenge
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">Relation: this readout is measured by this assay
+This readout is measured by whole-body plethysmography hypercapnic challenge.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: POSITIVE</div>
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Controls</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Vehicle-treated seizure cohort</div>
+
+        <div>Matched animals receiving vehicle before the same seizure protocol.</div>
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Sigma-1 antagonist add-on arm</div>
+
+        <div>Fenfluramine given under sigma-1 receptor antagonism, isolating the serotonergic contribution to any protection observed.</div>
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">The serotonergic attribution holds if a sigma-1-sparing serotonin releaser reproduces fenfluramine&#39;s respiratory protection while a selective sigma-1 modulator does not, and if sigma-1 antagonism leaves fenfluramine&#39;s effect intact. The reverse pattern would relocate the protective mechanism outside the serotonergic model.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-postictal-serotonergic-neuron-dysfunction">pathophysiology#Postictal Serotonergic Neuron Dysfunction</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would refute</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-sudep-serotonergic-chemoreflex-model">mechanistic_hypotheses#sudep_serotonergic_chemoreflex_model</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
                     </div>
                 </div>
 
@@ -7029,7 +7409,7 @@ This readout is measured by CO2 rebreathing hypercapnic ventilatory response tes
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -7041,6 +7421,7 @@ This readout is measured by CO2 rebreathing hypercapnic ventilatory response tes
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7068,6 +7449,7 @@ This readout is measured by CO2 rebreathing hypercapnic ventilatory response tes
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7092,6 +7474,7 @@ This readout is measured by CO2 rebreathing hypercapnic ventilatory response tes
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7100,6 +7483,941 @@ This readout is measured by CO2 rebreathing hypercapnic ventilatory response tes
 
 
                 <div class="evidence-explanation">Fenfluramine is pharmacologically promiscuous, so attributing a clinical SUDEP effect specifically to serotonergic chemoreflex rescue requires evidence that discriminates among its mechanisms.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_dravet_chemoreflex_gain_versus_autoresuscitation_locus">
+                <div class="item-name">Does enhanced serotonergic tone protect against seizure-induced respiratory death by restoring CO2 chemoreflex gain, as this entry models it, or by facilitating autoresuscitation through the periaqueductal gray and pontomedullary respiratory nuclei without raising ventilatory drive at all?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_dravet_chemoreflex_gain_versus_autoresuscitation_locus</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-postictal-serotonergic-neuron-dysfunction">pathophysiology#Postictal Serotonergic Neuron Dysfunction</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-co2-chemoreception-and-postictal-hypoventilation">pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-sudep-serotonergic-chemoreflex-model">mechanistic_hypotheses#sudep_serotonergic_chemoreflex_model</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The chemoreflex model asserts a specific locus for serotonergic protection: 5-HT tone sets the gain of the hypercapnic ventilatory response, so restoring it should restore ventilation to a CO2 load. Two model-organism results point somewhere else. Fluoxetine blocks seizure-induced respiratory arrest at doses that do not raise basal ventilation, while doxapram and PK-THPP raise ventilation and fail to protect, which is a double dissociation between the protective effect and ventilatory drive. Imaging of protected animals localizes the fluoxetine effect to the periaqueductal gray plus amygdala, reticular formation, Kolliker-Fuse nucleus, facial-parafacial group and pontine raphe, a distribution that reads as a network for recovery of breathing after an arrest rather than as chemoreceptor gain. Both experiments are in the audiogenic DBA/1 model rather than an Scn1a haploinsufficient Dravet model, and neither measured breathing during the seizure itself, so they motivate a competing locus without excluding a distinct seizure-window chemoreflex effect in Dravet. Until the two are separated, the pathophysiology chain curated here should be read as the model under test, not as the established mechanism.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Circuit dissection of chemoreflex gain versus autoresuscitation</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-29">
+
+        chemogenetic circuit-dissection experiment
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">Relation: this experiment is of type this experiment type
+This experiment is of type chemogenetic circuit-dissection experiment.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_dravet_chemoreflex_versus_autoresuscitation_dissection</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">In Scn1a haploinsufficient mice, chemogenetically restore medullary raphe serotonergic output selectively, without engaging periaqueductal gray or pre-Botzinger autoresuscitation nodes, then reverse the manipulation to drive the autoresuscitation nodes while leaving raphe chemoreceptor output depressed. Measure the hypercapnic ventilatory response, latency to resume breathing after seizure-induced apnea, and survival in each arm.</div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Perturbations</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Selective raphe serotonergic restoration</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-postictal-serotonergic-neuron-dysfunction">pathophysiology#Postictal Serotonergic Neuron Dysfunction</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Chemogenetic activation restricted to medullary raphe serotonergic neurons, with a parallel arm activating periaqueductal gray and pontomedullary respiratory nodes instead.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Hypercapnic ventilatory response slope</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-co2-chemoreception-and-postictal-hypoventilation">pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation</a>
+
+    </div>
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        response to carbon dioxide
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0010037" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0010037</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on decreased response to carbon dioxide (GO:0010037). GO:0010037 is a biological process from the Gene Ontology.</span>
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-31">
+
+        whole-body plethysmography hypercapnic challenge
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">Relation: this readout is measured by this assay
+This readout is measured by whole-body plethysmography hypercapnic challenge.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: POSITIVE</div>
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Latency to resume breathing after postictal apnea</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-co2-chemoreception-and-postictal-hypoventilation">pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation</a>
+
+    </div>
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        regulation of respiratory gaseous exchange by nervous system process
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0002087" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0002087</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on decreased regulation of respiratory gaseous exchange by nervous system process (GO:0002087). GO:0002087 is a biological process from the Gene Ontology.</span>
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-33">
+
+        postictal respiratory recording with survival ascertainment
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">Relation: this readout is measured by this assay
+This readout is measured by postictal respiratory recording with survival ascertainment.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: POSITIVE</div>
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Controls</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Non-serotonergic breathing stimulant arm</div>
+
+        <div>A respiratory stimulant that raises ventilation without altering serotonergic tone, matched for the achieved ventilatory increase.</div>
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Vehicle-treated seizure cohort</div>
+
+        <div>Matched animals receiving vehicle before the same seizure protocol.</div>
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">The chemoreflex locus curated in this entry is supported if selective raphe restoration normalizes the hypercapnic ventilatory response and prevents death on its own. If survival instead tracks autoresuscitation latency and is rescued by driving the periaqueductal gray and pontomedullary nodes while the chemoreflex stays depressed, the protective mechanism should be relocated out of the chemoreflex node.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-co2-chemoreception-and-postictal-hypoventilation">pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would refute</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-sudep-serotonergic-chemoreflex-model">mechanistic_hypotheses#sudep_serotonergic_chemoreflex_model</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26272185" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26272185" target="_blank">PMID:26272185</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These data suggest that fluoxetine blocks S-IRA in DBA/1 mice by cellular/molecular mechanisms other than enhancement of basal ventilation."</div>
+
+
+                <div class="evidence-explanation">States the dissociation directly: the serotonergic protection is not delivered by increasing ventilation, which is the currency the chemoreflex arm of this model trades in.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31056750" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31056750" target="_blank">PMID:31056750</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The pattern of fluoxetine-induced activity changes in the present study suggests that PAG may be the most critical target for fluoxetine&#39;s action to prevent seizure-induced sudden death."</div>
+
+
+                <div class="evidence-explanation">Supplies the anatomical alternative. Manganese-enhanced imaging of protected animals implicates the periaqueductal gray and respiratory network nuclei rather than the medullary chemoreceptor populations this entry models.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_dravet_cholinergic_terminal_apnea_competitor">
+                <div class="item-name">Is the fatal postictal apnea of Dravet syndrome driven by central cholinergic outflow rather than by failed serotonergic chemoreception, and are the two rescues additive or redundant in Scn1a mice?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_dravet_cholinergic_terminal_apnea_competitor</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-co2-chemoreception-and-postictal-hypoventilation">pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-sudden-unexpected-death-in-epilepsy">phenotypes#Sudden Unexpected Death in Epilepsy</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">This entry models one terminal route to sudden death, in which a depressed chemoreflex fails to clear postictal hypercapnia. In the Scn1a R1407X mouse the terminal event is central apnea followed by bradycardia, and it is prevented by muscarinic receptor antagonists at doses that reach the brain, including by intracerebroventricular infusion at a dose far below the systemic one. Peripheral parasympathetic blockade does not rescue. That is a complete alternative account of the same terminal apnea, running through central cholinergic drive rather than through chemoreceptor gain, and it is not modelled anywhere in this entry. The two accounts are not mutually exclusive and could be sequential or parallel, but nothing published tests whether serotonergic and antimuscarinic rescue are additive, redundant, or act on different animals. Until that is done, the chemoreflex chain curated here should not be read as the only terminal mechanism available in Dravet syndrome.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Additivity of serotonergic and antimuscarinic rescue in Scn1a mice</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-34">
+
+        combination-rescue additivity experiment
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">Relation: this experiment is of type this experiment type
+This experiment is of type combination-rescue additivity experiment.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_dravet_serotonergic_versus_cholinergic_rescue_additivity</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">In Scn1a haploinsufficient mice subjected to hyperthermia-induced seizures, compare fenfluramine alone, a centrally acting muscarinic antagonist alone, and the two together, measuring postictal apnea duration, bradycardia, and survival. Test whether the combination outperforms either agent alone.</div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Perturbations</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Serotonergic versus antimuscarinic versus combined rescue</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-co2-chemoreception-and-postictal-hypoventilation">pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Three treatment arms delivered before an identical seizure protocol, so that each rescue pathway is engaged alone and jointly.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Postictal apnea duration and survival</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-co2-chemoreception-and-postictal-hypoventilation">pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation</a>
+
+    </div>
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        regulation of respiratory gaseous exchange by nervous system process
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0002087" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0002087</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on decreased regulation of respiratory gaseous exchange by nervous system process (GO:0002087). GO:0002087 is a biological process from the Gene Ontology.</span>
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-36">
+
+        postictal respiratory recording with survival ascertainment
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">Relation: this readout is measured by this assay
+This readout is measured by postictal respiratory recording with survival ascertainment.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: POSITIVE</div>
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Controls</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Vehicle-treated seizure cohort</div>
+
+        <div>Matched animals receiving vehicle before the same seizure protocol.</div>
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Peripherally restricted antimuscarinic arm</div>
+
+        <div>A muscarinic antagonist dosed so that it does not cross the blood brain barrier, separating central from peripheral cholinergic blockade.</div>
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">Additive protection means two separable terminal mechanisms, and the cholinergic arm should be curated as a parallel pathophysiology route. Redundant protection, where either agent alone reaches the ceiling, means the two act on one shared final step and the entry needs one node rather than two.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-co2-chemoreception-and-postictal-hypoventilation">pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29329111" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29329111" target="_blank">PMID:29329111</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mice with an Scn1aR1407X/+ loss-of-function mutation were monitored and died after spontaneous and heat-induced seizures due to central apnea followed by progressive bradycardia."</div>
+
+
+                <div class="evidence-explanation">Establishes central apnea, not arrhythmia, as the terminal event in the Dravet mouse, which is the sequence both the chemoreflex and the cholinergic account have to explain.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29329111" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29329111" target="_blank">PMID:29329111</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"When given via intracerebroventricular infusion at a very low dose, a muscarinic receptor antagonist prevented apnea, bradycardia, and death."</div>
+
+
+                <div class="evidence-explanation">The competing mechanism in one result. A central antimuscarinic prevents the whole terminal sequence, which no part of the serotonergic chemoreflex model predicts or requires.</div>
 
 
 
@@ -7127,6 +8445,7 @@ This readout is measured by CO2 rebreathing hypercapnic ventilatory response tes
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-scn1a-gene-mutation" data-dismech-node="SCN1A Gene Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">SCN1A Gene Mutation</div>
 
+
                 <div class="item-desc">Heterozygous loss-of-function mutations in SCN1A cause reduced Nav1.1 sodium channel function, primarily affecting GABAergic inhibitory interneurons, particularly parvalbumin-positive fast-spiking interneurons.</div>
 
 
@@ -7141,11 +8460,11 @@ This readout is measured by CO2 rebreathing hypercapnic ventilatory response tes
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000498" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000498</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000498" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-37">CL:0000498</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves inhibitory interneuron (CL:0000498). CL:0000498 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -7182,11 +8501,11 @@ This pathophysiological event involves inhibitory interneuron (CL:0000498). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0019228</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0019228</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves neuronal action potential (GO:0019228). GO:0019228 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7217,11 +8536,11 @@ This pathophysiological event involves neuronal action potential (GO:0019228). G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005248" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0005248</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005248" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-39">GO:0005248</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves voltage-gated sodium channel activity (GO:0005248). GO:0005248 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -7253,11 +8572,11 @@ This pathophysiological event involves voltage-gated sodium channel activity (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-40">UBERON:0000956</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7270,11 +8589,11 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0001954</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-41">UBERON:0001954</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERON:0001954 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7319,6 +8638,7 @@ This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7338,6 +8658,7 @@ This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7364,6 +8685,7 @@ This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-hyperexcitability" data-dismech-node="Neuronal Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Hyperexcitability</div>
 
+
                 <div class="item-desc">Reduced inhibitory interneuron function leads to excitatory-inhibitory imbalance and network hyperexcitability across cortico-hippocampal and thalamocortical circuits.</div>
 
 
@@ -7389,11 +8711,11 @@ This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000498" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0000498</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000498" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-42">CL:0000498</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves inhibitory interneuron (CL:0000498). CL:0000498 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -7430,11 +8752,11 @@ This pathophysiological event involves inhibitory interneuron (CL:0000498). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0051932</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-43">GO:0051932</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves synaptic transmission, GABAergic (GO:0051932). GO:0051932 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7467,11 +8789,11 @@ This pathophysiological event involves synaptic transmission, GABAergic (GO:0051
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-33">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-44">UBERON:0000956</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7484,11 +8806,11 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-34">UBERON:0001954</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-45">UBERON:0001954</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERON:0001954 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7501,11 +8823,11 @@ This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001897" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-35">UBERON:0001897</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001897" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-46">UBERON:0001897</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in dorsal plus ventral thalamus (UBERON:0001897). UBERON:0001897 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7759,6 +9081,7 @@ This pathophysiological event occurs in dorsal plus ventral thalamus (UBERON:000
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7779,6 +9102,7 @@ This pathophysiological event occurs in dorsal plus ventral thalamus (UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postictal-serotonergic-neuron-dysfunction" data-dismech-node="Postictal Serotonergic Neuron Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Postictal Serotonergic Neuron Dysfunction</div>
+
 
                 <div class="item-desc">Convulsive seizures transiently impair brainstem serotonergic neuron function. Because 5-HT neurons of the medullary raphe are central CO2 chemoreceptors and drive multiple aspects of respiratory control, this transient loss of serotonergic tone is the proposed cellular link between a seizure and the postictal respiratory failure implicated in SUDEP. Supporting the causal direction, depleting serotonin with para-chlorophenylalanine reproduces the deficit and increases postictal mortality, while the 5-HT releaser fenfluramine attenuates it.</div>
 
@@ -7805,11 +9129,11 @@ This pathophysiological event occurs in dorsal plus ventral thalamus (UBERON:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000850" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-36">CL:0000850</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000850" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-47">CL:0000850</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves serotonergic neuron (CL:0000850). CL:0000850 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -7846,11 +9170,11 @@ This pathophysiological event involves serotonergic neuron (CL:0000850). CL:0000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001820" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0001820</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001820" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-48">GO:0001820</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased serotonin secretion (GO:0001820), qualified as temporality transient. GO:0001820 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7889,11 +9213,11 @@ This pathophysiological event involves decreased serotonin secretion (GO:0001820
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004684" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-38">UBERON:0004684</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004684" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-49">UBERON:0004684</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in raphe nuclei (UBERON:0004684). UBERON:0004684 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7906,11 +9230,11 @@ This pathophysiological event occurs in raphe nuclei (UBERON:0004684). UBERON:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001896" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-39">UBERON:0001896</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001896" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-50">UBERON:0001896</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in medulla oblongata (UBERON:0001896). UBERON:0001896 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -7966,6 +9290,7 @@ This pathophysiological event occurs in medulla oblongata (UBERON:0001896). UBER
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7987,6 +9312,7 @@ This pathophysiological event occurs in medulla oblongata (UBERON:0001896). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8012,6 +9338,7 @@ This pathophysiological event occurs in medulla oblongata (UBERON:0001896). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-co2-chemoreception-and-postictal-hypoventilation" data-dismech-node="Impaired CO2 Chemoreception and Postictal Hypoventilation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CO2 Chemoreception and Postictal Hypoventilation</div>
+
 
                 <div class="item-desc">Reduced central CO2 chemoreception blunts the hypercapnic ventilatory response, so a rising arterial CO2 after a generalized convulsive seizure fails to drive a compensatory increase in ventilation. Patients with a low interictal HCVR slope show a larger and longer postictal CO2 rise, making prolonged postictal hypoventilation the proposed terminal step toward SUDEP.</div>
 
@@ -8045,11 +9372,11 @@ This pathophysiological event occurs in medulla oblongata (UBERON:0001896). UBER
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002087" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-40">GO:0002087</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002087" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-51">GO:0002087</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased regulation of respiratory gaseous exchange by nervous system process (GO:0002087). GO:0002087 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -8079,11 +9406,11 @@ This pathophysiological event involves decreased regulation of respiratory gaseo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010037" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-41">GO:0010037</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010037" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-52">GO:0010037</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased response to carbon dioxide (GO:0010037). GO:0010037 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -8120,11 +9447,11 @@ This pathophysiological event involves decreased response to carbon dioxide (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001896" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-42">UBERON:0001896</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001896" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-53">UBERON:0001896</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in medulla oblongata (UBERON:0001896). UBERON:0001896 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8180,6 +9507,7 @@ This pathophysiological event occurs in medulla oblongata (UBERON:0001896). UBER
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8201,6 +9529,7 @@ This pathophysiological event occurs in medulla oblongata (UBERON:0001896). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8227,6 +9556,7 @@ This pathophysiological event occurs in medulla oblongata (UBERON:0001896). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-astrocyte-dysregulation" data-dismech-node="Astrocyte Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Astrocyte Dysregulation</div>
 
+
                 <div class="item-desc">Aberrant astrocyte calcium signaling and gliotransmission may exacerbate network hyperexcitability and seizure susceptibility.</div>
 
 
@@ -8241,11 +9571,11 @@ This pathophysiological event occurs in medulla oblongata (UBERON:0001896). UBER
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-54">CL:0000127</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -8282,11 +9612,11 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051480" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-44">GO:0051480</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051480" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-55">GO:0051480</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated regulation of cytosolic calcium ion concentration (GO:0051480). GO:0051480 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -8323,11 +9653,11 @@ This pathophysiological event involves dysregulated regulation of cytosolic calc
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-45">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-56">UBERON:0000956</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8340,11 +9670,11 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-46">UBERON:0001954</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-57">UBERON:0001954</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERON:0001954 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8389,6 +9719,7 @@ This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8410,6 +9741,7 @@ This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8520,15 +9852,18 @@ This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011468" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0011468</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011468" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0011468</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Facial tics (HP:0011468). HP:0011468 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8548,6 +9883,7 @@ This clinical feature is Facial tics (HP:0011468). HP:0011468 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8590,15 +9926,18 @@ This clinical feature is Facial tics (HP:0011468). HP:0011468 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002307</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0002307</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8618,6 +9957,7 @@ This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8660,15 +10000,18 @@ This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000466" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000466</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000466" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0000466</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Limited neck range of motion (HP:0000466). HP:0000466 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8688,6 +10031,7 @@ This clinical feature is Limited neck range of motion (HP:0000466). HP:0000466 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8739,15 +10083,18 @@ This clinical feature is Limited neck range of motion (HP:0000466). HP:0000466 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000980</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0000980</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8767,6 +10114,7 @@ This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8809,15 +10157,18 @@ This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0200048</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0200048</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cyanotic episode (HP:0200048). HP:0200048 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8837,6 +10188,7 @@ This clinical feature is Cyanotic episode (HP:0200048). HP:0200048 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8888,15 +10240,18 @@ This clinical feature is Cyanotic episode (HP:0200048). HP:0200048 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001763</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0001763</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8916,6 +10271,7 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8958,15 +10314,18 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008081" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0008081</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008081" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0008081</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pes valgus (HP:0008081). HP:0008081 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8986,6 +10345,7 @@ This clinical feature is Pes valgus (HP:0008081). HP:0008081 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9028,15 +10388,18 @@ This clinical feature is Pes valgus (HP:0008081). HP:0008081 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0003066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0003066</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Limited knee extension (HP:0003066). HP:0003066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9056,6 +10419,7 @@ This clinical feature is Limited knee extension (HP:0003066). HP:0003066 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9098,15 +10462,18 @@ This clinical feature is Limited knee extension (HP:0003066). HP:0003066 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100694" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0100694</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100694" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0100694</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tibial torsion (HP:0100694). HP:0100694 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9126,6 +10493,7 @@ This clinical feature is Tibial torsion (HP:0100694). HP:0100694 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9177,15 +10545,18 @@ This clinical feature is Tibial torsion (HP:0100694). HP:0100694 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0002063</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9205,6 +10576,7 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9247,15 +10619,18 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0002396</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0002396</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cogwheel rigidity (HP:0002396). HP:0002396 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9275,6 +10650,7 @@ This clinical feature is Cogwheel rigidity (HP:0002396). HP:0002396 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9317,15 +10693,18 @@ This clinical feature is Cogwheel rigidity (HP:0002396). HP:0002396 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008947" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0008947</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008947" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0008947</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9345,6 +10724,7 @@ This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9396,15 +10776,18 @@ This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Include prolonged febrile seizures and various types of epilepsy as the condition progresses.</div>
@@ -9429,6 +10812,7 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9448,6 +10832,7 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9490,15 +10875,18 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0007359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0007359</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9518,6 +10906,7 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9562,15 +10951,18 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0002373</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0002373</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Febrile seizure (within the age range of 3 months to 6 years) (HP:0002373). HP:0002373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Characteristic presenting feature in early infancy, often prompts genetic evaluation for Dravet syndrome.</div>
@@ -9592,6 +10984,7 @@ This clinical feature is Febrile seizure (within the age range of 3 months to 6 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9634,15 +11027,18 @@ This clinical feature is Febrile seizure (within the age range of 3 months to 6 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011172" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0011172</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011172" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0011172</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Complex febrile seizure (HP:0011172). HP:0011172 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9662,6 +11058,7 @@ This clinical feature is Complex febrile seizure (HP:0011172). HP:0011172 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9704,15 +11101,18 @@ This clinical feature is Complex febrile seizure (HP:0011172). HP:0011172 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006813" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0006813</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006813" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0006813</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Focal hemiclonic seizure (HP:0006813). HP:0006813 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9732,6 +11132,7 @@ This clinical feature is Focal hemiclonic seizure (HP:0006813). HP:0006813 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9774,15 +11175,18 @@ This clinical feature is Focal hemiclonic seizure (HP:0006813). HP:0006813 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002123</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0002123</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized myoclonic seizure (HP:0002123). HP:0002123 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9802,6 +11206,7 @@ This clinical feature is Generalized myoclonic seizure (HP:0002123). HP:0002123 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9844,15 +11249,18 @@ This clinical feature is Generalized myoclonic seizure (HP:0002123). HP:0002123 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0001327</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0001327</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Photosensitive myoclonic seizures, annotated with Photosensitive myoclonic seizure (HP:0001327). HP:0001327 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9872,6 +11280,7 @@ This clinical feature is Photosensitive myoclonic seizures, annotated with Photo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9914,15 +11323,18 @@ This clinical feature is Photosensitive myoclonic seizures, annotated with Photo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007207" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0007207</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007207" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-77">HP:0007207</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Photosensitive tonic-clonic seizures, annotated with Photosensitive tonic-clonic seizure (HP:0007207). HP:0007207 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9942,6 +11354,7 @@ This clinical feature is Photosensitive tonic-clonic seizures, annotated with Ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9984,15 +11397,18 @@ This clinical feature is Photosensitive tonic-clonic seizures, annotated with Ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0002349</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-78">HP:0002349</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Focal aware seizure (HP:0002349). HP:0002349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10012,6 +11428,7 @@ This clinical feature is Focal aware seizure (HP:0002349). HP:0002349 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10054,15 +11471,18 @@ This clinical feature is Focal aware seizure (HP:0002349). HP:0002349 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002384" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0002384</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002384" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-79">HP:0002384</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:0002384 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10082,6 +11502,7 @@ This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:00023
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10124,15 +11545,18 @@ This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:00023
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0007270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-80">HP:0007270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atypical absence seizure (HP:0007270). HP:0007270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10152,6 +11576,7 @@ This clinical feature is Atypical absence seizure (HP:0007270). HP:0007270 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10194,15 +11619,18 @@ This clinical feature is Atypical absence seizure (HP:0007270). HP:0007270 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011169" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0011169</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011169" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-81">HP:0011169</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized clonic seizure (HP:0011169). HP:0011169 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10222,6 +11650,7 @@ This clinical feature is Generalized clonic seizure (HP:0011169). HP:0011169 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10264,15 +11693,18 @@ This clinical feature is Generalized clonic seizure (HP:0011169). HP:0011169 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012847" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0012847</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012847" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-82">HP:0012847</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Epilepsia partialis continua (HP:0012847). HP:0012847 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10292,6 +11724,7 @@ This clinical feature is Epilepsia partialis continua (HP:0012847). HP:0012847 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10334,15 +11767,18 @@ This clinical feature is Epilepsia partialis continua (HP:0012847). HP:0012847 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0031475</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-83">HP:0031475</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Status epilepticus without prominent motor symptoms (HP:0031475). HP:0031475 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10362,6 +11798,7 @@ This clinical feature is Status epilepticus without prominent motor symptoms (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10386,6 +11823,7 @@ This clinical feature is Status epilepticus without prominent motor symptoms (HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10428,15 +11866,18 @@ This clinical feature is Status epilepticus without prominent motor symptoms (HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010818" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0010818</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010818" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-84">HP:0010818</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized tonic seizure (HP:0010818). HP:0010818 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10456,6 +11897,7 @@ This clinical feature is Generalized tonic seizure (HP:0010818). HP:0010818 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10498,15 +11940,18 @@ This clinical feature is Generalized tonic seizure (HP:0010818). HP:0010818 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0010841</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-85">HP:0010841</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Multifocal epileptiform discharges (HP:0010841). HP:0010841 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10526,6 +11971,7 @@ This clinical feature is Multifocal epileptiform discharges (HP:0010841). HP:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10568,15 +12014,18 @@ This clinical feature is Multifocal epileptiform discharges (HP:0010841). HP:001
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011182" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0011182</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011182" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-86">HP:0011182</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Interictal epileptiform activity (HP:0011182). HP:0011182 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10596,6 +12045,7 @@ This clinical feature is Interictal epileptiform activity (HP:0011182). HP:00111
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10620,6 +12070,7 @@ This clinical feature is Interictal epileptiform activity (HP:0011182). HP:00111
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10662,15 +12113,18 @@ This clinical feature is Interictal epileptiform activity (HP:0011182). HP:00111
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011185" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0011185</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011185" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-87">HP:0011185</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is EEG with focal epileptiform discharges (HP:0011185). HP:0011185 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10690,6 +12144,7 @@ This clinical feature is EEG with focal epileptiform discharges (HP:0011185). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10732,15 +12187,18 @@ This clinical feature is EEG with focal epileptiform discharges (HP:0011185). HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-77">HP:0011198</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-88">HP:0011198</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-77">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-88">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is EEG with generalized epileptiform discharges (HP:0011198). HP:0011198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10760,6 +12218,7 @@ This clinical feature is EEG with generalized epileptiform discharges (HP:001119
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10802,15 +12261,18 @@ This clinical feature is EEG with generalized epileptiform discharges (HP:001119
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-78">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-89">HP:0002376</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-78">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-89">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10833,6 +12295,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10852,6 +12315,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10894,15 +12358,18 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-79">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-90">HP:0100543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-90">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Ranges from mild to severe.</div>
@@ -10927,6 +12394,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10948,6 +12416,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10990,15 +12459,18 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-80">HP:0007240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-91">HP:0007240</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-80">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-91">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Progressive gait ataxia (HP:0007240). HP:0007240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11018,6 +12490,7 @@ This clinical feature is Progressive gait ataxia (HP:0007240). HP:0007240 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11042,6 +12515,7 @@ This clinical feature is Progressive gait ataxia (HP:0007240). HP:0007240 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11084,15 +12558,18 @@ This clinical feature is Progressive gait ataxia (HP:0007240). HP:0007240 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-81">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-92">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-92">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Behavioral and autism-like traits frequently observed and may relate to disrupted circuit development.</div>
@@ -11117,6 +12594,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11138,6 +12616,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11180,15 +12659,18 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-82">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-93">HP:0000739</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-82">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-93">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11208,6 +12690,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11250,15 +12733,18 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-83">HP:0008770</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-94">HP:0008770</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-83">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-94">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Obsessive-compulsive trait (HP:0008770). HP:0008770 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11278,6 +12764,7 @@ This clinical feature is Obsessive-compulsive trait (HP:0008770). HP:0008770 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11320,15 +12807,18 @@ This clinical feature is Obsessive-compulsive trait (HP:0008770). HP:0008770 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-84">HP:0000736</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-95">HP:0000736</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-84">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-95">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short attention span (HP:0000736). HP:0000736 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11348,6 +12838,7 @@ This clinical feature is Short attention span (HP:0000736). HP:0000736 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11390,15 +12881,18 @@ This clinical feature is Short attention span (HP:0000736). HP:0000736 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-85">HP:0100710</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-96">HP:0100710</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-85">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-96">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11418,6 +12912,7 @@ This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11460,15 +12955,18 @@ This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-86">HP:0001336</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-97">HP:0001336</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-86">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-97">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11488,6 +12986,7 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11530,15 +13029,18 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-87">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-98">HP:0001300</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-87">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-98">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11558,6 +13060,7 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11600,15 +13103,18 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-88">HP:0002067</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-99">HP:0002067</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-88">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-99">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11628,6 +13134,7 @@ This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11670,15 +13177,18 @@ This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002345" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-89">HP:0002345</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002345" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-100">HP:0002345</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-89">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-100">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Action tremor (HP:0002345). HP:0002345 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11698,6 +13208,7 @@ This clinical feature is Action tremor (HP:0002345). HP:0002345 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11740,15 +13251,18 @@ This clinical feature is Action tremor (HP:0002345). HP:0002345 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-90">HP:0002311</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-101">HP:0002311</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-90">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-101">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Incoordination (HP:0002311). HP:0002311 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11768,6 +13282,7 @@ This clinical feature is Incoordination (HP:0002311). HP:0002311 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11810,15 +13325,18 @@ This clinical feature is Incoordination (HP:0002311). HP:0002311 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-91">HP:0007010</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-102">HP:0007010</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-91">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-102">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Poor fine motor coordination (HP:0007010). HP:0007010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11838,6 +13356,7 @@ This clinical feature is Poor fine motor coordination (HP:0007010). HP:0007010 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11880,15 +13399,18 @@ This clinical feature is Poor fine motor coordination (HP:0007010). HP:0007010 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002283" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-92">HP:0002283</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002283" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-103">HP:0002283</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-92">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-103">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global brain atrophy (HP:0002283). HP:0002283 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11908,6 +13430,7 @@ This clinical feature is Global brain atrophy (HP:0002283). HP:0002283 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11932,6 +13455,7 @@ This clinical feature is Global brain atrophy (HP:0002283). HP:0002283 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11974,15 +13498,18 @@ This clinical feature is Global brain atrophy (HP:0002283). HP:0002283 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-93">HP:0025101</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-104">HP:0025101</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-93">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-104">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysgenesis of the hippocampus (HP:0025101). HP:0025101 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -12002,6 +13529,7 @@ This clinical feature is Dysgenesis of the hippocampus (HP:0025101). HP:0025101 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12026,6 +13554,7 @@ This clinical feature is Dysgenesis of the hippocampus (HP:0025101). HP:0025101 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12077,15 +13606,18 @@ This clinical feature is Dysgenesis of the hippocampus (HP:0025101). HP:0025101 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-94">HP:0002878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-105">HP:0002878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-94">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-105">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Postictal ventilatory dysfunction can occur, particularly during sleep.</div>
@@ -12124,15 +13656,18 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-95">HP:0033258</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-106">HP:0033258</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-95">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-106">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sudden unexpected death in epilepsy (HP:0033258). HP:0033258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">High premature mortality with SUDEP as leading cause. Risk peaks at ages 1-3 years and around 18 years.</div>
@@ -12168,6 +13703,9 @@ This clinical feature is Sudden unexpected death in epilepsy (HP:0033258). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12182,6 +13720,7 @@ This clinical feature is Sudden unexpected death in epilepsy (HP:0033258). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12265,10 +13804,10 @@ This clinical feature is Sudden unexpected death in epilepsy (HP:0033258). HP:00
                         Gene: SCN1A
 
 
-    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-96">hgnc:10585</a>
+    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-107">hgnc:10585</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-96">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-107">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -12276,6 +13815,9 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -12294,6 +13836,7 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12319,6 +13862,7 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12340,6 +13884,7 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12384,10 +13929,10 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
                         Gene: SCN1B
 
 
-    <a href="https://bioregistry.io/hgnc:10586" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-97">hgnc:10586</a>
+    <a href="https://bioregistry.io/hgnc:10586" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-108">hgnc:10586</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-97">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-108">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -12395,6 +13940,9 @@ This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -12413,6 +13961,7 @@ This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12455,10 +14004,10 @@ This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from th
                         Gene: SCN2A
 
 
-    <a href="https://bioregistry.io/hgnc:10588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-98">hgnc:10588</a>
+    <a href="https://bioregistry.io/hgnc:10588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-109">hgnc:10588</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-98">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-109">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -12466,6 +14015,9 @@ This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -12484,6 +14036,7 @@ This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12526,10 +14079,10 @@ This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from th
                         Gene: SCN9A
 
 
-    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-99">hgnc:10597</a>
+    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-110">hgnc:10597</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-99">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-110">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -12537,6 +14090,9 @@ This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -12555,6 +14111,7 @@ This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12597,10 +14154,10 @@ This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from th
                         Gene: GABRA1
 
 
-    <a href="https://bioregistry.io/hgnc:4075" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-100">hgnc:4075</a>
+    <a href="https://bioregistry.io/hgnc:4075" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-111">hgnc:4075</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-100">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-111">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GABRA1 (hgnc:4075). hgnc:4075 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -12608,6 +14165,9 @@ This disease-associated gene is GABRA1 (hgnc:4075). hgnc:4075 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -12626,6 +14186,7 @@ This disease-associated gene is GABRA1 (hgnc:4075). hgnc:4075 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12668,10 +14229,10 @@ This disease-associated gene is GABRA1 (hgnc:4075). hgnc:4075 is a gene from the
                         Gene: GABRG2
 
 
-    <a href="https://bioregistry.io/hgnc:4087" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-101">hgnc:4087</a>
+    <a href="https://bioregistry.io/hgnc:4087" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-112">hgnc:4087</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-101">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-112">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GABRG2 (hgnc:4087). hgnc:4087 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -12679,6 +14240,9 @@ This disease-associated gene is GABRG2 (hgnc:4087). hgnc:4087 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -12697,6 +14261,7 @@ This disease-associated gene is GABRG2 (hgnc:4087). hgnc:4087 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12739,10 +14304,10 @@ This disease-associated gene is GABRG2 (hgnc:4087). hgnc:4087 is a gene from the
                         Gene: PCDH19
 
 
-    <a href="https://bioregistry.io/hgnc:14270" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-102">hgnc:14270</a>
+    <a href="https://bioregistry.io/hgnc:14270" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-113">hgnc:14270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-102">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-113">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PCDH19 (hgnc:14270). hgnc:14270 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -12750,6 +14315,9 @@ This disease-associated gene is PCDH19 (hgnc:14270). hgnc:14270 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -12768,6 +14336,7 @@ This disease-associated gene is PCDH19 (hgnc:14270). hgnc:14270 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12810,10 +14379,10 @@ This disease-associated gene is PCDH19 (hgnc:14270). hgnc:14270 is a gene from t
                         Gene: STXBP1
 
 
-    <a href="https://bioregistry.io/hgnc:11444" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-103">hgnc:11444</a>
+    <a href="https://bioregistry.io/hgnc:11444" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-114">hgnc:11444</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-103">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-114">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is STXBP1 (hgnc:11444). hgnc:11444 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -12821,6 +14390,9 @@ This disease-associated gene is STXBP1 (hgnc:11444). hgnc:11444 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -12847,10 +14419,10 @@ This disease-associated gene is STXBP1 (hgnc:11444). hgnc:11444 is a gene from t
                         Gene: HCN1
 
 
-    <a href="https://bioregistry.io/hgnc:4845" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-104">hgnc:4845</a>
+    <a href="https://bioregistry.io/hgnc:4845" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-115">hgnc:4845</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-104">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-115">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is HCN1 (hgnc:4845). hgnc:4845 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -12858,6 +14430,9 @@ This disease-associated gene is HCN1 (hgnc:4845). hgnc:4845 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -12884,10 +14459,10 @@ This disease-associated gene is HCN1 (hgnc:4845). hgnc:4845 is a gene from the H
                         Gene: CHD2
 
 
-    <a href="https://bioregistry.io/hgnc:1917" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-105">hgnc:1917</a>
+    <a href="https://bioregistry.io/hgnc:1917" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-116">hgnc:1917</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-105">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-116">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CHD2 (hgnc:1917). hgnc:1917 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -12895,6 +14470,9 @@ This disease-associated gene is CHD2 (hgnc:1917). hgnc:1917 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -12921,10 +14499,10 @@ This disease-associated gene is CHD2 (hgnc:1917). hgnc:1917 is a gene from the H
                         Gene: DEPDC5
 
 
-    <a href="https://bioregistry.io/hgnc:18423" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-106">hgnc:18423</a>
+    <a href="https://bioregistry.io/hgnc:18423" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-117">hgnc:18423</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-106">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-117">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is DEPDC5 (hgnc:18423). hgnc:18423 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -12932,6 +14510,9 @@ This disease-associated gene is DEPDC5 (hgnc:18423). hgnc:18423 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -13000,6 +14581,7 @@ This disease-associated gene is DEPDC5 (hgnc:18423). hgnc:18423 is a gene from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -13021,6 +14603,7 @@ This disease-associated gene is DEPDC5 (hgnc:18423). hgnc:18423 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13065,7 +14648,7 @@ This disease-associated gene is DEPDC5 (hgnc:18423). hgnc:18423 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-107">antiepileptic drug therapy<span class="pill-tip" role="tooltip" id="pill-tip-107">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-118">antiepileptic drug therapy<span class="pill-tip" role="tooltip" id="pill-tip-118">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is antiepileptic drug therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -13093,6 +14676,12 @@ This treatment is antiepileptic drug therapy, annotated with Anticonvulsant Ther
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -13148,6 +14737,7 @@ This treatment is antiepileptic drug therapy, annotated with Anticonvulsant Ther
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13176,7 +14766,7 @@ This treatment is antiepileptic drug therapy, annotated with Anticonvulsant Ther
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-108">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-108">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-119">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-119">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -13212,6 +14802,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -13222,6 +14815,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -13264,7 +14860,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-109">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-109">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-120">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-120">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -13305,6 +14901,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Therapies such as physical, occupational, and speech therapy to address developmental delays and cognitive impairment.</div>
 
 
@@ -13323,7 +14925,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-110">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-110">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-121">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-121">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -13359,6 +14961,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -13369,6 +14974,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -13411,7 +15019,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-111">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-111">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-122">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-122">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -13452,16 +15060,19 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C184885" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-112">NCIT:C184885</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C184885" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-123">NCIT:C184885</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-112">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-123">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses zorevunersen (NCIT:C184885). NCIT:C184885 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -13480,12 +15091,15 @@ This treatment uses zorevunersen (NCIT:C184885). NCIT:C184885 is a therapeutic a
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Unformulated (free uptake)</span>
 
 
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: Unconjugated</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: Unconjugated</span>
 
 
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: 2′-MOE</span>
 
     </div>
+
+
+
 
 
     <div class="item-meta">
@@ -13505,11 +15119,11 @@ This treatment uses zorevunersen (NCIT:C184885). NCIT:C184885 is a therapeutic a
         SCN1A
 
 
-    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-113">hgnc:10585</a>
+    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-124">hgnc:10585</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-113">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-124">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this treatment base-pairs with the transcript of this gene
 This treatment base-pairs with the transcript of SCN1A (hgnc:10585). hgnc:10585 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -13598,6 +15212,7 @@ This treatment base-pairs with the transcript of SCN1A (hgnc:10585). hgnc:10585 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13622,6 +15237,7 @@ This treatment base-pairs with the transcript of SCN1A (hgnc:10585). hgnc:10585 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13643,6 +15259,7 @@ This treatment base-pairs with the transcript of SCN1A (hgnc:10585). hgnc:10585 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13674,7 +15291,7 @@ This treatment base-pairs with the transcript of SCN1A (hgnc:10585). hgnc:10585 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-114">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-114">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-125">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-125">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -13710,6 +15327,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -13720,6 +15340,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -13775,7 +15398,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-115">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-115">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-126">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-126">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -13816,16 +15439,22 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-116">CHEBI:69478</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-127">CHEBI:69478</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-116">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-127">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -13879,6 +15508,7 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -13907,7 +15537,7 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-117">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-117">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-128">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-128">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -13948,16 +15578,22 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5000" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-118">CHEBI:5000</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5000" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-129">CHEBI:5000</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-118">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-129">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses fenfluramine (CHEBI:5000). CHEBI:5000 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -14011,6 +15647,7 @@ This treatment uses fenfluramine (CHEBI:5000). CHEBI:5000 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -14039,7 +15676,7 @@ This treatment uses fenfluramine (CHEBI:5000). CHEBI:5000 is a therapeutic agent
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-119">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-119">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-130">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-130">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -14080,16 +15717,22 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152433" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-120">NCIT:C152433</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152433" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-131">NCIT:C152433</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-120">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-131">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses stiripentol (NCIT:C152433). NCIT:C152433 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -14143,6 +15786,7 @@ This treatment uses stiripentol (NCIT:C152433). NCIT:C152433 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14171,7 +15815,7 @@ This treatment uses stiripentol (NCIT:C152433). NCIT:C152433 is a therapeutic ag
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-121">sodium channel modulation<span class="pill-tip" role="tooltip" id="pill-tip-121">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-132">sodium channel modulation<span class="pill-tip" role="tooltip" id="pill-tip-132">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is sodium channel modulation, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -14207,6 +15851,9 @@ This treatment is sodium channel modulation, annotated with Pharmacotherapy (NCI
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -14217,6 +15864,9 @@ This treatment is sodium channel modulation, annotated with Pharmacotherapy (NCI
 
 
     </div>
+
+
+
 
 
 
@@ -14266,6 +15916,7 @@ This treatment is sodium channel modulation, annotated with Pharmacotherapy (NCI
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -14294,7 +15945,7 @@ This treatment is sodium channel modulation, annotated with Pharmacotherapy (NCI
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-122">tau-targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-122">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-133">tau-targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-133">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -14330,6 +15981,9 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -14340,6 +15994,9 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
     </div>
+
+
+
 
 
 
@@ -14386,6 +16043,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14451,6 +16109,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14472,6 +16131,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14526,6 +16186,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14547,6 +16208,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14636,6 +16298,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14660,6 +16323,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14681,6 +16345,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14743,6 +16408,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14802,6 +16468,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14840,6 +16507,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14907,6 +16575,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15018,6 +16687,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -15039,6 +16709,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15114,6 +16785,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -15138,6 +16810,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15159,6 +16832,7 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15408,11 +17082,11 @@ This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-123">HP:0033258</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-134">HP:0033258</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-123">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-134">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Sudden unexpected death in epilepsy (HP:0033258). HP:0033258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -15425,11 +17099,11 @@ This clinical trial targets Sudden unexpected death in epilepsy (HP:0033258). HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-124">HP:0002069</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-135">HP:0002069</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-124">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-135">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Generalized convulsive seizure, annotated with Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -15455,6 +17129,7 @@ This clinical trial targets Generalized convulsive seizure, annotated with Bilat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15476,6 +17151,7 @@ This clinical trial targets Generalized convulsive seizure, annotated with Bilat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16098,6 +17774,28 @@ mechanistic_hypotheses:
       fenfluramine&#39;s protection against seizure-induced death, giving the
       model a specific molecular target rather than a generic serotonergic
       claim.
+  - reference: PMID:38820310
+    reference_title: &#34;5-HT receptors exert differential effects on seizure-induced respiratory arrest in DBA/1 mice.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Our data demonstrate that 5-HT2A receptors are implicated in S-IRA, and 5-HT1A, 5-HT2B, 5-HT2C, 5-HT6 and 5-HT7 receptors are not involved in S-IRA in DBA/1 mice.&#34;
+    explanation: &gt;-
+      Widens the effector arm beyond the single 5-HT4 target named above. A
+      5-HT2A agonist also reduces seizure-induced respiratory arrest, on top of
+      the previously reported 5-HT3 and 5-HT4 effects, while five other
+      receptor subtypes do nothing, so the protective mechanism is a
+      multi-receptor one rather than one chemoreflex-gain switch.
+  - reference: PMID:41208885
+    reference_title: &#34;An efficient neural network of cooperating serotonergic and noradrenergic neurons in modulating sudden unexpected death in epilepsy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Our study reveals that serotonergic and noradrenergic systems synergistically regulate SUDEP, and further identifies that the DR-LC-PBC neural circuit exerts a protective effect through activation of 5-HT2A and NE-α1 receptors within the PBC.&#34;
+    explanation: &gt;-
+      Locates the protective serotonergic action inside a dorsal raphe to locus
+      coeruleus to pre-Botzinger complex circuit that also requires
+      noradrenergic co-signalling through NE-alpha1 receptors. Serotonergic
+      tone is therefore one necessary input to the effector node rather than
+      the whole of it.
   - reference: PMID:31301453
     reference_title: &#34;The association of serotonin reuptake inhibitors and benzodiazepines with ictal central apnea.&#34;
     supports: SUPPORT
@@ -16108,10 +17806,10 @@ mechanistic_hypotheses:
       from 204 patients, chronic serotonin-reuptake-inhibitor use halved ictal
       central apnea but showed no association with POSTCONVULSIVE central
       apnea, the phase where this model locates fatal chemoreflex failure.
-      Recorded as PARTIAL rather than REFUTE because serotonin reuptake
-      inhibitors are not fenfluramine, which is a releaser plus sigma-1
-      modulator, and because a null association in an observational cohort is
-      not a demonstrated absence of effect.
+      Recorded as a bounding observation rather than as REFUTE because
+      serotonin reuptake inhibitors are not fenfluramine, which is a releaser
+      plus sigma-1 modulator, and because a null association in an
+      observational cohort is not a demonstrated absence of effect.
   notes: &gt;-
     All direct support for the protective arm is model-organism pharmacology.
     No human study has yet measured any effect of fenfluramine on CO2
@@ -16120,13 +17818,15 @@ mechanistic_hypotheses:
     kb/hypotheses/Dravet_syndrome/sudep_serotonergic_chemoreflex_model/): the
     single-target 5-HT4 framing above is narrower than the wider literature,
     which implicates several 5-HT receptors plus noradrenergic co-signalling
-    in a dorsal raphe-locus coeruleus-preBotzinger circuit; and serotonergic
+    in a dorsal raphe-locus coeruleus-preBotzinger circuit (PMID:38820310,
+    PMID:41208885, both now cited above); and serotonergic
     protection may act through autoresuscitation rather than chemoreflex gain,
     since fluoxetine blocks seizure-induced respiratory arrest without raising
     basal ventilation while breathing stimulants that do raise it fail to
     protect (PMID:26272185). That experiment measured basal ventilation, not
     the CO2 response slope this model claims, so it narrows the mechanism
-    rather than refuting it.
+    rather than refuting it; the locus question is carried as
+    gap_dravet_chemoreflex_gain_versus_autoresuscitation_locus.
 phenotypes:
 - category: Neurologic
   name: Seizures
@@ -18230,6 +19930,17 @@ discussions:
       Fenfluramine is pharmacologically promiscuous, so attributing a
       clinical SUDEP effect specifically to serotonergic chemoreflex rescue
       requires evidence that discriminates among its mechanisms.
+  - reference: PMID:32169824
+    reference_title: &#34;Fenfluramine acts as a positive modulator of sigma-1 receptors.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Fenfluramine, but not the 5-HT2C agonist lorcaserin, showed a positive modulation of the PRE-084-induced dissociation of σ1 protein from BiP.&#34;
+    explanation: &gt;-
+      Names the specific non-serotonergic arm that has to be excluded before
+      any chemoreflex rescue can be attributed to serotonin. In a sigma-1
+      functional assay fenfluramine, unlike a pure serotonergic comparator,
+      positively modulates the receptor, so a sigma-1 mechanism is a live
+      alternative explanation for its respiratory protection.
   proposed_experiments:
   - experiment_id: exp_dravet_fenfluramine_chemoreflex_seizure_dissociation
     name: Seizure-count-adjusted fenfluramine chemoreflex study
@@ -18278,6 +19989,253 @@ discussions:
       is sufficient and the serotonergic arm should be demoted.
     would_support:
     - pathophysiology#Postictal Serotonergic Neuron Dysfunction
+    - pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation
+  - experiment_id: exp_dravet_fenfluramine_sigma1_dissociation
+    name: Sigma-1 versus serotonergic dissociation of fenfluramine respiratory protection
+    description: &gt;-
+      In Scn1a haploinsufficient and DBA/1 mice, compare fenfluramine against a
+      serotonin releaser without sigma-1 activity and against a selective
+      sigma-1 modulator, measuring both seizure-induced respiratory arrest and
+      the hypercapnic ventilatory response. Repeat the fenfluramine arm under
+      sigma-1 antagonism to test whether protection survives loss of the
+      sigma-1 contribution.
+    experiment_type:
+      preferred_term: pharmacological target-dissociation experiment
+    perturbations:
+    - name: Fenfluramine versus sigma-1-sparing releaser versus sigma-1 modulator
+      target: pathophysiology#Postictal Serotonergic Neuron Dysfunction
+      description: &gt;-
+        Three drug arms matched for serotonin release or sigma-1 modulation, so
+        that each pharmacology is present alone and in combination.
+    readouts:
+    - name: Hypercapnic ventilatory response and seizure-induced respiratory arrest
+      target: pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation
+      biological_processes:
+      - preferred_term: response to carbon dioxide
+        term:
+          id: GO:0010037
+          label: response to carbon dioxide
+        modifier: DECREASED
+      assays:
+      - preferred_term: whole-body plethysmography hypercapnic challenge
+      direction: POSITIVE
+    controls:
+    - name: Vehicle-treated seizure cohort
+      description: Matched animals receiving vehicle before the same seizure protocol.
+    - name: Sigma-1 antagonist add-on arm
+      description: &gt;-
+        Fenfluramine given under sigma-1 receptor antagonism, isolating the
+        serotonergic contribution to any protection observed.
+    decision_criterion: &gt;-
+      The serotonergic attribution holds if a sigma-1-sparing serotonin
+      releaser reproduces fenfluramine&#39;s respiratory protection while a
+      selective sigma-1 modulator does not, and if sigma-1 antagonism leaves
+      fenfluramine&#39;s effect intact. The reverse pattern would relocate the
+      protective mechanism outside the serotonergic model.
+    would_support:
+    - pathophysiology#Postictal Serotonergic Neuron Dysfunction
+    would_refute:
+    - mechanistic_hypotheses#sudep_serotonergic_chemoreflex_model
+
+- discussion_id: gap_dravet_chemoreflex_gain_versus_autoresuscitation_locus
+  prompt: &gt;-
+    Does enhanced serotonergic tone protect against seizure-induced respiratory
+    death by restoring CO2 chemoreflex gain, as this entry models it, or by
+    facilitating autoresuscitation through the periaqueductal gray and
+    pontomedullary respiratory nuclei without raising ventilatory drive at all?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Postictal Serotonergic Neuron Dysfunction
+  - pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation
+  - mechanistic_hypotheses#sudep_serotonergic_chemoreflex_model
+  rationale: &gt;-
+    The chemoreflex model asserts a specific locus for serotonergic protection:
+    5-HT tone sets the gain of the hypercapnic ventilatory response, so
+    restoring it should restore ventilation to a CO2 load. Two model-organism
+    results point somewhere else. Fluoxetine blocks seizure-induced respiratory
+    arrest at doses that do not raise basal ventilation, while doxapram and
+    PK-THPP raise ventilation and fail to protect, which is a double
+    dissociation between the protective effect and ventilatory drive. Imaging
+    of protected animals localizes the fluoxetine effect to the periaqueductal
+    gray plus amygdala, reticular formation, Kolliker-Fuse nucleus,
+    facial-parafacial group and pontine raphe, a distribution that reads as a
+    network for recovery of breathing after an arrest rather than as
+    chemoreceptor gain. Both experiments are in the audiogenic DBA/1 model
+    rather than an Scn1a haploinsufficient Dravet model, and neither measured
+    breathing during the seizure itself, so they motivate a competing locus
+    without excluding a distinct seizure-window chemoreflex effect in Dravet.
+    Until the two are separated, the pathophysiology chain curated here should
+    be read as the model under test, not as the established mechanism.
+  evidence:
+  - reference: PMID:26272185
+    reference_title: &#34;Abnormalities of serotonergic neurotransmission in animal models of SUDEP.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;These data suggest that fluoxetine blocks S-IRA in DBA/1 mice by cellular/molecular mechanisms other than enhancement of basal ventilation.&#34;
+    explanation: &gt;-
+      States the dissociation directly: the serotonergic protection is not
+      delivered by increasing ventilation, which is the currency the
+      chemoreflex arm of this model trades in.
+  - reference: PMID:31056750
+    reference_title: &#34;Neural activity in the periaqueductal gray and other specific subcortical structures is enhanced when a selective serotonin reuptake inhibitor selectively prevents seizure-induced sudden death in the DBA/1 mouse model of sudden unexpected death in epilepsy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;The pattern of fluoxetine-induced activity changes in the present study suggests that PAG may be the most critical target for fluoxetine&#39;s action to prevent seizure-induced sudden death.&#34;
+    explanation: &gt;-
+      Supplies the anatomical alternative. Manganese-enhanced imaging of
+      protected animals implicates the periaqueductal gray and respiratory
+      network nuclei rather than the medullary chemoreceptor populations this
+      entry models.
+  proposed_experiments:
+  - experiment_id: exp_dravet_chemoreflex_versus_autoresuscitation_dissection
+    name: Circuit dissection of chemoreflex gain versus autoresuscitation
+    description: &gt;-
+      In Scn1a haploinsufficient mice, chemogenetically restore medullary
+      raphe serotonergic output selectively, without engaging periaqueductal
+      gray or pre-Botzinger autoresuscitation nodes, then reverse the
+      manipulation to drive the autoresuscitation nodes while leaving raphe
+      chemoreceptor output depressed. Measure the hypercapnic ventilatory
+      response, latency to resume breathing after seizure-induced apnea, and
+      survival in each arm.
+    experiment_type:
+      preferred_term: chemogenetic circuit-dissection experiment
+    perturbations:
+    - name: Selective raphe serotonergic restoration
+      target: pathophysiology#Postictal Serotonergic Neuron Dysfunction
+      description: &gt;-
+        Chemogenetic activation restricted to medullary raphe serotonergic
+        neurons, with a parallel arm activating periaqueductal gray and
+        pontomedullary respiratory nodes instead.
+    readouts:
+    - name: Hypercapnic ventilatory response slope
+      target: pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation
+      biological_processes:
+      - preferred_term: response to carbon dioxide
+        term:
+          id: GO:0010037
+          label: response to carbon dioxide
+        modifier: DECREASED
+      assays:
+      - preferred_term: whole-body plethysmography hypercapnic challenge
+      direction: POSITIVE
+    - name: Latency to resume breathing after postictal apnea
+      target: pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation
+      biological_processes:
+      - preferred_term: regulation of respiratory gaseous exchange by nervous system process
+        term:
+          id: GO:0002087
+          label: regulation of respiratory gaseous exchange by nervous system process
+        modifier: DECREASED
+      assays:
+      - preferred_term: postictal respiratory recording with survival ascertainment
+      direction: POSITIVE
+    controls:
+    - name: Non-serotonergic breathing stimulant arm
+      description: &gt;-
+        A respiratory stimulant that raises ventilation without altering
+        serotonergic tone, matched for the achieved ventilatory increase.
+    - name: Vehicle-treated seizure cohort
+      description: Matched animals receiving vehicle before the same seizure protocol.
+    decision_criterion: &gt;-
+      The chemoreflex locus curated in this entry is supported if selective
+      raphe restoration normalizes the hypercapnic ventilatory response and
+      prevents death on its own. If survival instead tracks autoresuscitation
+      latency and is rescued by driving the periaqueductal gray and
+      pontomedullary nodes while the chemoreflex stays depressed, the
+      protective mechanism should be relocated out of the chemoreflex node.
+    would_support:
+    - pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation
+    would_refute:
+    - mechanistic_hypotheses#sudep_serotonergic_chemoreflex_model
+
+- discussion_id: gap_dravet_cholinergic_terminal_apnea_competitor
+  prompt: &gt;-
+    Is the fatal postictal apnea of Dravet syndrome driven by central
+    cholinergic outflow rather than by failed serotonergic chemoreception, and
+    are the two rescues additive or redundant in Scn1a mice?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation
+  - phenotypes#Sudden Unexpected Death in Epilepsy
+  rationale: &gt;-
+    This entry models one terminal route to sudden death, in which a depressed
+    chemoreflex fails to clear postictal hypercapnia. In the Scn1a R1407X mouse
+    the terminal event is central apnea followed by bradycardia, and it is
+    prevented by muscarinic receptor antagonists at doses that reach the brain,
+    including by intracerebroventricular infusion at a dose far below the
+    systemic one. Peripheral parasympathetic blockade does not rescue. That is a
+    complete alternative account of the same terminal apnea, running through
+    central cholinergic drive rather than through chemoreceptor gain, and it is
+    not modelled anywhere in this entry. The two accounts are not mutually
+    exclusive and could be sequential or parallel, but nothing published tests
+    whether serotonergic and antimuscarinic rescue are additive, redundant, or
+    act on different animals. Until that is done, the chemoreflex chain curated
+    here should not be read as the only terminal mechanism available in Dravet
+    syndrome.
+  evidence:
+  - reference: PMID:29329111
+    reference_title: &#34;Severe peri-ictal respiratory dysfunction is common in Dravet syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Mice with an Scn1aR1407X/+ loss-of-function mutation were monitored and died after spontaneous and heat-induced seizures due to central apnea followed by progressive bradycardia.&#34;
+    explanation: &gt;-
+      Establishes central apnea, not arrhythmia, as the terminal event in the
+      Dravet mouse, which is the sequence both the chemoreflex and the
+      cholinergic account have to explain.
+  - reference: PMID:29329111
+    reference_title: &#34;Severe peri-ictal respiratory dysfunction is common in Dravet syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;When given via intracerebroventricular infusion at a very low dose, a muscarinic receptor antagonist prevented apnea, bradycardia, and death.&#34;
+    explanation: &gt;-
+      The competing mechanism in one result. A central antimuscarinic prevents
+      the whole terminal sequence, which no part of the serotonergic
+      chemoreflex model predicts or requires.
+  proposed_experiments:
+  - experiment_id: exp_dravet_serotonergic_versus_cholinergic_rescue_additivity
+    name: Additivity of serotonergic and antimuscarinic rescue in Scn1a mice
+    description: &gt;-
+      In Scn1a haploinsufficient mice subjected to hyperthermia-induced
+      seizures, compare fenfluramine alone, a centrally acting muscarinic
+      antagonist alone, and the two together, measuring postictal apnea
+      duration, bradycardia, and survival. Test whether the combination
+      outperforms either agent alone.
+    experiment_type:
+      preferred_term: combination-rescue additivity experiment
+    perturbations:
+    - name: Serotonergic versus antimuscarinic versus combined rescue
+      target: pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation
+      description: &gt;-
+        Three treatment arms delivered before an identical seizure protocol, so
+        that each rescue pathway is engaged alone and jointly.
+    readouts:
+    - name: Postictal apnea duration and survival
+      target: pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation
+      biological_processes:
+      - preferred_term: regulation of respiratory gaseous exchange by nervous system process
+        term:
+          id: GO:0002087
+          label: regulation of respiratory gaseous exchange by nervous system process
+        modifier: DECREASED
+      assays:
+      - preferred_term: postictal respiratory recording with survival ascertainment
+      direction: POSITIVE
+    controls:
+    - name: Vehicle-treated seizure cohort
+      description: Matched animals receiving vehicle before the same seizure protocol.
+    - name: Peripherally restricted antimuscarinic arm
+      description: &gt;-
+        A muscarinic antagonist dosed so that it does not cross the blood brain
+        barrier, separating central from peripheral cholinergic blockade.
+    decision_criterion: &gt;-
+      Additive protection means two separable terminal mechanisms, and the
+      cholinergic arm should be curated as a parallel pathophysiology route.
+      Redundant protection, where either agent alone reaches the ceiling,
+      means the two act on one shared final step and the entry needs one node
+      rather than two.
+    would_support:
     - pathophysiology#Impaired CO2 Chemoreception and Postictal Hypoventilation
 datasets:
 - accession: geo:GSE256142
@@ -18418,6 +20376,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -19425,7 +21385,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dravet_syndrome", "mondoId": "MONDO:0100135", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dravet_syndrome", "yamlRevision": "cff60a9bcfaf"};
+        const OS_CONFIG = {"diseaseName": "Dravet_syndrome", "mondoId": "MONDO:0100135", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dravet_syndrome", "yamlRevision": "5fc0c201a341"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

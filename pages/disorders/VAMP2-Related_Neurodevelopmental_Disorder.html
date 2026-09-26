@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4126,6 +4194,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4248,6 +4317,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4272,6 +4342,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4293,6 +4364,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4402,6 +4474,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4423,6 +4496,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4574,6 +4648,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4730,6 +4805,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4754,6 +4830,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4775,6 +4852,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4812,6 +4890,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vamp2-v-snare-defect" data-dismech-node="VAMP2 v-SNARE Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">VAMP2 v-SNARE Defect</div>
+
 
                 <div class="item-desc">De novo variants affect conserved residues of the VAMP2 SNARE motif (residues 31-91) — the region whose zippering with syntaxin-1 and SNAP-25 provides the energy for membrane fusion. Three allelic classes are reported — a scheme that is the literature&#39;s and not exhaustive, since a de novo start-loss variant (c.1A&gt;G, p.Met1?) fits none of them: non-synonymous variants within the motif, of which the three index-cohort variants (p.Ser75Pro, p.Phe77Ser, p.Glu78Ala) cluster in its C-terminal portion, with p.Gly73Trp reported adjacent to that cluster and p.Arg56Leu, p.Arg66Pro and p.Ala67Pro lying further N-terminally; in-frame single-amino-acid deletions at more N-terminal residues (p.Val43del, p.Ile45del); and truncating loss-of-function variants (p.Arg56*, p.Tyr113Glnfs*12). VAMP2 is the vesicle-associated (v-)SNARE essential for vesicular exocytosis and activity-dependent neurotransmitter release, so these variants act directly on the fusion machinery. The downstream route differs by allelic class: SNARE-motif missense variants act dominant-negatively, whereas truncating variants are proposed to act through haploinsufficiency.</div>
 
@@ -5014,6 +5093,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5035,6 +5115,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5062,6 +5143,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5084,6 +5166,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-negative-interference-with-wild-type-vamp2" data-dismech-node="Dominant-Negative Interference with Wild-Type VAMP2" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant-Negative Interference with Wild-Type VAMP2</div>
+
 
                 <div class="item-desc">SNARE-motif missense variants produce a protein that is still incorporated into the SNARE complex but assembles or zippers defectively, so the mutant poisons complexes that also contain wild-type VAMP2. In the reconstituted fusion assay, liposomes carrying a 50:50 mixture of wild-type and p.Ser75Pro VAMP2 fused no better than liposomes carrying mutant protein alone — the signature of dominant-negative action, and a direct explanation for dominant inheritance of a heterozygous variant. Cellular assays extend this to p.Gly73Trp and p.Arg56Leu, which reduce action-potential-triggered vesicle fusion and are associated with the more severe, epilepsy-bearing phenotype.</div>
 
@@ -5208,6 +5291,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5229,6 +5313,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5254,6 +5339,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vamp2-haploinsufficiency" data-dismech-node="VAMP2 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">VAMP2 Haploinsufficiency</div>
+
 
                 <div class="item-desc">Truncating variants (p.Arg56*, p.Tyr113Glnfs*12) are predicted to trigger nonsense-mediated decay, leaving a single functional VAMP2 allele. Unlike the missense variants, the truncated protein did not interfere with wild-type VAMP2 in cellular assays, so reduced gene dose rather than poisoning of the complex is the proposed mechanism. VAMP2 is strongly constrained in population databases, consistent with intolerance to loss of function. Two caveats keep this arm weaker than the dominant-negative one: nonsense-mediated decay is predicted rather than measured, and the authors attribute the absent dominant-negative effect possibly to their construct lacking the transmembrane domain, noting it was not directly tested.</div>
 
@@ -5361,6 +5447,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5382,6 +5469,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5409,6 +5497,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5431,6 +5520,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-snare-mediated-vesicle-fusion" data-dismech-node="Impaired SNARE-Mediated Vesicle Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired SNARE-Mediated Vesicle Fusion</div>
+
 
                 <div class="item-desc">VAMP2 is one of the three core neuronal SNAREs whose zippering, triggered by the calcium sensor synaptotagmin-1, fuses the synaptic vesicle with the presynaptic membrane. The fusion defect is variant-specific rather than uniform across the allelic series: in the reconstituted lipid-mixing assay p.Ser75Pro reduced fusion to roughly 25% of wild-type and could not be activated by Munc18-1 (a &gt;90% loss-of-function under Munc18-activated conditions), whereas p.Glu78Ala was indistinguishable from wild-type and p.Phe77Ser could not be purified for testing. In cultured neurons, two of three variants tested reduced both the rate of exocytosis and the size of the released recycling pool. The authors therefore frame impaired fusion as one of the possible mechanisms and explicitly invoke mutation-specific mechanisms; for variants without a reconstituted fusion defect, disrupted interaction with regulatory proteins absent from the assay is the proposed alternative. This is the module&#39;s key conformance target — the fusion-machinery arm.</div>
 
@@ -5625,6 +5715,7 @@ This pathophysiological event involves decreased synaptic vesicle exocytosis (GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5646,6 +5737,7 @@ This pathophysiological event involves decreased synaptic vesicle exocytosis (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5673,6 +5765,7 @@ This pathophysiological event involves decreased synaptic vesicle exocytosis (GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5697,6 +5790,7 @@ This pathophysiological event involves decreased synaptic vesicle exocytosis (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-synaptic-vesicle-endocytosis-and-recycling" data-dismech-node="Impaired Synaptic Vesicle Endocytosis and Recycling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Synaptic Vesicle Endocytosis and Recycling</div>
+
 
                 <div class="item-desc">Beyond its role in fusion, VAMP2 is required for fast, stimulus-dependent synaptic vesicle endocytosis and for replenishment of the readily releasable pool. Synaptobrevin-2 knockout synapses show delayed pool replenishment, altered vesicle shape and size, and delayed uptake of endocytic tracers. **This node rests on the mouse knockout only.** When the human disease variants were tested directly, post-stimulus syp-pHluorin decay — the endocytosis readout — was not significantly altered by any of them. The reduced &#34;recycling pool released&#34; measure reported for two variants is an exocytosis-extent measure, not a measure of endocytic retrieval, and it belongs to the fusion arm. Whether losing one VAMP2 allele or expressing a SNARE-motif variant impairs human endocytosis is therefore untested at best and negative on the one direct measurement available.</div>
 
@@ -5876,6 +5970,7 @@ This pathophysiological event involves decreased synaptic vesicle recycling (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5897,6 +5992,7 @@ This pathophysiological event involves decreased synaptic vesicle recycling (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5924,6 +6020,7 @@ This pathophysiological event involves decreased synaptic vesicle recycling (GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5946,6 +6043,7 @@ This pathophysiological event involves decreased synaptic vesicle recycling (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neurotransmission-and-impaired-neurodevelopment" data-dismech-node="Disrupted Neurotransmission and Impaired Neurodevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Neurotransmission and Impaired Neurodevelopment</div>
+
 
                 <div class="item-desc">Impaired SNARE-mediated fusion reduces activity-dependent neurotransmitter release, disturbing cortical synaptic transmission and activity-dependent brain development. This produces axial hypotonia from birth, intellectual disability, and autistic features with motor stereotypies. Within the index cohort the three C-terminal missense carriers were additionally the ones with central visual impairment and a hyperkinetic movement disorder, but neither is curated as holding across all reported patients: a p.Ala67Pro carrier developed a hyperkinetic movement disorder, and for central visual impairment it is the preceding poor visual fixation that is documented outside the cluster. Seizures occur across allelic classes and are likewise not curated as a genotype-specific consequence.</div>
 
@@ -6225,6 +6323,7 @@ This pathophysiological event involves abnormal chemical synaptic transmission (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6340,6 +6439,9 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6354,6 +6456,7 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6381,6 +6484,7 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6402,6 +6506,7 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6456,6 +6561,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6470,6 +6578,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6494,6 +6603,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6548,6 +6658,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6562,6 +6675,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6625,6 +6739,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6639,6 +6756,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6704,6 +6822,9 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6718,6 +6839,7 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6742,6 +6864,7 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6799,6 +6922,7 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6813,6 +6937,7 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6869,6 +6994,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6883,6 +7011,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6948,6 +7077,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6962,6 +7094,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6986,6 +7119,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7042,6 +7176,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7056,6 +7193,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7083,6 +7221,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7104,6 +7243,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7164,6 +7304,9 @@ This clinical feature is Hyperkinetic movements (HP:0002487). HP:0002487 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7178,6 +7321,7 @@ This clinical feature is Hyperkinetic movements (HP:0002487). HP:0002487 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7205,6 +7349,7 @@ This clinical feature is Hyperkinetic movements (HP:0002487). HP:0002487 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7226,6 +7371,7 @@ This clinical feature is Hyperkinetic movements (HP:0002487). HP:0002487 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7283,6 +7429,7 @@ This clinical feature is Hyperkinetic movements (HP:0002487). HP:0002487 is a ph
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7297,6 +7444,7 @@ This clinical feature is Hyperkinetic movements (HP:0002487). HP:0002487 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7349,6 +7497,7 @@ This clinical feature is Hyperkinetic movements (HP:0002487). HP:0002487 is a ph
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7363,6 +7512,7 @@ This clinical feature is Hyperkinetic movements (HP:0002487). HP:0002487 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7419,6 +7569,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7433,6 +7586,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7460,6 +7614,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7481,6 +7636,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7537,6 +7693,9 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7551,6 +7710,7 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7575,6 +7735,7 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7629,6 +7790,9 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7643,6 +7807,7 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7667,6 +7832,7 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7725,6 +7891,9 @@ This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7739,6 +7908,7 @@ This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7766,6 +7936,7 @@ This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7787,6 +7958,7 @@ This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7845,6 +8017,9 @@ This clinical feature is Absent purposeful hand movements, annotated with Hand a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7859,6 +8034,7 @@ This clinical feature is Absent purposeful hand movements, annotated with Hand a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7886,6 +8062,7 @@ This clinical feature is Absent purposeful hand movements, annotated with Hand a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7907,6 +8084,7 @@ This clinical feature is Absent purposeful hand movements, annotated with Hand a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7963,6 +8141,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7977,6 +8158,7 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8033,6 +8215,9 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8047,6 +8232,7 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8071,6 +8257,7 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8125,6 +8312,9 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8139,6 +8329,7 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8193,6 +8384,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8207,6 +8401,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8261,6 +8456,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8275,6 +8473,7 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8299,6 +8498,7 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8353,6 +8553,9 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8367,6 +8570,7 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8391,6 +8595,7 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8447,6 +8652,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8461,6 +8669,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8485,6 +8694,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8539,6 +8749,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8553,6 +8766,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8577,6 +8791,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8631,6 +8846,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8645,6 +8863,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8669,6 +8888,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8767,6 +8987,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant (De Novo)</span>
@@ -8789,6 +9012,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8816,6 +9040,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8837,6 +9062,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8872,7 +9098,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -8880,6 +9108,11 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">C-terminal SNARE-motif missense variant. The only variant with a demonstrated reconstituted fusion defect: fusion reduced to ~25% of wild-type, no Munc18-1 activation (&gt;90% loss of function under Munc18-activated conditions), and dominant interference with wild-type VAMP2 in 50:50 mixed liposomes. Predicted to lose two hydrogen bonds, one interchain with Tyr243 of STX1A and one intrachain with Gln71.</div>
@@ -8906,6 +9139,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8941,7 +9175,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -8949,6 +9185,11 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">C-terminal SNARE-motif missense variant that disrupts the hydrogen bond between Glu78 of VAMP2 and Arg246 of STX1A, but whose reconstituted fusion profile was indistinguishable from wild-type and which remained Munc18-1-activatable. Its pathogenic mechanism is unresolved; the authors propose impaired interaction with regulatory proteins absent from the assay.</div>
@@ -8975,6 +9216,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9010,7 +9252,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -9018,6 +9262,11 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">C-terminal SNARE-motif missense variant introducing a hydrophilic residue into an otherwise hydrophobic region. Could not be purified, so it was never tested in the reconstituted fusion assay.</div>
@@ -9044,6 +9293,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9079,7 +9329,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">inframe deletion</span>
@@ -9087,6 +9339,11 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">In-frame single-amino-acid deletion at a more N-terminal SNARE-motif residue, associated with the milder phenotype (walks, speaks 5-10 words, no movement disorder or visual impairment).</div>
@@ -9113,6 +9370,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9148,7 +9406,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">inframe deletion</span>
@@ -9156,6 +9416,11 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">In-frame single-amino-acid deletion at a more N-terminal SNARE-motif residue, associated with the milder phenotype.</div>
@@ -9182,6 +9447,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9217,7 +9483,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
@@ -9225,6 +9493,11 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Truncating variant predicted to cause nonsense-mediated decay and haploinsufficiency. In cellular assays the truncated protein did not exert dominant-negative effects, and the carrier had a milder phenotype without epilepsy. The authors caution that this null result may be an artifact of the reporter construct, which encodes only the first 55 residues and so lacks the transmembrane domain needed for membrane localization, and that a dominant-negative effect was not directly tested. This is the individual treated with off-label aminopyridine.</div>
@@ -9251,6 +9524,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9286,7 +9560,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -9294,6 +9570,11 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">SNARE-motif missense variant affecting the same residue as the p.Arg56* truncating allele. Predicted to act dominant-negatively, and among the variants tested in the cellular exocytosis assays.</div>
@@ -9320,6 +9601,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9355,7 +9637,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -9363,6 +9647,11 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">SNARE-motif missense variant predicted to act dominant-negatively, and among the variants shown to reduce action-potential-triggered vesicle fusion and neurotransmitter release in neurons.</div>
@@ -9389,6 +9678,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9424,7 +9714,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
@@ -9432,6 +9724,11 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Frameshift variant predicted to create a premature stop codon 12 residues downstream and to result in haploinsufficiency. The second truncating allele reported, alongside p.Arg56*.</div>
@@ -9458,6 +9755,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9493,7 +9791,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">start lost</span>
@@ -9501,6 +9801,11 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Start-loss variant eliminating the initiator methionine, thought to result in no protein or in a truncated protein initiating at a different residue. It does not fit any of the three allelic classes the literature describes (SNARE-motif missense, in-frame deletion, truncating) and is curated here so that the class scheme is not read as exhaustive.</div>
@@ -9530,6 +9835,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9551,6 +9857,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9586,7 +9893,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -9594,6 +9903,11 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">SNARE-motif missense variant reported in a girl with hypotonia, global developmental delay, microcephaly, nystagmus, strabismus, and stereotypies.</div>
@@ -9620,6 +9934,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9655,7 +9970,9 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -9663,6 +9980,11 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">SNARE-motif missense variant in exon 3, reported in a boy with infantile spasms and hypsarrhythmia, poor visual fixation, and absent purposeful hand movements.</div>
@@ -9689,6 +10011,7 @@ This disease-associated gene is VAMP2 (hgnc:12643). hgnc:12643 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9835,6 +10158,9 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9845,6 +10171,9 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -9897,6 +10226,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9918,6 +10248,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10006,6 +10337,9 @@ This treatment uses adrenocorticotropic hormone, annotated with corticotropin (C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10016,6 +10350,9 @@ This treatment uses adrenocorticotropic hormone, annotated with corticotropin (C
 
 
     </div>
+
+
+
 
 
 
@@ -10065,6 +10402,7 @@ This treatment targets Infantile spasms (HP:0012469). HP:0012469 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10170,6 +10508,9 @@ This treatment uses 3,4-diaminopyridine, annotated with amifampridine (CHEBI:135
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10180,6 +10521,9 @@ This treatment uses 3,4-diaminopyridine, annotated with amifampridine (CHEBI:135
 
 
     </div>
+
+
+
 
 
 
@@ -10216,6 +10560,7 @@ This treatment uses 3,4-diaminopyridine, annotated with amifampridine (CHEBI:135
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10262,6 +10607,7 @@ This treatment uses 3,4-diaminopyridine, annotated with amifampridine (CHEBI:135
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10286,6 +10632,7 @@ This treatment uses 3,4-diaminopyridine, annotated with amifampridine (CHEBI:135
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10307,6 +10654,7 @@ This treatment uses 3,4-diaminopyridine, annotated with amifampridine (CHEBI:135
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10378,6 +10726,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Multidisciplinary supportive care — developmental and behavioral therapies, management of the movement disorder, and vision support — is the mainstay. There is no disease-modifying therapy, and the care needs follow directly from the phenotype: absent speech and absent purposeful hand use, non-ambulation in the severe group, central visual impairment, and challenging or self-injurious behavior.</div>
 
 
@@ -10402,6 +10756,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10423,6 +10778,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10495,6 +10851,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling addresses the de novo dominant mechanism and generally low recurrence risk.</div>
 
 
@@ -10516,6 +10878,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10623,6 +10986,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10771,6 +11135,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10901,6 +11266,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11037,6 +11403,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11170,6 +11537,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11191,6 +11559,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11327,6 +11696,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11386,6 +11756,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11454,6 +11825,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11552,6 +11924,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11573,6 +11946,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11644,6 +12018,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11665,6 +12040,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11733,6 +12109,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11871,6 +12248,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11910,6 +12288,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11957,6 +12336,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12076,6 +12456,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12115,6 +12496,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12162,6 +12544,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12302,6 +12685,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12341,6 +12725,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12420,6 +12805,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12459,6 +12845,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12503,6 +12890,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

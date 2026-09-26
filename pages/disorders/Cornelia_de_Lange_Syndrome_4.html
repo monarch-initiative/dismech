@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Cornelia%20de%20Lange%20Syndrome%204"
@@ -3983,7 +4051,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">19</div>
+                <div class="stat-value">20</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4112,6 +4180,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4136,6 +4205,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4309,6 +4379,7 @@ The RAD21 series offers one concrete lead, which this entry records but does not
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-rad21-variant" data-dismech-node="Heterozygous RAD21 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous RAD21 Variant</div>
 
+
                 <div class="item-desc">A single altered RAD21 allele. The variant spectrum is dominated by frameshift alleles (36% of 36 published patients), followed by missense (19%) and nonsense (17%), with whole-gene and intragenic microdeletions also reported. Where variants have been mapped to protein domains, most fall in the RAD21-SMC1A interaction domain. The allelic gradient runs the opposite way to intuition for a structural subunit: dominant missense alleles cause worse structural and cognitive findings than loss-of-function alleles do, which argues that the missense protein interferes with the ring rather than simply failing to join it.</div>
 
 
@@ -4364,11 +4435,16 @@ This genetic context concerns RAD21 (hgnc:9811). hgnc:9811 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
 
 
 
     </div>
+
+
+
 
 
 
@@ -4418,6 +4494,7 @@ This genetic context concerns RAD21 (hgnc:9811). hgnc:9811 is a gene from the HU
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4444,6 +4521,7 @@ This genetic context concerns RAD21 (hgnc:9811). hgnc:9811 is a gene from the HU
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4466,6 +4544,7 @@ This genetic context concerns RAD21 (hgnc:9811). hgnc:9811 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disruption-of-the-cohesin-ring-at-the-rad21-subunit-interfaces" data-dismech-node="Disruption of the Cohesin Ring at the RAD21 Subunit Interfaces" data-dismech-type="pathophysiology">
                 <div class="item-name">Disruption of the Cohesin Ring at the RAD21 Subunit Interfaces</div>
+
 
                 <div class="item-desc">RAD21 is the kleisin that closes the tripartite cohesin ring: its N-terminus engages SMC3, its C-terminus engages SMC1, and its central STAG domain recruits STAG1 or STAG2. CdLS4 variants act at those interfaces. This is the step that distinguishes CdLS4 from classic CdLS at the level of mechanism — NIPBL is the cohesin loading factor and NIPBL-related disease is a dosage problem in getting cohesin onto chromatin, whereas CdLS4 is a lesion in the ring itself.</div>
 
@@ -4550,6 +4629,7 @@ This pathophysiological event involves cohesin complex (GO:0008278). GO:0008278 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4576,6 +4656,7 @@ This pathophysiological event involves cohesin complex (GO:0008278). GO:0008278 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4598,6 +4679,7 @@ This pathophysiological event involves cohesin complex (GO:0008278). GO:0008278 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cohesin-dependent-transcriptional-dysregulation" data-dismech-node="Cohesin-Dependent Transcriptional Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cohesin-Dependent Transcriptional Dysregulation</div>
+
 
                 <div class="item-desc">Beyond holding sister chromatids together, cohesin organizes the genome in interphase and regulates transcription, and it is this arm rather than mitotic cohesion failure that is held responsible for the developmental phenotype. Disrupted transcription was demonstrated directly for CdLS4 variants in a zebrafish model.</div>
 
@@ -4779,6 +4861,7 @@ This pathophysiological event involves dysregulated chromatin organization (GO:0
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4805,6 +4888,7 @@ This pathophysiological event involves dysregulated chromatin organization (GO:0
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4827,6 +4911,7 @@ This pathophysiological event involves dysregulated chromatin organization (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-dna-damage-response" data-dismech-node="Impaired DNA Damage Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired DNA Damage Response</div>
+
 
                 <div class="item-desc">RAD21 is also a double-strand-break repair protein, and CdLS4 variants impair the cellular DNA damage response. This arm is well demonstrated biochemically but is not connected to any specific clinical feature of CdLS4, so it is curated as a consequence of the ring lesion without a downstream edge into the phenotype.</div>
 
@@ -4905,6 +4990,7 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4931,6 +5017,7 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4953,6 +5040,7 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-cornelia-de-lange-phenotype" data-dismech-node="Attenuated Cornelia de Lange Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Cornelia de Lange Phenotype</div>
+
 
                 <div class="item-desc">The clinical result is recognisably CdLS but muted. Compared with NIPBL- and SMC1A-related disease the facial morphology and limb anomalies are milder, and cognition and behaviour are considerably less affected — 14 of 26 scored patients were mild and only one severe on the CdLS severity score. Because the consensus clinical score is built around the classic phenotype, CdLS4 patients score low on it, which is a diagnostic problem rather than a cosmetic difference.</div>
 
@@ -5104,6 +5192,7 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5130,6 +5219,7 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5154,6 +5244,7 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5203,7 +5294,7 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Attenuated Cornelia de Lange Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical result is recognisably CdLS but muted. Compared with NIPBL- and SMC1A-related disease the facial morphology and limb anomalies are milder, and cognition and behaviour are considerably less affected \\u2014 14 of 26 scored patients were mild and only one severe on the CdLS severity score. Because the consensus clinical score is built around the classic phenotype, CdLS4 patients score low on it, which is a diagnostic problem rather than a cosmetic difference.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"Behavioural Phenotype\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behaviour is where CdLS4 is most clearly attenuated, and the contrast is sharper than for any physical feature. Anxiety is the commonest problem, in 53% of assessed RAD21 patients, with attention deficit disorder in 35%, obsessive-compulsive behaviour in 32% and autistic-like features in 35%. The severe behaviours that characterise classic CdLS are largely absent: self-injurious behaviour in 6% of RAD21 patients against 77% of NIPBL patients, and aggression in 6% against 80%. The band is set from anxiety, the most frequent component.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Characteristic Facial Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The CdLS facial gestalt, curated as one record rather than as several near-identical ones. In the dedicated RAD21 series the components are a long or smooth philtrum in 90%, thick eyebrows in 83% and synophrys in 68%; the same three features are the ones the evidence below quotes, and the band is set from the philtrum figure the bound term names. Short nose, at 88% the highest-frequency facial feature and the one that is not attenuated at all, is curated separately so that observation is not buried. Synophrys is the component that shows the attenuation most clearly, at 68% against 91% in NIPBL disease.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000343\"}}, {\"id\": \"Clinodactyly of the 5th Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clinodactyly of the fifth finger in 54% of assessed RAD21 patients, the second digital feature alongside the short fifth finger.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004209\"}}, {\"id\": \"Cohesin-Dependent Transcriptional Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond holding sister chromatids together, cohesin organizes the genome in interphase and regulates transcription, and it is this arm rather than mitotic cohesion failure that is held responsible for the developmental phenotype. Disrupted transcription was demonstrated directly for CdLS4 variants in a zebrafish model.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"regulation of DNA-templated transcription\", \"chromatin organization\"], \"animal_models\": [{\"name\": \"Zebrafish expressing CdLS4 RAD21 variants\", \"species\": \"Zebrafish\", \"genotype\": \"rad21 variant expression modelling patient RAD21 missense alleles\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Patient RAD21 variants disrupt transcription in zebrafish, which is the arm of cohesin biology that the developmental phenotype is attributed to.\"}]}}, {\"id\": \"Congenital Heart Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac malformation, major or minor, in 39% of assessed RAD21 patients \\u2014 slightly higher than in the SMC1A and NIPBL comparison groups.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Verbal developmental delay in 94% (30/32) of published patients, generally requiring language proficiency training.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Disruption of the Cohesin Ring at the RAD21 Subunit Interfaces\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RAD21 is the kleisin that closes the tripartite cohesin ring: its N-terminus engages SMC3, its C-terminus engages SMC1, and its central STAG domain recruits STAG1 or STAG2. CdLS4 variants act at those interfaces. This is the step that distinguishes CdLS4 from classic CdLS at the level of mechanism \\u2014 NIPBL is the cohesin loading factor and NIPBL-related disease is a dosage problem in getting cohesin onto chromatin, whereas CdLS4 is a lesion in the ring itself.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Gastroesophageal Reflux Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastro-oesophageal reflux in 52% of assessed RAD21 patients. Less frequent than in NIPBL disease (71%) but common enough that the CdLS management standard\u0027s emphasis on aggressive reflux treatment applies here too.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss requiring hearing equipment in 33% (8/24) of published patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Heterozygous RAD21 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A single altered RAD21 allele. The variant spectrum is dominated by frameshift alleles (36% of 36 published patients), followed by missense (19%) and nonsense (17%), with whole-gene and intragenic microdeletions also reported. Where variants have been mapped to protein domains, most fall in the RAD21-SMC1A interaction domain. The allelic gradient runs the opposite way to intuition for a structural subunit: dominant missense alleles cause worse structural and cognitive findings than loss-of-function alleles do, which argues that the missense protein interferes with the ring rather than simply failing to join it.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"zygosity\": \"HETEROZYGOUS\", \"gene_terms\": [{\"label\": \"RAD21\", \"id\": \"hgnc:9811\"}]}}}, {\"id\": \"Hirsutism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excess body hair in 38% of assessed RAD21 patients, against 86% in NIPBL disease \\u2014 one of the larger attenuations among the physical features.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001007\"}}, {\"id\": \"Impaired DNA Damage Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RAD21 is also a double-strand-break repair protein, and CdLS4 variants impair the cellular DNA damage response. This arm is well demonstrated biochemically but is not connected to any specific clinical feature of CdLS4, so it is curated as a consequence of the ring lesion without a downstream edge into the phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability of varying degree in 94% (32/34) of published CdLS4 patients. The frequency is near-universal but the degree is the point: it is much milder than in NIPBL-, SMC1A- or SMC3-related CdLS, and one reported patient had uncompromised intelligence with above-average school performance.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal head circumference below minus two standard deviations in 57% of assessed RAD21 patients, against 87% of NIPBL patients. The RAD21 series separately reports no correlation between microcephaly and the severity of cognitive impairment in these patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ptosis in 42% of assessed RAD21 patients. Along with the short fifth finger it is one of the few features that is more frequent here than in classic NIPBL-related disease, where it is 19%.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Short 5th Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brachydactyly of the fifth finger in 83% (25/30) of published patients. The limb involvement in CdLS4 is at this mild end of the CdLS limb spectrum rather than the severe reduction defects of classic disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009237\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Height below -2 SDS in 50% (16/32) of published patients with recorded heights at diagnosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Zebrafish expressing CdLS4 RAD21 variants\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The zebrafish system used in the entity-defining study to test whether patient RAD21 variants disrupt transcription. It is the only in vivo model reported for CdLS4 specifically.\"}], \"edges\": [{\"source\": \"Heterozygous RAD21 Variant\", \"target\": \"Disruption of the Cohesin Ring at the RAD21 Subunit Interfaces\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAD21 is the subunit that bridges SMC1A, SMC3 and STAG, so a lesion in it acts on those interfaces.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disruption of the Cohesin Ring at the RAD21 Subunit Interfaces\", \"target\": \"Cohesin-Dependent Transcriptional Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developmental phenotype of the cohesinopathies is attributed primarily to cohesin\u0027s interphase role in transcription and genome organization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disruption of the Cohesin Ring at the RAD21 Subunit Interfaces\", \"target\": \"Impaired DNA Damage Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient RAD21 variants impair the cellular response to DNA damage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cohesin-Dependent Transcriptional Dysregulation\", \"target\": \"Attenuated Cornelia de Lange Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"How transcriptional dysregulation produces the specific pattern of facial, limb, growth and cognitive features is not established for any cohesinopathy, let alone for RAD21 specifically.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cognitive component, attenuated relative to classic CdLS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Behavioural Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The behavioural component, and the sharpest attenuation in the entry.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal head growth restriction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the few features more frequent in RAD21 than in NIPBL disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Congenital Heart Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac malformation, major or minor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Gastroesophageal Reflux Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The commonest gastrointestinal manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Hirsutism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess body hair, markedly less frequent than in the comparison genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Clinodactyly of the 5th Finger\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The other digital feature alongside the short fifth finger.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Verbal developmental delay, near-universal in reported patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Characteristic Facial Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The CdLS facial gestalt, present but muted.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth restriction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Short 5th Finger\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The limb component; reduction defects are milder than in classic CdLS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss in a third of reported patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Zebrafish expressing CdLS4 RAD21 variants\", \"target\": \"Cohesin-Dependent Transcriptional Dysregulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient RAD21 variants disrupt transcription in zebrafish, which is the arm of cohesin biology that the developmental phenotype is attributed to.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The abstract reports the transcriptional readout only; no facial, limb, growth or cognitive correlate is claimed, and no zebrafish line carrying a knock-in patient allele at the endogenous locus is described. The model therefore supports the transcriptional step and says nothing about the attenuation that defines the human entity.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Attenuated Cornelia de Lange Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical result is recognisably CdLS but muted. Compared with NIPBL- and SMC1A-related disease the facial morphology and limb anomalies are milder, and cognition and behaviour are considerably less affected \\u2014 14 of 26 scored patients were mild and only one severe on the CdLS severity score. Because the consensus clinical score is built around the classic phenotype, CdLS4 patients score low on it, which is a diagnostic problem rather than a cosmetic difference.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"Behavioural Phenotype\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behaviour is where CdLS4 is most clearly attenuated, and the contrast is sharper than for any physical feature. Anxiety is the commonest problem, in 53% of assessed RAD21 patients, with attention deficit disorder in 35%, obsessive-compulsive behaviour in 32% and autistic-like features in 35%. The severe behaviours that characterise classic CdLS are largely absent: self-injurious behaviour in 6% of RAD21 patients against 77% of NIPBL patients, and aggression in 6% against 80%. The band is set from anxiety, the most frequent component.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Characteristic Facial Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The CdLS facial gestalt, curated as one record rather than as several near-identical ones. In the dedicated RAD21 series the components are a long or smooth philtrum in 90%, thick eyebrows in 83% and synophrys in 68%; the same three features are the ones the evidence below quotes, and the band is set from the philtrum figure the bound term names. Short nose, at 88% the highest-frequency facial feature and the one that is not attenuated at all, is curated separately so that observation is not buried. Synophrys is the component that shows the attenuation most clearly, at 68% against 91% in NIPBL disease.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000343\"}}, {\"id\": \"Clinodactyly of the 5th Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clinodactyly of the fifth finger in 54% of assessed RAD21 patients, the second digital feature alongside the short fifth finger.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004209\"}}, {\"id\": \"Cohesin-Dependent Transcriptional Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond holding sister chromatids together, cohesin organizes the genome in interphase and regulates transcription, and it is this arm rather than mitotic cohesion failure that is held responsible for the developmental phenotype. Disrupted transcription was demonstrated directly for CdLS4 variants in a zebrafish model.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"regulation of DNA-templated transcription\", \"chromatin organization\"], \"animal_models\": [{\"name\": \"Zebrafish expressing CdLS4 RAD21 variants\", \"species\": \"Zebrafish\", \"genotype\": \"rad21 variant expression modelling patient RAD21 missense alleles\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Patient RAD21 variants disrupt transcription in zebrafish, which is the arm of cohesin biology that the developmental phenotype is attributed to.\"}]}}, {\"id\": \"Congenital Heart Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac malformation, major or minor, in 39% of assessed RAD21 patients \\u2014 slightly higher than in the SMC1A and NIPBL comparison groups.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Verbal developmental delay in 94% (30/32) of published patients, generally requiring language proficiency training.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Disruption of the Cohesin Ring at the RAD21 Subunit Interfaces\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RAD21 is the kleisin that closes the tripartite cohesin ring: its N-terminus engages SMC3, its C-terminus engages SMC1, and its central STAG domain recruits STAG1 or STAG2. CdLS4 variants act at those interfaces. This is the step that distinguishes CdLS4 from classic CdLS at the level of mechanism \\u2014 NIPBL is the cohesin loading factor and NIPBL-related disease is a dosage problem in getting cohesin onto chromatin, whereas CdLS4 is a lesion in the ring itself.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Gastroesophageal Reflux Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastro-oesophageal reflux in 52% of assessed RAD21 patients. Less frequent than in NIPBL disease (71%) but common enough that the CdLS management standard\u0027s emphasis on aggressive reflux treatment applies here too.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss requiring hearing equipment in 33% (8/24) of published patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Heterozygous RAD21 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A single altered RAD21 allele. The variant spectrum is dominated by frameshift alleles (36% of 36 published patients), followed by missense (19%) and nonsense (17%), with whole-gene and intragenic microdeletions also reported. Where variants have been mapped to protein domains, most fall in the RAD21-SMC1A interaction domain. The allelic gradient runs the opposite way to intuition for a structural subunit: dominant missense alleles cause worse structural and cognitive findings than loss-of-function alleles do, which argues that the missense protein interferes with the ring rather than simply failing to join it.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"zygosity\": \"HETEROZYGOUS\", \"gene_terms\": [{\"label\": \"RAD21\", \"id\": \"hgnc:9811\"}]}}}, {\"id\": \"Hirsutism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excess body hair in 38% of assessed RAD21 patients, against 86% in NIPBL disease \\u2014 one of the larger attenuations among the physical features.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001007\"}}, {\"id\": \"Impaired DNA Damage Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RAD21 is also a double-strand-break repair protein, and CdLS4 variants impair the cellular DNA damage response. This arm is well demonstrated biochemically but is not connected to any specific clinical feature of CdLS4, so it is curated as a consequence of the ring lesion without a downstream edge into the phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability of varying degree in 94% (32/34) of published CdLS4 patients. The frequency is near-universal but the degree is the point: it is much milder than in NIPBL-, SMC1A- or SMC3-related CdLS, and one reported patient had uncompromised intelligence with above-average school performance.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal head circumference below minus two standard deviations in 57% of assessed RAD21 patients, against 87% of NIPBL patients. The RAD21 series separately reports no correlation between microcephaly and the severity of cognitive impairment in these patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ptosis in 42% of assessed RAD21 patients. Along with the short fifth finger it is one of the few features that is more frequent here than in classic NIPBL-related disease, where it is 19%.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"RAD21\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"RAD21\"], \"gene_terms\": [{\"label\": \"RAD21\", \"id\": \"hgnc:9811\"}], \"association\": \"Heterozygous Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Short 5th Finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brachydactyly of the fifth finger in 83% (25/30) of published patients. The limb involvement in CdLS4 is at this mild end of the CdLS limb spectrum rather than the severe reduction defects of classic disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009237\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Height below -2 SDS in 50% (16/32) of published patients with recorded heights at diagnosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Zebrafish expressing CdLS4 RAD21 variants\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The zebrafish system used in the entity-defining study to test whether patient RAD21 variants disrupt transcription. It is the only in vivo model reported for CdLS4 specifically.\"}], \"edges\": [{\"source\": \"Heterozygous RAD21 Variant\", \"target\": \"Disruption of the Cohesin Ring at the RAD21 Subunit Interfaces\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAD21 is the subunit that bridges SMC1A, SMC3 and STAG, so a lesion in it acts on those interfaces.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disruption of the Cohesin Ring at the RAD21 Subunit Interfaces\", \"target\": \"Cohesin-Dependent Transcriptional Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developmental phenotype of the cohesinopathies is attributed primarily to cohesin\u0027s interphase role in transcription and genome organization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disruption of the Cohesin Ring at the RAD21 Subunit Interfaces\", \"target\": \"Impaired DNA Damage Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient RAD21 variants impair the cellular response to DNA damage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cohesin-Dependent Transcriptional Dysregulation\", \"target\": \"Attenuated Cornelia de Lange Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"How transcriptional dysregulation produces the specific pattern of facial, limb, growth and cognitive features is not established for any cohesinopathy, let alone for RAD21 specifically.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cognitive component, attenuated relative to classic CdLS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Behavioural Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The behavioural component, and the sharpest attenuation in the entry.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal head growth restriction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One of the few features more frequent in RAD21 than in NIPBL disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Congenital Heart Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac malformation, major or minor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Gastroesophageal Reflux Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The commonest gastrointestinal manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Hirsutism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess body hair, markedly less frequent than in the comparison genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Clinodactyly of the 5th Finger\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The other digital feature alongside the short fifth finger.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Verbal developmental delay, near-universal in reported patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Characteristic Facial Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The CdLS facial gestalt, present but muted.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth restriction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Short 5th Finger\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The limb component; reduction defects are milder than in classic CdLS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Cornelia de Lange Phenotype\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss in a third of reported patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Zebrafish expressing CdLS4 RAD21 variants\", \"target\": \"Cohesin-Dependent Transcriptional Dysregulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient RAD21 variants disrupt transcription in zebrafish, which is the arm of cohesin biology that the developmental phenotype is attributed to.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The abstract reports the transcriptional readout only; no facial, limb, growth or cognitive correlate is claimed, and no zebrafish line carrying a knock-in patient allele at the endogenous locus is described. The model therefore supports the transcriptional step and says nothing about the attenuation that defines the human entity.\"}, {\"source\": \"RAD21\", \"target\": \"Heterozygous RAD21 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5283,6 +5374,9 @@ This clinical feature is Congenital heart malformation, annotated with Abnormal 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5300,6 +5394,7 @@ This clinical feature is Congenital heart malformation, annotated with Abnormal 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5364,6 +5459,9 @@ This clinical feature is Gastroesophageal reflux disease, annotated with Gastroe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5381,6 +5479,7 @@ This clinical feature is Gastroesophageal reflux disease, annotated with Gastroe
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5445,6 +5544,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5462,6 +5564,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5526,6 +5629,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5543,6 +5649,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5598,6 +5705,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5615,6 +5725,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5681,6 +5792,9 @@ This clinical feature is Cornelia de Lange facial gestalt (long or smooth philtr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -5698,6 +5812,7 @@ This clinical feature is Cornelia de Lange facial gestalt (long or smooth philtr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5726,6 +5841,7 @@ This clinical feature is Cornelia de Lange facial gestalt (long or smooth philtr
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5750,6 +5866,7 @@ This clinical feature is Cornelia de Lange facial gestalt (long or smooth philtr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5807,6 +5924,9 @@ This clinical feature is Postnatal microcephaly, annotated with Microcephaly (HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5824,6 +5944,7 @@ This clinical feature is Postnatal microcephaly, annotated with Microcephaly (HP
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5879,6 +6000,9 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5896,6 +6020,7 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5960,6 +6085,9 @@ This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5977,6 +6105,7 @@ This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6041,6 +6170,9 @@ This clinical feature is Short fifth finger, annotated with Short 5th finger (HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6058,6 +6190,7 @@ This clinical feature is Short fifth finger, annotated with Short 5th finger (HP
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6113,6 +6246,9 @@ This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6130,6 +6266,7 @@ This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6194,6 +6331,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6211,6 +6351,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6239,6 +6380,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6263,6 +6405,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6318,6 +6461,9 @@ This clinical feature is Verbal developmental delay, annotated with Delayed spee
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6335,6 +6481,7 @@ This clinical feature is Verbal developmental delay, annotated with Delayed spee
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6361,6 +6508,7 @@ This clinical feature is Verbal developmental delay, annotated with Delayed spee
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6418,6 +6566,9 @@ This clinical feature is Anxiety, attention deficit and obsessive-compulsive beh
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -6435,6 +6586,7 @@ This clinical feature is Anxiety, attention deficit and obsessive-compulsive beh
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6463,6 +6615,7 @@ This clinical feature is Anxiety, attention deficit and obsessive-compulsive beh
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6487,6 +6640,7 @@ This clinical feature is Anxiety, attention deficit and obsessive-compulsive beh
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6553,6 +6707,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6570,6 +6727,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6669,6 +6827,9 @@ This disease-associated gene is RAD21 (hgnc:9811). hgnc:9811 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -6686,6 +6847,7 @@ This disease-associated gene is RAD21 (hgnc:9811). hgnc:9811 is a gene from the 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6714,6 +6876,7 @@ This disease-associated gene is RAD21 (hgnc:9811). hgnc:9811 is a gene from the 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6738,6 +6901,7 @@ This disease-associated gene is RAD21 (hgnc:9811). hgnc:9811 is a gene from the 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6825,6 +6989,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6835,6 +7002,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6867,6 +7037,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6891,6 +7062,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6962,6 +7134,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Autosomal dominant with a 50% recurrence risk to offspring. Counselling in CdLS4 differs from classic CdLS in three ways that follow from the data: variants are frequently inherited rather than de novo, expression varies strikingly within as well as between families, and a mildly affected parent may be identified only through the child.</div>
 
 
@@ -6988,6 +7166,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7012,6 +7191,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7088,6 +7268,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7114,6 +7295,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7138,6 +7320,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7218,6 +7401,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7242,6 +7426,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7328,6 +7513,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7385,6 +7571,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7409,6 +7596,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7580,6 +7768,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7622,6 +7811,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>

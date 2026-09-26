@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4112,6 +4180,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4133,6 +4202,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4231,6 +4301,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4312,6 +4383,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4336,6 +4408,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4357,6 +4430,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4441,6 +4515,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4462,6 +4537,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4499,6 +4575,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-snrpb-alternative-exon-variants-increase-inclusion-of-a-ptc-containing-exon" data-dismech-node="SNRPB Alternative-Exon Variants Increase Inclusion of a PTC-Containing Exon" data-dismech-type="pathophysiology">
                 <div class="item-name">SNRPB Alternative-Exon Variants Increase Inclusion of a PTC-Containing Exon</div>
+
 
                 <div class="item-desc">The CCMS variants cluster in a highly conserved alternative exon of SNRPB that contains a premature termination codon. Rather than changing the SmB/B&#39; protein sequence, they shift splicing so that this exon is included more often.</div>
 
@@ -4594,6 +4671,8 @@ This genetic context concerns SNRPB (hgnc:11153). hgnc:11153 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4609,6 +4688,9 @@ This genetic context concerns SNRPB (hgnc:11153). hgnc:11153 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">The alternative-exon alleles are hypomorphic rather than null: total SNRPB expression in three patients ran at 0.53-0.66 of control. A true null allele appears to give a different and more severe disease, so the quantitative shortfall, not absence of the protein, is the lesion.</div>
 
@@ -4696,6 +4778,7 @@ This pathophysiological event involves abnormal regulation of alternative mRNA s
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4717,6 +4800,7 @@ This pathophysiological event involves abnormal regulation of alternative mRNA s
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4742,6 +4826,7 @@ This pathophysiological event involves abnormal regulation of alternative mRNA s
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-snrpb-expression-through-nonsense-mediated-decay" data-dismech-node="Reduced SNRPB Expression Through Nonsense-Mediated Decay" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced SNRPB Expression Through Nonsense-Mediated Decay</div>
+
 
                 <div class="item-desc">Less SmB/B&#39; core Sm protein is available for assembly of the small nuclear ribonucleoprotein particles of the major spliceosome. The transcript that is degraded is measurable in patients: quantitative RT-PCR shows the PTC-containing transcript raised in patient leukocytes.</div>
 
@@ -4876,6 +4961,7 @@ This pathophysiological event involves decreased spliceosomal snRNP assembly (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4898,6 +4984,7 @@ This pathophysiological event involves decreased spliceosomal snRNP assembly (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mis-splicing-of-developmental-transcripts" data-dismech-node="Mis-Splicing of Developmental Transcripts" data-dismech-type="pathophysiology">
                 <div class="item-name">Mis-Splicing of Developmental Transcripts</div>
+
 
                 <div class="item-desc">Reduced core Sm protein produces increased exon skipping and intron retention. Affected transcripts include negative regulators of the P53 pathway, head and midface regulators such as Smad2 and Rere, and the Wnt effector TCF7L2.</div>
 
@@ -5017,6 +5104,7 @@ This pathophysiological event involves abnormal mRNA splicing, via spliceosome (
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5038,6 +5126,7 @@ This pathophysiological event involves abnormal mRNA splicing, via spliceosome (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5063,6 +5152,7 @@ This pathophysiological event involves abnormal mRNA splicing, via spliceosome (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p53-pathway-activation-in-neural-crest-cells" data-dismech-node="P53 Pathway Activation in Neural Crest Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">P53 Pathway Activation in Neural Crest Cells</div>
+
 
                 <div class="item-desc">Nuclear P53 and its target genes rise in the developing head. Removing Trp53 from Snrpb-heterozygous neural crest cells does not fully rescue craniofacial development, so P53 activation is one contributing arm rather than the whole mechanism.</div>
 
@@ -5188,6 +5278,7 @@ This pathophysiological event involves increased signal transduction by p53 clas
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5210,6 +5301,7 @@ This pathophysiological event involves increased signal transduction by p53 clas
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-wnt-beta-catenin-and-enhanced-bmp-signalling" data-dismech-node="Attenuated Wnt/beta-Catenin and Enhanced BMP Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Wnt/beta-Catenin and Enhanced BMP Signalling</div>
+
 
                 <div class="item-desc">Loss of SmB/B&#39; shifts the balance of two skeletal patterning pathways. The source reports &#34;attenuated Wnt pathway and/or enhanced BMP pathway activities&#34;, so the two directions are not established as always co-occurring and the modifiers below record each arm as reported rather than as a fixed pair. Suppressed osteogenic markers are partly rescued by activating Wnt/beta-catenin, which places the Wnt arm upstream of the differentiation defect rather than beside it.</div>
 
@@ -5343,6 +5435,7 @@ This pathophysiological event involves increased BMP signaling pathway (GO:00305
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5365,6 +5458,7 @@ This pathophysiological event involves increased BMP signaling pathway (GO:00305
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-osteogenic-and-altered-chondrogenic-differentiation" data-dismech-node="Impaired Osteogenic and Altered Chondrogenic Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Osteogenic and Altered Chondrogenic Differentiation</div>
+
 
                 <div class="item-desc">Low SmB/B&#39; suppresses osteodifferentiation in osteoprogenitor-like cells and promotes chondrogenesis in mesenchymal cells, with altered splicing of the osteogenic transcription factor Dlx5. The chondrogenic direction here is the opposite of what the in-vivo rib model shows, so this node is deliberately not routed to the costal lesion; see the ccms_chondrogenesis_direction discussion.</div>
 
@@ -5571,6 +5665,7 @@ This pathophysiological event involves increased chondrocyte differentiation (GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5592,6 +5687,7 @@ This pathophysiological event involves increased chondrocyte differentiation (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5617,6 +5713,7 @@ This pathophysiological event involves increased chondrocyte differentiation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-crest-derived-first-arch-hypoplasia" data-dismech-node="Neural Crest-Derived First Arch Hypoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Crest-Derived First Arch Hypoplasia</div>
+
 
                 <div class="item-desc">Hypoplasia of first pharyngeal arch derivatives, above all the mandible. This is the branchial arch component of the syndrome and the immediate cause of the Pierre Robin sequence.</div>
 
@@ -5762,6 +5859,7 @@ This pathophysiological event occurs in pharyngeal arch 1 (UBERON:0004362). UBER
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5784,6 +5882,7 @@ This pathophysiological event occurs in pharyngeal arch 1 (UBERON:0004362). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-costal-patterning-failure" data-dismech-node="Costal Patterning Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Costal Patterning Failure</div>
+
 
                 <div class="item-desc">Posterior rib gaps, reduced rib number, shortened ribs and abnormal costovertebral articulation. The rib gaps are the visually striking and near-specific radiographic sign.</div>
 
@@ -5878,6 +5977,7 @@ This pathophysiological event occurs in rib (UBERON:0002228). UBERON:0002228 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5900,6 +6000,7 @@ This pathophysiological event occurs in rib (UBERON:0002228). UBERON:0002228 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-restrictive-and-unstable-thorax" data-dismech-node="Restrictive and Unstable Thorax" data-dismech-type="pathophysiology">
                 <div class="item-name">Restrictive and Unstable Thorax</div>
+
 
                 <div class="item-desc">A narrow thorax with reduced capacity. How much of the neonatal respiratory distress the rib gaps themselves contribute is contested: an anatomical review argues that increased chest wall compliance from the gaps and reduced compliance at the costovertebral complex partly offset each other.</div>
 
@@ -5974,6 +6075,7 @@ This pathophysiological event occurs in thoracic cavity (UBERON:0002224). UBERON
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5996,6 +6098,7 @@ This pathophysiological event occurs in thoracic cavity (UBERON:0002224). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-upper-airway-obstruction" data-dismech-node="Upper Airway Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Upper Airway Obstruction</div>
+
 
                 <div class="item-desc">Obstruction at the level of the tongue base and small oral cavity, the Pierre Robin mechanism. It is the component that makes intubation difficult and that tracheostomy addresses.</div>
 
@@ -6047,6 +6150,7 @@ This pathophysiological event occurs in thoracic cavity (UBERON:0002224). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6069,6 +6173,7 @@ This pathophysiological event occurs in thoracic cavity (UBERON:0002224). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neonatal-respiratory-failure" data-dismech-node="Neonatal Respiratory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neonatal Respiratory Failure</div>
+
 
                 <div class="item-desc">The convergence point of the airway and thoracic lesions, and the dominant cause of early mortality.</div>
 
@@ -6104,6 +6209,7 @@ This pathophysiological event occurs in thoracic cavity (UBERON:0002224). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6226,6 +6332,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6240,6 +6349,7 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6305,6 +6415,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6319,6 +6432,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6382,6 +6496,9 @@ This clinical feature is Horseshoe kidney (HP:0000085). HP:0000085 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6396,6 +6513,7 @@ This clinical feature is Horseshoe kidney (HP:0000085). HP:0000085 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6450,6 +6568,9 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6464,6 +6585,7 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6529,6 +6651,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6543,6 +6668,7 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6599,6 +6725,9 @@ This clinical feature is Glossoptosis (HP:0000162). HP:0000162 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6613,6 +6742,7 @@ This clinical feature is Glossoptosis (HP:0000162). HP:0000162 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6669,6 +6799,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6683,6 +6816,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6739,6 +6873,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6753,6 +6890,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6818,6 +6956,9 @@ This clinical feature is Posterior rib gap (HP:0030282). HP:0030282 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6832,6 +6973,7 @@ This clinical feature is Posterior rib gap (HP:0030282). HP:0030282 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6856,6 +6998,7 @@ This clinical feature is Posterior rib gap (HP:0030282). HP:0030282 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6912,6 +7055,9 @@ This clinical feature is Missing ribs (HP:0000921). HP:0000921 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6926,6 +7072,7 @@ This clinical feature is Missing ribs (HP:0000921). HP:0000921 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6950,6 +7097,7 @@ This clinical feature is Missing ribs (HP:0000921). HP:0000921 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7006,6 +7154,9 @@ This clinical feature is Abnormal rib morphology (HP:0000772). HP:0000772 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7020,6 +7171,7 @@ This clinical feature is Abnormal rib morphology (HP:0000772). HP:0000772 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7076,6 +7228,9 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7090,6 +7245,7 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7146,6 +7302,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7160,6 +7319,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7225,6 +7385,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7239,6 +7402,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7304,6 +7468,9 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7318,6 +7485,7 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7416,6 +7584,9 @@ This disease-associated gene is SNRPB (hgnc:11153). hgnc:11153 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant inheritance</span>
@@ -7441,6 +7612,7 @@ This disease-associated gene is SNRPB (hgnc:11153). hgnc:11153 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7462,6 +7634,7 @@ This disease-associated gene is SNRPB (hgnc:11153). hgnc:11153 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7619,6 +7792,9 @@ This treatment is tracheostomy, annotated with Tracheotomy (NCIT:C15341). NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7629,6 +7805,9 @@ This treatment is tracheostomy, annotated with Tracheotomy (NCIT:C15341). NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -7674,6 +7853,7 @@ This treatment is tracheostomy, annotated with Tracheotomy (NCIT:C15341). NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7741,6 +7921,9 @@ This treatment is ex utero intrapartum treatment, annotated with Cesarean Sectio
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7751,6 +7934,9 @@ This treatment is ex utero intrapartum treatment, annotated with Cesarean Sectio
 
 
     </div>
+
+
+
 
 
 
@@ -7796,6 +7982,7 @@ This treatment is ex utero intrapartum treatment, annotated with Cesarean Sectio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7863,6 +8050,9 @@ This treatment is cleft palate repair, annotated with Palatorrhaphy (NCIT:C16838
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7873,6 +8063,9 @@ This treatment is cleft palate repair, annotated with Palatorrhaphy (NCIT:C16838
 
 
     </div>
+
+
+
 
 
 
@@ -7925,6 +8118,7 @@ This treatment targets Cleft palate (HP:0000175). HP:0000175 is a phenotype from
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7991,6 +8185,9 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8001,6 +8198,9 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
     </div>
+
+
+
 
 
 
@@ -8053,6 +8253,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8119,6 +8320,9 @@ This treatment is spinal fusion for scoliosis, annotated with Spinal Fusion (NCI
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8129,6 +8333,9 @@ This treatment is spinal fusion for scoliosis, annotated with Spinal Fusion (NCI
 
 
     </div>
+
+
+
 
 
 
@@ -8181,6 +8388,7 @@ This treatment targets Scoliosis (HP:0002650). HP:0002650 is a phenotype from th
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8246,6 +8454,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8256,6 +8467,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8283,6 +8497,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8358,6 +8573,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -8409,6 +8625,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8526,6 +8743,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8588,6 +8806,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8638,6 +8857,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8645,7 +8867,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="evidence-snippet">"These defects include rib gaps, found in the posterior part of the costal shaft in multiple ribs, as well as missing ribs, shortened ribs and abnormal costotransverse articulations, which result in inadequate ventilation at birth and high perinatal mortality."</div>
 
 
-                <div class="evidence-explanation">The rib defects are linked directly to inadequate ventilation and high perinatal mortality. Graded HUMAN_CLINICAL because the sentence reports the human disease rather than this paper&#39;s chick experiments, but it is the paper&#39;s background prose rather than its own finding, so the independent statement from PMID:37265362 below is the stronger source.</div>
+                <div class="evidence-explanation">The rib defects are linked directly to inadequate ventilation and high perinatal mortality. HUMAN_CLINICAL because the sentence reports the human disease rather than this paper&#39;s chick experiments; BACKGROUND because the paper is restating it as framing, not measuring it. The independent statement from PMID:37265362 below is the stronger source.</div>
 
 
 
@@ -8659,6 +8881,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8709,6 +8932,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8780,6 +9004,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8846,6 +9071,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8853,7 +9081,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="evidence-snippet">"These defects include rib gaps, found in the posterior part of the costal shaft in multiple ribs, as well as missing ribs, shortened ribs and abnormal costotransverse articulations, which result in inadequate ventilation at birth and high perinatal mortality."</div>
 
 
-                <div class="evidence-explanation">High perinatal mortality is the basis for the HIGH band. Note this sentence is the paper&#39;s background framing of the human disease, not a result of its own chick experiments; the same claim is carried independently by PMID:37265362 in the progression section.</div>
+                <div class="evidence-explanation">High perinatal mortality is the basis for the HIGH band. BACKGROUND: the sentence is the paper&#39;s framing of the human disease, not a result of its own chick experiments. The same claim is carried independently by PMID:37265362 in the progression section.</div>
 
 
 
@@ -8915,6 +9143,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8967,6 +9196,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9085,6 +9315,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9124,6 +9355,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9277,6 +9509,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9316,6 +9549,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9390,6 +9624,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9535,6 +9770,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9574,6 +9812,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9733,6 +9972,7 @@ progression:
   - reference: PMID:31884688
     reference_title: &#34;Local modulation of the Wnt/β-catenin and bone morphogenic protein (BMP) pathways recapitulates rib defects analogous to cerebro-costo-mandibular syndrome.&#34;
     supports: SUPPORT
+    quote_role: BACKGROUND
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       These defects include rib gaps, found in the posterior part of the costal
@@ -9741,10 +9981,10 @@ progression:
       birth and high perinatal mortality.
     explanation: &gt;-
       The rib defects are linked directly to inadequate ventilation and high
-      perinatal mortality. Graded HUMAN_CLINICAL because the sentence reports
-      the human disease rather than this paper&#39;s chick experiments, but it is
-      the paper&#39;s background prose rather than its own finding, so the
-      independent statement from PMID:37265362 below is the stronger source.
+      perinatal mortality. HUMAN_CLINICAL because the sentence reports the human
+      disease rather than this paper&#39;s chick experiments; BACKGROUND because the
+      paper is restating it as framing, not measuring it. The independent
+      statement from PMID:37265362 below is the stronger source.
   - reference: PMID:37265362
     reference_title: &#34;Consideration of the thoracic phenotype of cerebro-costo-mandibular syndrome.&#34;
     supports: SUPPORT
@@ -9781,6 +10021,7 @@ clinical_burden:
   - reference: PMID:31884688
     reference_title: &#34;Local modulation of the Wnt/β-catenin and bone morphogenic protein (BMP) pathways recapitulates rib defects analogous to cerebro-costo-mandibular syndrome.&#34;
     supports: SUPPORT
+    quote_role: BACKGROUND
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       These defects include rib gaps, found in the posterior part of the costal
@@ -9788,9 +10029,9 @@ clinical_burden:
       costotransverse articulations, which result in inadequate ventilation at
       birth and high perinatal mortality.
     explanation: &gt;-
-      High perinatal mortality is the basis for the HIGH band. Note this sentence
-      is the paper&#39;s background framing of the human disease, not a result of its
-      own chick experiments; the same claim is carried independently by
+      High perinatal mortality is the basis for the HIGH band. BACKGROUND: the
+      sentence is the paper&#39;s framing of the human disease, not a result of its
+      own chick experiments. The same claim is carried independently by
       PMID:37265362 in the progression section.
 pathophysiology:
 - name: SNRPB Alternative-Exon Variants Increase Inclusion of a PTC-Containing Exon
@@ -10088,6 +10329,7 @@ pathophysiology:
     - reference: PMID:31884688
       reference_title: &#34;Local modulation of the Wnt/β-catenin and bone morphogenic protein (BMP) pathways recapitulates rib defects analogous to cerebro-costo-mandibular syndrome.&#34;
       supports: SUPPORT
+      quote_role: PRIMARY_RESULT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
         Wnt/β-catenin inhibition manifested characteristic rib phenotypes seen in
@@ -10098,6 +10340,7 @@ pathophysiology:
     - reference: PMID:31884688
       reference_title: &#34;Local modulation of the Wnt/β-catenin and bone morphogenic protein (BMP) pathways recapitulates rib defects analogous to cerebro-costo-mandibular syndrome.&#34;
       supports: SUPPORT
+      quote_role: PRIMARY_RESULT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
         Reduced expression of Sox9 was detected with Wnt/β-catenin inhibition,
@@ -11086,6 +11329,7 @@ animal_models:
       - reference: PMID:31884688
         reference_title: &#34;Local modulation of the Wnt/β-catenin and bone morphogenic protein (BMP) pathways recapitulates rib defects analogous to cerebro-costo-mandibular syndrome.&#34;
         supports: SUPPORT
+        quote_role: PRIMARY_RESULT
         evidence_source: MODEL_ORGANISM
         snippet: &gt;-
           Wnt/β-catenin inhibition manifested characteristic rib phenotypes seen in
@@ -11307,6 +11551,114 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Address PR review: mortality, missing ribs, glossoptosis, hypomorphic allele, chondrogenesis conflict, treatments</strong> · 2026-08-31T16:31:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cerebrocostomandibular_Syndrome/2026-08-31T163107Z-claude-code-3d0053.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the automated review on PR #10226 (review 5068386207,
+CHANGES_REQUESTED, all IMPORTANT — no CRITICAL findings).
+
+Every blocking item was accepted and fixed; each rested on material already in
+reference cache files the PR itself commits.
+
+1. Rib-gap knowledge gap widened. PMID:37265362 nominates a fourth contributor
+   the gap statement omitted — &#34;a further absence of ribs or vestigial rib
+   formation is associated with respiratory distress and increased lethality&#34; —
+   and proposes counting it as &#34;a priority indicator&#34;. Both quotes added, and
+   the rationale reframed from &#34;how much do the gaps contribute&#34; to &#34;which of
+   the four thoracic features should be measured&#34;.
+2. Added phenotype Missing ribs (HP:0000921), VERY_FREQUENT, cited to
+   PMID:37265362 (one of the three main thoracic phenotypes) and PMID:26971886
+   (&#34;reduced numbers of ribs with gaps are consistent findings&#34;).
+3. Added phenotype Glossoptosis (HP:0000162), quoted verbatim from PMID:25047197.
+4. Added mortality content: a &#34;Perinatal mortality&#34; progression phase citing
+   PMID:31884688 (&#34;inadequate ventilation at birth and high perinatal
+   mortality&#34;) and PMID:37265362 (&#34;Although the condition can be lethal...&#34;),
+   plus a clinical_burden block at HIGH.
+5. Added functional_impact_category: PARTIAL_LOSS_OF_FUNCTION via genetic_context
+   on the SNRPB node, with the Lynch characterisation of the alleles as
+   hypomorphic (0.53-0.66 of control expression) and the separate, more severe
+   null-allele phenotype recorded in the description.
+6. Resolved the directional tension the reviewer surfaced. The edge from
+   &#34;Impaired Osteogenic and Altered Chondrogenic Differentiation&#34; to &#34;Costal
+   Patterning Failure&#34; was REMOVED: it asserted increased chondrogenesis
+   upstream of the rib lesion, while the in-vivo chick model of that same lesion
+   reports reduced Sox9 and concludes that inhibited chondrogenesis precipitates
+   it. The Sox9 quote was added to the Wnt/BMP -&gt; Costal Patterning Failure edge,
+   and a new KNOWLEDGE_GAP (ccms_chondrogenesis_direction) records the conflict
+   with a SUPPORT item from the HEPM in-vitro result and a REFUTE item from the
+   chick model.
+7. Treatments expanded from two to six: EXIT procedure (PMID:25252050, new
+   reference), cleft palate repair (NCIT:C168380 Palatorrhaphy), gastrostomy
+   (NCIT:C52006), and scoliosis surveillance/spinal fusion (NCIT:C157986). The
+   last three carry directness: INDIRECT, because the cited series establishes
+   that the problem is common but reports no management or outcome — the step to
+   the standard operation is the curator&#39;s inference. Every NCIT identifier was
+   resolved against cache/ncit/terms.csv or the OLS API, not taken from the
+   deep-research report.
+8. Added a prenatal diagnosis/delivery-planning entry citing PMID:25252050.
+
+Not done, with reasons: the suggested mappings block for OMIM:117650 and
+ORPHA:1393 cannot be expressed — DiseaseMappings supports only
+icd10cm/icd11f/mondo/ncit sub-slots, and there is no omim_mappings or
+orphanet_mappings. Mandibular distraction osteogenesis was left out because no
+cached CCMS reference mentions it and adding it would mean citing a source not
+about this disease.
+
+GeneReviews: the reviewer could not verify the absence because network access
+was denied in its environment. Confirmed here — PubMed searches for
+&#34;cerebrocostomandibular GeneReviews[All Fields]&#34; and
+&#34;cerebrocostomandibular syndrome[TI] GeneReviews[TI]&#34; both return zero results.
+
+Validation after fixes: `just validate` passes schema, term and reference checks
+with 78/78 snippets verified (up from 62/62). check-entity-refs,
+check-duplicate-keys, check-folded-hyphens, check-snippet-length,
+check-title-snippets and check-snippet-grading all pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Cerebrocostomandibular Syndrome</strong> · 2026-08-31T15:29:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cerebrocostomandibular_Syndrome/2026-08-31T152904Z-claude-code-d316d7.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Cerebrocostomandibular_Syndrome.yaml (MONDO:0007301, SNRPB).
+
+Deep research: Perplexity (sonar-deep-research) -&gt;
+research/Cerebrocostomandibular_Syndrome-deep-research-perplexity.md. The report
+carried no PMID or DOI identifiers at all: it cites 18 URLs, several of them
+Wikipedia, a hospital patient page, KEGG and PomBase. `just
+validate-research-reference` therefore reported &#34;No PMID or DOI references were
+found in this report&#34; and the reference gate was a no-op for it.
+`just validate-research-terms` did fire and flagged two problems, both avoided
+here: HP:0000353 does not exist, and CL:0000743 (which CL calls &#34;hypertrophic
+chondrocyte&#34;) was offered as &#34;cranial neural crest cells&#34;. Neither was bound.
+
+Because the report supplied no citable identifiers, every evidence item was
+sourced independently from PubMed (esearch/esummary/efetch) and fetched with
+`just fetch-reference`: PMID:25047197 (Lynch 2014, the SNRPB autoregulatory
+exon), PMID:25504470 (Bacrot 2015 replication), PMID:26971886 (Tooley 2016,
+16-patient series), PMID:35593225 (Snrpb neural crest mouse), PMID:37584444
+(osteo/chondro-differentiation in vitro), PMID:31884688 (chick Wnt/BMP bead
+model), PMID:37265362 (thoracic phenotype review), PMID:38782423 (case report),
+PMID:25865758 (spliceosomopathy review), PMID:37161864 (poison-exon annotation).
+
+No GeneReviews chapter exists for CCMS. PubMed searches for &#34;cerebrocostomandibular
+GeneReviews[All Fields]&#34; returned nothing, so the Step 3b baseline does not apply.
+
+Validation: `just validate` passes schema, term and reference checks with 62/62
+snippets verified. check-entity-refs, check-duplicate-keys, check-folded-hyphens,
+check-snippet-length, check-title-snippets, check-snippet-grading and
+check-environmental-evidence all pass.
+
+Curation note: the reference_title for PMID:31884688 has to be the PubMed title,
+which stops at &#34;cerebro-costo-mandibular syndrome.&#34; and omits the journal
+title&#39;s trailing &#34;in a model animal&#34;.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11668,7 +12020,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cerebrocostomandibular Syndrome", "mondoId": "MONDO:0007301", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cerebrocostomandibular_Syndrome", "yamlRevision": "939116ac44c4"};
+        const OS_CONFIG = {"diseaseName": "Cerebrocostomandibular Syndrome", "mondoId": "MONDO:0007301", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cerebrocostomandibular_Syndrome", "yamlRevision": "200ed214d4a8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
