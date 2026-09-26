@@ -1,0 +1,101 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Autoimmune_Retinopathy
+  path: kb/disorders/Autoimmune_Retinopathy.yaml
+session:
+  id: 2026-08-28T230520Z-claude-code-cc8d3a
+  timestamp: '2026-08-28T23:05:20Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    agent_tool: claude-code
+links:
+  issues: []
+  prs: []
+  urls: []
+events:
+- type: REVIEW
+  outcome: needs_followup
+  sections:
+  - phenotypes
+  - pathophysiology
+  - treatments
+  - evidence
+  - references
+  summary: 'Review: Autoimmune Retinopathy (eye-disease evidence audit; Needs follow-up)'
+  details: |
+    # Review: Autoimmune Retinopathy
+
+    - File: `/home/user/dismech/kb/disorders/Autoimmune_Retinopathy.yaml`
+    - Review date: 2026-08-28
+    - Mechanical snippet audit: **28/28 verified** against cached references (no unverified snippets)
+
+    ## Verdict: NEEDS_FOLLOWUP
+
+    Snippets are all verbatim and the treatment section is well grounded in the 2024/2025
+    meta-analysis, but the references section systematically misuses `supporting_text`
+    (curator commentary where the schema requires an exact excerpt — invisible to the
+    snippet audit), one pathophysiology explanation attributes caspase-3 specifics to a
+    source that never mentions them, and one phenotype's only evidence does not mention
+    the phenotype.
+
+    ## Findings
+
+    ### 1. MAJOR — `references[].findings[].supporting_text` is curator commentary, not an exact excerpt (all 12 reference entries)
+    - Location: `references` section, every entry (PMID:40824502, 40862484, 39669695, 41003888, 41400833, 37958272, 41029312, 36473045, 35571681, 34562437, 16444517, 38946992).
+    - Entry: `supporting_text` values read like annotations — e.g. for PMID:39669695: "2025 Duke meta-analysis (12 studies, 40 case reports); provides strongest quantitative evidence for AIR treatment efficacy."; for PMID:40824502: "Comprehensive 2025 review covering diagnosis, treatment, and pathophysiology of all AIR subtypes; primary evidence source for this curation."
+    - Schema says (`dismech.yaml` slot `supporting_text`): "Exact excerpt/quote from the publication supporting the statement."
+    - Why it matters: none of these strings occurs in the cited papers, and the snippet audit only checks `EvidenceItem.snippet`, so this fabricated-quote-shaped field passes CI silently. The `statement` values themselves are mostly accurate paraphrases of the abstracts (RRs for 39669695 match; 41003888 and 41400833 figures match), so the fix is mechanical: move the commentary to notes-like prose or replace `supporting_text` with real excerpts. Contrast: the EYS entry uses verbatim quotes in this slot.
+
+    ### 2. MAJOR — Caspase-3 and related mechanistic specifics attributed to PMID:16444517, which does not contain them
+    - Location: `pathophysiology` > "Photoreceptor and Bipolar Cell Injury by Autoantibodies" — node description and the PMID:16444517 evidence item's explanation ("Directly establishes caspase-3-mediated apoptosis of photoreceptors as the downstream consequence of anti-recoverin autoantibody activity").
+    - Paper actually says (whole relevant content of the cached abstract): "The aberrant expression of recoverin in cancer cells and the presence of autoantibodies against recoverin are essential for the occurrence of cancer-associated retinopathy, which finally results in the apoptosis of photoreceptor cells." No mention of caspase-3 anywhere.
+    - Related uncited specifics in the same node description: anti-alpha-enolase antibodies "impair glycolytic ATP production... causing metabolic failure" (PMID:41003888 mentions anti-alpha-enolase only as a detected antibody in CAR; no cited source discusses enolase's glycolytic mechanism), and "Complement activation amplifies retinal cell death across subtypes" — no cited source mentions complement, yet the node also annotates GO:0006956 complement activation INCREASED with no supporting evidence item.
+    - Why it matters: "Directly establishes caspase-3..." is a false attribution — the mechanism detail (from Adamus/Maeda-line studies, not cited) is presented as if this source demonstrated it, and an ontology-annotated process (complement activation) has no evidence anywhere in the entry.
+
+    ### 3. MAJOR — Color Vision Defect phenotype: sole evidence quote does not mention color vision
+    - Location: `phenotypes` > "Color Vision Defect" (only evidence: PMID:40862484, supports: PARTIAL).
+    - Entry claims: acquired dyschromatopsia occurs in AIR due to cone involvement.
+    - Quoted text: "A multimodal diagnostic approach including electroretinography, fundus imaging, visual field testing, genetic testing, and serologic assays is necessary to support a diagnosis of AIR." — the listed modalities do not even include color vision testing, and the abstract never mentions color vision, dyschromatopsia, or cone-specific findings.
+    - Why it matters: the phenotype's existence in AIR is effectively unsupported by any evidence in the file; the explanation's claim that "Color vision testing is part of the multimodal assessment" is not what the quote says. The PARTIAL grading acknowledges weakness but the quote is non-supporting, not partially supporting.
+
+    ### 4. MINOR — "Bilateral in over 90%" statistic over-attributed to paraneoplastic AIR
+    - Location: `phenotypes` > "Visual Field Loss" description ("bilateral in over 90% of paraneoplastic AIR cases") and the PMID:41003888 explanation ("confirms bilateral visual impairment as a near-universal feature of CAR and MAR").
+    - Paper actually says: 147 patients spanned six syndromes — 53 CAR, 22 MAR, 26 BDUMP, 16 AEPPVM, 11 paraneoplastic uveitis, 19 paraneoplastic optic neuropathy — and "Visual impairment was bilateral in over 90% of cases" is the pooled figure across all six, not a CAR/MAR-specific statistic (CAR+MAR are only 75/147).
+    - Why it matters: modest Named-Entity-style over-narrowing of a pooled statistic to the retinopathy subset.
+
+    ### 5. MINOR — Nyctalopia supported only by an ERG-dysfunction quote, graded SUPPORT
+    - Location: `phenotypes` > "Nyctalopia" (only evidence: PMID:41029312, snippet "Electroretinography (ERG) showed dysfunction of rod and cone cell.").
+    - The paper (7 AIR-with-myasthenia-gravis patients) never reports night blindness as a symptom; the quote is an electrophysiological correlate, and the inference "rod ERG dysfunction → nyctalopia" is the curator's. PARTIAL would be the honest grading, and a source that actually reports nyctalopia in AIR would be stronger. The description's MAR/TRPM1 rationale is supported elsewhere in the file only indirectly (the PMID:38946992 quote naming "reduced night vision" is attached to the Photopsias phenotype instead).
+
+    ### 6. MINOR — Rituximab: second evidence item is an aspiration, not support; drug-specific claim rests on a class-level result
+    - Location: `treatments` > "Rituximab".
+    - PMID:39669695 quote ("Biologics significantly reduce both functional and morphological retinal changes.") is class-level; the explanation's "predominantly rituximab in AIR literature" is uncited. The PMID:40862484 item ("Advances in biomarkers and precision immunotherapy may improve diagnosis and outcomes.") is a forward-looking summary sentence that does not support rituximab benefit — SUPPORT is too strong; it belongs at PARTIAL or removed.
+
+    ### 7. MINOR — IVIG treatment carries no evidence at all
+    - Location: `treatments` > "Intravenous Immunoglobulin (IVIG)".
+    - Evidence is optional in the schema, but the description makes mechanistic claims (Fc-receptor blockade, complement inhibition) and efficacy claims ("Used in patients who fail corticosteroids") with no citation anywhere in the entry.
+
+    ### 8. MINOR — Description/subtype facts not in any cited source; mechanism asserted more firmly than the cited review allows
+    - Location: `pathophysiology` > "Anti-Retinal Antibody Production via Molecular Mimicry" description and `has_subtypes` > npAIR description.
+    - Uncited specifics: recoverin "23 kDa", TRPM1 "182 kDa", and HLA-DRB1 susceptibility alleles (appears twice; no cached source mentions HLA). Also, the node states molecular mimicry / immune-privilege breach as established, while its own primary source (PMID:40824502) states "the exact mechanisms underlying ocular immune privilege breakdown and the autoimmune attack on retinal cells in AIR remain unknown" and notes disagreement on anti-recoverin pathogenicity. The description should carry that hedge (the entry's `supports: SUPPORT` gradings are still defensible for the narrower quoted claims).
+
+    ### 9. MINOR — Intravitreal corticosteroids: meta-analysis "local therapy" not shown to be corticosteroids
+    - Location: `treatments` > "Intravitreal Corticosteroids" (PMID:39669695).
+    - The abstract's "local therapy" arm is not defined as corticosteroid implants in the quoted material; the explanation's parenthetical "(corticosteroids)" adds specificity the quote does not carry. Directionally consistent with the AIR literature, so MINOR.
+
+    ### 10. MINOR — PMID:38946992 is a preprint (Res Sq) with a published update
+    - Location: `phenotypes` > "Photopsias" and the references section.
+    - The cache notes "Update in Front Med (Lausanne). 2024 Sep 10;11:1445180." The quoted sentence is fine, but citing the peer-reviewed version (PMID for the Front Med article) would be preferable.
+
+    ## Coverage
+
+    - Total evidence items (EvidenceItem blocks with reference+snippet): 28 — has_subtypes 3, pathophysiology 9 (node-level 6 + downstream-edge 3), phenotypes 9, treatments 5, classifications 2. (The `references` section's findings carry `supporting_text`, not EvidenceItem blocks — reviewed under finding 1. The Photopsias downstream edge and the IVIG treatment carry no evidence.)
+    - Examined: 28/28 (all).
+    - Cache status: all 12 cited references present in `references_cache/` (all abstract-only). Not cached: PMID:30271775 — but it appears only as the `datasets` record's `publication:` link for geo:GSE117751 (no evidence block, consistent with the bulk-dataset policy); noting for completeness, not as a defect.
+    - clinical_trials is an explicit empty list; no genetic, environmental, prevalence, biochemical, diagnosis, or animal_models sections present.
+
+    ## Sections reviewed
+
+    description, has_subtypes (CAR, MAR, npAIR), pathophysiology (2 nodes + 3 downstream edges), phenotypes (6), treatments (4), classifications (harrisons_chapter ×2), clinical_trials (empty), datasets (1), references (12).

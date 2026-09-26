@@ -1,80 +1,144 @@
-"""Tests for local linkml-reference-validator compatibility patches."""
+"""The two patches dismech still applies over linkml-reference-validator.
 
-import os
-import subprocess
-from pathlib import Path
+``_wrap_url_fetch`` (upstream #92) and ``_wrap_jstage_pdf_title`` (upstream #93).
+When those land, this file and ``src/dismech/patch_reference_validator.py`` are
+both deleted.
 
-from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
+Everything else that used to be tested here is now
+``tests/test_upstream_validator_behaviours.py``, which asserts the behaviour
+dismech needs rather than the patch that used to provide it.
+"""
+
+
+import pytest
 from linkml_reference_validator.models import ReferenceValidationConfig
 
 
-def test_clinicaltrials_cache_path_uses_repo_lowercase_naming(tmp_path):
-    import dismech.patch_reference_validator  # noqa: F401  # side-effect: applies the cache-path patch
+def test_url_html_fetch_removes_page_configuration_but_keeps_evidence(monkeypatch):
+    from bs4 import BeautifulSoup
+    from linkml_reference_validator.etl.acquire import ContentAcquirer
+    from linkml_reference_validator.etl.sources.url import URLSource
 
-    fetcher = ReferenceFetcher(ReferenceValidationConfig(cache_dir=tmp_path))
+    from dismech.patch_reference_validator import apply_patch
 
-    cache_path = fetcher.get_cache_path("CLINICALTRIALS:NCT00004645")
-
-    assert cache_path.name == "clinicaltrials_NCT00004645.md"
-
-
-def test_bare_nct_reference_resolves_to_clinicaltrials_cache_path(tmp_path):
-    """A prefixless ``NCT…`` id must read from the file the fetch writes.
-
-    Upstream ``_parse_reference_id`` has no bare-NCT rule, so the lookup derived
-    ``NCT….md`` while the fetched record was saved as ``clinicaltrials_NCT….md``
-    -- a permanent cache miss that re-fetched from ClinicalTrials.gov on every
-    validation run (dismech#7288).
-    """
-    import dismech.patch_reference_validator  # noqa: F401  # side-effect: applies the cache-path patch
-
-    fetcher = ReferenceFetcher(ReferenceValidationConfig(cache_dir=tmp_path))
-
-    for reference_id in ("NCT06087757", "nct06087757"):
-        assert (
-            fetcher.get_cache_path(reference_id).name
-            == "clinicaltrials_NCT06087757.md"
-        ), reference_id
-
-
-def test_bare_nct_patch_leaves_other_bare_identifiers_alone(tmp_path):
-    """The bare-NCT rule must not capture unrelated prefixless identifiers."""
-    import dismech.patch_reference_validator  # noqa: F401  # side-effect: applies the cache-path patch
-
-    fetcher = ReferenceFetcher(ReferenceValidationConfig(cache_dir=tmp_path))
-
-    for reference_id in ("NCTNOTANID", "12345678", "PMID:12345678"):
-        assert "clinicaltrials_NCTNOTANID" not in fetcher.get_cache_path(
-            reference_id
-        ).name, reference_id
-
-
-def test_reference_validator_wrapper_treats_warning_only_exit_as_advisory(
-    tmp_path: Path,
-) -> None:
-    fake_uv = tmp_path / "uv"
-    fake_uv.write_text(
-        "#!/usr/bin/env bash\n"
-        "printf '%s\\n' '    [WARNING] transient reference fetch failed'\n"
-        "exit 1\n",
-        encoding="utf-8",
+    apply_patch()
+    page = b"""<!doctype html><html><head><title>Clinical guideline</title>
+    <script>window.configuration = 'script-only-value';</script>
+    <style>.private { content: 'style-only-value'; }</style></head>
+    <body><!-- comment-only-value -->
+    <div data-page='{"token":"attribute-only-value"}'>
+    <p>For <abbr title="abbreviation-only-value">AVSD</abbr>, PVR &lt;5.</p>
+    <table><tr><th rowspan="2" scope="rowgroup">Outcome</th>
+    <td colspan="2">2 of 3</td></tr><tr><td>A</td><td>B</td></tr></table>
+    <a href="https://example.org/?token=link-only-value">Study source</a>
+    <template>template-only-value</template>
+    </div></body></html>"""
+    monkeypatch.setattr(
+        ContentAcquirer, "fetch_bytes", lambda *_: (page, "text/html; charset=utf-8")
     )
-    fake_uv.chmod(0o755)
+    result = URLSource().fetch(
+        "https://example.org/guideline", ReferenceValidationConfig()
+    )
+    assert result.title == "Clinical guideline"
+    assert result.reference_id == "url:https://example.org/guideline"
+    assert result.content_type == "url"
+    assert "only-value" not in result.content
+    soup = BeautifulSoup(result.content, "html.parser")
+    assert soup.p.get_text() == "For AVSD, PVR <5."
+    assert soup.th.get_text() == "Outcome"
+    assert soup.th.attrs == {"rowspan": "2", "scope": "rowgroup"}
+    assert soup.td.get_text() == "2 of 3"
+    assert soup.td.attrs == {"colspan": "2"}
+    assert soup.a.get_text() == "Study source"
 
-    env = {**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}"}
-    result = subprocess.run(
-        [
-            "bash",
-            "scripts/run_reference_validator.sh",
-            "validate",
-            "data",
-            "dummy.yaml",
-        ],
-        capture_output=True,
-        check=False,
-        env=env,
-        text=True,
+
+@pytest.mark.parametrize(
+    "content, content_type",
+    [
+        ("Plain text including <5 and >10", "url"),
+        ('<?xml version="1.0"?><body id="preserved">XML content</body>', "url"),
+        ('<article><body id="preserved"><p>JATS content</p></body></article>', "url"),
+        ("Extracted PDF text with <html> quoted literally", "full_text_pdf"),
+    ],
+)
+
+
+def test_url_page_code_removal_preserves_non_html_sources(content, content_type):
+    from types import SimpleNamespace
+
+    from dismech.patch_reference_validator import _wrap_url_fetch
+
+    reference = SimpleNamespace(content=content, content_type=content_type)
+    wrapped = _wrap_url_fetch(lambda *_: reference)
+    assert wrapped(None) is reference
+    assert reference.content == content
+
+
+def test_jstage_pdf_title_patch_reads_sibling_article_metadata(monkeypatch):
+    """Direct J-STAGE PDF URLs should not be cached with the URL as title."""
+    from linkml_reference_validator.etl.sources.url import URLSource
+    from linkml_reference_validator.models import ReferenceContent
+
+    import dismech.patch_reference_validator as patch
+
+    seen_urls = []
+
+    class _Acquirer:
+        def fetch_bytes(self, url, _config):
+            seen_urls.append(url)
+            return (
+                b'<meta name="citation_title" content="Recovered J-STAGE Title" />',
+                "text/html",
+            )
+
+    def _fetch_pdf(self, identifier, _config):
+        return ReferenceContent(
+            reference_id=f"url:{identifier}",
+            title=identifier,
+            content="Extracted PDF body",
+            content_type="full_text_pdf",
+            full_text_url=identifier,
+        )
+
+    monkeypatch.setattr(patch, "ContentAcquirer", _Acquirer)
+
+    content = patch._wrap_jstage_pdf_title(_fetch_pdf)(
+        URLSource(),
+        "https://www.jstage.jst.go.jp/article/jhs/52/3/52_3_259/_pdf",
+        ReferenceValidationConfig(),
     )
 
-    assert result.returncode == 0
-    assert "[WARNING] transient reference fetch failed" in result.stdout
+    assert content.title == "Recovered J-STAGE Title"
+    assert seen_urls == [
+        "https://www.jstage.jst.go.jp/article/jhs/52/3/52_3_259/_article"
+    ]
+
+
+def test_jstage_pdf_title_patch_leaves_unrelated_pdf_titles_alone(monkeypatch):
+    """The J-STAGE title lookup must stay scoped to J-STAGE direct PDFs."""
+    from linkml_reference_validator.etl.sources.url import URLSource
+    from linkml_reference_validator.models import ReferenceContent
+
+    import dismech.patch_reference_validator as patch
+
+    def _fetch_pdf(self, identifier, _config):
+        return ReferenceContent(
+            reference_id=f"url:{identifier}",
+            title=identifier,
+            content="Extracted PDF body",
+            content_type="full_text_pdf",
+            full_text_url=identifier,
+        )
+
+    def _forbidden_acquirer():
+        raise AssertionError("non-J-STAGE PDFs should not fetch an article page")
+
+    monkeypatch.setattr(patch, "ContentAcquirer", _forbidden_acquirer)
+
+    content = patch._wrap_jstage_pdf_title(_fetch_pdf)(
+        URLSource(),
+        "https://example.org/paper.pdf",
+        ReferenceValidationConfig(),
+    )
+
+    assert content.title == "https://example.org/paper.pdf"

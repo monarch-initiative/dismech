@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -375,6 +386,75 @@
             font-weight: 500;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -388,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -565,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -905,6 +995,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -913,7 +1017,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -953,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -968,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1022,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1035,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1193,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1203,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1244,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1449,6 +1589,10 @@
     
 
     
+    
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1482,6 +1626,15 @@
         <header class="page-header">
             <h1>Fungal Nucleic-Acid Antimetabolite Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Drug mechanism of action and therapeutic targeting: modules built around a molecular drug target, a therapeutic modality, or an acquired-resistance pathway that gates drug choice. Typically carries the target_mechanisms drug pattern."
+                      style="background: hsl(153, 68%, 96%); border-color: hsl(153, 52%, 78%); color: hsl(153, 62%, 26%);">Pharmacology</span>
+                
+                <span class="badge badge-study-area"
+                      title="Host-pathogen mechanism and antimicrobial therapy: pathogen entry, replication, persistence and immune evasion, together with the antibacterial, antifungal, and antiviral drug-target modules."
+                      style="background: hsl(68, 68%, 96%); border-color: hsl(68, 52%, 78%); color: hsl(68, 62%, 26%);">Infectious disease</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">fungal_nucleic_acid_antimetabolite</span>
                 <span class="badge badge-count">0 disorders</span>
@@ -1526,16 +1679,21 @@
                 
                 <div class="tag-list">
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Cytosine Transport (Fcy2 Permease Import of 5-FC)
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0015856" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015856">GO:0015856</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015856" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0015856</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves Cytosine Transport (Fcy2 Permease Import of 5-FC) (GO:0015856). GO:0015856 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1546,6 +1704,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Pyrimidine Nucleobase Catabolic Process (Deamination of 5-FC to 5-FU)
@@ -1553,10 +1713,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006208" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006208">GO:0006208</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006208" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006208</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves Pyrimidine Nucleobase Catabolic Process (Deamination of 5-FC to 5-FU) (GO:0006208). GO:0006208 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1567,6 +1730,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Pyrimidine Nucleobase Metabolic Process (5-FU Anabolism to 5-FUTP and 5-FdUMP)
@@ -1574,10 +1739,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006206" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006206">GO:0006206</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006206" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006206</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves Pyrimidine Nucleobase Metabolic Process (5-FU Anabolism to 5-FUTP and 5-FdUMP) (GO:0006206). GO:0006206 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1588,6 +1756,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         RNA Metabolic Process (5-FUTP Mis-incorporation into Fungal RNA)
@@ -1595,10 +1765,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0016070" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016070">GO:0016070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0016070</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves RNA Metabolic Process (5-FUTP Mis-incorporation into Fungal RNA) (GO:0016070). GO:0016070 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1609,6 +1782,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         DNA Biosynthetic Process (Thymidylate Synthase Inhibition by 5-FdUMP)
@@ -1616,10 +1791,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0071897" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071897">GO:0071897</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071897" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0071897</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves DNA Biosynthetic Process (Thymidylate Synthase Inhibition by 5-FdUMP) (GO:0071897). GO:0071897 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1631,16 +1809,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Response to Xenobiotic Stimulus (FCY2/FCY1/FUR1 Loss-of-Function Resistance)
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009410">GO:0009410</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0009410</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves Response to Xenobiotic Stimulus (FCY2/FCY1/FUR1 Loss-of-Function Resistance) (GO:0009410). GO:0009410 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1665,6 +1848,10 @@
             </div>
             <div class="item-desc">This is an antifungal drug-mechanism module structured as a biological pathway, not a specific disease. Its nodes are the successive biochemical steps of flucytosine activation and antimetabolite action (permease uptake -&gt; cytosine deaminase activation to 5-FU -&gt; anabolism to fluorinated nucleotides -&gt; disruption of RNA and DNA synthesis), with an adaptive-resistance branch; the pyrimidine-antimetabolite drug class (flucytosine) that acts on the pathway is described in the node text rather than modelled as a separate node. Disorder entries reference individual nodes via conforms_to (e.g., &#34;fungal_nucleic_acid_antimetabolite#Deamination to 5-Fluorouracil by Fungal Cytosine Deaminase&#34;), and their flucytosine treatments point at the inhibited node via target_mechanisms (analogous to how cell-wall-active antibiotic treatments link to &#34;bacterial_cell_wall_synthesis_inhibition#Peptidoglycan Cross-Linking by Penicillin-Binding Proteins&#34;). Key conformance / treatment target: &#34;Deamination to 5-Fluorouracil by Fungal Cytosine Deaminase&#34; — the fungal-specific prodrug-activation step that gives selective toxicity, since mammalian cells lack cytosine deaminase. The resistance node captures the gating knowledge that distinguishes &#34;flucytosine is used&#34; from durable activity — rapid monotherapy resistance via FCY1/FCY2/FUR1 mutations that mandates combination therapy (classically with amphotericin B for cryptococcal meningitis). See projects/ANTIFUNGAL.md for the broader antifungal drug-fungus strategy.</div>
         </div>
+        
+
+        
+
         
 
         
@@ -1719,11 +1906,13 @@
             
             <div class="item-box anchor-target" id="module-pathophysiology-flucytosine-uptake-by-fungal-cytosine-permease" data-dismech-node="Flucytosine Uptake by Fungal Cytosine Permease" data-dismech-type="pathophysiology">
                 <div class="item-name">Flucytosine Uptake by Fungal Cytosine Permease</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The antimetabolite cascade begins when flucytosine (5-fluorocytosine, 5-FC), a synthetic cytosine analogue with no intrinsic antifungal capacity, is imported across the fungal plasma membrane by the cytosine (purine-cytosine) permease Fcy2. This permease-mediated entry is the committed first step of the pathway: the drug cannot be activated unless it first enters the fungal cell, which is why loss of the permease is one of the routes to acquired resistance. The drug class acting on this pathway is the pyrimidine antimetabolite antifungal flucytosine.</div>
                 
@@ -1733,16 +1922,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Cytosine Transport (Fcy2 Permease Import of 5-FC)
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0015856" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015856">GO:0015856</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015856" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0015856</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cytosine Transport (Fcy2 Permease Import of 5-FC), annotated with cytosine transport (GO:0015856). GO:0015856 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1780,11 +1974,13 @@
             
             <div class="item-box anchor-target" id="module-pathophysiology-deamination-to-5-fluorouracil-by-fungal-cytosine-deaminase" data-dismech-node="Deamination to 5-Fluorouracil by Fungal Cytosine Deaminase" data-dismech-type="pathophysiology">
                 <div class="item-name">Deamination to 5-Fluorouracil by Fungal Cytosine Deaminase</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Inside the fungal cell, cytosine deaminase (Fcy1) deaminates 5-FC to 5-fluorouracil (5-FU), the committed activation step that turns an inert prodrug into an active antimetabolite. This step is the structural basis of flucytosine&#39;s selective toxicity: mammalian cells lack cytosine deaminase and therefore never carry out this conversion, so the fungal-specific deaminase is both the molecular drug target and the source of the therapeutic index. This is the canonical conformance / treatment target of the module — a conforming fungal-disease entry&#39;s flucytosine treatment links here via target_mechanisms. Because activation depends entirely on this enzyme, loss of the deaminase is also a principal route of acquired resistance.</div>
                 
@@ -1794,16 +1990,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Pyrimidine Nucleobase Catabolic Process (Deamination of 5-FC to 5-FU)
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006208" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006208">GO:0006208</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006208" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006208</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Pyrimidine Nucleobase Catabolic Process (Deamination of 5-FC to 5-FU), annotated with pyrimidine nucleobase catabolic process (GO:0006208). GO:0006208 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1848,11 +2049,13 @@
             
             <div class="item-box anchor-target" id="module-pathophysiology-conversion-to-fluorinated-nucleotides-5-futp-and-5-fdump" data-dismech-node="Conversion to Fluorinated Nucleotides (5-FUTP and 5-FdUMP)" data-dismech-type="pathophysiology">
                 <div class="item-name">Conversion to Fluorinated Nucleotides (5-FUTP and 5-FdUMP)</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Activated 5-fluorouracil is channelled into the fungal nucleotide pool by uracil phosphoribosyltransferase (Fur1) and downstream kinases, generating two fluorinated nucleotide effectors. One arm produces 5-fluorouridine triphosphate (5-FUTP), the ribonucleotide that will be mis-incorporated into RNA. The other arm produces 5-fluorodeoxyuridine monophosphate (5-FdUMP), the deoxynucleotide that will inhibit thymidylate synthase. This anabolic step converts the activated antimetabolite into the actual nucleotide poisons; because the phosphoribosyltransferase (FUR1) is required here, its loss is a further route to resistance.</div>
                 
@@ -1862,16 +2065,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Pyrimidine Nucleobase Metabolic Process (5-FU Anabolism to 5-FUTP and 5-FdUMP)
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006206" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006206">GO:0006206</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006206" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006206</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Pyrimidine Nucleobase Metabolic Process (5-FU Anabolism to 5-FUTP and 5-FdUMP), annotated with pyrimidine nucleobase metabolic process (GO:0006206). GO:0006206 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1909,11 +2117,13 @@
             
             <div class="item-box anchor-target" id="module-pathophysiology-disruption-of-fungal-rna-and-dna-synthesis" data-dismech-node="Disruption of Fungal RNA and DNA Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disruption of Fungal RNA and DNA Synthesis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The two fluorinated nucleotide effectors converge to poison fungal nucleic-acid metabolism. 5-Fluorouridine triphosphate (5-FUTP) — unlike normal uridylate — is incorporated into fungal RNA in place of uracil, corrupting the transcript and inhibiting protein synthesis. In parallel, 5-fluorodeoxyuridine monophosphate (5-FdUMP) inhibits thymidylate synthase, the enzyme that supplies thymidine for DNA biosynthesis, thereby blocking DNA synthesis. This dual antimetabolite effect on both RNA and DNA is the antifungal consequence of engaging the upstream activation and anabolism steps — the fungistatic/ fungicidal endpoint of the module.</div>
                 
@@ -1923,16 +2133,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         RNA Metabolic Process (5-FUTP Mis-incorporation into Fungal RNA)
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0016070" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016070">GO:0016070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0016070</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves RNA Metabolic Process (5-FUTP Mis-incorporation into Fungal RNA), annotated with RNA metabolic process (GO:0016070). GO:0016070 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1944,16 +2159,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-bio">
                         DNA Biosynthetic Process (Thymidylate Synthase Inhibition by 5-FdUMP)
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0071897" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071897">GO:0071897</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071897" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0071897</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves DNA Biosynthetic Process (Thymidylate Synthase Inhibition by 5-FdUMP), annotated with DNA biosynthetic process (GO:0071897). GO:0071897 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1977,11 +2197,13 @@
             
             <div class="item-box anchor-target" id="module-pathophysiology-flucytosine-monotherapy-resistance" data-dismech-node="Flucytosine Monotherapy Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Flucytosine Monotherapy Resistance</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Flucytosine is notorious for the rapid emergence of resistance when used alone, because the entire antimetabolite cascade depends on an intact activation and incorporation pathway that a single mutation can disable. Clinically relevant resistance arises through loss-of-function alterations in FCY2 (the cytosine permease that imports the drug), FCY1 (the cytosine deaminase that converts 5-FC to 5-FU), or FUR1 (uracil phosphoribosyltransferase, required to channel 5-FU into the nucleotide pool). Any of these breaks the chain between drug entry and nucleic-acid poisoning, so monotherapy selects resistant subpopulations quickly. This node encodes the gating knowledge that distinguishes &#34;flucytosine is used&#34; from durable efficacy and is the mechanistic reason flucytosine is given in combination — classically with amphotericin B for severe systemic mycoses such as cryptococcal meningitis. Conforming entries can attach a flucytosine combination rationale to this node.</div>
                 
@@ -1991,16 +2213,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Response to Xenobiotic Stimulus (FCY2/FCY1/FUR1 Loss-of-Function Resistance)
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009410">GO:0009410</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0009410</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Xenobiotic Stimulus (FCY2/FCY1/FUR1 Loss-of-Function Resistance), annotated with response to xenobiotic stimulus (GO:0009410). GO:0009410 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2023,6 +2250,9 @@
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">
@@ -2055,5 +2285,73 @@
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -64,6 +64,38 @@ on the validity of the model system rather than a disease-specific finding.
 | [18035408](https://pubmed.ncbi.nlm.nih.gov/18035408/) | Induction of pluripotent stem cells from adult human fibroblasts by defined factors. | Takahashi K et al., *Cell*, 2007 | human iPSC reprogramming (foundational) | foundational platform reference (fetch-reference-verified; not yet cited in the cluster) |
 | [23995685](https://pubmed.ncbi.nlm.nih.gov/23995685/) | Cerebral organoids model human brain development and microcephaly. | Lancaster MA et al., *Nature*, 2013 | cerebral organoid corticogenesis | already in repo cache; cited by `microtubule_dependent_neuronal_migration_failure`, `apical_neuroependyma_integrity_failure`, `pial_basement_membrane_radial_glial_endfoot_failure`, `reelin_terminal_translocation_lamination_failure` |
 | [26644564](https://pubmed.ncbi.nlm.nih.gov/26644564/) | Human cerebral organoids recapitulate gene expression programs of fetal neocortex development. | Camp JG et al., *Proc Natl Acad Sci U S A*, 2015 | cerebral organoid single-cell corticogenesis validation | already in repo cache (`IN_VITRO`); cited by `microtubule_dependent_neuronal_migration_failure` |
+| [24277810](https://pubmed.ncbi.nlm.nih.gov/24277810/) | Self-organization of axial polarity, inside-out layer pattern, and species-specific progenitor dynamics in human ES cell-derived neocortex. | Kadoshima T et al., *Proc Natl Acad Sci U S A*, 2013 | hESC-derived 3D neocortex: self-organized axial polarity, inside-out layering, **species-specific (human) progenitor-zone dynamics** | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
+| [26005811](https://pubmed.ncbi.nlm.nih.gov/26005811/) | Functional cortical neurons and astrocytes from human pluripotent stem cells in 3D culture. | Paşca AM et al., *Nat Methods*, 2015 | 3D cortical spheroid platform yielding functional cortical neurons **and astrocytes** (glial arm the 2013–2015 organoid protocols under-represent) | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
+
+> **Which platform paper to cite:** Lancaster 23995685 and Kadoshima 24277810 are
+> the two independent 3D-corticogenesis platform anchors; Kadoshima is the better
+> citation when the claim is specifically about **human-vs-rodent progenitor-zone
+> dynamics** (it reports species-specific progenitor behaviour directly), and is
+> therefore the natural platform reference behind a `HUMAN_MODEL_MISMATCH`
+> discussion. Camp 26644564 anchors *molecular* fidelity to fetal neocortex;
+> Paşca 26005811 anchors the astrocyte/glial readout.
+
+---
+
+## Neural rosette / neural-precursor models (Romero cluster `[285–287]`)
+
+The review uses these for the claim that neural rosettes recapitulate
+apical-basal polarity resembling neural-tube organization, and that neurospheres
+model self-renewal but lack spatial organization. Cite them for **2D / early
+neural-precursor** claims; they are weaker support than organoids for cortical
+layering or radial-migration mechanisms (see the NAM hierarchy in #4100).
+
+| PMID | Verified title (from cache) | First author / journal / year | NAM platform | Cited by (MCD cluster) |
+|------|------------------------------|-------------------------------|--------------|------------------------|
+| [11731781](https://pubmed.ncbi.nlm.nih.gov/11731781/) | In vitro differentiation of transplantable neural precursors from human embryonic stem cells. | Zhang SC et al., *Nat Biotechnol*, 2001 | foundational hESC → neural-precursor / rosette derivation | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
+| [18198334](https://pubmed.ncbi.nlm.nih.gov/18198334/) | Human ES cell-derived neural rosettes reveal a functionally distinct early neural stem cell stage. | Elkabetz Y et al., *Genes Dev*, 2008 | neural rosettes as a discrete early neural-stem-cell stage (apical-basal polarity) | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
+| [19252484](https://pubmed.ncbi.nlm.nih.gov/19252484/) | Highly efficient neural conversion of human ES and iPS cells by dual inhibition of SMAD signaling. | Chambers SM et al., *Nat Biotechnol*, 2009 | dual-SMAD-inhibition neural induction — the standard route to rosettes/NPCs used by most downstream MCD NAM studies | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
+
+> **Scope caveat:** a rosette or neurosphere result showing altered self-renewal
+> or polarity supports a **progenitor-level** node only. Do not use it as
+> evidence for a migration-primary or lamination-primary mechanism — that is
+> exactly the progenitor-vs-migration ambiguity #4101 flags as an open knowledge
+> gap.
 
 ---
 
@@ -105,6 +137,18 @@ Congenital Zika Syndrome entry (#4088). All are `IN_VITRO` **except where noted*
 | [27568284](https://pubmed.ncbi.nlm.nih.gov/27568284/) | Zika Virus Disrupts Phospho-TBK1 Localization and Mitosis in Human Neuroepithelial Stem Cells and Radial Glia. | Onorati M et al., *Cell Rep*, 2016 | human neuroepithelial stem cells / radial glia: pTBK1 mislocalization, disrupted centrosome/mitosis | `neural_progenitor_centrosome_spindle_dysfunction`, `viral_neural_progenitor_cytopathy`, `Congenital_Zika_Syndrome` |
 | [28132835](https://pubmed.ncbi.nlm.nih.gov/28132835/) | Recent Zika Virus Isolates Induce Premature Differentiation of Neural Progenitors in Human Brain Organoids. | Gabriel E et al., *Cell Stem Cell*, 2017 | human brain organoids: centrosome perturbation, premature progenitor differentiation → progenitor depletion / cortical thinning | `neural_progenitor_centrosome_spindle_dysfunction`, `viral_neural_progenitor_cytopathy`, `Congenital_Zika_Syndrome` |
 | [27279226](https://pubmed.ncbi.nlm.nih.gov/27279226/) | The Brazilian Zika virus strain causes birth defects in experimental models. | Cugola FR et al., *Nature*, 2016 | **mixed-model**: human organoids **and** mouse / non-human-primate models. Split evidence items so the organoid arm is `IN_VITRO` and the in-vivo arm is `MODEL_ORGANISM`. | `viral_neural_progenitor_cytopathy`, `Congenital_Zika_Syndrome` |
+| [27118425](https://pubmed.ncbi.nlm.nih.gov/27118425/) | Brain-Region-Specific Organoids Using Mini-bioreactors for Modeling ZIKV Exposure. | Qian X et al., *Cell*, 2016 | forebrain-specific organoids in mini-bioreactors: ZIKV preferentially infects NPCs, reduces proliferation, increases death, and thins the neuronal layer | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
+| [27911847](https://pubmed.ncbi.nlm.nih.gov/27911847/) | Zika virus cell tropism in the developing human brain and inhibition by azithromycin. | Retallack H et al., *Proc Natl Acad Sci U S A*, 2016 | human astrocyte/NPC and organotypic fetal-brain tropism mapping; **azithromycin reduces ZIKV proliferation and cytopathic effect** | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
+| [29020636](https://pubmed.ncbi.nlm.nih.gov/29020636/) | Self-Organized Cerebral Organoids with Human-Specific Features Predict Effective Drugs to Combat Zika Virus Infection. | Watanabe M et al., *Cell Rep*, 2017 | cerebral organoid screen identified **duramycin and ivermectin** as active hits; azithromycin was ineffective in this platform despite prior protection in cultured glial cells | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
+| [28098253](https://pubmed.ncbi.nlm.nih.gov/28098253/) | The clinically approved antiviral drug sofosbuvir inhibits Zika virus replication. | Sacramento CQ et al., *Sci Rep*, 2017 | **sofosbuvir rescue**: inhibits ZIKV replication in hepatoma (Huh-7) cells, neural stem cells, and brain organoids. All-in-vitro (no in-vivo arm) → `IN_VITRO`. | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
+
+> **Drug-rescue caveat (azithromycin, sofosbuvir):** these are *mechanistic*
+> rescue results in NAM systems, not clinical evidence. Per #4100 they belong on
+> the perturbed causal branch as `IN_VITRO` support, **not** in a `treatments:`
+> block, unless separate clinical evidence for congenital Zika syndrome exists.
+> Azithromycin's effect is platform-dependent: pair Retallack's supportive
+> glial-cell result with Watanabe's refuting cerebral-organoid result rather than
+> recording unqualified support.
 
 ---
 
@@ -131,6 +175,12 @@ unless separate clinical evidence exists:
 - chromosome-17 compensation rescues bRG mitotic delay — Bershteyn 28111201
 - Wnt activation rescues premature neurogenesis in MDS organoids — Iefremova 28380362
 - TLR3 inhibition reduces ZIKV-induced organoid volume loss — Dang 27162029
+- azithromycin reduces ZIKV proliferation/cytopathic effect in glial cell lines
+  and human astrocytes — Retallack 27911847
+- sofosbuvir inhibits ZIKV replication in neural stem cells and brain organoids —
+  Sacramento 28098253
+- duramycin and ivermectin reduce ZIKV infection in cerebral organoids, while
+  azithromycin shows little activity — Watanabe 29020636
 
 ---
 
@@ -140,7 +190,10 @@ The following Romero clusters from #4100 are **not** asserted here because no
 single PMID could be identity-verified against the cache in this pass. Resolve
 each with `just fetch-reference` + cached-title confirmation before citing:
 
-- Neural rosette / neural-precursor model papers `[285–287]`.
+- ~~Neural rosette / neural-precursor model papers `[285–287]`.~~
+  **Resolved (2026-07-29):** three cache-verified anchors now recorded in the
+  new "Neural rosette / neural-precursor models" table — Zhang 11731781,
+  Elkabetz 18198334, Chambers 19252484.
 - ~~The remaining individual cerebral-organoid corticogenesis / single-cell
   validation papers in `[288–291]` beyond Lancaster 23995685 (e.g. organoid
   single-cell transcriptomic validation of corticogenesis pathways).~~
@@ -149,10 +202,42 @@ each with `just fetch-reference` + cached-title confirmation before citing:
   *Human cerebral organoids recapitulate gene expression programs of fetal
   neocortex development*) — was already cache-verified and already cited
   (`IN_VITRO`) in `microtubule_dependent_neuronal_migration_failure`; it is now
-  recorded in the platform table above. Any further `[288–291]` organoid
-  validation papers beyond Lancaster 23995685 and Camp 26644564 remain open.
-- Any additional ZIKV `[309–311]` papers (e.g. further AXL / Sofosbuvir rescue
-  reports) beyond the seven verified above.
+  recorded in the platform table above.
+  **Extended (2026-07-29):** Kadoshima 24277810 (species-specific progenitor
+  dynamics) and Paşca 26005811 (3D cortical neurons + astrocytes) added to the
+  platform table. Any further `[288–291]` papers remain open.
+- ~~Any additional ZIKV `[309–311]` papers (e.g. further AXL / Sofosbuvir rescue
+  reports) beyond the seven verified above.~~
+  **Resolved (2026-07-29):** four more cache-verified ZIKV NAM papers added —
+  Qian 27118425, Retallack 27911847, Watanabe 29020636, Sacramento 28098253
+  (the sofosbuvir rescue report the issue asked for). Exact Romero bracket
+  indices are still not pinned (the reference list was not independently
+  available); papers are assigned to the **cluster**, per the methodology note
+  above.
+
+Still open:
+
+- Exact Romero bracket→PMID indices for the ZIKV and `[288–291]` clusters
+  (paper *identity* is verified; bracket *number* is not).
+- Neurosphere-specific `[285–287]` primary papers, as distinct from the
+  rosette/NPC-induction anchors recorded above.
 
 When these are verified, append them to the relevant table above with the same
 columns and the same cached-title-confirmation standard.
+
+---
+
+## Verification log — recalled PMIDs that were **wrong**
+
+Recorded because it is direct evidence for the CLAUDE.md rule that recalled or
+review-summary PMIDs are leads, not ground truth. In the 2026-07-29 pass, two
+confidently-recalled identifiers turned out to cite unrelated papers, and were
+caught only by reading the cached title after `just fetch-reference`:
+
+| Recalled as | Actual cached title | Correct PMID |
+|---|---|---|
+| `PMID:24145430` — Kadoshima 2013 hESC neocortex self-organization | *Plus-end tracking proteins, CLASPs, and a viral Akt mimic regulate herpesvirus-induced stable microtubule formation and virus spread.* | [24277810](https://pubmed.ncbi.nlm.nih.gov/24277810/) |
+| `PMID:28445721` — Watanabe 2017 ZIKV organoid drug screen | *NACHO Mediates Nicotinic Acetylcholine Receptor Function throughout the Brain.* | [29020636](https://pubmed.ncbi.nlm.nih.gov/29020636/) |
+
+Neither wrong PMID was ever written into a table; both were rejected at the
+cached-title check. **Always read the cache before asserting a mapping.**

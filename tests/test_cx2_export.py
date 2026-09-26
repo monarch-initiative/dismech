@@ -38,6 +38,179 @@ def _write_yaml(path: Path, data: dict) -> None:
     path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 
+def test_disorder_to_cx2_preserves_structured_and_legacy_variant_metadata() -> None:
+    disorder = {
+        "name": "Example Disease",
+        "variants": [
+            {
+                "name": "Regulatory duplication",
+                "gene": {"preferred_term": "CFTR"},
+                "variant_type": "duplication",
+                "type": "tandem enhancer duplication",
+                "genomic_contexts": ["intron", "intergenic region"],
+            }
+        ],
+        "genetic": [
+            {
+                "name": "CFTR",
+                "variants": [{"name": "F508del", "type": "inframe_deletion"}],
+            }
+        ],
+    }
+    nodes, _ = _nodes_by_name(_aspect_map(disorder_to_cx2(disorder)))
+
+    structured = nodes["Regulatory duplication"]["v"]
+    assert structured["variant_type"] == "duplication"
+    assert structured["variant_type_detail"] == "tandem enhancer duplication"
+    assert structured["genomic_contexts"] == ["intron", "intergenic region"]
+    legacy = nodes["F508del"]["v"]
+    assert legacy["variant_type"] == "inframe_deletion"
+    assert "genomic_contexts" not in legacy
+    assert "variant_type_detail" not in legacy
+
+
+def test_disorder_to_cx2_preserves_mechanism_genetic_context_classifications() -> None:
+    disorder = {
+        "name": "Regulatory SV disease",
+        "pathophysiology": [
+            {
+                "name": "Silencer deletion",
+                "regulatory_category": "GOE",
+                "mechanism_confidence": "HYPOTHETICAL",
+                "genetic_context": {
+                    "variant_type": "deletion",
+                    "genomic_contexts": ["intron", "intergenic region"],
+                },
+                "downstream": [{"target": "Legacy mechanism"}],
+            },
+            {
+                "name": "Legacy mechanism",
+                "genetic_context": {"allele_type": "missense"},
+            },
+        ],
+    }
+    nodes, _ = _nodes_by_name(_aspect_map(disorder_to_cx2(disorder)))
+
+    mechanism = nodes["Silencer deletion"]["v"]
+    assert mechanism["genetic_context_variant_type"] == "deletion"
+    assert mechanism["regulatory_category"] == "GOE"
+    assert mechanism["mechanism_confidence"] == "HYPOTHETICAL"
+    assert mechanism["genetic_context_genomic_contexts"] == [
+        "intron",
+        "intergenic region",
+    ]
+    assert "variant_type" not in mechanism
+    assert "genetic_context_variant_type" not in nodes["Legacy mechanism"]["v"]
+
+
+def test_disorder_to_cx2_regulatory_target_is_not_an_altered_gene() -> None:
+    target = {"preferred_term": "ID4", "term": {"id": "hgnc:5363", "label": "ID4"}}
+    evidence = [{"reference": "PMID:25701871", "supports": "SUPPORT"}]
+    disorder = {
+        "name": "Regulatory SV disease",
+        "variants": [
+            {
+                "name": "Distal enhancer duplication",
+                "regulatory_target_gene": target,
+                "evidence": evidence,
+            }
+        ],
+        "genetic": [
+            {
+                "name": "ID4",
+                "gene_term": target,
+                "variants": [
+                    {
+                        "name": "Nested regulatory deletion",
+                        "regulatory_target_gene": target,
+                        "evidence": evidence,
+                    }
+                ],
+            }
+        ],
+    }
+    aspects = _aspect_map(disorder_to_cx2(disorder))
+    nodes, id_to_name = _nodes_by_name(aspects)
+    assert len(aspects["edges"]) == 2
+    for edge in aspects["edges"]:
+        assert id_to_name[edge["t"]] == "ID4"
+        assert edge["v"]["predicate"] == "has_regulatory_target"
+        assert "PMID:25701871" in edge["v"]["Evidence"]
+        assert "inferred" not in edge["v"]
+    for name in ("Distal enhancer duplication", "Nested regulatory deletion"):
+        attributes = nodes[name]["v"]
+        assert attributes["regulatory_target_gene"] == "ID4"
+        assert attributes["regulatory_target_gene_id"] == "hgnc:5363"
+        assert (
+            attributes["regulatory_target_gene_url"]
+            == "https://bioregistry.io/hgnc:5363"
+        )
+        assert "represents" not in attributes
+
+
+def test_disorder_to_cx2_preserves_both_variant_gene_roles() -> None:
+    gene = {"preferred_term": "LMNB1", "term": {"id": "hgnc:6637", "label": "LMNB1"}}
+    disorder = {
+        "name": "Regulatory SV disease",
+        "genetic": [
+            {
+                "name": "LMNB1",
+                "gene_term": gene,
+                "variants": [
+                    {
+                        "name": "Inverted LMNB1 duplication",
+                        "gene": gene,
+                        "regulatory_target_gene": gene,
+                        "variant_type": "duplication",
+                        "evidence": [
+                            {"reference": "PMID:39910058", "supports": "SUPPORT"}
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    aspects = _aspect_map(disorder_to_cx2(disorder))
+    nodes, id_to_name = _nodes_by_name(aspects)
+    edges = {
+        edge["v"]["predicate"]: edge["v"]
+        for edge in aspects["edges"]
+        if id_to_name[edge["s"]] == "Inverted LMNB1 duplication"
+        and id_to_name[edge["t"]] == "LMNB1"
+    }
+    assert set(edges) == {"variant_of", "has_regulatory_target"}
+    assert edges["variant_of"]["inference_basis"] == "shared_gene_identifier"
+    assert "inferred" not in edges["has_regulatory_target"]
+    assert all("PMID:39910058" in edge["Evidence"] for edge in edges.values())
+    assert nodes["Inverted LMNB1 duplication"]["v"]["represents"] == "hgnc:6637"
+    assert (
+        nodes["Inverted LMNB1 duplication"]["v"]["regulatory_target_gene_id"]
+        == "hgnc:6637"
+    )
+
+
+def test_disorder_to_cx2_regulatory_target_mechanism_fallback_has_evidence() -> None:
+    gene = {"preferred_term": "ID4"}
+    disorder = {
+        "name": "Regulatory SV disease",
+        "variants": [
+            {
+                "name": "Distal deletion",
+                "regulatory_target_gene": gene,
+                "evidence": [{"reference": "PMID:25701871", "supports": "SUPPORT"}],
+            }
+        ],
+        "pathophysiology": [{"name": "ID4 dysregulation", "genes": [gene]}],
+    }
+    aspects = _aspect_map(disorder_to_cx2(disorder))
+    edges = _edges_by_endpoints(aspects)
+    edge = edges[("Distal deletion", "ID4 dysregulation")]["v"]
+    assert edge["predicate"] == "contributes_to"
+    assert edge["inferred"] is True
+    assert "regulatory target" in edge["description"]
+    assert "PMID:25701871" in edge["Evidence"]
+
+
 def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     disorder_path = repo_root / "kb" / "disorders" / "Stargardt_Disease.yaml"
@@ -45,6 +218,13 @@ def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
     cx2 = disorder_to_cx2(
         load_disorder(disorder_path),
         source_path=disorder_path,
+        release_metadata={
+            "version": "2026-09-test",
+            "author": "DisMech contributors",
+            "rights": "BSD-3-Clause",
+            "rightsHolder": "Example rights holder",
+        },
+        source_revision="abc123",
     )
     aspects = _aspect_map(cx2)
     nodes, _ = _nodes_by_name(aspects)
@@ -56,6 +236,9 @@ def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
 
     network_attributes = aspects["networkAttributes"][0]
     assert network_attributes["name"] == "Stargardt Disease"
+    assert network_attributes["version"] == "2026-09-test"
+    assert network_attributes["author"] == "DisMech contributors"
+    assert network_attributes["source_revision"] == "abc123"
     assert "Stargardt disease" in network_attributes["disease"]
     assert network_attributes["disease_term_id"] == "MONDO:0019353"
     assert network_attributes["node_count"] == len(aspects["nodes"])
@@ -67,7 +250,7 @@ def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
     assert "photoreceptor cell" in network_attributes["tissue"]
     assert "retinal pigment epithelial cell" in network_attributes["tissue"]
     assert (
-        "github.com/monarch-initiative/dismech/blob/main/kb/disorders/Stargardt_Disease.yaml"
+        "github.com/monarch-initiative/dismech/blob/abc123/kb/disorders/Stargardt_Disease.yaml"
         in network_attributes["prov:wasDerivedFrom"]
     )
 
@@ -171,6 +354,58 @@ def test_disorder_to_cx2_exports_crohn_model_edges() -> None:
     assert model_edge["v"]["predicate"] == "models"
     assert model_edge["v"]["line_style"] == "dashed"
     assert "PMID:39701210" in model_edge["v"]["Evidence"]
+
+
+def test_disorder_to_cx2_exports_animal_model_edges() -> None:
+    """Animal models must reach cx2 as real nodes carrying their link detail.
+
+    Regression guard for review feedback on #8217: the cx2 `add_detail` block
+    for animal models was unreachable while `animal_models` produced no graph
+    nodes or `models` edges, so edge detail had nothing to attach to.
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    disorder_path = (
+        repo_root / "kb" / "disorders" / "Amyotrophic_Lateral_Sclerosis.yaml"
+    )
+
+    cx2 = disorder_to_cx2(
+        load_disorder(disorder_path),
+        source_path=disorder_path,
+    )
+    aspects = _aspect_map(cx2)
+    node_map, _ = _nodes_by_name(aspects)
+    edges = _edges_by_endpoints(aspects)
+
+    canine = "Canine degenerative myelopathy (SOD1 E40K homozygous dog)"
+    assert canine in node_map
+
+    model_edge = edges[(canine, "Motor Neuron Degeneration")]
+    assert model_edge["v"]["predicate"] == "models"
+    assert "PMID:19188595" in model_edge["v"]["Evidence"]
+    # The caveat slots must reach cx2, not stay HTML-only.
+    assert model_edge["v"]["relationship"] == "RECAPITULATES"
+    assert model_edge["v"]["fidelity"] == "MODERATE"
+    assert "E40K is not among the SOD1 alleles" in model_edge["v"]["limitations"]
+
+    # The equine model links two different nodes, which is the case that makes
+    # per-link (rather than per-model) detail necessary -- and the two links
+    # carry different relationships, so they must not share a predicate.
+    equine = "Equine motor neuron disease (vitamin E-deficient horse)"
+    degeneration = edges[(equine, "Motor Neuron Degeneration")]["v"]
+    assert degeneration["predicate"] == "partially_models"
+    assert degeneration["relationship"] == "PARTIALLY_RECAPITULATES"
+    # Asserted on the NON-default predicate deliberately. `description` and
+    # `Evidence` come only from the (source, target, predicate) detail lookup,
+    # with no edge-payload fallback, so a mismatch between the registered key
+    # and the mapped predicate silently drops both -- and would pass a test
+    # that checked the `models` edge alone.
+    assert degeneration["description"]
+    assert "PMID:7988544" in degeneration["Evidence"]
+    assert edges[(equine, "Oxidative Stress")]["v"]["predicate"] == "models"
+
+    # Nodes the models point at advertise them back.
+    assert canine in node_map["Motor Neuron Degeneration"]["v"]["linked_animal_models"]
+    assert node_map[canine]["v"]["type_label"] == "Animal Model"
 
 
 def test_disorder_to_cx2_exports_event_location_links() -> None:

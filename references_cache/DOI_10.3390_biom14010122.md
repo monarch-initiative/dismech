@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3390/biom14010122
+extractor_version: 1
 title: "Real-World Safety and Effectiveness of Voretigene Neparvovec: Results up to 2 Years from the Prospective, Registry-Based PERCEIVE Study"
 authors:
 - M. Dominik Fischer
@@ -17,6 +18,7 @@ journal: Biomolecules
 year: '2024'
 doi: 10.3390/biom14010122
 content_type: abstract_only
+is_preprint: false
 full_text_attempted: true
 ---
 
