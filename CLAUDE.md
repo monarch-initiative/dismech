@@ -1153,7 +1153,26 @@ sed -n "1,120p" kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
 just grouping-nesting-audit          # declared tree + undeclared containments
+just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
 ```
+
+**Check a MONDO mapping by walking members up, not the class down.** A grouping
+mapping a class with `skos:exactMatch` or `skos:narrowMatch` claims its members
+sit inside that class. Verifying that by expanding the class's descendant
+closure is the expensive direction — it scales with the ontology, and the
+configured `ols:mondo` adapter cannot do it at all. Inverted, it is cheap:
+resolve each member's own MONDO term to its ancestors and look the mapped class
+up in that set, one bounded walk per member, no 588 MB build. `broadMatch`,
+`closeMatch` and `relatedMatch` assert no subsumption, so members outside the
+class are expected there and are not reported.
+
+**A member outside the mapped class is a lead, not a defect.** It is either a
+genuine scope difference — the dismech concept is broader than the MONDO class,
+so the *predicate* is wrong — or MONDO classifying that disease by clinical
+presentation rather than mechanism, which is a candidate MONDO term request and
+not a membership error. Both occur in the current corpus, which is why the
+recipe is report-only and `--strict` gates on the predicate rather than on any
+individual member.
 
 **Nesting is declared, never inferred.** A grouping sits below another only
 when the parent lists it as a `member_type: GROUPING` member, and that is the
@@ -3183,6 +3202,19 @@ none of these degradations is a decision about whether MONDO or HP *matters* —
 is the answer to "can this be served without a download". They have in common
 that the ontology is incidental to what they are doing, and each already had a
 degradation path to take.
+
+**Inverting a closure question can remove the build dependency entirely, but
+only for the questions that are actually per-member.** `ols:mondo` raises
+`NotImplementedError` for `descendants` *and* `ancestors`, so the OAK wrapper
+looks like a dead end — but the OLS REST `hierarchicalAncestors` endpoint
+underneath serves ancestors fine, and "is this member under that class" only
+ever needed ancestors. That is what `just grouping-mondo-consistency` does.
+What it cannot do is replace `render`'s grouping coverage table or
+`scripts/grouping_mondo_gaps.py`: both enumerate MONDO descendants that have
+**no** dismech entry, and you cannot discover terms you do not hold by walking
+up from ones you do. That half is irreducibly a descendant query and still
+needs the local build. Before reaching for the build, ask which direction the
+question actually runs in.
 
 **Not everything that opens a build is a bug, so check before adding a guard.**
 `compare/mondo_export._materialize_default_mondo_db` opens `sqlite:obo:mondo` to
