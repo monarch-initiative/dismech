@@ -26,6 +26,15 @@ This module provides two tiers of tooling:
    aspirational (a member may not yet declare a ``conforms_to`` edge the
    criteria require), so the CLI reports rather than gates.
 
+   A phenotype the entry records as *absent* is not a phenotype the entry
+   has. ``frequency: EXCLUDED`` on the phenotype record and ``modifier: ABSENT``
+   on its descriptor both say the feature was looked for and is not part of
+   the disease, so :func:`extract_disease_facts` leaves such records out of
+   the phenotype facts rather than letting an exclusion satisfy a
+   ``HAS_PHENOTYPE`` leaf. The case that found this was
+   ``Mucopolysaccharidosis type X``, which records ``Dysostosis multiplex`` as
+   EXCLUDED precisely because the Mucopolysaccharidoses criterion names it.
+
    A NOT_SATISFIED result for a listed member under NECESSARY criteria is
    reported as such, without interpretation. It is a contradiction between two
    curated assertions — "D is a member of G" and "members of G satisfy C" — and
@@ -512,9 +521,11 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
             if isinstance(ihp, str) and ihp.startswith("HP:"):
                 facts.inheritance_ids.add(ihp)
 
-        # Phenotypes: capture HP id + (strongest) frequency band.
+        # Phenotypes: capture HP id + (strongest) frequency band. A record
+        # the entry marks as absent (see _phenotype_is_excluded) carries no
+        # presence fact and is skipped rather than folded in as present.
         pt = node.get("phenotype_term")
-        if isinstance(pt, dict):
+        if isinstance(pt, dict) and not _phenotype_is_excluded(node, pt):
             pterm = pt.get("term") or {}
             hp = pterm.get("id") if isinstance(pterm, dict) else None
             if isinstance(hp, str) and hp.startswith("HP:"):
@@ -522,6 +533,20 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
                     facts.phenotype_freq.get(hp), node.get("frequency")
                 )
     return facts
+
+
+def _phenotype_is_excluded(node: dict, descriptor: dict) -> bool:
+    """True when a phenotype record asserts the feature is absent.
+
+    Two curated spellings say the same thing: ``frequency: EXCLUDED`` on the
+    phenotype record (the HPO frequency band for a feature looked for and not
+    found) and ``modifier: ABSENT`` on its ``phenotype_term`` descriptor. Either
+    one is an assertion of absence, not presence, so the record must not
+    satisfy a ``HAS_PHENOTYPE`` leaf naming that term or any of its ancestors.
+    """
+    if node.get("frequency") == "EXCLUDED":
+        return True
+    return descriptor.get("modifier") == "ABSENT"
 
 
 def _stronger_freq(a: str | None, b: str | None) -> str | None:
