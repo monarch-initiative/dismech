@@ -3175,6 +3175,24 @@ cited paper. Worked examples: `Progressive_Supranuclear_Palsy` (ChiCTR),
 *descriptions* in the schema render as "Phase III - Efficacy confirmation…", which is what
 makes the free-text form look plausible; the permissible value is the upper-snake-case key.
 
+**Status/phase go stale — audit, don't assume.** `status:` and `phase:` are a
+snapshot taken at curation time. ClinicalTrials.gov is the one live-API source in
+the repo with no `*-refresh` recipe, and the cached trial records carry no
+retrieval timestamp, so drift is invisible offline. Before trusting or reusing a
+curated status, re-check it:
+
+```bash
+just clinicaltrials-status-audit                            # whole KB
+just clinicaltrials-status-audit kb/disorders/Asthma.yaml   # one file
+just clinicaltrials-status-audit --only-drift               # just the worklist
+```
+
+The audit reports; it never rewrites the KB, because a trial moving to
+`COMPLETED`/`TERMINATED` usually wants its `description`/`evidence` revisited too,
+and some drift is a curation-time error rather than staleness. Network-dependent
+and therefore advisory — not part of `just qc`. See
+[`docs/clinical-trial-status.md`](docs/clinical-trial-status.md).
+
 ### MorPhiC Cellular Phenotypes
 
 The MorPhiC Consortium (Molecular Phenotypes of Null Alleles in Cells) creates null alleles of human genes in iPSC-derived multicellular systems and measures their molecular and cellular phenotypes. MorPhiC data can enrich dismech entries with `category: Cellular` phenotypes.
@@ -4256,6 +4274,17 @@ Unlike assignment or a CHANGES_REQUESTED review, this hold leaves no label,
 review, or assignee: its only trace is a `SKIP` line in the run summary naming
 the strike count. Until #10988's tier 2 posts a comment on the PR, that summary
 and this paragraph are the only places it is recorded.
+
+**A fourth hold is also invisible, and lasts one sweep.** When a merge queue is
+active, a candidate that adds a `cache/<prefix>/*.csv` term-cache row already
+added by a PR enqueued earlier in the *same* sweep is skipped, because the two
+would conflict in the queue and the second would be ejected. Only multi-field
+rows (`curie,label,retrieved_at`) count — a bare-CURIE enum row is identical
+bytes in both PRs and merges cleanly. The hold is within-run and queue-mode
+only, clears itself on the next sweep, and is disabled by
+`--no-conflict-batching`. Like the ejection hold, its only trace is a `SKIP`
+line in the run summary, which names the PR holding the contended row;
+`just auto-merge-preview` reports it too.
 
 Immediately before each action, the controller re-reads every PR guard and pins
 the merge request to that verified head SHA. When a required merge queue is
