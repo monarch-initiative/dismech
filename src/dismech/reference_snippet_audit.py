@@ -19,22 +19,28 @@ Matching semantics are borrowed from the validator itself
 (``SupportingTextValidator``: editorial ``[...]`` stripped, ``...`` splitting
 into independently-matched parts, Greek letters spelled out, punctuation and
 case folded, whitespace collapsed) so the two agree on what "verified" means.
+Which brackets count as editorial is read from the same config both tools use
+(``literal_bracket_patterns``), and a mismatch that bracket stripping alone
+explains says so in its reason rather than reporting a bare "not found" that
+reads as a misquote (#8597).
 
 Issue #7450 added a second, deliberately narrow matching pass on top of that,
 because a mismatch against the cache is not the same claim as a misquote in the
 KB. Two defects live in *our cached text* rather than in the curation:
 
-- **PDF ligatures.** PDF extraction emits ``ﬁ`` (U+FB01) and friends, so the
-  cache reads ``amyloid ﬁbrils`` where the snippet reads ``amyloid fibrils``.
-  The upstream ``normalize_text`` does not fold these.
 - **Stripped inline markup joining words.** Full-text HTML extraction removes
   ``<i>``/``<em>`` without inserting a space, so "within the *ANAPC7* locus"
   caches as ``within theANAPC7locus``.
 
-Both are cache defects that no amount of re-quoting can fix, so a snippet that
-matches only after ligature folding and ignoring word boundaries is reported as
-verified under :data:`PairOutcome.VERIFIED_RELAXED` -- counted as verified, but
-tallied separately so the cache-defect backlog stays visible.
+That is a cache defect no amount of re-quoting can fix, so a snippet that
+matches only after compatibility folding and ignoring word boundaries is
+reported as verified under :data:`PairOutcome.VERIFIED_RELAXED` -- counted as
+verified, but tallied separately so the cache-defect backlog stays visible.
+
+PDF ligatures (``ﬁ`` for ``fi``) used to need a second local table here. They
+are now folded by the upstream ``normalize_text`` itself, on both the strict and
+the relaxed path, so a ligature mismatch is no longer a relaxed match -- it is
+simply a match.
 
 Separately, a snippet quoted from full text that was never cached (the cache
 holds only the abstract) is neither a misquote nor a mangled cache but an
@@ -64,6 +70,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from linkml_reference_validator.matching import split_supporting_text
 
 from dismech.frontmatter import split_frontmatter
 from dismech.yaml_io import safe_load
@@ -91,36 +98,6 @@ NORMALIZED_CACHE_SIZE = 512
 # detail so a CI log stays readable. The summary line always reports the
 # full count.
 MAX_REPORTED_MISMATCHES = 20
-
-# Multi-letter forms that must be expanded before matching. Two different kinds
-# live here, and the table is NOT redundant with the NFKC pass that follows it:
-#
-# - The first block are true *compatibility* ligatures, the ones PDF text
-#   extraction emits as single codepoints. NFKC does decompose these, so listing
-#   them is a fast path rather than a necessity.
-# - ``Æ æ Œ œ`` are encoded as distinct letters, not compatibility characters,
-#   and NFKC leaves them exactly as they are. For those four this table is the
-#   only thing doing the folding. They are also genuine orthography (archaic
-#   ``anæmia``, ``fœtal``) rather than an extractor artifact -- folding them
-#   symmetrically costs nothing for matching and lets a modern transcription
-#   match an old-spelling source.
-LIGATURES = {
-    # Compatibility ligatures (NFKC would also handle these).
-    "ﬀ": "ff",
-    "ﬁ": "fi",
-    "ﬂ": "fl",
-    "ﬃ": "ffi",
-    "ﬄ": "ffl",
-    "ﬅ": "st",
-    "ﬆ": "st",
-    "Ĳ": "IJ",
-    "ĳ": "ij",
-    # Distinct letters: NFKC does NOT touch these, so the table is required.
-    "Œ": "OE",
-    "œ": "oe",
-    "Æ": "AE",
-    "æ": "ae",
-}
 
 # ``content_type`` values in the reference-cache frontmatter that mean "no full
 # text was ever cached". A snippet quoted from the body of such a paper cannot
@@ -187,6 +164,7 @@ class AuditReport:
     not_cached: int = 0
     mismatched: list[Unverified] = field(default_factory=list)
     abstract_only_pairs: list[Unverified] = field(default_factory=list)
+    boundary_suspect: list[Unverified] = field(default_factory=list)
     unreadable: list[str] = field(default_factory=list)
 
     def summary_line(self) -> str:
@@ -209,6 +187,8 @@ class AuditReport:
             notes.append(f"{self.skipped_prefix} skipped by prefix")
         if self.not_cached:
             notes.append(f"{self.not_cached} not cached locally")
+        if self.boundary_suspect:
+            notes.append(f"{len(self.boundary_suspect)} starting or ending mid-word")
         if notes:
             line += f" ({', '.join(notes)})"
         return line
@@ -227,6 +207,21 @@ class AuditReport:
                 item.format() for item in self.abstract_only_pairs[:max_mismatches]
             )
             remaining = len(self.abstract_only_pairs) - max_mismatches
+            if remaining > 0:
+                lines.append(f"    ... and {remaining} more")
+        if self.boundary_suspect:
+            lines.append(
+                f"  Snippets verified only as a mid-word fragment ({len(self.boundary_suspect)}). "
+                "The quote IS in the cached text, so every other check passes -- "
+                "which is exactly what made dismech#9207 invisible for two fix "
+                "rounds. A fragment cut inside a word carries no propositional "
+                "content and invites the truncation being read back as a fact "
+                "about the source:"
+            )
+            lines.extend(
+                item.format() for item in self.boundary_suspect[:max_mismatches]
+            )
+            remaining = len(self.boundary_suspect) - max_mismatches
             if remaining > 0:
                 lines.append(f"    ... and {remaining} more")
         if self.mismatched:
@@ -430,23 +425,32 @@ class CachedReferenceIndex:
         return SupportingTextValidator.normalize_text(text)
 
     @classmethod
-    def fold_ligatures(cls, text: str) -> str:
-        """Expand typographic ligatures a PDF extractor leaves in cached text.
+    def fold_compatibility(cls, text: str) -> str:
+        """Apply NFKC, bridging codepoints that render identically.
 
-        ``normalize_text`` treats ``ﬁ`` (U+FB01) as a single word character, so
-        cached ``amyloid ﬁbrils`` never matches a snippet reading ``amyloid
-        fibrils`` however faithful the transcription. Folding is applied to both
-        sides, so it can only ever bring a correct quote and its mangled cache
-        back into agreement -- it cannot make two genuinely different strings
-        match.
+        The upstream ``normalize_text`` deliberately does *not* do this: NFKC
+        rewrites scientific notation, turning ``10⁶`` into ``106`` and ``H₂O``
+        into ``H2O``, which would make two genuinely different quantities
+        compare equal in the gate. That is the right call for a gate.
+
+        This advisory pass is a different question -- "is our *cached text*
+        mangled?" -- and there NFKC does useful work that nothing else does:
+        a PDF extractor emits ``µ`` (U+00B5 MICRO SIGN) where the publisher set
+        ``μ`` (U+03BC GREEK SMALL LETTER MU), and no amount of re-quoting fixes
+        that. Applied to both sides, so it can only bring a correct quote and
+        its mangled cache back into agreement.
+
+        Typographic ligatures are **not** folded here any more; upstream's
+        ``normalize_text`` handles those on both paths. Note upstream folds
+        ``ﬁ``/``ﬀ``/``Ĳ`` but deliberately preserves ``Æ``/``Œ`` as the distinct
+        letters they are, and this module follows that choice rather than
+        re-diverging from the gate it reports on.
         """
-        for ligature, expansion in LIGATURES.items():
-            text = text.replace(ligature, expansion)
         return unicodedata.normalize("NFKC", text)
 
     @classmethod
     def normalize_relaxed(cls, text: str) -> str:
-        """Normalize for the cache-defect pass: folded ligatures, no word gaps.
+        """Normalize for the cache-defect pass: NFKC-folded, no word gaps.
 
         Dropping whitespace entirely is what tolerates markup-stripped joins
         (``theANAPC7locus``). It is a real loosening, but a narrow one: the
@@ -454,32 +458,88 @@ class CachedReferenceIndex:
         merges word boundaries rather than admitting arbitrary text. Only pairs
         that already failed the strict check are ever tested this way.
         """
-        return cls.normalize(cls.fold_ligatures(text)).replace(" ", "")
+        return cls.normalize(cls.fold_compatibility(text)).replace(" ", "")
 
     def split_snippet(self, snippet: str) -> list[str]:
         """Split a snippet into the parts the validator matches independently.
 
-        Mirrors ``SupportingTextValidator._split_query``, including its
-        ``literal_bracket_patterns`` branch: bracketed content matching a
-        configured pattern (e.g. ``[2Fe-2S]``) is source text the validator
-        keeps, so the audit must keep it too. Without configured patterns both
+        Delegates to the validator's own public splitter, so this audit and the
+        gate can never disagree about where a ``...`` breaks a quote or which
+        ``[...]`` spans are editorial. This used to be a local reimplementation
+        of the private ``SupportingTextValidator._split_query``; upstream made it
+        public (linkml/linkml-reference-validator#74) precisely so downstream
+        reporting would stop copying it.
+
+        ``literal_bracket_patterns`` come from this repo's
+        ``conf/reference_validator_config.yaml``: bracketed content matching one
+        is source text the validator keeps, so the audit keeps it too. Under the
+        current config that means an all-caps abbreviation (``[APTT]``) or a
+        percent-bearing span (``[28, 62%]``). Without configured patterns both
         sides strip every ``[...]`` as an editorial note.
         """
-        if not self._literal_bracket_regexes:
-            without_brackets = re.sub(r"\[.*?\]", " ", snippet)
-        else:
+        return split_supporting_text(snippet, self._literal_bracket_regexes)
 
-            def replace_bracket(match: re.Match[str]) -> str:
-                content = match.group(1)
-                if any(
-                    regex.search(content) for regex in self._literal_bracket_regexes
-                ):
-                    return match.group(0)
-                return " "
+    def is_literal_bracket(self, content: str) -> bool:
+        """True when bracketed ``content`` is source text rather than a gloss.
 
-            without_brackets = re.sub(r"\[(.*?)\]", replace_bracket, snippet)
+        Content matching a configured ``literal_bracket_pattern`` is kept; with
+        no patterns configured nothing is literal, which is upstream's default.
+        """
+        return any(regex.search(content) for regex in self._literal_bracket_regexes)
 
-        parts = re.split(r"\s*\.{2,}\s*", without_brackets)
+    def stripped_brackets(self, snippet: str) -> tuple[str, ...]:
+        """Bracketed spans this snippet loses before matching, in order."""
+        return tuple(
+            match.group(0)
+            for match in re.finditer(r"\[(.*?)\]", snippet)
+            if not self.is_literal_bracket(match.group(1))
+        )
+
+    def brackets_explaining_mismatch(
+        self, snippet: str, content: str
+    ) -> tuple[str, ...]:
+        """Stripped spans whose removal is what broke the match, else empty.
+
+        Used only to explain a failure (#8597): when a quote matches the cached
+        text with these spans restored, nothing is wrong with the quote -- the
+        bracket-stripping step is what broke it, and the error should say so
+        rather than leave the curator hunting for a paraphrase they never wrote.
+
+        A snippet can carry both kinds of bracket at once -- a genuine curator
+        gloss (absent from the source, and correctly stripped) alongside source
+        text the config does not yet keep. Restoring only the spans that are
+        actually present in the cached text separates the two, so the hint names
+        the culprit instead of going silent on the mixed case.
+        """
+        candidates = tuple(
+            span
+            for span in self.stripped_brackets(snippet)
+            if self.normalize(span[1:-1]).strip()
+            and self.normalize(span[1:-1]) in content
+        )
+        if not candidates:
+            return ()
+
+        def restore(match: re.Match[str]) -> str:
+            keep = (
+                self.is_literal_bracket(match.group(1)) or match.group(0) in candidates
+            )
+            return match.group(0) if keep else " "
+
+        restored = re.sub(r"\[(.*?)\]", restore, snippet)
+        if all(self.normalize(part) in content for part in self._split_parts(restored)):
+            return candidates
+        return ()
+
+    @staticmethod
+    def _split_parts(text: str) -> list[str]:
+        """Split on ``...`` only, leaving brackets alone.
+
+        Not :func:`split_supporting_text`: the one caller has already decided
+        which bracketed spans to keep, and the public splitter would strip them
+        again. This is the ellipsis half of that function on its own.
+        """
+        parts = re.split(r"\s*\.{2,}\s*", text)
         return [re.sub(r"\s+", " ", part).strip() for part in parts if part.strip()]
 
     def is_skipped(self, reference_id: str) -> bool:
@@ -535,7 +595,7 @@ class CachedReferenceIndex:
         return self._by_bare_id.get(key)
 
     @staticmethod
-    def _extract_body(text: str) -> str:
+    def extract_body(text: str) -> str:
         """Strip YAML frontmatter and pre-content headers, as the fetcher does.
 
         The frontmatter split is delimiter-aware (issue #7697): a ``---`` inside a
@@ -571,7 +631,7 @@ class CachedReferenceIndex:
             text = path.read_text(encoding="utf-8")
         except OSError:  # pragma: no cover - unreadable cache file
             return None
-        return self._extract_body(text) or None
+        return self.extract_body(text) or None
 
     def _memoized_content(
         self,
@@ -630,6 +690,68 @@ class CachedReferenceIndex:
         return content_type is not None and content_type in ABSTRACT_ONLY_CONTENT_TYPES
 
 
+def boundary_defect(index: CachedReferenceIndex, pair: SnippetPair) -> str | None:
+    """Reason a strictly-verified snippet begins or ends inside a word, else ``None``.
+
+    A snippet cut mid-word is a substring of the cached text, so it verifies --
+    which is precisely the property that hid dismech#9207 through two fix
+    rounds. Four snippets there stopped at ``movement d``; the truncation was
+    then read back as a *fact about the source* ("the cached abstract is
+    truncated mid-word") and restated in a node description and an evidence
+    explanation, all of it validating cleanly the whole time.
+
+    Because ``normalize`` reduces text to word characters and single spaces, the
+    test is just whether the match is flanked by a non-space character. A quote
+    is reported only when **every** occurrence in the cached text is flanked --
+    a fragment that lands cleanly somewhere is a real quote that also happens to
+    appear inside a longer word elsewhere.
+
+    Deliberately restricted to strict matches. ``normalize_relaxed`` ends in
+    ``.replace(" ", "")``, so under relaxed matching *every* match is flanked by
+    word characters by construction and this would fire on 100% of relaxed
+    verifications -- which are exactly the #8048 ligature/hyphenation cases that
+    the legitimate "begins mid-word" curator notes are about.
+    """
+    content = index.normalized_content(pair.reference_id)
+    if content is None:
+        return None
+    for part in index.split_snippet(pair.snippet):
+        needle = index.normalize(part)
+        if not needle:
+            continue
+        clean = False
+        flanks: list[str] = []
+        start = content.find(needle)
+        while start != -1:
+            end = start + len(needle)
+            before = content[start - 1] if start > 0 else " "
+            after = content[end] if end < len(content) else " "
+            # Only an ALPHABETIC flank means a word was cut in half. A digit
+            # flank is a superscript citation marker or footnote fused into the
+            # cached text by extraction ("...hearing loss and microcephaly20-26"
+            # in PMID:40760247) -- a cache defect of the #8048 family that the
+            # curator cannot fix by re-quoting, and not the #9207 shape at all.
+            if not before.isalpha() and not after.isalpha():
+                clean = True
+                break
+            side = []
+            if before.isalpha():
+                side.append("start")
+            if after.isalpha():
+                side.append("end")
+            flanks.append("/".join(side))
+            start = content.find(needle, start + 1)
+        if clean or not flanks:
+            continue
+        where = " and ".join(sorted(set(flanks[0].split("/"))))
+        return (
+            f"Snippet part {part!r} appears in the cached text only as a "
+            f"mid-word fragment (cut at the {where}). Re-quote from a word "
+            "boundary; do not record the cut as a property of the source."
+        )
+    return None
+
+
 def check_pair(
     index: CachedReferenceIndex, pair: SnippetPair
 ) -> PairOutcome | Unverified:
@@ -661,7 +783,32 @@ def check_pair(
     ):
         return PairOutcome.VERIFIED_RELAXED
 
-    # Third pass: an abstract-only cache cannot contain a quote taken from the
+    # Third pass: name bracket stripping when that is what broke the match
+    # (#8597). The quote is then present in the cache verbatim, so this is
+    # neither a misquote nor an incomplete cache, and saying "not found as
+    # substring" and stopping sends the curator looking for a paraphrase that
+    # does not exist. The fix is a `literal_bracket_patterns` entry in
+    # conf/reference_validator_config.yaml, not a re-quote.
+    culprits = index.brackets_explaining_mismatch(pair.snippet, content)
+    if culprits:
+        spans = (
+            culprits[0]
+            if len(culprits) == 1
+            else f"{', '.join(culprits[:-1])} and {culprits[-1]}"
+        )
+        verb = "is" if len(culprits) == 1 else "are"
+        return Unverified(
+            pair=pair,
+            reason=(
+                f"Text part not found as substring: {missing[0]!r} "
+                f"(note: the snippet matches the cached text exactly once {spans} "
+                f"{verb} kept; bracketed spans are stripped before matching "
+                "unless conf/reference_validator_config.yaml lists a matching "
+                "literal_bracket_patterns entry)"
+            ),
+        )
+
+    # Fourth pass: an abstract-only cache cannot contain a quote taken from the
     # full text. That is an incomplete cache, not a misquote, so it is reported
     # as its own advisory state rather than as a mismatch.
     if index.is_abstract_only(pair.reference_id):
@@ -687,6 +834,7 @@ def audit_files(
     config_path: Path = DEFAULT_CONFIG,
     cache_dir: Path | None = None,
     unskip_prefixes: Iterable[str] = (),
+    check_boundaries: bool = False,
 ) -> AuditReport:
     """Count and re-verify every reference/snippet pair in ``paths``.
 
@@ -726,6 +874,12 @@ def audit_files(
                     report.mismatched.append(outcome)
             elif outcome is PairOutcome.VERIFIED:
                 report.verified += 1
+                if check_boundaries:
+                    reason = boundary_defect(index, pair)
+                    if reason is not None:
+                        report.boundary_suspect.append(
+                            Unverified(pair=pair, reason=reason)
+                        )
             elif outcome is PairOutcome.VERIFIED_RELAXED:
                 report.verified_relaxed += 1
             elif outcome is PairOutcome.SKIPPED_PREFIX:
@@ -769,6 +923,15 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--check-boundaries",
+        action="store_true",
+        help=(
+            "Also report snippets that verify only as a mid-word fragment of the "
+            "cached text (issue #9226). Off by default so the affirmative count "
+            "stays cheap; strict matches only, never relaxed ones."
+        ),
+    )
+    parser.add_argument(
         "--unskip-prefix",
         action="append",
         default=[],
@@ -787,11 +950,16 @@ def main(argv: list[str] | None = None) -> int:
         config_path=args.config,
         cache_dir=args.cache_dir,
         unskip_prefixes=args.unskip_prefix,
+        check_boundaries=args.check_boundaries,
     )
     print(report.format())
 
     if args.strict:
-        unverified = list(report.mismatched)
+        # boundary_suspect is populated only when --check-boundaries was passed,
+        # so an existing --strict caller that does not opt in sees an empty list
+        # and its exit code is unchanged. Opting in makes boundary findings
+        # gating, which is the point of asking for them.
+        unverified = list(report.mismatched) + report.boundary_suspect
         if not args.allow_abstract_only:
             unverified += report.abstract_only_pairs
         if unverified:
