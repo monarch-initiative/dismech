@@ -89,6 +89,12 @@ EXCLUDED_ROOTS = {
     # own `[Disease_Entry] Node name` examples are checked instead by
     # `just node-classes --verify-kb`, which runs ungated in main.yaml.
     "kb/node_classes": "plain-text class tree + TSV seed; no YAML",
+    # Transcriptions of external gene-classification systems
+    # (`GeneClassificationCollection`). Flat gene -> value rows keyed on HGNC
+    # CURIEs, with no `<kind>#<name>` slots to resolve. Their own contract --
+    # that every value is a member of the declared enum -- is checked by
+    # `tests/test_gene_classifications.py` instead.
+    "kb/gene_classifications": "source transcriptions; no entity-ref slots",
 }
 
 
