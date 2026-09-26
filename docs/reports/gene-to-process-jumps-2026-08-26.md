@@ -153,10 +153,22 @@ just check-gene-activity-grounding --count
 just update-gene-activity-baseline                 # only ever to SHRINK
 ```
 
-CI derives the grandfather set live from the base branch via
-`GENE_ACTIVITY_BASELINE_REF`, so a PR fails only on genes it *adds* whose
-landing node names no molecular function. There is no snapshot to keep in sync
-and nothing for parallel curation PRs to race on.
+CI derives the grandfather set live from the base branch, so a PR fails only on
+genes it *adds* whose landing node names no molecular function. There is no
+snapshot to keep in sync and nothing for parallel curation PRs to race on.
+
+**Where it runs matters as much as what it checks.** The gate is an *ungated*
+entry in the "Run whole-repo gates" step, passing
+`--against-ref "origin/$BASE_REF"`, beside the pathograph connectivity floor.
+It cannot live in the path-filtered Python test lane: a curation PR touches only
+`kb/`, matches neither the `python` nor the `schema` filter, and so would never
+run the one check written for it — it would pass its own CI and then be ejected
+from the merge queue, which counts toward the ejection-strike hold. That is the
+same hole CLAUDE.md records for the entity-ref and duplicate-key sweeps (#9473).
+The pytest `test_no_newly_ungrounded_genes` is the exact twin of that step and
+is marked `ci_step_twin`, so it is deselected from the lane and still runs
+locally and in the nightly sweep; `tests/test_ci_step_twins.py` fails if the
+step is ever removed or path-gated, which brings the twin back into the lane.
 `tests/gene_activity_grounding_baseline.txt` (2,816 findings) is the local and
 shallow-checkout fallback, and is allowed to drift stale-high: a line for a gene
 since grounded grandfathers nothing.

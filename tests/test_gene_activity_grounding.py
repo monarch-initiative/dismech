@@ -7,6 +7,8 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).parent.parent
 SCRIPT_PATH = ROOT / "scripts" / "check_gene_activity_grounding.py"
 SPEC = importlib.util.spec_from_file_location(
@@ -18,6 +20,7 @@ sys.modules[SPEC.name] = check
 SPEC.loader.exec_module(check)
 
 
+@pytest.mark.ci_step_twin("scripts/check_gene_activity_grounding.py")
 def test_no_newly_ungrounded_genes():
     # resolve_baseline() grandfathers against origin/main when CI sets
     # GENE_ACTIVITY_BASELINE_REF (so the base branch is green by construction
