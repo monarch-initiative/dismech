@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1581,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">mps_gag_storage</span>
-                <span class="badge badge-count">8 disorders</span>
+                <span class="badge badge-count">9 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
                 
@@ -1868,11 +1920,13 @@ This mechanism module involves decreased endochondral ossification (GO:0001958).
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">9</span>
             </div>
             
             <div class="crosslink-list">
@@ -2018,6 +2072,21 @@ This mechanism module involves decreased endochondral ossification (GO:0001958).
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Mucopolysaccharidosis_type_X.html">Mucopolysaccharidosis type X</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Lysosomal accumulation of 2-O-sulfoglucuronate-capped GAG fragments → Lysosomal GAG Accumulation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Sanfilippo_syndrome.html">Sanfilippo syndrome</a>
                     
                     <span class="crosslink-desc">
@@ -2116,11 +2185,13 @@ This mechanism module involves decreased endochondral ossification (GO:0001958).
             
             <div class="item-box anchor-target" id="module-pathophysiology-lysosomal-gag-accumulation" data-dismech-node="Lysosomal GAG Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal GAG Accumulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Deficiency of a specific GAG-degrading lysosomal enzyme leaves a partially degraded glycosaminoglycan undegraded, so it accumulates within the lysosome. This is the GAG-specific instance of the central lysosomal-storage effector, and it is the branch point of the module: the chemical identity of the stored GAG (heparan sulfate, dermatan sulfate, or keratan sulfate) determines which cell types store substrate and therefore which downstream arm is engaged. Undegraded GAG is not inert — it acts as a danger signal that engages the Toll-like receptor 4 innate-immune pathway, providing the molecular link from storage to the inflammatory and neuroinflammatory effectors of the arms below.</div>
                 
@@ -2152,6 +2223,13 @@ This mechanism module involves decreased endochondral ossification (GO:0001958).
                             <a href="../disorders/Mucopolysaccharidosis_type_IX.html">Mucopolysaccharidosis type IX</a>
                             
                             <span class="crosslink-desc">as Lysosomal hyaluronan accumulation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Mucopolysaccharidosis_type_X.html">Mucopolysaccharidosis type X</a>
+                            
+                            <span class="crosslink-desc">as Lysosomal accumulation of 2-O-sulfoglucuronate-capped GAG fragments</span>
                             
                         </div>
                         
@@ -2199,11 +2277,13 @@ This mechanism module involves decreased endochondral ossification (GO:0001958).
             
             <div class="item-box anchor-target" id="module-pathophysiology-heparan-sulfate-driven-neuroinflammation" data-dismech-node="Heparan Sulfate-Driven Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Heparan Sulfate-Driven Neuroinflammation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Undegraded heparan sulfate accumulates in neurons and microglia and triggers a neuroinflammatory cascade. This arm is engaged only by heparan sulfate-storing types; it is the entry node of the neuronopathic arm and the mechanistic reason heparan sulfate accumulation, uniquely among the GAGs, produces central nervous system disease.</div>
                 
@@ -2365,11 +2445,13 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-synaptic-dysfunction-and-secondary-storage" data-dismech-node="Synaptic Dysfunction and Secondary Storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Synaptic Dysfunction and Secondary Storage</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Heparan-sulfate oligosaccharides and the neuroinflammatory milieu disrupt synaptic vesicle proteins and synaptic signalling, and drive secondary accumulation of gangliosides (GM2/GM3) in neurons. This amplifies primary storage into functional neuronal failure.</div>
                 
@@ -2447,11 +2529,13 @@ This pathophysiological event involves decreased synaptic signaling (GO:0099536)
             
             <div class="item-box anchor-target" id="module-pathophysiology-progressive-central-neurodegeneration" data-dismech-node="Progressive Central Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Central Neurodegeneration</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Sustained heparan-sulfate storage, neuroinflammation and synaptic failure produce progressive neuronal loss, presenting clinically as developmental regression, intellectual disability and dementia. This is the terminal node of the neuronopathic arm and is absent in types that do not store heparan sulfate (MPS IV, VI, IX).</div>
                 
@@ -2497,11 +2581,13 @@ This pathophysiological event involves decreased synaptic signaling (GO:0099536)
             
             <div class="item-box anchor-target" id="module-pathophysiology-dermatan-sulfate-driven-connective-tissue-and-ecm-storage" data-dismech-node="Dermatan Sulfate-Driven Connective-Tissue and ECM Storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Dermatan Sulfate-Driven Connective-Tissue and ECM Storage</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Undegraded dermatan sulfate accumulates in connective-tissue fibroblasts and the extracellular matrix of bone, heart valve, cornea and viscera. This is the entry node of the somatic arm and produces the connective-tissue phenotype shared by the somatic MPS types: dysostosis multiplex, valvular thickening, corneal clouding and hepatosplenomegaly. It is engaged by dermatan sulfate-storing types and does not by itself produce central neurodegeneration.</div>
                 
@@ -2630,11 +2716,13 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
             
             <div class="item-box anchor-target" id="module-pathophysiology-multisystem-somatic-disease" data-dismech-node="Multisystem Somatic Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Somatic Disease</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Accumulated connective-tissue and ECM storage produces progressive multisystem somatic disease: musculoskeletal abnormalities, cardiac valve and respiratory/airway disease, and organomegaly. This is the terminal node of the somatic arm.</div>
                 
@@ -2694,11 +2782,13 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
             
             <div class="item-box anchor-target" id="module-pathophysiology-chondrocyte-keratan-sulfate-storage-and-impaired-endochondral-ossification" data-dismech-node="Chondrocyte Keratan Sulfate Storage and Impaired Endochondral Ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Chondrocyte Keratan Sulfate Storage and Impaired Endochondral Ossification</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Undegraded keratan sulfate (with chondroitin-6-sulfate) accumulates preferentially in chondrocytes and cartilage extracellular matrix, impairing endochondral ossification and chondrogenesis. This is the entry node of the skeletal-dysplasia arm, engaged specifically by keratan sulfate-storing types (MPS IV / Morquio). Critically, this arm produces a different storage cell and a different outlet from the somatic arm and carries no primary neurodegeneration.</div>
                 
@@ -2806,11 +2896,13 @@ This pathophysiological event involves decreased endochondral ossification (GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-skeletal-dysplasia-and-craniovertebral-instability" data-dismech-node="Skeletal Dysplasia and Craniovertebral Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal Dysplasia and Craniovertebral Instability</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Impaired endochondral ossification produces a generalized skeletal dysplasia (disproportionate short stature, kyphoscoliosis, pectus carinatum, genu valgum, joint laxity) and odontoid hypoplasia with C1-C2 craniovertebral instability. Resulting cervical cord compression is mechanical and secondary, not a primary storage neurodegeneration — distinguishing this arm&#39;s neurological signs from the neuronopathic arm. This is the terminal node of the skeletal-dysplasia arm.</div>
                 
@@ -2841,6 +2933,9 @@ This pathophysiological event involves decreased endochondral ossification (GO:0
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

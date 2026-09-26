@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1581,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">metabolic_intoxication_decompensation</span>
-                <span class="badge badge-count">19 disorders</span>
+                <span class="badge badge-count">24 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1894,11 +1946,13 @@ This mechanism module involves increased Neuronal Death (GO:0051402). GO:0051402
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">19</span>
+                <span class="card-count">24</span>
             </div>
             
             <div class="crosslink-list">
@@ -2169,6 +2223,36 @@ This mechanism module involves increased Neuronal Death (GO:0051402). GO:0051402
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Fructose-1,6-Bisphosphatase_Deficiency.html">Fructose-1,6-Bisphosphatase Deficiency</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        FBP1 Fructose-1,6-Bisphosphatase Deficiency → Enzymatic Block in Intermediary Metabolism
+                        
+                        
+                        , 
+                        
+                        Gluconeogenic Substrate Accumulation and Energy Deficit → Toxic Metabolite Accumulation and Energy Deficit
+                        
+                        
+                        , 
+                        
+                        Acute Metabolic Decompensation
+                        
+                        
+                        , 
+                        
+                        Acute Metabolic Encephalopathy and Multiorgan Crisis → Neurological Injury and Multiorgan Crisis
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Holocarboxylase_Synthetase_Deficiency.html">Holocarboxylase Synthetase Deficiency</a>
                     
                     <span class="crosslink-desc">
@@ -2192,6 +2276,31 @@ This mechanism module involves increased Neuronal Death (GO:0051402). GO:0051402
                         , 
                         
                         Neurologic metabolic decompensation → Acute Metabolic Encephalopathy
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Isolated_Glycerol_Kinase_Deficiency.html">Isolated Glycerol Kinase Deficiency</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Glycerol Kinase Loss of Function → Enzymatic Block in Intermediary Metabolism
+                        
+                        
+                        , 
+                        
+                        Fasting and Catabolic-Stress Intolerance → Toxic Metabolite Accumulation and Energy Deficit
+                        
+                        
+                        , 
+                        
+                        Hyperketotic Hypoglycaemic Decompensation → Acute Metabolic Decompensation
                         
                         
                     </span>
@@ -2239,6 +2348,31 @@ This mechanism module involves increased Neuronal Death (GO:0051402). GO:0051402
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Malonic_Aciduria.html">Malonic Aciduria</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Malonyl-CoA Decarboxylase Deficiency → Enzymatic Block in Intermediary Metabolism
+                        
+                        
+                        , 
+                        
+                        Malonyl-CoA Accumulation → Toxic Metabolite Accumulation and Energy Deficit
+                        
+                        
+                        , 
+                        
+                        Metabolic Decompensation with Acidosis and Hypoglycaemia → Acute Metabolic Decompensation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Maple_Syrup_Urine_Disease.html">Maple Syrup Urine Disease</a>
                     
                     <span class="crosslink-desc">
@@ -2259,6 +2393,21 @@ This mechanism module involves increased Neuronal Death (GO:0051402). GO:0051402
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Methylmalonate_Semialdehyde_Dehydrogenase_Deficiency.html">Methylmalonate Semialdehyde Dehydrogenase Deficiency</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        ALDH6A1-dependent methylmalonate semialdehyde dehydrogenase deficiency → Enzymatic Block in Intermediary Metabolism
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Methylmalonic_Acidemia.html">Methylmalonic Acidemia</a>
                     
                     <span class="crosslink-desc">
@@ -2272,6 +2421,36 @@ This mechanism module involves increased Neuronal Death (GO:0051402). GO:0051402
                         , 
                         
                         Neurometabolic brain injury → Neurological Injury and Multiorgan Crisis
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Methylmalonyl-CoA_Epimerase_Deficiency.html">Methylmalonyl-CoA Epimerase Deficiency</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        MCEE Loss of Function → Enzymatic Block in Intermediary Metabolism
+                        
+                        
+                        , 
+                        
+                        Accumulation of Propionate-Pathway Metabolites → Toxic Metabolite Accumulation and Energy Deficit
+                        
+                        
+                        , 
+                        
+                        Acute Metabolic Decompensation under Catabolic Stress → Acute Metabolic Decompensation
+                        
+                        
+                        , 
+                        
+                        Acute Encephalopathy and Neurological Injury → Acute Metabolic Encephalopathy
                         
                         
                     </span>
@@ -2362,11 +2541,13 @@ This mechanism module involves increased Neuronal Death (GO:0051402). GO:0051402
             
             <div class="item-box anchor-target" id="module-pathophysiology-enzymatic-block-in-intermediary-metabolism" data-dismech-node="Enzymatic Block in Intermediary Metabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">Enzymatic Block in Intermediary Metabolism</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The conserved initiating lesion is a loss-of-function deficiency of an enzyme (or cofactor/transporter) in a core intermediary-metabolism pathway — amino-acid catabolism, organic-acid metabolism, mitochondrial fatty-acid beta-oxidation, or the urea cycle. The block interrupts normal substrate flux and primes the cell for accumulation of upstream intermediates whenever metabolic demand rises.</div>
                 
@@ -2508,9 +2689,23 @@ This pathophysiological event involves decreased Cellular Amino Acid Catabolic P
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Fructose-1,6-Bisphosphatase_Deficiency.html">Fructose-1,6-Bisphosphatase Deficiency</a>
+                            
+                            <span class="crosslink-desc">as FBP1 Fructose-1,6-Bisphosphatase Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Holocarboxylase_Synthetase_Deficiency.html">Holocarboxylase Synthetase Deficiency</a>
                             
                             <span class="crosslink-desc">as HLCS molecular function deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Isolated_Glycerol_Kinase_Deficiency.html">Isolated Glycerol Kinase Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Glycerol Kinase Loss of Function</span>
                             
                         </div>
                         
@@ -2522,9 +2717,30 @@ This pathophysiological event involves decreased Cellular Amino Acid Catabolic P
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Malonic_Aciduria.html">Malonic Aciduria</a>
+                            
+                            <span class="crosslink-desc">as Malonyl-CoA Decarboxylase Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Maple_Syrup_Urine_Disease.html">Maple Syrup Urine Disease</a>
                             
                             <span class="crosslink-desc">as Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Methylmalonate_Semialdehyde_Dehydrogenase_Deficiency.html">Methylmalonate Semialdehyde Dehydrogenase Deficiency</a>
+                            
+                            <span class="crosslink-desc">as ALDH6A1-dependent methylmalonate semialdehyde dehydrogenase deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Methylmalonyl-CoA_Epimerase_Deficiency.html">Methylmalonyl-CoA Epimerase Deficiency</a>
+                            
+                            <span class="crosslink-desc">as MCEE Loss of Function</span>
                             
                         </div>
                         
@@ -2549,11 +2765,13 @@ This pathophysiological event involves decreased Cellular Amino Acid Catabolic P
             
             <div class="item-box anchor-target" id="module-pathophysiology-toxic-metabolite-accumulation-and-energy-deficit" data-dismech-node="Toxic Metabolite Accumulation and Energy Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Toxic Metabolite Accumulation and Energy Deficit</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Behind the block, upstream substrates and their derivatives accumulate to toxic concentrations while downstream energy substrates fall. A catabolic stress — intercurrent infection, fasting, surgery, childbirth, or an increased protein load — sharply increases the metabolic flux into the blocked pathway, overwhelming residual enzyme capacity and converting a compensated state into an acute crisis.</div>
                 
@@ -2674,9 +2892,23 @@ This pathophysiological event involves decreased Generation of Precursor Metabol
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Fructose-1,6-Bisphosphatase_Deficiency.html">Fructose-1,6-Bisphosphatase Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Gluconeogenic Substrate Accumulation and Energy Deficit</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Holocarboxylase_Synthetase_Deficiency.html">Holocarboxylase Synthetase Deficiency</a>
                             
                             <span class="crosslink-desc">as Impaired propionate metabolism</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Isolated_Glycerol_Kinase_Deficiency.html">Isolated Glycerol Kinase Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Fasting and Catabolic-Stress Intolerance</span>
                             
                         </div>
                         
@@ -2688,9 +2920,23 @@ This pathophysiological event involves decreased Generation of Precursor Metabol
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Malonic_Aciduria.html">Malonic Aciduria</a>
+                            
+                            <span class="crosslink-desc">as Malonyl-CoA Accumulation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Maple_Syrup_Urine_Disease.html">Maple Syrup Urine Disease</a>
                             
                             <span class="crosslink-desc">as Systemic BCAA and BCKA Accumulation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Methylmalonyl-CoA_Epimerase_Deficiency.html">Methylmalonyl-CoA Epimerase Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Accumulation of Propionate-Pathway Metabolites</span>
                             
                         </div>
                         
@@ -2722,11 +2968,13 @@ This pathophysiological event involves decreased Generation of Precursor Metabol
             
             <div class="item-box anchor-target" id="module-pathophysiology-acute-metabolic-decompensation" data-dismech-node="Acute Metabolic Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Metabolic Decompensation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The crisis manifests biochemically as some combination of high-anion-gap metabolic acidosis (often with lactic acidosis and ketosis), hyperammonemia, and hypoglycemia. The precise pattern depends on the underlying defect — hyperammonemia predominates in urea-cycle disorders, metabolic acidosis and ketosis in organic acidemias, hypoglycemia in fatty-acid oxidation defects — but the decompensated state is the shared central effector that converts the metabolic block into systemic toxicity.</div>
                 
@@ -2896,9 +3144,21 @@ This pathophysiological event involves abnormal Glucose Homeostasis (GO:0042593)
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Fructose-1,6-Bisphosphatase_Deficiency.html">Fructose-1,6-Bisphosphatase Deficiency</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Holocarboxylase_Synthetase_Deficiency.html">Holocarboxylase Synthetase Deficiency</a>
                             
                             <span class="crosslink-desc">as Secondary organic acidemia and ketotic decompensation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Isolated_Glycerol_Kinase_Deficiency.html">Isolated Glycerol Kinase Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Hyperketotic Hypoglycaemic Decompensation</span>
                             
                         </div>
                         
@@ -2917,9 +3177,23 @@ This pathophysiological event involves abnormal Glucose Homeostasis (GO:0042593)
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Malonic_Aciduria.html">Malonic Aciduria</a>
+                            
+                            <span class="crosslink-desc">as Metabolic Decompensation with Acidosis and Hypoglycaemia</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Methylmalonic_Acidemia.html">Methylmalonic Acidemia</a>
                             
                             <span class="crosslink-desc">as Acute organic acid decompensation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Methylmalonyl-CoA_Epimerase_Deficiency.html">Methylmalonyl-CoA Epimerase Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Acute Metabolic Decompensation under Catabolic Stress</span>
                             
                         </div>
                         
@@ -2958,11 +3232,13 @@ This pathophysiological event involves abnormal Glucose Homeostasis (GO:0042593)
             
             <div class="item-box anchor-target" id="module-pathophysiology-acute-metabolic-encephalopathy" data-dismech-node="Acute Metabolic Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Metabolic Encephalopathy</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Circulating toxic metabolites — ammonia in particular — cross the blood-brain barrier and exert direct neurotoxicity. Ammonia is detoxified in astrocytes via glutamine synthesis; glutamine is the brain&#39;s main intracellular osmole, so its accumulation drives astrocyte swelling and cytotoxic cerebral edema. The result is acute encephalopathy presenting as lethargy, feeding refusal, hypotonia, seizures, and progressive depression of consciousness.</div>
                 
@@ -3102,6 +3378,13 @@ This pathophysiological event involves increased Glutamine Metabolic Process, an
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Methylmalonyl-CoA_Epimerase_Deficiency.html">Methylmalonyl-CoA Epimerase Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Acute Encephalopathy and Neurological Injury</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Ornithine_Carbamoyltransferase_Deficiency.html">Ornithine Carbamoyltransferase Deficiency</a>
                             
                             <span class="crosslink-desc">as Hyperammonemic cerebral injury via astrocyte swelling</span>
@@ -3134,11 +3417,13 @@ This pathophysiological event involves increased Glutamine Metabolic Process, an
             
             <div class="item-box anchor-target" id="module-pathophysiology-neurological-injury-and-multiorgan-crisis" data-dismech-node="Neurological Injury and Multiorgan Crisis" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurological Injury and Multiorgan Crisis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">If decompensation is not rapidly reversed, the combination of metabolite toxicity and bioenergetic failure produces irreversible neurological injury and multiorgan compromise. Acutely this is intracranial hypertension, coma, and death; survivors may carry chronic sequelae. End-organ injury reflects both the direct toxicity of accumulating metabolites and the secondary failure of the Krebs cycle and oxidative phosphorylation.</div>
                 
@@ -3224,6 +3509,13 @@ This pathophysiological event involves increased Neuronal Death, annotated with 
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Fructose-1,6-Bisphosphatase_Deficiency.html">Fructose-1,6-Bisphosphatase Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Acute Metabolic Encephalopathy and Multiorgan Crisis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Methylmalonic_Acidemia.html">Methylmalonic Acidemia</a>
                             
                             <span class="crosslink-desc">as Neurometabolic brain injury</span>
@@ -3238,6 +3530,9 @@ This pathophysiological event involves increased Neuronal Death, annotated with 
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4283,6 +4360,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4304,6 +4382,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4414,6 +4493,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4476,6 +4556,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4565,6 +4646,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4636,6 +4718,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4727,6 +4810,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4761,6 +4845,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polygenic-liability" data-dismech-node="Polygenic Liability" data-dismech-type="pathophysiology">
                 <div class="item-name">Polygenic Liability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Distributed inherited susceptibility and individually unique environmental factors contribute to BPD liability. This organism-level node does not assert a single causal gene, exposure, or resolved molecular pathway.</div>
 
@@ -4836,6 +4927,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4858,6 +4950,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-core-affective-and-personality-dysregulation" data-dismech-node="Core Affective and Personality Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Core Affective and Personality Dysregulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">This clinical-state node represents the established long-term pattern of unstable interpersonal relationships and self-image, affective instability, and impulsivity. It is not presented as a localized circuit or molecular mechanism.</div>
 
@@ -4967,6 +5066,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4989,6 +5089,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autonomic-stress-system-and-cardiometabolic-correlates" data-dismech-node="Autonomic, Stress-System, and Cardiometabolic Correlates" data-dismech-type="pathophysiology">
                 <div class="item-name">Autonomic, Stress-System, and Cardiometabolic Correlates</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Human studies summarized in a narrative review report altered heart-rate variability and HPA-axis, inflammatory, metabolic, and cardiovascular measures in BPD. These are retained as provisional group-level correlates, not diagnostic biomarkers or a causal chain to core symptoms.</div>
 
@@ -5099,6 +5206,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5120,6 +5228,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5168,7 +5277,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intense anger or difficulty controlling anger can occur in BPD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031473\"}}, {\"id\": \"Core Affective and Personality Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This clinical-state node represents the established long-term pattern of unstable interpersonal relationships and self-image, affective instability, and impulsivity. It is not presented as a localized circuit or molecular mechanism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dialectical Behavior Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dialectical behavior therapy is a structured psychotherapy with randomized trial evidence for suicidality, self-injury, mood instability, and related BPD outcomes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dissociation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stress-related dissociative symptoms can occur transiently.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032940\"}}, {\"id\": \"Emotional Lability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rapid shifts in affect and intense emotional instability.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000712\"}}, {\"id\": \"Evidence-Based Psychotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Manualized psychotherapies are first-line treatments for BPD, with several modalities showing benefit relative to treatment as usual.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impairment in Personality Functioning\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"BPD includes disturbed self/identity and interpersonal functioning.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031466\"}}, {\"id\": \"Impulsivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impulsive behavior is a core clinical feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100710\"}}, {\"id\": \"Mentalization-Based Treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mentalization-based treatment is represented as a psychotherapy option that can improve psychiatric symptoms, functioning, and mentalizing capacity.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Paranoia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient paranoid ideation can occur, particularly under stress.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011999\"}}, {\"id\": \"Polygenic Liability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Distributed inherited susceptibility and individually unique environmental factors contribute to BPD liability. This organism-level node does not assert a single causal gene, exposure, or resolved molecular pathway.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Self-Injurious Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-harm risk is markedly elevated in diagnosed BPD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100716\"}}, {\"id\": \"Suicidal Ideation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Suicidal thoughts and ideation are clinically important treatment targets in BPD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031589\"}}], \"edges\": [{\"source\": \"Polygenic Liability\", \"target\": \"Core Affective and Personality Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetic and non-shared-environment liability is placed upstream of the defining clinical pattern, but the molecular, developmental, neural, and interpersonal intermediates are unresolved.\", \"hypothesis_groups\": [\"multifactorial_liability_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Emotional Lability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Affective instability is a defining manifestation of the aggregate clinical dysregulation state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Impulsivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marked impulsivity is a defining manifestation of the aggregate clinical dysregulation state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Impairment in Personality Functioning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Instability of self-image and interpersonal relationships manifests as impaired personality functioning.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Anger\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intense anger or difficulty controlling anger can manifest within the BPD clinical pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Dissociation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stress-related dissociative symptoms can occur as a state-dependent manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Paranoia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transient paranoid ideation can emerge within the BPD clinical pattern, particularly in stressful contexts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Self-Injurious Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Self-injury is part of the severe behavioral spectrum, but the individual routes from affective and interpersonal dysregulation to an episode are heterogeneous.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Suicidal Ideation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suicidal thoughts are clinically important but arise through heterogeneous and incompletely resolved pathways involving distress, crises, and comorbidity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Evidence-Based Psychotherapy\", \"target\": \"Impairment in Personality Functioning\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Evidence-Based Psychotherapy\", \"target\": \"Emotional Lability\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dialectical Behavior Therapy\", \"target\": \"Self-Injurious Behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dialectical Behavior Therapy\", \"target\": \"Impulsivity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dialectical Behavior Therapy\", \"target\": \"Suicidal Ideation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mentalization-Based Treatment\", \"target\": \"Impairment in Personality Functioning\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intense anger or difficulty controlling anger can occur in BPD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031473\"}}, {\"id\": \"Core Affective and Personality Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This clinical-state node represents the established long-term pattern of unstable interpersonal relationships and self-image, affective instability, and impulsivity. It is not presented as a localized circuit or molecular mechanism.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Dialectical Behavior Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dialectical behavior therapy is a structured psychotherapy with randomized trial evidence for suicidality, self-injury, mood instability, and related BPD outcomes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dissociation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stress-related dissociative symptoms can occur transiently.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032940\"}}, {\"id\": \"Emotional Lability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rapid shifts in affect and intense emotional instability.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000712\"}}, {\"id\": \"Evidence-Based Psychotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Manualized psychotherapies are first-line treatments for BPD, with several modalities showing benefit relative to treatment as usual.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impairment in Personality Functioning\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"BPD includes disturbed self/identity and interpersonal functioning.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031466\"}}, {\"id\": \"Impulsivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impulsive behavior is a core clinical feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100710\"}}, {\"id\": \"Mentalization-Based Treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mentalization-based treatment is represented as a psychotherapy option that can improve psychiatric symptoms, functioning, and mentalizing capacity.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Paranoia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient paranoid ideation can occur, particularly under stress.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011999\"}}, {\"id\": \"Polygenic Liability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Distributed inherited susceptibility and individually unique environmental factors contribute to BPD liability. This organism-level node does not assert a single causal gene, exposure, or resolved molecular pathway.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Self-Injurious Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-harm risk is markedly elevated in diagnosed BPD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100716\"}}, {\"id\": \"Suicidal Ideation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Suicidal thoughts and ideation are clinically important treatment targets in BPD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031589\"}}], \"edges\": [{\"source\": \"Polygenic Liability\", \"target\": \"Core Affective and Personality Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetic and non-shared-environment liability is placed upstream of the defining clinical pattern, but the molecular, developmental, neural, and interpersonal intermediates are unresolved.\", \"hypothesis_groups\": [\"multifactorial_liability_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Emotional Lability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Affective instability is a defining manifestation of the aggregate clinical dysregulation state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Impulsivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marked impulsivity is a defining manifestation of the aggregate clinical dysregulation state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Impairment in Personality Functioning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Instability of self-image and interpersonal relationships manifests as impaired personality functioning.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Anger\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intense anger or difficulty controlling anger can manifest within the BPD clinical pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Dissociation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stress-related dissociative symptoms can occur as a state-dependent manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Paranoia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transient paranoid ideation can emerge within the BPD clinical pattern, particularly in stressful contexts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Self-Injurious Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Self-injury is part of the severe behavioral spectrum, but the individual routes from affective and interpersonal dysregulation to an episode are heterogeneous.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Core Affective and Personality Dysregulation\", \"target\": \"Suicidal Ideation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suicidal thoughts are clinically important but arise through heterogeneous and incompletely resolved pathways involving distress, crises, and comorbidity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Evidence-Based Psychotherapy\", \"target\": \"Impairment in Personality Functioning\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Evidence-Based Psychotherapy\", \"target\": \"Emotional Lability\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dialectical Behavior Therapy\", \"target\": \"Self-Injurious Behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dialectical Behavior Therapy\", \"target\": \"Impulsivity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dialectical Behavior Therapy\", \"target\": \"Suicidal Ideation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mentalization-Based Treatment\", \"target\": \"Impairment in Personality Functioning\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5185,28 +5294,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(3)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(5)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-emotional-lability" data-dismech-node="Emotional Lability" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Emotional Lability
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-self-injurious-behavior" data-dismech-node="Self-Injurious Behavior" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Self-Injurious Behavior
-
-
+                    <span class="phenotype-category">Psychiatric</span>
 
 
 
@@ -5215,229 +5309,18 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0100716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0000712</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41380-022-01503-z" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1038/s41380-022-01503-z" target="_blank">DOI:10.1038/s41380-022-01503-z</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other notable findings from Cox regressions include psychotic disorders (HR 95% CI 24.48 [23.14–25.90]), epilepsy (3.38 [3.08–3.70]), violent crime victimization (7.65 [7.25–8.06]), and self-harm (17.72 [17.27–18.19])."</div>
-
-
-                <div class="evidence-explanation">Nationwide register study supports a strong association between BPD diagnosis and self-harm.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-suicidal-ideation" data-dismech-node="Suicidal Ideation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Suicidal Ideation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0031589</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38420274" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38420274" target="_blank">PMID:38420274</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"These studies looked for treating self-injurious behaviors, suicidal thoughts or ideations, number of visits to emergency services, and frequency of hospital admissions."</div>
-
-
-                <div class="evidence-explanation">Systematic review of BPD DBT trials identifies suicidal thoughts or ideations among treatment targets in BPD trial populations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anger" data-dismech-node="Anger" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anger
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0031473</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anger (HP:0031473). HP:0031473 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41613746" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41613746" target="_blank">PMID:41613746</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"intense anger or difficulty with anger control"</div>
-
-
-                <div class="evidence-explanation">The practice-assessment article explicitly identifies anger dysregulation as a BPD feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-emotional-lability" data-dismech-node="Emotional Lability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Emotional Lability
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000712</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Emotional lability (HP:0000712). HP:0000712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5457,6 +5340,7 @@ This clinical feature is Emotional lability (HP:0000712). HP:0000712 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5481,13 +5365,14 @@ This clinical feature is Emotional lability (HP:0000712). HP:0000712 is a phenot
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-impulsivity" data-dismech-node="Impulsivity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Impulsivity
+            <div class="item-box phenotype-box anchor-target" id="phenotype-impulsivity" data-dismech-node="Impulsivity" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Impulsivity
 
 
+                    <span class="phenotype-category">Psychiatric</span>
 
 
 
@@ -5496,16 +5381,18 @@ This clinical feature is Emotional lability (HP:0000712). HP:0000712 is a phenot
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0100710</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0100710</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5525,6 +5412,7 @@ This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5549,13 +5437,14 @@ This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype fro
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-impairment-in-personality-functioning" data-dismech-node="Impairment in Personality Functioning" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Impairment in Personality Functioning
+            <div class="item-box phenotype-box anchor-target" id="phenotype-self-injurious-behavior" data-dismech-node="Self-Injurious Behavior" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Self-Injurious Behavior
 
 
+                    <span class="phenotype-category">Psychiatric</span>
 
 
 
@@ -5564,16 +5453,162 @@ This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype fro
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0100716</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0031466</a>
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41380-022-01503-z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41380-022-01503-z" target="_blank">DOI:10.1038/s41380-022-01503-z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"As expected, BPD individuals had higher instances of adverse behaviors: self-harm, violent and nonviolent crime."</div>
+
+
+                <div class="evidence-explanation">Nationwide register study supports a strong association between BPD diagnosis and self-harm.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-suicidal-ideation" data-dismech-node="Suicidal Ideation" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Suicidal Ideation
+
+
+                    <span class="phenotype-category">Psychiatric</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0031589</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38420274" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38420274" target="_blank">PMID:38420274</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These studies looked for treating self-injurious behaviors, suicidal thoughts or ideations, number of visits to emergency services, and frequency of hospital admissions."</div>
+
+
+                <div class="evidence-explanation">Systematic review of BPD DBT trials identifies suicidal thoughts or ideations among treatment targets in BPD trial populations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-impairment-in-personality-functioning" data-dismech-node="Impairment in Personality Functioning" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Impairment in Personality Functioning
+
+
+                    <span class="phenotype-category">Psychiatric</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0031466</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Impairment in personality functioning (HP:0031466). HP:0031466 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5593,6 +5628,7 @@ This clinical feature is Impairment in personality functioning (HP:0031466). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5617,13 +5653,14 @@ This clinical feature is Impairment in personality functioning (HP:0031466). HP:
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dissociation" data-dismech-node="Dissociation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dissociation
+            <div class="item-box phenotype-box anchor-target" id="phenotype-anger" data-dismech-node="Anger" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Anger
 
 
+                    <span class="phenotype-category">Psychiatric</span>
 
 
 
@@ -5632,16 +5669,18 @@ This clinical feature is Impairment in personality functioning (HP:0031466). HP:
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0031473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0031473</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032940" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0032940</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dissociation (HP:0032940). HP:0032940 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Anger (HP:0031473). HP:0031473 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5661,6 +5700,79 @@ This clinical feature is Dissociation (HP:0032940). HP:0032940 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"intense anger or difficulty with anger control"</div>
+
+
+                <div class="evidence-explanation">The practice-assessment article explicitly identifies anger dysregulation as a BPD feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-dissociation" data-dismech-node="Dissociation" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Dissociation
+
+
+                    <span class="phenotype-category">Psychiatric</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032940" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0032940</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dissociation (HP:0032940). HP:0032940 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41613746" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41613746" target="_blank">PMID:41613746</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5685,19 +5797,19 @@ This clinical feature is Dissociation (HP:0032940). HP:0032940 is a phenotype fr
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-paranoia" data-dismech-node="Paranoia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Paranoia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-paranoia" data-dismech-node="Paranoia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Paranoia
 
 
+                    <span class="phenotype-category">Psychiatric</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5709,7 +5821,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Paranoia (HP:0011999). HP:0011999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5729,6 +5844,7 @@ This clinical feature is Paranoia (HP:0011999). HP:0011999 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5753,34 +5869,8 @@ This clinical feature is Paranoia (HP:0011999). HP:0011999 is a phenotype from t
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -5841,6 +5931,20 @@ This treatment is psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5909,6 +6013,7 @@ This treatment targets Emotional lability (HP:0000712). HP:0000712 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5930,6 +6035,7 @@ This treatment targets Emotional lability (HP:0000712). HP:0000712 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5991,6 +6097,20 @@ This treatment is psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6076,6 +6196,7 @@ This treatment targets Suicidal ideation (HP:0031589). HP:0031589 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6097,6 +6218,7 @@ This treatment targets Suicidal ideation (HP:0031589). HP:0031589 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6163,6 +6285,20 @@ This treatment is psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Mentalization-based treatment is represented as a psychotherapy option that can improve psychiatric symptoms, functioning, and mentalizing capacity.</div>
 
 
@@ -6209,6 +6345,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6230,6 +6367,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6295,6 +6433,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6316,6 +6455,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6424,6 +6564,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6445,6 +6586,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6537,6 +6679,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6558,6 +6701,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6626,6 +6770,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6647,6 +6792,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6700,6 +6846,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6721,6 +6868,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6795,6 +6943,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6861,6 +7010,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6882,6 +7032,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6971,6 +7122,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7040,6 +7192,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7113,6 +7266,7 @@ This treatment targets Impairment in personality functioning (HP:0031466). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7275,6 +7429,7 @@ This clinical trial targets Impairment in personality functioning (HP:0031466). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7367,6 +7522,7 @@ This clinical trial targets Emotional lability (HP:0000712). HP:0000712 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7456,6 +7612,7 @@ This clinical trial targets Impulsivity (HP:0100710). HP:0100710 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7995,10 +8152,8 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Other notable findings from Cox regressions include psychotic disorders
-      (HR 95% CI 24.48 [23.14–25.90]), epilepsy (3.38 [3.08–3.70]), violent
-      crime victimization (7.65 [7.25–8.06]), and self-harm (17.72
-      [17.27–18.19]).
+      As expected, BPD individuals had higher instances of adverse behaviors: self-harm, violent and
+      nonviolent crime.
     explanation: &gt;-
       Nationwide register study supports a strong association between BPD
       diagnosis and self-harm.
@@ -8983,6 +9138,18 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record review notes</strong></p>
+                        <p class="research-review-text">Re-reviewed from cached primary studies, systematic reviews, and registry records; the Falcon deep-research artifact was used only for source discovery. Broad inherited and non-shared-environment liability is retained, but no single causal gene is asserted. Autonomic, HPA-axis, inflammatory, and cardiometabolic findings were collapsed into one provisional correlate node, and prior arrows that treated cross-sectional associations as causes were removed. Clinical diagnosis remains longitudinal and syndromic; no group-level physiological finding is represented as a diagnostic biomarker. Pharmacotherapy is not represented as disease-directed first-line treatment because the curated evidence supports psychotherapy as first-line and the disease primer cautions that misleading pharmacological interventions rarely succeed. ClinicalTrials.gov was queried on 2026-07-24; three representative, disease-specific active interventional trials were retained, while observational studies, broad transdiagnostic records, and redundant psychotherapy trials were excluded. Active registry status and phase do not imply efficacy. A Monarch D2P audit on 2026-07-24 found no OMIM- or Orphanet-backed phenotype rows for MONDO:0001156; three additional clinical phenotypes were therefore added only from direct APA publication evidence, and all eight curated phenotypes are connected to the clinical pathograph.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9947,7 +10114,7 @@ Swedish registers similarly show strong female predominance among clinically dia
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Borderline Personality Disorder", "mondoId": "MONDO:0001156", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Borderline_Personality_Disorder", "yamlRevision": "0a7f51e69578"};
+        const OS_CONFIG = {"diseaseName": "Borderline Personality Disorder", "mondoId": "MONDO:0001156", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Borderline_Personality_Disorder", "yamlRevision": "0cb4b8f3f5ed"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

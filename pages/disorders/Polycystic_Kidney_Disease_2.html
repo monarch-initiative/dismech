@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Polycystic%20Kidney%20Disease%202"
@@ -3947,7 +4024,7 @@ What separates PKD2 from PKD1 is not the mechanism but its pace. PKD2 accounts f
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3976,7 +4053,7 @@ What separates PKD2 from PKD1 is not the mechanism but its pace. PKD2 accounts f
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3995,7 +4072,7 @@ What separates PKD2 from PKD1 is not the mechanism but its pace. PKD2 accounts f
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -4111,6 +4188,7 @@ What separates PKD2 from PKD1 is not the mechanism but its pace. PKD2 accounts f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4204,6 +4282,7 @@ What separates PKD2 from PKD1 is not the mechanism but its pace. PKD2 accounts f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4271,11 +4350,12 @@ What separates PKD2 from PKD1 is not the mechanism but its pace. PKD2 accounts f
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polycystin-2-loss-at-the-renal-primary-cilium" data-dismech-node="Polycystin-2 loss at the renal primary cilium" data-dismech-type="pathophysiology">
                 <div class="item-name">Polycystin-2 loss at the renal primary cilium</div>
+
 
                 <div class="item-desc">PKD2 encodes polycystin-2, a transient receptor potential family cation channel. Its carboxy-terminal coiled-coil interaction with polycystin-1 is required for polycystin-1 maturation, ciliary trafficking and stability, so a PKD2 loss-of-function allele degrades the whole ciliary receptor-channel complex rather than only the channel arm. This is why PKD2 and PKD1 produce the same disease.</div>
 
@@ -4490,6 +4570,7 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4511,6 +4592,7 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4538,6 +4620,7 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4560,6 +4643,7 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-second-hit-and-clonal-cyst-initiation" data-dismech-node="Somatic second hit and clonal cyst initiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic second hit and clonal cyst initiation</div>
+
 
                 <div class="item-desc">Cyst formation in PKD2 is focal and sporadic, not uniform across the nephron population, and the germline heterozygous state alone does not explain that. The conventional account is cellular-recessive: an individual tubular epithelial cell acquires a somatic inactivating hit on its remaining wild-type allele, loses polycystin function outright, and clonally expands into a cyst. This is what reconciles a dominant disease with a focal lesion, and it is also the most plausible explanation for the large variability between individuals carrying the same PKD2 variant.</div>
 
@@ -4705,6 +4789,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4726,6 +4811,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4751,6 +4837,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cilium-dependent-camp-elevation-in-tubular-epithelium" data-dismech-node="Cilium-dependent cAMP elevation in tubular epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Cilium-dependent cAMP elevation in tubular epithelium</div>
+
 
                 <div class="item-desc">Reduced intracellular calcium disinhibits adenylate cyclase, and vasopressin V2 receptor signalling in the distal nephron and collecting duct amplifies the effect. The resulting rise in cAMP is the node that both proliferative and secretory arms of cystogenesis depend on, and it is the node tolvaptan is aimed at.</div>
 
@@ -4876,6 +4963,7 @@ This pathophysiological event involves increased cAMP biosynthetic process (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4897,6 +4985,7 @@ This pathophysiological event involves increased cAMP biosynthetic process (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4924,6 +5013,7 @@ This pathophysiological event involves increased cAMP biosynthetic process (GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4946,6 +5036,7 @@ This pathophysiological event involves increased cAMP biosynthetic process (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyst-epithelial-proliferation-and-transepithelial-fluid-secretion" data-dismech-node="Cyst epithelial proliferation and transepithelial fluid secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Cyst epithelial proliferation and transepithelial fluid secretion</div>
+
 
                 <div class="item-desc">The cyst-lining epithelium proliferates and secretes chloride and water into the lumen, so individual cysts enlarge after they have detached from the parent nephron and are no longer fed by glomerular filtrate.</div>
 
@@ -5076,9 +5167,9 @@ This pathophysiological event involves increased chloride transmembrane transpor
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Progressive cyst expansion and nephron loss</span>
+	                            <span class="crosslink-meta">Progressive cyst expansion and kidney enlargement</span>
 
-	                            <span class="crosslink-desc">Continued proliferation and secretion expand cysts, which compress and replace adjacent functioning parenchyma.</span>
+	                            <span class="crosslink-desc">Continued proliferation of the cyst-lining epithelium and secretion into the cyst lumen enlarge individual cysts, and the accumulating cyst burden enlarges the kidney.</span>
 
 
 	                        </div>
@@ -5105,6 +5196,7 @@ This pathophysiological event involves increased chloride transmembrane transpor
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5125,10 +5217,11 @@ This pathophysiological event involves increased chloride transmembrane transpor
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cyst-expansion-and-nephron-loss" data-dismech-node="Progressive cyst expansion and nephron loss" data-dismech-type="pathophysiology">
-                <div class="item-name">Progressive cyst expansion and nephron loss</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cyst-expansion-and-kidney-enlargement" data-dismech-node="Progressive cyst expansion and kidney enlargement" data-dismech-type="pathophysiology">
+                <div class="item-name">Progressive cyst expansion and kidney enlargement</div>
 
-                <div class="item-desc">Cumulative cyst burden destroys functioning nephrons and kidney function declines. In PKD2 this trajectory is displaced roughly two decades later than in PKD1: at age 60 only about one PKD2 patient in ten has reached end-stage renal disease, and the Kaplan-Meier median age at ESRD is near 78 years.</div>
+
+                <div class="item-desc">Cysts keep enlarging after they detach from the parent nephron, and the growing cyst burden raises total kidney volume. Kidney size and its growth rate are the standard imaging measures of ADPKD severity: patients with larger, faster-growing kidneys reach kidney replacement therapy earlier. In PKD2 the corollary runs the other way too: the Genkyst authors read the absence of massive kidney enlargement in patients with early ESRD as a sign that a concomitant nephropathy, not the cystic disease, drove their kidney failure.</div>
 
 
 
@@ -5180,6 +5273,150 @@ This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Nephron loss and progressive kidney function decline</span>
+
+	                            <span class="crosslink-desc">Expanding cysts replace and compress the surrounding parenchyma, so functioning nephrons are lost and kidney function declines.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Renal cysts</span>
+
+	                            <span class="crosslink-desc">The expanding cysts are the bilateral renal cysts seen on imaging, and their number and size increase over time.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Flank pain</span>
+
+	                            <span class="crosslink-desc">Enlarging cysts cause the flank pain that PKD2 patients report; the Genkyst cohort recorded it specifically as flank pain related to cysts.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40126492" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40126492" target="_blank">PMID:40126492</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with MIC 1C to MIC 1E have larger kidneys because of more rapid growth (6%-10% per year) compared with those with MIC 1A and 1B (1%-5% per year)"</div>
+
+
+                <div class="evidence-explanation">Establishes progressive kidney growth as a measured feature of ADPKD, at rates that differ between imaging classes. ADPKD-wide; the review does not report a PKD2-specific growth rate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-nephron-loss-and-progressive-kidney-function-decline" data-dismech-node="Nephron loss and progressive kidney function decline" data-dismech-type="pathophysiology">
+                <div class="item-name">Nephron loss and progressive kidney function decline</div>
+
+
+                <div class="item-desc">Cumulative cyst burden destroys functioning nephrons and kidney function declines. In PKD2 this trajectory is displaced roughly two decades later than in PKD1: at age 60 only about one PKD2 patient in ten has reached end-stage renal disease, and the Kaplan-Meier median age at ESRD is near 78 years.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        kidney epithelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002518</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Decreased glomerular filtration rate</span>
+
+	                            <span class="crosslink-desc">Nephron loss is measured clinically as a falling GFR. In PKD2 the fall is age-dependent and late: most patients keep an eGFR above 30 mL/min/1.73 m2 into their fifties, and the proportion drops across the following decades.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -5196,6 +5433,7 @@ This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5220,6 +5458,7 @@ This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5268,7 +5507,7 @@ This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACE inhibitor or angiotensin II receptor blocker therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Renin-angiotensin system blockade is the antihypertensive of choice in ADPKD. It matters in PKD2 despite the milder course, because about 75% of patients are hypertensive by age 60 - hypertension arrives later than in PKD1 but it still arrives in most patients.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Blood pressure control and dietary sodium restriction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Blood pressure control and moderate sodium restriction are the mainstay of conservative management. Given the high cumulative incidence of hypertension in PKD2 (about 75% by age 60), this applies to most patients even though hypertension arrives later than in PKD1.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cilium-dependent cAMP elevation in tubular epithelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced intracellular calcium disinhibits adenylate cyclase, and vasopressin V2 receptor signalling in the distal nephron and collecting duct amplifies the effect. The resulting rise in cAMP is the node that both proliferative and secretory arms of cystogenesis depend on, and it is the node tolvaptan is aimed at.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"kidney collecting duct epithelial cell\"], \"biological_processes\": [\"cAMP biosynthetic process\"]}}, {\"id\": \"Cyst epithelial proliferation and transepithelial fluid secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cyst-lining epithelium proliferates and secretes chloride and water into the lumen, so individual cysts enlarge after they have detached from the parent nephron and are no longer fed by glomerular filtrate.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"kidney epithelial cell\"], \"biological_processes\": [\"cell population proliferation\", \"chloride transmembrane transport\"]}}, {\"id\": \"Decreased glomerular filtration rate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"GFR declines late in PKD2 but in most patients who live long enough. The grading is lifetime, not cross-sectional, which matters here because the two give opposite answers: at diagnosis 81.4% still have an eGFR above 60 mL/min/1.73 m2, yet the proportion above 30 mL/min/1.73 m2 falls to 73.1%, 58.8% and 43.5% across the sixth, seventh and eighth decades. FREQUENT is also the only grading consistent with Stage 5 chronic kidney disease being FREQUENT below, since stage 5 is a subset of reduced GFR and a subset cannot be commoner than the set that contains it. Men have lower kidney function than women at equivalent age, without a corresponding difference in renal survival.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012213\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertension is common but distinctly less so than in PKD1, and it appears later. Cumulative probability at age 60 is about 75%, with median age at diagnosis 49 years.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000822\"}}, {\"id\": \"Kidney replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dialysis and kidney transplantation are the treatment for end-stage renal disease. In PKD2 this need typically arises in the eighth decade, so many patients die of other causes before requiring it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PKD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PKD2\"], \"gene_terms\": [{\"label\": \"PKD2\", \"id\": \"hgnc:9009\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Patient-derived multi-lineage adult renal organoids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Expandable organoids grown from ADPKD surgical specimens, including PKD2-mutant donors. They reproduce elongated primary cilia, polarity disruption and elevated Rho GTPase/planar-cell-polarity signalling, and support single-cell transcriptomics and drug screening across genotypes.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"ORGANOID\"}}, {\"id\": \"Pkd2 conditional knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Germline Pkd2 deletion is embryonic lethal, so conditional inactivation is the only route to an adult model. Inactivating Pkd2 at or beyond postnatal day 14 gives delayed cyst formation, mirroring the developmental switch seen in Pkd1 models.\"}, {\"id\": \"Polycystin-2 loss at the renal primary cilium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PKD2 encodes polycystin-2, a transient receptor potential family cation channel. Its carboxy-terminal coiled-coil interaction with polycystin-1 is required for polycystin-1 maturation, ciliary trafficking and stability, so a PKD2 loss-of-function allele degrades the whole ciliary receptor-channel complex rather than only the channel arm. This is why PKD2 and PKD1 produce the same disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"kidney epithelial cell\"], \"biological_processes\": [\"intracellular calcium ion homeostasis\"], \"genes\": [\"PKD2\"], \"gene_terms\": [{\"label\": \"PKD2\", \"id\": \"hgnc:9009\"}], \"experimental_models\": [{\"name\": \"Patient-derived multi-lineage adult renal organoids\", \"model_type\": \"ORGANOID\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The organoids reproduce the ciliary phenotype in human patient-derived tissue, and IFT88 ablation selectively attenuates the downstream signalling in mutant backgrounds, which is direct support for cilium-dependent cystogenesis.\"}]}}, {\"id\": \"Progressive cyst expansion and nephron loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cumulative cyst burden destroys functioning nephrons and kidney function declines. In PKD2 this trajectory is displaced roughly two decades later than in PKD1: at age 60 only about one PKD2 patient in ten has reached end-stage renal disease, and the Kaplan-Meier median age at ESRD is near 78 years.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"kidney epithelial cell\"]}}, {\"id\": \"Renal cysts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral fluid-filled kidney cysts are the defining structural lesion. The Genkyst cohort required Pei imaging criteria or at least 10 bilateral cysts for entry.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000107\"}}, {\"id\": \"Somatic second hit and clonal cyst initiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cyst formation in PKD2 is focal and sporadic, not uniform across the nephron population, and the germline heterozygous state alone does not explain that. The conventional account is cellular-recessive: an individual tubular epithelial cell acquires a somatic inactivating hit on its remaining wild-type allele, loses polycystin function outright, and clonally expands into a cyst. This is what reconciles a dominant disease with a focal lesion, and it is also the most plausible explanation for the large variability between individuals carrying the same PKD2 variant.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"kidney epithelial cell\"], \"biological_processes\": [\"cell population proliferation\"], \"animal_models\": [{\"name\": \"Pkd2 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Conditional Pkd2 inactivation at defined postnatal stages\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Conditional inactivation reproduces the consequence of losing both alleles in adult tubular epithelium, and the postnatal-day-14 switch shows the cystogenic response depends on developmental timing.\"}]}}, {\"id\": \"Stage 5 chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"End-stage renal disease is reached by most patients who live long enough, but late: Kaplan-Meier median age at ESRD in the Genkyst PKD2 cohort was 77.8 years, against roughly 54 years for PKD1.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003774\"}}, {\"id\": \"Tolvaptan vasopressin V2 receptor antagonist therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tolvaptan is the only disease-modifying pharmacotherapy for ADPKD, approved for adults at high risk of rapid progression. Its relevance to PKD2 is conditional rather than automatic: because most PKD2 patients progress slowly, comparatively few meet rapid-progression criteria, and the pivotal trial was not powered to report a PKD2 subgroup.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tolvaptan\"]}}], \"edges\": [{\"source\": \"Polycystin-2 loss at the renal primary cilium\", \"target\": \"Somatic second hit and clonal cyst initiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The germline allele sets a heterozygous background on which individual tubular cells can lose the remaining wild-type copy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Polycystin-2 loss at the renal primary cilium\", \"target\": \"Cilium-dependent cAMP elevation in tubular epithelium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the polycystin calcium signal disinhibits adenylate cyclase and raises intracellular cAMP in the mutant epithelium.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Somatic second hit and clonal cyst initiation\", \"target\": \"Cilium-dependent cAMP elevation in tubular epithelium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cell that has lost both polycystin alleles has no ciliary calcium signal at all, so the cAMP disinhibition below is complete in that clone rather than partial.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cilium-dependent cAMP elevation in tubular epithelium\", \"target\": \"Cyst epithelial proliferation and transepithelial fluid secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated cAMP simultaneously drives mural epithelial proliferation and cAMP-dependent chloride and fluid secretion into the cyst lumen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cyst epithelial proliferation and transepithelial fluid secretion\", \"target\": \"Progressive cyst expansion and nephron loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued proliferation and secretion expand cysts, which compress and replace adjacent functioning parenchyma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tolvaptan vasopressin V2 receptor antagonist therapy\", \"target\": \"Cilium-dependent cAMP elevation in tubular epithelium\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tolvaptan vasopressin V2 receptor antagonist therapy\", \"target\": \"Renal cysts\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Tolvaptan vasopressin V2 receptor antagonist therapy\", \"target\": \"Decreased glomerular filtration rate\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ACE inhibitor or angiotensin II receptor blocker therapy\", \"target\": \"Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Blood pressure control and dietary sodium restriction\", \"target\": \"Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Kidney replacement therapy\", \"target\": \"Stage 5 chronic kidney disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived multi-lineage adult renal organoids\", \"target\": \"Polycystin-2 loss at the renal primary cilium\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The organoids reproduce the ciliary phenotype in human patient-derived tissue, and IFT88 ablation selectively attenuates the downstream signalling in mutant backgrounds, which is direct support for cilium-dependent cystogenesis.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Derived from surgical specimens of advanced disease, so they capture an established cystic phenotype rather than initiation; and single-cell transcriptomics showed genotype-specific differences between PKD1 and PKD2 organoids, so a PKD1-derived result should not be assumed to hold for PKD2.\"}, {\"source\": \"Pkd2 conditional knockout mouse\", \"target\": \"Somatic second hit and clonal cyst initiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Conditional inactivation reproduces the consequence of losing both alleles in adult tubular epithelium, and the postnatal-day-14 switch shows the cystogenic response depends on developmental timing.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model deletes Pkd2 by design rather than by stochastic somatic mutation, so it reproduces the outcome of a second hit but not the process that produces one. Rodent Pkd1 and Pkd2 loci also escape the recurrent somatic mutagenesis seen at the human locus, so spontaneous two-hit cystogenesis is not modelled at all.\"}, {\"source\": \"PKD2\", \"target\": \"Polycystin-2 loss at the renal primary cilium\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACE inhibitor or angiotensin II receptor blocker therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Renin-angiotensin system blockade is the antihypertensive of choice in ADPKD. It matters in PKD2 despite the milder course, because about 75% of patients are hypertensive by age 60 - hypertension arrives later than in PKD1 but it still arrives in most patients.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Blood pressure control and dietary sodium restriction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Blood pressure control and moderate sodium restriction are the mainstay of conservative management. Given the high cumulative incidence of hypertension in PKD2 (about 75% by age 60), this applies to most patients even though hypertension arrives later than in PKD1.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cilium-dependent cAMP elevation in tubular epithelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced intracellular calcium disinhibits adenylate cyclase, and vasopressin V2 receptor signalling in the distal nephron and collecting duct amplifies the effect. The resulting rise in cAMP is the node that both proliferative and secretory arms of cystogenesis depend on, and it is the node tolvaptan is aimed at.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"kidney collecting duct epithelial cell\"], \"biological_processes\": [\"cAMP biosynthetic process\"]}}, {\"id\": \"Cyst epithelial proliferation and transepithelial fluid secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cyst-lining epithelium proliferates and secretes chloride and water into the lumen, so individual cysts enlarge after they have detached from the parent nephron and are no longer fed by glomerular filtrate.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"kidney epithelial cell\"], \"biological_processes\": [\"cell population proliferation\", \"chloride transmembrane transport\"]}}, {\"id\": \"Decreased glomerular filtration rate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"GFR declines late in PKD2 but in most patients who live long enough. The grading is lifetime, not cross-sectional, which matters here because the two give opposite answers: at diagnosis 81.4% still have an eGFR above 60 mL/min/1.73 m2, yet the proportion above 30 mL/min/1.73 m2 falls to 73.1%, 58.8% and 43.5% across the sixth, seventh and eighth decades. FREQUENT is also the only grading consistent with Stage 5 chronic kidney disease being FREQUENT below, since stage 5 is a subset of reduced GFR and a subset cannot be commoner than the set that contains it. Men have lower kidney function than women at equivalent age, without a corresponding difference in renal survival.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012213\"}}, {\"id\": \"Dialysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dialysis is one of the two kidney replacement therapies for end-stage renal disease, alongside kidney transplantation. In PKD2 the need typically arises late: the Kaplan-Meier median age at ESRD in the Genkyst cohort was 77.8 years.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Flank pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cyst-related flank pain was reported by 38.9% of PKD2 patients in the Genkyst cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030157\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertension is common but distinctly less so than in PKD1, and it appears later. Cumulative probability at age 60 is about 75%, with median age at diagnosis 49 years.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000822\"}}, {\"id\": \"Kidney transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Kidney transplantation is the other kidney replacement therapy for end-stage renal disease. The PKD2 timing noted under Dialysis applies equally here.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nephron loss and progressive kidney function decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cumulative cyst burden destroys functioning nephrons and kidney function declines. In PKD2 this trajectory is displaced roughly two decades later than in PKD1: at age 60 only about one PKD2 patient in ten has reached end-stage renal disease, and the Kaplan-Meier median age at ESRD is near 78 years.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"kidney epithelial cell\"]}}, {\"id\": \"PKD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PKD2\"], \"gene_terms\": [{\"label\": \"PKD2\", \"id\": \"hgnc:9009\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Patient-derived multi-lineage adult renal organoids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Expandable organoids grown from ADPKD surgical specimens, including PKD2-mutant donors. They reproduce elongated primary cilia, polarity disruption and elevated Rho GTPase/planar-cell-polarity signalling, and support single-cell transcriptomics and drug screening across genotypes.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"ORGANOID\"}}, {\"id\": \"Pkd2 conditional knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Germline Pkd2 deletion is embryonic lethal, so conditional inactivation is the only route to an adult model. Inactivating Pkd2 at or beyond postnatal day 14 gives delayed cyst formation, mirroring the developmental switch seen in Pkd1 models.\"}, {\"id\": \"Polycystin-2 loss at the renal primary cilium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PKD2 encodes polycystin-2, a transient receptor potential family cation channel. Its carboxy-terminal coiled-coil interaction with polycystin-1 is required for polycystin-1 maturation, ciliary trafficking and stability, so a PKD2 loss-of-function allele degrades the whole ciliary receptor-channel complex rather than only the channel arm. This is why PKD2 and PKD1 produce the same disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"kidney epithelial cell\"], \"biological_processes\": [\"intracellular calcium ion homeostasis\"], \"genes\": [\"PKD2\"], \"gene_terms\": [{\"label\": \"PKD2\", \"id\": \"hgnc:9009\"}], \"experimental_models\": [{\"name\": \"Patient-derived multi-lineage adult renal organoids\", \"model_type\": \"ORGANOID\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The organoids reproduce the ciliary phenotype in human patient-derived tissue, and IFT88 ablation selectively attenuates the downstream signalling in mutant backgrounds, which is direct support for cilium-dependent cystogenesis.\"}]}}, {\"id\": \"Progressive cyst expansion and kidney enlargement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cysts keep enlarging after they detach from the parent nephron, and the growing cyst burden raises total kidney volume. Kidney size and its growth rate are the standard imaging measures of ADPKD severity: patients with larger, faster-growing kidneys reach kidney replacement therapy earlier. In PKD2 the corollary runs the other way too: the Genkyst authors read the absence of massive kidney enlargement in patients with early ESRD as a sign that a concomitant nephropathy, not the cystic disease, drove their kidney failure.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"kidney epithelial cell\"]}}, {\"id\": \"Renal cysts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral fluid-filled kidney cysts are the defining structural lesion. The Genkyst cohort required Pei imaging criteria or at least 10 bilateral cysts for entry.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000107\"}}, {\"id\": \"Somatic second hit and clonal cyst initiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cyst formation in PKD2 is focal and sporadic, not uniform across the nephron population, and the germline heterozygous state alone does not explain that. The conventional account is cellular-recessive: an individual tubular epithelial cell acquires a somatic inactivating hit on its remaining wild-type allele, loses polycystin function outright, and clonally expands into a cyst. This is what reconciles a dominant disease with a focal lesion, and it is also the most plausible explanation for the large variability between individuals carrying the same PKD2 variant.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"kidney epithelial cell\"], \"biological_processes\": [\"cell population proliferation\"], \"animal_models\": [{\"name\": \"Pkd2 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Conditional Pkd2 inactivation at defined postnatal stages\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Conditional inactivation reproduces the consequence of losing both alleles in adult tubular epithelium, and the postnatal-day-14 switch shows the cystogenic response depends on developmental timing.\"}]}}, {\"id\": \"Stage 5 chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"End-stage renal disease is reached by most patients who live long enough, but late: Kaplan-Meier median age at ESRD in the Genkyst PKD2 cohort was 77.8 years, against roughly 54 years for PKD1.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003774\"}}, {\"id\": \"Tolvaptan vasopressin V2 receptor antagonist therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tolvaptan is the only disease-modifying pharmacotherapy for ADPKD, approved for adults at high risk of rapid progression. Its relevance to PKD2 is conditional rather than automatic: because most PKD2 patients progress slowly, comparatively few meet rapid-progression criteria, and the pivotal trial was not powered to report a PKD2 subgroup.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tolvaptan\"]}}], \"edges\": [{\"source\": \"Polycystin-2 loss at the renal primary cilium\", \"target\": \"Somatic second hit and clonal cyst initiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The germline allele sets a heterozygous background on which individual tubular cells can lose the remaining wild-type copy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Polycystin-2 loss at the renal primary cilium\", \"target\": \"Cilium-dependent cAMP elevation in tubular epithelium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the polycystin calcium signal disinhibits adenylate cyclase and raises intracellular cAMP in the mutant epithelium.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Somatic second hit and clonal cyst initiation\", \"target\": \"Cilium-dependent cAMP elevation in tubular epithelium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cell that has lost both polycystin alleles has no ciliary calcium signal at all, so the cAMP disinhibition below is complete in that clone rather than partial.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cilium-dependent cAMP elevation in tubular epithelium\", \"target\": \"Cyst epithelial proliferation and transepithelial fluid secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated cAMP simultaneously drives mural epithelial proliferation and cAMP-dependent chloride and fluid secretion into the cyst lumen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cyst epithelial proliferation and transepithelial fluid secretion\", \"target\": \"Progressive cyst expansion and kidney enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued proliferation of the cyst-lining epithelium and secretion into the cyst lumen enlarge individual cysts, and the accumulating cyst burden enlarges the kidney.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive cyst expansion and kidney enlargement\", \"target\": \"Nephron loss and progressive kidney function decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanding cysts replace and compress the surrounding parenchyma, so functioning nephrons are lost and kidney function declines.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive cyst expansion and kidney enlargement\", \"target\": \"Renal cysts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding cysts are the bilateral renal cysts seen on imaging, and their number and size increase over time.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive cyst expansion and kidney enlargement\", \"target\": \"Flank pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enlarging cysts cause the flank pain that PKD2 patients report; the Genkyst cohort recorded it specifically as flank pain related to cysts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nephron loss and progressive kidney function decline\", \"target\": \"Decreased glomerular filtration rate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nephron loss is measured clinically as a falling GFR. In PKD2 the fall is age-dependent and late: most patients keep an eGFR above 30 mL/min/1.73 m2 into their fifties, and the proportion drops across the following decades.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Decreased glomerular filtration rate\", \"target\": \"Stage 5 chronic kidney disease\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Continued GFR decline ends in end-stage renal disease. In PKD2 the cumulative probability of reaching it rises steeply only after age 60.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tolvaptan vasopressin V2 receptor antagonist therapy\", \"target\": \"Cilium-dependent cAMP elevation in tubular epithelium\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tolvaptan vasopressin V2 receptor antagonist therapy\", \"target\": \"Renal cysts\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Tolvaptan vasopressin V2 receptor antagonist therapy\", \"target\": \"Decreased glomerular filtration rate\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ACE inhibitor or angiotensin II receptor blocker therapy\", \"target\": \"Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Blood pressure control and dietary sodium restriction\", \"target\": \"Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dialysis\", \"target\": \"Nephron loss and progressive kidney function decline\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dialysis\", \"target\": \"Stage 5 chronic kidney disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Kidney transplantation\", \"target\": \"Nephron loss and progressive kidney function decline\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Kidney transplantation\", \"target\": \"Stage 5 chronic kidney disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived multi-lineage adult renal organoids\", \"target\": \"Polycystin-2 loss at the renal primary cilium\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The organoids reproduce the ciliary phenotype in human patient-derived tissue, and IFT88 ablation selectively attenuates the downstream signalling in mutant backgrounds, which is direct support for cilium-dependent cystogenesis.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Derived from surgical specimens of advanced disease, so they capture an established cystic phenotype rather than initiation; and single-cell transcriptomics showed genotype-specific differences between PKD1 and PKD2 organoids, so a PKD1-derived result should not be assumed to hold for PKD2.\"}, {\"source\": \"Pkd2 conditional knockout mouse\", \"target\": \"Somatic second hit and clonal cyst initiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Conditional inactivation reproduces the consequence of losing both alleles in adult tubular epithelium, and the postnatal-day-14 switch shows the cystogenic response depends on developmental timing.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model deletes Pkd2 by design rather than by stochastic somatic mutation, so it reproduces the outcome of a second hit but not the process that produces one. Rodent Pkd1 and Pkd2 loci also escape the recurrent somatic mutagenesis seen at the human locus, so spontaneous two-hit cystogenesis is not modelled at all.\"}, {\"source\": \"PKD2\", \"target\": \"Polycystin-2 loss at the renal primary cilium\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5291,11 +5530,11 @@ This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5324,15 +5563,18 @@ This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000822</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5352,6 +5594,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5376,6 +5619,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5420,15 +5664,18 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007029" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0007029</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007029" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0007029</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral berry aneurysm (HP:0007029). HP:0007029 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5450,6 +5697,9 @@ This clinical feature is Cerebral berry aneurysm (HP:0007029). HP:0007029 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
@@ -5458,7 +5708,7 @@ This clinical feature is Cerebral berry aneurysm (HP:0007029). HP:0007029 is a p
                 <div class="evidence-snippet">"the prevalence of intracranial aneurysms is fivefold higher than in the general population"</div>
 
 
-                <div class="evidence-explanation">GeneReviews establishes elevated intracranial aneurysm prevalence in ADPKD as a whole. Graded PARTIAL because the statement is not stratified by PKD1/PKD2 genotype, so it supports the claim for PKD2 only by inheritance from the parent disease.</div>
+                <div class="evidence-explanation">GeneReviews establishes elevated intracranial aneurysm prevalence in ADPKD as a whole. INDIRECT because the statement is not stratified by PKD1/PKD2 genotype, so it supports the claim for PKD2 only by inheritance from the parent disease.</div>
 
 
 
@@ -5499,15 +5749,18 @@ This clinical feature is Cerebral berry aneurysm (HP:0007029). HP:0007029 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatic cysts (HP:0001407). HP:0001407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5527,6 +5780,7 @@ This clinical feature is Hepatic cysts (HP:0001407). HP:0001407 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5559,7 +5813,7 @@ This clinical feature is Hepatic cysts (HP:0001407). HP:0001407 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-renal-cysts" data-dismech-node="Renal cysts" data-dismech-type="phenotype">
@@ -5578,15 +5832,18 @@ This clinical feature is Hepatic cysts (HP:0001407). HP:0001407 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000107</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000107</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5609,6 +5866,7 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5617,6 +5875,105 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
                 <div class="evidence-explanation">GeneReviews identifies bilateral kidney cysts as the defining feature of ADPKD, of which PKD2 is one of the two major genetic forms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-macroscopic-hematuria" data-dismech-node="Macroscopic hematuria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Macroscopic hematuria
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012587" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0012587</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macroscopic hematuria (HP:0012587). HP:0012587 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28356211" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28356211" target="_blank">PMID:28356211</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Flank pain was reported in 38.9%; macroscopic hematuria, in 31.1%; and cyst infections, in 15.3% of patients."</div>
+
+
+                <div class="evidence-explanation">PKD2-specific frequency of macroscopic haematuria, quoted with the neighbouring urologic-event frequencies from the same sentence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10023895" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10023895" target="_blank">PMID:10023895</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PKD2 patients were less likely to have hypertension (odds ratio 0.25 [95% CI 0.15-0.42]), a history of urinary-tract infection (0.50 ... or haematuria (0.59"</div>
+
+
+                <div class="evidence-explanation">Head-to-head comparison establishing that haematuria is significantly less frequent in PKD2 than PKD1, odds ratio 0.59. The ellipsis bridges a confidence interval the reference validator strips before matching; the surrounding text is quoted verbatim.</div>
 
 
 
@@ -5648,15 +6005,18 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003774</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003774</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5676,6 +6036,7 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5703,6 +6064,7 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5711,6 +6073,213 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
 
 
                 <div class="evidence-explanation">Independent cohort confirming the roughly two-decade delay in kidney failure in PKD2.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-glomerular-filtration-rate" data-dismech-node="Decreased glomerular filtration rate" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased glomerular filtration rate
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012213" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012213</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased glomerular filtration rate (HP:0012213). HP:0012213 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Stage 5 chronic kidney disease</span>
+
+                    </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28356211" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28356211" target="_blank">PMID:28356211</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"analysis of past eGFR values when available (n = 226) showed that 81.4% of patients had eGFRs &gt; 60 mL/min/1.73 m2 at diagnosis"</div>
+
+
+                <div class="evidence-explanation">Quantifies preserved kidney function at diagnosis in the PKD2 cohort. This cross-sectional figure is context for the grade, not its basis: it shows how late the decline begins, whereas the FREQUENT grade is lifetime and rests on the age-stratified proportions quoted in the next item.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28356211" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28356211" target="_blank">PMID:28356211</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"proportions of patients with eGFRs &gt; 30 mL/min/1.73 m2 were 97.8%, 94.2%, 73.1%, 58.8%, and 43.5% among patients younger than 40, 40 to younger than 50, 50 to younger than 60, 60 to 70, and older than 70 years, respectively"</div>
+
+
+                <div class="evidence-explanation">The source of the 73.1%, 58.8% and 43.5% figures in the description, and the basis of the lifetime FREQUENT grade: among patients older than 70, more than half have an eGFR at or below 30 mL/min/1.73 m2.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28356211" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28356211" target="_blank">PMID:28356211</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although there was no sex influence on renal survival, men had lower kidney function than women."</div>
+
+
+                <div class="evidence-explanation">Supports the sex difference in kidney function noted in the description, and the fact that it does not translate into a renal-survival difference.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-urinary-tract-infection" data-dismech-node="Urinary tract infection" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Urinary tract infection
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Recurrent urinary tract infections</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000010</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10023895" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10023895" target="_blank">PMID:10023895</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PKD2 patients were less likely to have hypertension (odds ratio 0.25 [95% CI 0.15-0.42]), a history of urinary-tract infection (0.50 ... or haematuria (0.59"</div>
+
+
+                <div class="evidence-explanation">Gives the PKD2-versus-PKD1 odds ratio for urinary-tract infection, 0.50. The ellipsis bridges a confidence interval the reference validator strips before matching; the surrounding text is quoted verbatim.</div>
 
 
 
@@ -5742,15 +6311,18 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000787</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5770,6 +6342,7 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5821,15 +6394,18 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030157" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030157</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030157" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0030157</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5849,6 +6425,7 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5881,102 +6458,8 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-macroscopic-hematuria" data-dismech-node="Macroscopic hematuria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Macroscopic hematuria
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012587" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012587</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Macroscopic hematuria (HP:0012587). HP:0012587 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28356211" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28356211" target="_blank">PMID:28356211</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Flank pain was reported in 38.9%; macroscopic hematuria, in 31.1%; and cyst infections, in 15.3% of patients."</div>
-
-
-                <div class="evidence-explanation">PKD2-specific frequency of macroscopic haematuria, quoted with the neighbouring urologic-event frequencies from the same sentence.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10023895" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10023895" target="_blank">PMID:10023895</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"PKD2 patients were less likely to have hypertension (odds ratio 0.25 [95% CI 0.15-0.42]), a history of urinary-tract infection (0.50 ... or haematuria (0.59"</div>
-
-
-                <div class="evidence-explanation">Head-to-head comparison establishing that haematuria is significantly less frequent in PKD2 than PKD1, odds ratio 0.59. The ellipsis bridges a confidence interval the reference validator strips before matching; the surrounding text is quoted verbatim.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cyst-infection" data-dismech-node="Cyst infection" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5991,6 +6474,9 @@ This clinical feature is Macroscopic hematuria (HP:0012587). HP:0012587 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6005,6 +6491,7 @@ This clinical feature is Macroscopic hematuria (HP:0012587). HP:0012587 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6016,172 +6503,6 @@ This clinical feature is Macroscopic hematuria (HP:0012587). HP:0012587 is a phe
 
 
                 <div class="evidence-explanation">PKD2-specific frequency of cyst infection.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-glomerular-filtration-rate" data-dismech-node="Decreased glomerular filtration rate" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased glomerular filtration rate
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012213" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012213</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased glomerular filtration rate (HP:0012213). HP:0012213 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28356211" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28356211" target="_blank">PMID:28356211</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"analysis of past eGFR values when available (n = 226) showed that 81.4% of patients had eGFRs &gt; 60 mL/min/1.73 m2 at diagnosis"</div>
-
-
-                <div class="evidence-explanation">Quantifies preserved kidney function at diagnosis in the PKD2 cohort, which is what sets the frequency grading for this phenotype.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28356211" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28356211" target="_blank">PMID:28356211</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Although there was no sex influence on renal survival, men had lower kidney function than women."</div>
-
-
-                <div class="evidence-explanation">Supports the sex difference in kidney function noted in the description, and the fact that it does not translate into a renal-survival difference.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-urinary-tract-infection" data-dismech-node="Urinary tract infection" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Urinary tract infection
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Recurrent urinary tract infections</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000010</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10023895" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10023895" target="_blank">PMID:10023895</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"PKD2 patients were less likely to have hypertension (odds ratio 0.25 [95% CI 0.15-0.42]), a history of urinary-tract infection (0.50 ... or haematuria (0.59"</div>
-
-
-                <div class="evidence-explanation">Gives the PKD2-versus-PKD1 odds ratio for urinary-tract infection, 0.50. The ellipsis bridges a confidence interval the reference validator strips before matching; the surrounding text is quoted verbatim.</div>
 
 
 
@@ -6254,10 +6575,10 @@ This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:000
                         Gene: PKD2
 
 
-    <a href="https://bioregistry.io/hgnc:9009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:9009</a>
+    <a href="https://bioregistry.io/hgnc:9009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:9009</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PKD2 (hgnc:9009). hgnc:9009 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6269,6 +6590,9 @@ This disease-associated gene is PKD2 (hgnc:9009). hgnc:9009 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6287,6 +6611,7 @@ This disease-associated gene is PKD2 (hgnc:9009). hgnc:9009 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6311,6 +6636,7 @@ This disease-associated gene is PKD2 (hgnc:9009). hgnc:9009 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6350,7 +6676,7 @@ This disease-associated gene is PKD2 (hgnc:9009). hgnc:9009 is a gene from the H
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-tolvaptan-vasopressin-v2-receptor-antagonist-therapy" data-dismech-node="Tolvaptan vasopressin V2 receptor antagonist therapy" data-dismech-type="treatment">
@@ -6361,7 +6687,7 @@ This disease-associated gene is PKD2 (hgnc:9009). hgnc:9009 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6402,16 +6728,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_32246" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-25">CHEBI:32246</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_32246" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:32246</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses tolvaptan (CHEBI:32246). CHEBI:32246 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -6445,6 +6796,7 @@ This treatment uses tolvaptan (CHEBI:32246). CHEBI:32246 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6482,11 +6834,11 @@ This treatment uses tolvaptan (CHEBI:32246). CHEBI:32246 is a therapeutic agent 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000107</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000107</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Renal cyst (HP:0000107). HP:0000107 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6499,11 +6851,11 @@ This treatment targets Renal cyst (HP:0000107). HP:0000107 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012213" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012213</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012213" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012213</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Decreased glomerular filtration rate (HP:0012213). HP:0012213 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6529,6 +6881,9 @@ This treatment targets Decreased glomerular filtration rate (HP:0012213). HP:001
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
@@ -6537,7 +6892,7 @@ This treatment targets Decreased glomerular filtration rate (HP:0012213). HP:001
                 <div class="evidence-snippet">"Tolvaptan, as compared with placebo, slowed the increase in total kidney volume and the decline in kidney function over a 3-year period in patients with ADPKD"</div>
 
 
-                <div class="evidence-explanation">TEMPO 3:4 establishes efficacy in ADPKD. Graded PARTIAL for this entry because the trial enrolled ADPKD patients without reporting a PKD2-specific subgroup, so its applicability to PKD2 is by extension rather than direct measurement.</div>
+                <div class="evidence-explanation">TEMPO 3:4 establishes efficacy in ADPKD. INDIRECT for this entry because the trial enrolled ADPKD patients without reporting a PKD2-specific subgroup, so its applicability to PKD2 is by extension rather than direct measurement.</div>
 
 
 
@@ -6558,7 +6913,7 @@ This treatment targets Decreased glomerular filtration rate (HP:0012213). HP:001
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6590,6 +6945,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Renin-angiotensin system blockade is the antihypertensive of choice in ADPKD. It matters in PKD2 despite the milder course, because about 75% of patients are hypertensive by age 60 - hypertension arrives later than in PKD1 but it still arrives in most patients.</div>
 
 
@@ -6605,11 +6985,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000822</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6636,6 +7016,7 @@ This treatment targets Hypertension (HP:0000822). HP:0000822 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6657,6 +7038,7 @@ This treatment targets Hypertension (HP:0000822). HP:0000822 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6688,7 +7070,7 @@ This treatment targets Hypertension (HP:0000822). HP:0000822 is a phenotype from
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6720,6 +7102,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">GeneReviews lists specific agents and circumstances to avoid. These are worth curating rather than leaving implicit, because several are ordinary lifestyle exposures a patient would not otherwise connect to their kidney disease.</div>
 
 
@@ -6741,6 +7148,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6772,7 +7180,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">dietary sodium intake avoidance<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">dietary sodium intake avoidance<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is dietary sodium intake avoidance, annotated with Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6805,6 +7213,31 @@ This treatment is dietary sodium intake avoidance, annotated with Dietary Interv
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Blood pressure control and moderate sodium restriction are the mainstay of conservative management. Given the high cumulative incidence of hypertension in PKD2 (about 75% by age 60), this applies to most patients even though hypertension arrives later than in PKD1.</div>
 
 
@@ -6820,11 +7253,11 @@ This treatment is dietary sodium intake avoidance, annotated with Dietary Interv
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000822</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6851,6 +7284,7 @@ This treatment targets Hypertension (HP:0000822). HP:0000822 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6871,15 +7305,225 @@ This treatment targets Hypertension (HP:0000822). HP:0000822 is a phenotype from
 
             </div>
 
-            <div class="item-box treatment-box anchor-target" id="treatment-kidney-replacement-therapy" data-dismech-node="Kidney replacement therapy" data-dismech-type="treatment">
+            <div class="item-box treatment-box anchor-target" id="treatment-dialysis" data-dismech-node="Dialysis" data-dismech-type="treatment">
                 <div class="item-name">
-                    Kidney replacement therapy
+                    Dialysis
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Kidney Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Dialysis<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Dialysis (NCIT:C15221). NCIT:C15221 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15221" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15221">NCIT:C15221</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Dialysis is one of the two kidney replacement therapies for end-stage renal disease, alongside kidney transplantation. In PKD2 the need typically arises late: the Kaplan-Meier median age at ESRD in the Genkyst cohort was 77.8 years.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Nephron loss and progressive kidney function decline</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Replaces lost excretory function without acting on the cystic process.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301424" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301424" target="_blank">PMID:20301424</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ESKD is treated with dialysis and transplantation."</div>
+
+
+                <div class="evidence-explanation">GeneReviews names dialysis as a treatment for end-stage kidney disease in ADPKD. It substitutes for lost kidney function rather than acting on the cystic mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Stage 5 chronic kidney disease
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003774</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301424" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301424" target="_blank">PMID:20301424</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ESKD is treated with dialysis and transplantation."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states the standard treatment for end-stage kidney disease in ADPKD.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28356211" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28356211" target="_blank">PMID:28356211</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Median age at ESRD obtained by Kaplan-Meier curve analysis was 77.8"</div>
+
+
+                <div class="evidence-explanation">PKD2-specific median age at end-stage renal disease, which sets when kidney replacement therapy becomes relevant.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-kidney-transplantation" data-dismech-node="Kidney transplantation" data-dismech-type="treatment">
+                <div class="item-name">
+                    Kidney transplantation
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Kidney Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6911,8 +7555,86 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
-                <div class="item-desc">Dialysis and kidney transplantation are the treatment for end-stage renal disease. In PKD2 this need typically arises in the eighth decade, so many patients die of other causes before requiring it.</div>
 
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Kidney transplantation is the other kidney replacement therapy for end-stage renal disease. The PKD2 timing noted under Dialysis applies equally here.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Nephron loss and progressive kidney function decline</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; A transplanted kidney replaces lost kidney function without acting on the cystic process in the native kidneys.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301424" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301424" target="_blank">PMID:20301424</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ESKD is treated with dialysis and transplantation."</div>
+
+
+                <div class="evidence-explanation">GeneReviews names transplantation as a treatment for end-stage kidney disease in ADPKD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
 
                 <div class="item-meta" style="margin-top: 8px;">
@@ -6926,11 +7648,11 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003774</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003774</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6954,6 +7676,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6985,7 +7708,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7017,6 +7740,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal dominant transmission gives each child a 50% risk. Counselling in PKD2 has to convey a specific and easily miscommunicated point: a much later expected onset than PKD1, but not an absence of risk.</div>
 
 
@@ -7041,6 +7789,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7062,6 +7811,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7124,6 +7874,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7193,6 +7944,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7217,6 +7969,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7238,6 +7991,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7295,6 +8049,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7346,6 +8101,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7414,6 +8170,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7461,6 +8218,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7514,6 +8272,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7561,6 +8320,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7637,6 +8397,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7692,6 +8453,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7770,11 +8532,11 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000107</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000107</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Renal cyst (HP:0000107). HP:0000107 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7800,6 +8562,7 @@ This clinical trial targets Renal cyst (HP:0000107). HP:0000107 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7807,7 +8570,7 @@ This clinical trial targets Renal cyst (HP:0000107). HP:0000107 is a phenotype f
                 <div class="evidence-snippet">"This study&#39;s purpose is to evaluate the long-term safety and efficacy of tolvaptan versus placebo in patients with ADPKD."</div>
 
 
-                <div class="evidence-explanation">The registration record states the enrolled population as ADPKD rather than a PKD2 subgroup, which is what this entry cites it for. Graded PARTIAL because a registration record establishes what was studied, not what was found.</div>
+                <div class="evidence-explanation">The registration record states the enrolled population as ADPKD rather than a PKD2 subgroup, which is what this entry cites it for. A registration record establishes what was studied, not what was found.</div>
 
 
 
@@ -7845,11 +8608,11 @@ This clinical trial targets Renal cyst (HP:0000107). HP:0000107 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012213" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0012213</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012213" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0012213</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Decreased glomerular filtration rate (HP:0012213). HP:0012213 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7875,6 +8638,7 @@ This clinical trial targets Decreased glomerular filtration rate (HP:0012213). H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7882,7 +8646,7 @@ This clinical trial targets Decreased glomerular filtration rate (HP:0012213). H
                 <div class="evidence-snippet">"The purpose of the study is to determine whether tolvaptan is effective and safe for the treatment of late-stage chronic kidney disease due to autosomal dominant polycystic kidney disease"</div>
 
 
-                <div class="evidence-explanation">Registration record for the later-stage CKD tolvaptan trial. Like TEMPO 3:4 it is an ADPKD trial rather than a PKD2 trial. Graded PARTIAL for the same reason.</div>
+                <div class="evidence-explanation">Registration record for the later-stage CKD tolvaptan trial. Like TEMPO 3:4 it is an ADPKD trial rather than a PKD2 trial, and a registration record establishes what was studied, not what was found.</div>
 
 
 
@@ -7962,6 +8726,7 @@ This clinical trial targets Decreased glomerular filtration rate (HP:0012213). H
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8006,6 +8771,7 @@ This clinical trial targets Decreased glomerular filtration rate (HP:0012213). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8124,6 +8890,7 @@ This clinical trial targets Decreased glomerular filtration rate (HP:0012213). H
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8165,6 +8932,7 @@ This clinical trial targets Decreased glomerular filtration rate (HP:0012213). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8475,11 +9243,12 @@ pathophysiology:
       reference_title: &#34;A \&#34;two-hit\&#34; model of cystogenesis in autosomal dominant polycystic kidney disease?&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
+      directness: INDIRECT
       snippet: &gt;-
         provides growth advantages for it to proliferate clonally into a cyst
       explanation: &gt;-
         Supports clonal proliferation as the consequence of biallelic
-        inactivation. Graded PARTIAL because the source establishes the growth
+        inactivation. INDIRECT because the source establishes the growth
         advantage without tracing it specifically through the cAMP node.
 - name: Cilium-dependent cAMP elevation in tubular epithelium
   conforms_to: &#34;renal_cystogenesis#cAMP and Vasopressin-V2R Signaling Activation&#34;
@@ -8591,10 +9360,11 @@ pathophysiology:
       Places the proliferative cyst-promoting programme downstream of polycystin
       loss.
   downstream:
-  - target: Progressive cyst expansion and nephron loss
+  - target: Progressive cyst expansion and kidney enlargement
     description: &gt;-
-      Continued proliferation and secretion expand cysts, which compress and
-      replace adjacent functioning parenchyma.
+      Continued proliferation of the cyst-lining epithelium and secretion into
+      the cyst lumen enlarge individual cysts, and the accumulating cyst burden
+      enlarges the kidney.
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:26877954
@@ -8607,7 +9377,139 @@ pathophysiology:
         ADPKD.
       explanation: &gt;-
         Links cyst formation to destruction of normal tubular architecture.
-- name: Progressive cyst expansion and nephron loss
+    - reference: PMID:26877954
+      reference_title: &#34;Cyst growth, polycystins, and primary cilia in autosomal dominant polycystic kidney disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &gt;-
+        ADPKD results from excessive proliferation of renal tubular epithelial
+        cells and remodeling of surrounding structures, giving rise to growth of
+        epithelial-lined cysts accompanied by fibrosis and accumulation of
+        extracellular matrix.
+      explanation: &gt;-
+        States the step this edge asserts: epithelial proliferation gives rise to
+        growth of the cysts. The sentence describes the human disease and is the
+        commentary&#39;s own synthesis rather than a result it produced, hence
+        REVIEW_SYNTHESIS. It is ADPKD-wide, not PKD2-stratified.
+- name: Progressive cyst expansion and kidney enlargement
+  conforms_to: &#34;renal_cystogenesis#Progressive Cyst Expansion and Kidney Enlargement&#34;
+  biological_scale: TISSUE
+  description: &gt;-
+    Cysts keep enlarging after they detach from the parent nephron, and the
+    growing cyst burden raises total kidney volume. Kidney size and its growth
+    rate are the standard imaging measures of ADPKD severity: patients with
+    larger, faster-growing kidneys reach kidney replacement therapy earlier. In
+    PKD2 the corollary runs the other way too: the Genkyst authors read the
+    absence of massive kidney enlargement in patients with early ESRD as a sign
+    that a concomitant nephropathy, not the cystic disease, drove their kidney
+    failure.
+  cell_types:
+  - preferred_term: kidney epithelial cell
+    term:
+      id: CL:0002518
+      label: kidney epithelial cell
+  evidence:
+  - reference: PMID:40126492
+    reference_title: &#34;Autosomal Dominant Polycystic Kidney Disease: A Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      Patients with MIC 1C to MIC 1E have larger kidneys because of more rapid
+      growth (6%-10% per year) compared with those with MIC 1A and 1B (1%-5% per
+      year)
+    explanation: &gt;-
+      Establishes progressive kidney growth as a measured feature of ADPKD, at
+      rates that differ between imaging classes. ADPKD-wide; the review does not
+      report a PKD2-specific growth rate.
+  downstream:
+  - target: Nephron loss and progressive kidney function decline
+    description: &gt;-
+      Expanding cysts replace and compress the surrounding parenchyma, so
+      functioning nephrons are lost and kidney function declines.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:26877954
+      reference_title: &#34;Cyst growth, polycystins, and primary cilia in autosomal dominant polycystic kidney disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &gt;-
+        As the disease progresses, this leads to destruction of the normal renal
+        parenchyma, massive renal enlargement, deterioration of renal function,
+        and eventually renal failure in &gt;50% of affected individuals by late
+        adulthood
+      explanation: &gt;-
+        States the sequence this edge asserts, from cyst growth through
+        parenchymal destruction to declining renal function. The &gt;50% figure is
+        ADPKD-wide and dominated by PKD1; it is not the PKD2 rate, which is
+        recorded on the nephron-loss node.
+    - reference: PMID:40126492
+      reference_title: &#34;Autosomal Dominant Polycystic Kidney Disease: A Review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      directness: INDIRECT
+      snippet: &gt;-
+        have earlier
+        progression to kidney replacement therapy, which occurs at a mean age of
+        58.4 years for MIC 1C, 52.5 years for MIC 1D, and 43.4 years for MIC 1E
+      explanation: &gt;-
+        Patients in the larger-kidney imaging classes reach kidney replacement
+        therapy earlier. This is an association between kidney size and outcome
+        rather than a direct demonstration of the mechanism, hence INDIRECT.
+    - reference: PMID:28356211
+      reference_title: &#34;PKD2-Related Autosomal Dominant Polycystic Kidney Disease: Prevalence, Clinical Presentation, Mutation Spectrum, and Prognosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      directness: INDIRECT
+      snippet: &gt;-
+        in almost half the patients who reached ESRD before age 60 years, a
+        concomitant nephropathy was identified, and the absence of massive
+        enlargement of the kidneys was suggestive of a predominant role of these
+        cofactors in the development of kidney failure.
+      explanation: &gt;-
+        PKD2-specific support by contrast: the authors treat kidney failure
+        without massive kidney enlargement as atypical for PKD2 and attribute it
+        to another cause, which presupposes that the usual PKD2 route to kidney
+        failure runs through cyst-driven enlargement. INDIRECT because the
+        edge is inferred from the authors&#39; interpretation rather than measured.
+  - target: Renal cysts
+    description: &gt;-
+      The expanding cysts are the bilateral renal cysts seen on imaging, and
+      their number and size increase over time.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:40126492
+      reference_title: &#34;Autosomal Dominant Polycystic Kidney Disease: A Review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &gt;-
+        ADPKD is the most common genetic kidney disease worldwide and is
+        characterized by progressive development of kidney cysts.
+      explanation: &gt;-
+        Characterises the renal cyst phenotype as progressive, which is the
+        clinical face of this node. ADPKD-wide.
+  - target: Flank pain
+    description: &gt;-
+      Enlarging cysts cause the flank pain that PKD2 patients report; the Genkyst
+      cohort recorded it specifically as flank pain related to cysts.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:28356211
+      reference_title: &#34;PKD2-Related Autosomal Dominant Polycystic Kidney Disease: Prevalence, Clinical Presentation, Mutation Spectrum, and Prognosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Urologic events, including flank pain related to cysts, macroscopic
+        hematuria or symptomatic intra-cystic hemorrhage, cyst infections, and
+        kidney stones, were reported by 175 (59.7%) patients
+      explanation: &gt;-
+        The PKD2 cohort defines the recorded flank pain as pain related to cysts,
+        which is the attribution this edge makes.
+- name: Nephron loss and progressive kidney function decline
   conforms_to: &#34;renal_cystogenesis#Nephron Loss and Progressive Kidney Failure&#34;
   biological_scale: ORGANISM
   description: &gt;-
@@ -8640,6 +9542,28 @@ pathophysiology:
     explanation: &gt;-
       Establishes that the later trajectory is a shift in timing, not an absence
       of disease - the interpretive point this node exists to carry.
+  downstream:
+  - target: Decreased glomerular filtration rate
+    description: &gt;-
+      Nephron loss is measured clinically as a falling GFR. In PKD2 the fall is
+      age-dependent and late: most patients keep an eGFR above 30 mL/min/1.73 m2
+      into their fifties, and the proportion drops across the following decades.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:28356211
+      reference_title: &#34;PKD2-Related Autosomal Dominant Polycystic Kidney Disease: Prevalence, Clinical Presentation, Mutation Spectrum, and Prognosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        proportions of patients with eGFRs &gt; 30 mL/min/1.73 m2 were 97.8%,
+        94.2%, 73.1%, 58.8%, and 43.5% among patients younger than 40, 40 to
+        younger than 50, 50 to younger than 60, 60 to 70, and older than 70
+        years, respectively
+      explanation: &gt;-
+        The age-stratified eGFR distribution in the PKD2 cohort shows kidney
+        function falling progressively with age, the clinical measure of this
+        node. The data are cross-sectional by age group, not longitudinal
+        within patients.
 phenotypes:
 - category: Renal
   name: Renal cysts
@@ -8826,8 +9750,23 @@ phenotypes:
       analysis of past eGFR values when available (n = 226) showed that 81.4% of
       patients had eGFRs &gt; 60 mL/min/1.73 m2 at diagnosis
     explanation: &gt;-
-      Quantifies preserved kidney function at diagnosis in the PKD2 cohort,
-      which is what sets the frequency grading for this phenotype.
+      Quantifies preserved kidney function at diagnosis in the PKD2 cohort. This
+      cross-sectional figure is context for the grade, not its basis: it shows
+      how late the decline begins, whereas the FREQUENT grade is lifetime and
+      rests on the age-stratified proportions quoted in the next item.
+  - reference: PMID:28356211
+    reference_title: &#34;PKD2-Related Autosomal Dominant Polycystic Kidney Disease: Prevalence, Clinical Presentation, Mutation Spectrum, and Prognosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      proportions of patients with eGFRs &gt; 30 mL/min/1.73 m2 were 97.8%,
+      94.2%, 73.1%, 58.8%, and 43.5% among patients younger than 40, 40 to
+      younger than 50, 50 to younger than 60, 60 to 70, and older than 70
+      years, respectively
+    explanation: &gt;-
+      The source of the 73.1%, 58.8% and 43.5% figures in the description, and
+      the basis of the lifetime FREQUENT grade: among patients older than 70,
+      more than half have an eGFR at or below 30 mL/min/1.73 m2.
   - reference: PMID:28356211
     reference_title: &#34;PKD2-Related Autosomal Dominant Polycystic Kidney Disease: Prevalence, Clinical Presentation, Mutation Spectrum, and Prognosis.&#34;
     supports: SUPPORT
@@ -8838,6 +9777,24 @@ phenotypes:
     explanation: &gt;-
       Supports the sex difference in kidney function noted in the description,
       and the fact that it does not translate into a renal-survival difference.
+  sequelae:
+  - target: Stage 5 chronic kidney disease
+    description: &gt;-
+      Continued GFR decline ends in end-stage renal disease. In PKD2 the
+      cumulative probability of reaching it rises steeply only after age 60.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:28356211
+      reference_title: &#34;PKD2-Related Autosomal Dominant Polycystic Kidney Disease: Prevalence, Clinical Presentation, Mutation Spectrum, and Prognosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        At age 60, 65, and 70 years, probabilities of having reached ESRD were
+        9.8% (95% CI, 5.2%-14.4%), 18.5% (95% CI, 12.4%-24.6%), and 38.1% (95% CI,
+        28.8%-47.4%), respectively.
+      explanation: &gt;-
+        The PKD2 renal-survival curve: the progressive loss of GFR reaches end
+        stage in a rising fraction of patients with each later age band.
 - category: Renal
   name: Urinary tract infection
   frequency: OCCASIONAL
@@ -8929,14 +9886,15 @@ phenotypes:
     reference_title: &#34;Polycystic Kidney Disease, Autosomal Dominant.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    directness: INDIRECT
     snippet: &gt;-
       the prevalence of intracranial aneurysms is fivefold higher
       than in the general population
     explanation: &gt;-
       GeneReviews establishes elevated intracranial aneurysm prevalence in ADPKD
-      as a whole. Graded PARTIAL because the statement is not stratified by
-      PKD1/PKD2 genotype, so it supports the claim for PKD2 only by inheritance
-      from the parent disease.
+      as a whole. INDIRECT because the statement is not stratified by PKD1/PKD2
+      genotype, so it supports the claim for PKD2 only by inheritance from the
+      parent disease.
 genetic:
 - name: PKD2
   association: Causative
@@ -9061,13 +10019,14 @@ treatments:
     reference_title: &#34;Tolvaptan in patients with autosomal dominant polycystic kidney disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    directness: INDIRECT
     snippet: &gt;-
       Tolvaptan, as compared with placebo, slowed the increase in total kidney
       volume and the decline in kidney function over a 3-year period in patients
       with ADPKD
     explanation: &gt;-
-      TEMPO 3:4 establishes efficacy in ADPKD. Graded PARTIAL for this entry
-      because the trial enrolled ADPKD patients without reporting a PKD2-specific
+      TEMPO 3:4 establishes efficacy in ADPKD. INDIRECT for this entry because
+      the trial enrolled ADPKD patients without reporting a PKD2-specific
       subgroup, so its applicability to PKD2 is by extension rather than direct
       measurement.
 - name: ACE inhibitor or angiotensin II receptor blocker therapy
@@ -9154,12 +10113,64 @@ treatments:
     snippet: &#34;dietary sodium restriction (&lt;2000 mg/d)&#34;
     explanation: &gt;-
       Supports sodium restriction as a management component in ADPKD.
-- name: Kidney replacement therapy
+- name: Dialysis
+  therapeutic_modality: DEVICE
+  description: &gt;-
+    Dialysis is one of the two kidney replacement therapies for end-stage renal
+    disease, alongside kidney transplantation. In PKD2 the need typically arises
+    late: the Kaplan-Meier median age at ESRD in the Genkyst cohort was 77.8
+    years.
+  treatment_term:
+    preferred_term: Dialysis
+    term:
+      id: NCIT:C15221
+      label: Dialysis
+  target_phenotypes:
+  - preferred_term: Stage 5 chronic kidney disease
+    term:
+      id: HP:0003774
+      label: Stage 5 chronic kidney disease
+  target_mechanisms:
+  - target: Nephron loss and progressive kidney function decline
+    treatment_effect: BYPASSES
+    description: &gt;-
+      Replaces lost excretory function without acting on the cystic process.
+    evidence:
+    - reference: PMID:20301424
+      reference_title: &#34;Polycystic Kidney Disease, Autosomal Dominant.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        ESKD is treated with dialysis and transplantation.
+      explanation: &gt;-
+        GeneReviews names dialysis as a treatment for end-stage kidney disease
+        in ADPKD. It substitutes for lost kidney function rather than acting on
+        the cystic mechanism.
+  evidence:
+  - reference: PMID:20301424
+    reference_title: &#34;Polycystic Kidney Disease, Autosomal Dominant.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      ESKD is treated with dialysis and transplantation.
+    explanation: &gt;-
+      GeneReviews states the standard treatment for end-stage kidney disease in
+      ADPKD.
+  - reference: PMID:28356211
+    reference_title: &#34;PKD2-Related Autosomal Dominant Polycystic Kidney Disease: Prevalence, Clinical Presentation, Mutation Spectrum, and Prognosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Median age at ESRD obtained by Kaplan-Meier curve analysis was 77.8
+    explanation: &gt;-
+      PKD2-specific median age at end-stage renal disease, which sets when
+      kidney replacement therapy becomes relevant.
+- name: Kidney transplantation
   therapeutic_modality: SURGERY
   description: &gt;-
-    Dialysis and kidney transplantation are the treatment for end-stage renal
-    disease. In PKD2 this need typically arises in the eighth decade, so many
-    patients die of other causes before requiring it.
+    Kidney transplantation is the other kidney replacement therapy for
+    end-stage renal disease. The PKD2 timing noted under Dialysis applies
+    equally here.
   treatment_term:
     preferred_term: Kidney Transplantation
     term:
@@ -9170,6 +10181,22 @@ treatments:
     term:
       id: HP:0003774
       label: Stage 5 chronic kidney disease
+  target_mechanisms:
+  - target: Nephron loss and progressive kidney function decline
+    treatment_effect: BYPASSES
+    description: &gt;-
+      A transplanted kidney replaces lost kidney function without acting on the
+      cystic process in the native kidneys.
+    evidence:
+    - reference: PMID:20301424
+      reference_title: &#34;Polycystic Kidney Disease, Autosomal Dominant.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        ESKD is treated with dialysis and transplantation.
+      explanation: &gt;-
+        GeneReviews names transplantation as a treatment for end-stage kidney
+        disease in ADPKD.
   evidence:
   - reference: PMID:20301424
     reference_title: &#34;Polycystic Kidney Disease, Autosomal Dominant.&#34;
@@ -9385,9 +10412,8 @@ clinical_trials:
       tolvaptan versus placebo in patients with ADPKD.
     explanation: &gt;-
       The registration record states the enrolled population as ADPKD rather
-      than a PKD2 subgroup, which is what this entry cites it for. Graded
-      PARTIAL because a registration record establishes what was studied, not
-      what was found.
+      than a PKD2 subgroup, which is what this entry cites it for. A
+      registration record establishes what was studied, not what was found.
 - name: NCT02160145
   phase: PHASE_III
   status: COMPLETED
@@ -9410,8 +10436,8 @@ clinical_trials:
       autosomal dominant polycystic kidney disease
     explanation: &gt;-
       Registration record for the later-stage CKD tolvaptan trial. Like TEMPO
-      3:4 it is an ADPKD trial rather than a PKD2 trial. Graded PARTIAL for the
-      same reason.
+      3:4 it is an ADPKD trial rather than a PKD2 trial, and a registration
+      record establishes what was studied, not what was found.
 animal_models:
 - name: Pkd2 conditional knockout mouse
   species: Mouse
@@ -9561,12 +10587,25 @@ references:
 notes: &gt;-
   Scope. This entry is deliberately restricted to what is measured in
   PKD2-genotyped cohorts, with ADPKD-wide statements marked as such. The
-  intracranial-aneurysm phenotype and the tolvaptan efficacy claim are both
-  graded PARTIAL for exactly that reason: the underlying sources report them for
+  intracranial-aneurysm phenotype and the tolvaptan efficacy claim both carry
+  directness INDIRECT for exactly that reason: the underlying sources report them for
   ADPKD without stratifying by PKD1 versus PKD2, so treating them as measured
   PKD2 findings would overstate the evidence. Where a PKD2-specific number
   exists (prevalence, hypertension, flank pain, haematuria, cyst infection, age
   at ESRD) it is used in preference to the ADPKD-wide figure.
+
+  Cardiac manifestations not curated. Left ventricular hypertrophy and cardiac
+  valvular abnormalities are reported for ADPKD as a whole: the review
+  PMID:28682033 lists hypertension, left ventricular hypertrophy, cardiac
+  valvular abnormalities and intracranial aneurysms as common cardiovascular
+  manifestations of ADPKD, and GeneReviews (PMID:20301424) lists mitral valve
+  prolapse among the extrarenal manifestations. Neither source stratifies these
+  by PKD1 versus PKD2, and none of the PKD2-genotyped cohorts cited here
+  (PMID:28356211, PMID:10023895, PMID:12707387) reports their frequency, so
+  they are not curated as PKD2 phenotypes. Intracranial aneurysm is the one
+  extrarenal feature curated here without PKD2-stratified evidence, and that
+  evidence is marked
+  directness INDIRECT for the same lack of stratification.
 
   Relationship to the parent entry. kb/disorders/Autosomal_Dominant_Polycystic_Kidney_Disease.yaml
   covers ADPKD at MONDO:0004691 and carries no has_subtypes block, so this entry
@@ -9617,6 +10656,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Polycystic Kidney Disease 2 / PKD2</strong> · 2026-08-28T12:48:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Polycystic_Kidney_Disease_2/2026-08-28T124814Z-claude-code-6a1ec4.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of PKD2-related ADPKD, MONDO:0013131, as a distinct kb/disorders entry. The parent entry kb/disorders/Autosomal_Dominant_Polycystic_Kidney_Disease.yaml is bound to MONDO:0004691 and carries no has_subtypes block, so PKD2 was not previously covered anywhere in the KB. Deep research: one openscientist report, research/Polycystic_Kidney_Disease_2-deep-research-openscientist.md, 47 citations. That report shipped with NO reference_validation block despite the run passing --validate-references; validation was retro-fitted with just validate-research-reference and returned 47/47 resolved, 1/1 quotes valid, 46/47 on topic. just preflight-dr against MONDO:0013131 returned WARN for rival gene PKD1 at 41 percent of PKD2 mentions; assessed as a false positive, since PKD2 is defined clinically by contrast with PKD1 and that comparison is the point of the entry. Pathograph conforms to the renal_cystogenesis module at four nodes and adds a somatic second-hit node sourced to the two-hit review. Evidence discipline: PKD2-specific cohort numbers were used in preference to ADPKD-wide figures wherever they exist; the two claims that could only be sourced ADPKD-wide, intracranial aneurysm frequency and tolvaptan efficacy, are graded PARTIAL with the reason stated in each explanation. Validated with just validate at 38/38 snippets verified, just check-entity-refs, just check-duplicate-keys.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10273,7 +11325,7 @@ Declining GFR → chronic kidney disease → ESRD (median ~69 y in PKD2)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Polycystic Kidney Disease 2", "mondoId": "MONDO:0013131", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Polycystic_Kidney_Disease_2", "yamlRevision": "73bbbcd39e4b"};
+        const OS_CONFIG = {"diseaseName": "Polycystic Kidney Disease 2", "mondoId": "MONDO:0013131", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Polycystic_Kidney_Disease_2", "yamlRevision": "eac8c43b456c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

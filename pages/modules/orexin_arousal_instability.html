@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1835,6 +1887,8 @@ Not an Xogenesis module - a normal stabilising signal is lost, nothing pathologi
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -1938,11 +1992,13 @@ Not an Xogenesis module - a normal stabilising signal is lost, nothing pathologi
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-hypothalamic-orexin-hypocretin-signal" data-dismech-node="Loss of Hypothalamic Orexin (Hypocretin) Signal" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Hypothalamic Orexin (Hypocretin) Signal</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The shared initiating lesion is loss of the orexin peptide signal originating from the lateral hypothalamic area. In the common human form this is destruction of the orexin-producing neurons themselves: postmortem series show an 85-95% reduction in orexin neuron number, and the loss is cell-type-selective - the intermingled melanin-concentrating hormone neurons are spared, which excludes a nonspecific hypothalamic lesion. Because the population is small and unreplaced, the deficit is permanent and is detectable in life as low or undetectable CSF hypocretin-1. Conforming disorder nodes substitute the disorder-specific route to this lesion: immune-mediated neuron destruction (narcolepsy type 1), a preprohypocretin (HCRT) coding mutation impairing peptide trafficking and processing (the rare monogenic form), or a structural, inflammatory, or infiltrative hypothalamic lesion (secondary/symptomatic narcolepsy).</div>
                 
@@ -2059,11 +2115,13 @@ This pathophysiological event involves decreased orexin (hypocretin) neuropeptid
             
             <div class="item-box anchor-target" id="module-pathophysiology-orexin-receptor-signalling-deficiency-at-ascending-arousal-nuclei" data-dismech-node="Orexin Receptor Signalling Deficiency at Ascending Arousal Nuclei" data-dismech-type="pathophysiology">
                 <div class="item-name">Orexin Receptor Signalling Deficiency at Ascending Arousal Nuclei</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Orexin neurons project widely to the monoaminergic and cholinergic arousal nuclei and excite them through OX1R and OX2R. Loss of that excitatory drive - whether from absent ligand (the human disease) or absent receptor (the canine model) - produces the same phenotype, which localises the rate-limiting step to receptor-level signalling rather than to the peptide or the neuron. OX2R carries most of the wake-stabilising signal, which is why the receptor subtype rather than the cell is the drug target.</div>
                 
@@ -2095,11 +2153,13 @@ This pathophysiological event involves decreased orexin (hypocretin) neuropeptid
             
             <div class="item-box anchor-target" id="module-pathophysiology-sleep-wake-state-instability" data-dismech-node="Sleep-Wake State Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Sleep-Wake State Instability</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic node and the key conformance target. Loss of orexinergic stabilisation does not abolish any single behavioural state; it makes every state transition too easy. Wakefulness fragments into involuntary sleep episodes, and nocturnal sleep fragments into frequent awakenings - which is why patients are both excessively sleepy by day and poor sleepers by night, an apparent paradox that this node explains and that a purely &#34;insufficient wake drive&#34; model does not. A conforming disorder node should evidence instability in both directions, not only daytime sleepiness.</div>
                 
@@ -2210,11 +2270,13 @@ This pathophysiological event involves decreased regulation of the sleep-wake cy
             
             <div class="item-box anchor-target" id="module-pathophysiology-dissociated-intrusion-of-rem-sleep-components-into-wakefulness" data-dismech-node="Dissociated Intrusion of REM Sleep Components into Wakefulness" data-dismech-type="pathophysiology">
                 <div class="item-name">Dissociated Intrusion of REM Sleep Components into Wakefulness</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">REM sleep is normally an all-or-none package: EEG desynchronisation, rapid eye movements, dreaming, and skeletal muscle atonia arrive together. State instability lets the package come apart, so single components appear at the wrong time and without the others. Muscle atonia intruding into full wakefulness is cataplexy; atonia persisting into waking consciousness at a state boundary is sleep paralysis; dream imagery without sleep is hypnagogic hallucination; and the whole state entered directly from wake is a sleep-onset REM period. This node is what distinguishes orexin-driven hypersomnolence from every other cause of sleepiness, and is the diagnostic signature a conforming entry should evidence.</div>
                 
@@ -2292,11 +2354,13 @@ This pathophysiological event involves abnormal REM sleep, annotated with circad
             
             <div class="item-box anchor-target" id="module-pathophysiology-hypersomnolence-with-rem-dissociation-syndrome" data-dismech-node="Hypersomnolence with REM Dissociation Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypersomnolence with REM Dissociation Syndrome</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical endpoint: irrepressible daytime sleepiness with short sleep latency and sleep-onset REM periods, together with some combination of cataplexy, sleep paralysis, hypnagogic hallucination, and fragmented nocturnal sleep. The syndrome is lifelong and non-progressive, because the trigger lesion is a completed loss rather than an ongoing degeneration - a prognostic point conforming entries should preserve.</div>
                 
@@ -2309,6 +2373,240 @@ This pathophysiological event involves abnormal REM sleep, annotated with circad
 
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Orexin Receptor 2-Selective Agonist (Oveporexton)" data-dismech-type="treatment">
+                <div class="item-name">Orexin Receptor 2-Selective Agonist (Oveporexton)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-11">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        oveporexton
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_759983" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-12">CHEBI:759983</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses oveporexton (CHEBI:759983). CHEBI:759983 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Oveporexton (TAK-861) is an oral small-molecule agonist selective for the orexin receptor 2. It supplies the missing receptor-level drive directly, bypassing the irreversibly lost orexin neurons, and is the positive arm of this module&#39;s bidirectional drug-target pattern. In a phase 2 trial in narcolepsy type 1 it improved objective wakefulness, subjective sleepiness, and cataplexy rate together - which is mechanistically informative, because a single receptor-level intervention correcting all three confirms that they share one upstream node. This is a mechanism pattern, not a treatment recommendation inherited by conforming disorders; a disorder without an orexin-signalling deficit has no reason to respond.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">ACTIVATES</span>
+                        
+                        
+                        <a href="#module-pathophysiology-orexin-receptor-signalling-deficiency-at-ascending-arousal-nuclei"><strong>Orexin Receptor Signalling Deficiency at Ascending Arousal Nuclei</strong></a>
+                        
+                        <span> — Selective OX2R agonism restores excitatory drive to the ascending arousal nuclei, re-stabilising the sleep-wake switch downstream.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
+                
+            </div>
+            
+            <div class="item-box" data-dismech-node="Dual Orexin Receptor Antagonist (Suvorexant)" data-dismech-type="treatment">
+                <div class="item-name">Dual Orexin Receptor Antagonist (Suvorexant)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-13">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        suvorexant
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_82698" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-14">CHEBI:82698</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses suvorexant (CHEBI:82698). CHEBI:82698 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">The negative arm of the same drug-target pattern, and the reason the module&#39;s amplifier node is best understood as a rheostat rather than a switch. Suvorexant and the other dual orexin receptor antagonists block OX1R and OX2R to reduce arousal drive and produce sleep in insomnia - pharmacologically inducing, in a controlled and reversible way, the same receptor-level deficit that the trigger node produces permanently. Curated here for mechanistic symmetry only: a DORA is contraindicated in narcolepsy, and conforming disorders do not inherit it as a treatment.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-orexin-receptor-signalling-deficiency-at-ascending-arousal-nuclei"><strong>Orexin Receptor Signalling Deficiency at Ascending Arousal Nuclei</strong></a>
+                        
+                        <span> — Dual OX1R/OX2R blockade lowers orexinergic arousal drive, deliberately shifting the same node in the direction the disease trigger shifts it.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
                 
             </div>
             

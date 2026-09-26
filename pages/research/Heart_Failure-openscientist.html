@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Failure · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Heart Failure</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Heart Failure</h1>
+                
+                <p class="report-subtitle">Heart Failure: A Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-08-23</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005252" target="_blank" rel="noopener noreferrer">MONDO:0005252</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">47 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Heart Failure: A Comprehensive Disease Characterization Report</h1>
+<p><strong>Disease:</strong> Heart Failure | <strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005252" target="_blank" rel="noopener noreferrer">MONDO:0005252</a> | <strong>Category:</strong> Complex
+<strong>ICD-10:</strong> I50 | <strong>ICD-11:</strong> BD10-BD1Z | <strong>MeSH:</strong> D006333 | <strong>Date:</strong> 2026-08-23</p>
+<hr />
+<h2>Summary</h2>
+<p>Heart failure (HF) is a complex, highly prevalent clinical syndrome — not a single disease — defined by the 2021 Universal Definition as symptoms and/or signs caused by a structural and/or functional cardiac abnormality, corroborated by elevated natriuretic peptides and/or objective evidence of pulmonary or systemic congestion. It affects <strong>more than 64 million people worldwide</strong>, carries a <strong>lifetime risk of approximately 1 in 4</strong>, and has five-year mortality rates that rival solid-organ malignancies. HF is classified by left ventricular ejection fraction (LVEF) into HFrEF (≤40%), HFmrEF (41–49%), HFpEF (≥50%), and HFimpEF (improved), and staged A (at-risk) through D (advanced) — with roughly two-thirds of US adults sitting in the pre-HF stages A/B, defining an enormous population reservoir for prevention.</p>
+<p>Diverse etiologic insults — coronary ischemia, hypertension, genetic cardiomyopathy (notably <em>TTN</em>-truncating and <em>LMNA</em> variants), infection (Chagas disease from <em>Trypanosoma cruzi</em>), and cardiotoxic/metabolic exposures (obesity, diabetes, air pollution, trace-element dysregulation) — converge on a <strong>shared pathophysiology</strong>: neurohormonal activation (RAAS and sympathetic nervous system), mitochondrial energetic failure and oxidative stress, and inflammation-driven fibrotic remodeling. This causal chain produces progressive pump dysfunction and congestion. The syndrome is diagnosed with natriuretic peptides (BNP/NT-proBNP) plus imaging (echocardiography), and increasingly refined by multimarker and multi-omic profiling that reveals etiology-specific biology.</p>
+<p>Therapeutically, HFrEF is now highly treatable: four foundational <strong>guideline-directed medical therapy (GDMT)</strong> pillars — RAAS inhibition/ARNI, beta-blockers, mineralocorticoid receptor antagonists (MRA), and SGLT2 inhibitors — substantially reduce mortality and hospitalization, with SGLT2i extending benefit across the EF spectrum. Advanced disease is managed with device therapy (CRT/ICD), left ventricular assist devices (LVAD), and heart transplantation. Prevention is tiered — primary risk-factor/lifestyle control being the highest-yield strategy given the vast pre-HF population. HF is strongly conserved across mammals (naturally occurring canine and feline cardiomyopathy) and well-modeled in rodents (transverse aortic constriction, <em>Ttn</em>-truncation knock-in), zebrafish (HFpEF), and human iPSC-cardiomyocytes.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — Heart failure is a clinical syndrome classified by ejection fraction and staged by risk</h3>
+<p>The <strong>2021 Universal Definition and Classification of Heart Failure</strong> (jointly issued by the Heart Failure Society of America, the Heart Failure Association of the ESC, and the Japanese Heart Failure Society) established that "<em>HF is a clinical syndrome with symptoms and or signs caused by a structural and/or functional cardiac abnormality and corroborated by elevated natriuretic peptide levels and or objective evidence of pulmonary or systemic congestion</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/33663906/">PMID: 33663906</a>. The EF-based classification defines HFrEF (LVEF ≤40%), HFmrEF (41–49%), HFpEF (≥50%), and HFimpEF (baseline ≤40%, ≥10-point rise to &gt;40%), and stages the disease A (at-risk), B (pre-HF), C (symptomatic), and D (advanced).</p>
+<p>A single-center registry of 8,471 patients applying this definition confirmed the real-world distribution: "<em>The most frequent type of HF was HFrEF (n = 4947; 58.4%), followed by HFpEF (n = 1138; 28.2%) and HFmrEF (n = 2386; 13.4%)</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/38493451/">PMID: 38493451</a>, with all-cause death highest in HFrEF (42.7%). <strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005252" target="_blank" rel="noopener noreferrer">MONDO:0005252</a>; ICD-10 I50; MeSH D006333.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HF subtype</th>
+<th>LVEF</th>
+<th>Registry frequency</th>
+<th>All-cause mortality</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HFrEF</td>
+<td>≤40%</td>
+<td>58.4%</td>
+<td>42.7% (highest)</td>
+</tr>
+<tr>
+<td>HFpEF</td>
+<td>≥50%</td>
+<td>28.2%</td>
+<td>intermediate</td>
+</tr>
+<tr>
+<td>HFmrEF</td>
+<td>41–49%</td>
+<td>13.4%</td>
+<td>lowest</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Finding 2 — Lifetime risk is ~1 in 4, with a vast pre-HF reservoir</h3>
+<p>The lifetime risk of developing HF is approximately <strong>1 in 4</strong>: "<em>The lifetime risk of developing HF stands at 1 in 4</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/41670570/">PMID: 41670570</a>. Critically, "<em>roughly two-thirds of adults in the United States [are] classified as either stage A (at risk) or stage B (pre-HF)</em>," and "<em>many HF cases arise from nonatherosclerotic causes, such as obesity, hypertension, cancer therapies, and the cardio-kidney-metabolic syndrome</em>." This enormous pre-HF population is the central target for primary prevention, and the rising incidence of HFpEF across contemporary cohorts underscores the shift toward metabolic and non-ischemic drivers.</p>
+<h3>Finding 3 — Genetic dilated cardiomyopathy: <em>TTN</em> and <em>LMNA</em> dominate causal genetics</h3>
+<p>In monogenic/familial dilated cardiomyopathy (DCM), a leading cause of HFrEF, disease-causing variants are found in ~25–46% of patients. In a 280-patient Polish DCM cohort, disease-causing variants were found in 46%, and "<em>Variants in titin (TTN) and lamin A/C (LMNA) genes were the most frequent (18% and 8% of the study cohort, respectively)</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/40792443/">PMID: 40792443</a>. A multinational cohort of 2,088 DCM patients found: "<em>Of the 2,088 patients 514 (24.6%) obtained a molecular diagnosis; 534 LP/P variants were observed across 45 genes</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/37795486/">PMID: 37795486</a>, spanning sarcomere, nuclear lamina, desmosome, cytoskeleton, and mitochondrial proteins. <em>LMNA</em>-related DCM carries genotype-specific high risk: "<em>the risks of severe DCM and the composite end point were 2.4- and 3-fold higher, respectively, for LMNA-related DCM</em>" [<a href="https://pubmed.ncbi.nlm.nih.gov/40792443/" target="_blank" rel="noopener noreferrer">PMID: 40792443</a>]. A review confirmed "<em>The most common genes related to dilated cardiomyopathy include TTN, LMNA, MYH7</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/40155570/">PMID: 40155570</a>.</p>
+<p><strong>HGNC causal genes:</strong> <em>TTN, LMNA, MYH7, MYBPC3, TNNT2, DSP, FLNC, BAG3, SCN5A, RBM20, DMD.</em> Population screening data (ARIC + UK Biobank) show ~0.7% of individuals carry an actionable cardiomyopathy variant, conferring increased risk of HF (HR 1.7), atrial fibrillation (HR 2.9), and all-cause mortality (HR 1.5) <a href="https://pubmed.ncbi.nlm.nih.gov/35544052/">PMID: 35544052</a>.</p>
+<h3>Finding 4 — Four GDMT pillars reduce mortality and hospitalization in HFrEF</h3>
+<p>GDMT for HFrEF comprises four foundational pharmacologic pillars: RAAS inhibition or angiotensin receptor-neprilysin inhibition (ARNI, sacubitril/valsartan), evidence-based beta-blockers, mineralocorticoid receptor antagonists (MRA), and SGLT2 inhibitors. Robust evidence supports "<em>early and combined use of the four foundational GDMT classes, with substantial reductions in mortality and heart failure hospitalization</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/42016211/">PMID: 42016211</a>, advocating rapid "four drugs in 4 weeks" initiation. SGLT2i (DAPA-HF, EMPEROR-Reduced, EMPEROR-Preserved, DELIVER) reduce HF hospitalization across the EF spectrum by promoting "<em>a shift in substrate utilization toward fatty acids and ketone bodies, improving mitochondrial efficiency</em>" and reducing oxidative stress and inflammation <a href="https://pubmed.ncbi.nlm.nih.gov/41913872/">PMID: 41913872</a>. Emerging additional pillars include vericiguat (soluble guanylate cyclase stimulator) and digitoxin <a href="https://pubmed.ncbi.nlm.nih.gov/42329367/">PMID: 42329367</a>. In HFmrEF/HFpEF, combined SGLT2i + finerenone reduced CV death/worsening HF by 31% (HR 0.69; 95% CI 0.59–0.81) <a href="https://pubmed.ncbi.nlm.nih.gov/41052644/">PMID: 41052644</a>.</p>
+<p><strong>NCIT interventions:</strong> sacubitril/valsartan, dapagliflozin, empagliflozin, spironolactone/eplerenone, carvedilol/metoprolol/bisoprolol.</p>
+<h3>Finding 5 — Pathophysiology: neurohormonal activation and mitochondrial dysfunction drive remodeling</h3>
+<p>HF congestion is "<em>driven by neurohormonal dysregulation involving the renin-angiotensin-aldosterone system and sympathetic nervous system</em>," producing dyspnea, peripheral edema, and fatigue <a href="https://pubmed.ncbi.nlm.nih.gov/40801414/">PMID: 40801414</a>. Mitochondrial dysfunction is a central driver: impaired oxidative phosphorylation, ROS imbalance, disrupted calcium handling, and defective mitophagy. Post-MI cardiomyocytes exhibit "<em>a reduction in total mitochondrial membrane potential (MMP) and an increase in reactive oxygen species levels</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/42411500/">PMID: 42411500</a>. Impaired inter-organelle mitochondrial communication produces "<em>dysregulated energy metabolism, oxidative stress, lipotoxicity, and impaired cardiomyocyte function</em>," with phenotype-specific differences between HFpEF and HFrEF <a href="https://pubmed.ncbi.nlm.nih.gov/42209899/">PMID: 42209899</a>. The lysosomal/autophagy regulator TFEB links afterload-induced energy demand to hypertrophy: TFEB knockout hearts under pressure overload "<em>manifested an amplified hypertrophic response, leading rapidly to HF</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/42299666/">PMID: 42299666</a>.</p>
+<p><strong>GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" rel="noopener noreferrer">GO:0006119</a> (oxidative phosphorylation), <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a> (response to oxidative stress), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" rel="noopener noreferrer">GO:0006936</a> (muscle contraction). <strong>CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a> (cardiac muscle cell), <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> (fibroblast).</p>
+<h3>Finding 6 — Core phenotypes cluster into symptom groups that impair quality of life</h3>
+<p>HF symptoms cluster into five groups — emotional, digestive, ischemic (dizziness, chest pain, palpitations, fatigue), dyspnea (orthopnea, paroxysmal nocturnal dyspnea, sleep difficulty), and congestion (cough, shortness of breath, edema) <a href="https://pubmed.ncbi.nlm.nih.gov/39450907/">PMID: 39450907</a>. Symptom burden strongly impairs health-related quality of life (measured by KCCQ and the Minnesota Living with Heart Failure Questionnaire). End-stage HF is "<em>often complicated with symptoms such as dyspnea, fatigue, pain, and nausea, which can worsen the quality of life</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/41550625/">PMID: 41550625</a>. NYHA classes I–IV grade severity; symptoms are adult/late-onset and progressive with episodic decompensation.</p>
+<p><strong>HPO terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" rel="noopener noreferrer">HP:0001635</a> (congestive heart failure), <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (dyspnea), <a href="http://purl.obolibrary.org/obo/HP_0012651" target="_blank" rel="noopener noreferrer">HP:0012651</a> (orthopnea), <a href="http://purl.obolibrary.org/obo/HP_0012764" target="_blank" rel="noopener noreferrer">HP:0012764</a> (paroxysmal nocturnal dyspnea), <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a> (fatigue), <a href="http://purl.obolibrary.org/obo/HP_0100598" target="_blank" rel="noopener noreferrer">HP:0100598</a> (peripheral edema), <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" rel="noopener noreferrer">HP:0001962</a> (palpitations).</p>
+<h3>Finding 7 — Natriuretic peptides are diagnostic and prognostic cornerstones</h3>
+<p>BNP and NT-proBNP "<em>remain the cornerstones of biomarker-guided management, yet their interpretation is influenced by age, renal function, obesity, and atrial fibrillation</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/42336497/">PMID: 42336497</a>. In 116,466 diabetics without known HF, NT-proBNP &gt;300 pg/mL predicted incident HF/death with HR 4.48 (95% CI 3.11–6.47) in T1D and 3.58 (3.39–3.78) in T2D versus &lt;125 pg/mL <a href="https://pubmed.ncbi.nlm.nih.gov/41166576/">PMID: 41166576</a>. Complementary biomarkers with incremental prognostic value include high-sensitivity troponin (myocardial injury), hsCRP (inflammation), galectin-3 and sST2 (fibrosis/remodeling), GDF-15, MPO, MR-proADM, MR-proANP <a href="https://pubmed.ncbi.nlm.nih.gov/41883058/">PMID: 41883058</a>, copeptin <a href="https://pubmed.ncbi.nlm.nih.gov/41467274/">PMID: 41467274</a>, and circulating non-coding RNAs.</p>
+<p><strong>LOINC:</strong> NT-proBNP 33762-6; BNP 30934-4; hs-troponin T 67151-1. Diagnostic screening thresholds: BNP ≥50 or NT-proBNP ≥125 pg/mL.</p>
+<h3>Finding 8 — Major modifiable risk factors dominate a multifactorial etiology</h3>
+<p>"<em>Its prevalence rises significantly with age. In addition, age-related conditions, such as hypertension, coronary artery disease, obesity, and diabetes mellitus, contribute to an elevated risk of heart failure</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/42446811/">PMID: 42446811</a>. Obesity promotes HF "<em>through complex metabolic, haemodynamic, inflammatory, and endothelial mechanisms</em>," and bariatric surgery reduces these risk factors <a href="https://pubmed.ncbi.nlm.nih.gov/42591586/">PMID: 42591586</a>. Environmental exposures — "<em>air pollution, noise, heat, chemical contamination, and light pollution</em>" — increase HF incidence via "<em>oxidative stress, inflammation, endothelial dysfunction, and circadian disruption</em>," even below regulatory thresholds <a href="https://pubmed.ncbi.nlm.nih.gov/42095252/">PMID: 42095252</a>. HF is thus multifactorial/polygenic: modifiable factors (hypertension, CAD, diabetes, obesity, smoking, pollution) dominate; age and family history are non-modifiable.</p>
+<h3>Finding 9 — Global burden rivals malignancy; iron deficiency is prevalent and treatable</h3>
+<p>"<em>Heart failure (HF) affects over 64 million people worldwide, with five-year mortality rates rivaling solid-organ malignancies</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/42606681/">PMID: 42606681</a>. Iron deficiency "<em>affected approximately 30-58% of patients with HF</em>," and in HFrEF, "<em>intravenous ferric carboxymaltose improved Patient Global Assessment (odds ratio [OR] 2.51; 95% confidence interval [CI] 1.75-3.61) and reduced HF hospitalization (hazard ratio [HR] 0.39; 95% CI 0.19-0.82)</em>." Prognostic factors include EF class, baseline cardiac/renal function, female sex, mechanical ventilation, and sinus rhythm. LVAD destination-therapy on-device survival is 82.3%/73.3%/49.8% at 1/3/5 years <a href="https://pubmed.ncbi.nlm.nih.gov/42629526/">PMID: 42629526</a>.</p>
+<h3>Finding 10 — Advanced therapies: devices, LVAD, and transplantation with reverse remodeling</h3>
+<p>Device therapy includes cardiac resynchronization therapy (CRT) and implantable cardioverter-defibrillators (ICD); CRT upgrade "<em>was associated with lower all-cause mortality, heart transplant, or assist device implant</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/40533423/">PMID: 40533423</a>. LVADs, used as bridge-to-transplant and destination therapy, "<em>reverse the molecular transformations that take place in the cardiomyocytes… eventually leading to partial or complete recovery in a subset of patients</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/40387335/">PMID: 40387335</a>. Heart transplantation is definitive for Stage D disease. Cardiac rehabilitation improves 6MWT distance, METs, VO2, LVEF, and anxiety/depression <a href="https://pubmed.ncbi.nlm.nih.gov/40955678/">PMID: 40955678</a>. <strong>NCIT:</strong> cardiac resynchronization therapy, implantable cardioverter-defibrillator, ventricular assist device, heart transplantation, cardiac rehabilitation.</p>
+<h3>Finding 11 — Robust model organisms recapitulate HF pathology</h3>
+<p>Transverse aortic constriction (TAC) in mice "<em>induced progressive systolic dysfunction, fibrosis, and reduced microvascular density</em>" — the standard pressure-overload model <a href="https://pubmed.ncbi.nlm.nih.gov/33464950/">PMID: 33464950</a>. A <em>Ttn</em>-truncation knock-in mouse recapitulates human DCM: "<em>a pattern of DCM can be induced by TAC-mediated pressure overload in a TTN-truncated mouse model</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/26504781/">PMID: 26504781</a>. A zebrafish ion-imbalance model "<em>recapitulates key characteristics of incipient heart failure with preserved ejection fraction</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/36536484/">PMID: 36536484</a>. In vitro models include H9c2 cells, neonatal rat/mouse ventricular cardiomyocytes, and human iPSC-cardiomyocytes.</p>
+<p><strong>Taxa:</strong> mouse (NCBI:txid10090), rat (10116), zebrafish (7955). <strong>Resources:</strong> MGI, RGD, ZFIN.</p>
+<h3>Finding 12 — Naturally occurring cross-species HF/DCM: the Doberman comparative model</h3>
+<p>"<em>Dilated cardiomyopathy (DCM) is a naturally occurring heart failure condition in humans and dogs, notably characterized by a reduced contractility and ejection fraction</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/37505469/">PMID: 37505469</a>. Canine DCM shares conserved mechanisms: "<em>IDCM is associated with a marked impairment of mitochondrial production of ATP, arising from decreased activity of the mitochondrial electron transport system</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/1338376/">PMID: 1338376</a>, and an autoimmune driver — β1-adrenergic receptor autoantibodies (β1-AAB) that are "<em>highly present in patients with dilated cardiomyopathy (DCM) and are increasingly accepted as disease drivers</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/32212256/">PMID: 32212256</a>. <strong>Species:</strong> dog (NCBI:txid9615), cat (9685). <strong>Breeds:</strong> Doberman Pinscher, Boxer, Great Dane (canine DCM); Maine Coon, Ragdoll (feline HCM). <strong>Resource:</strong> OMIA.</p>
+<h3>Finding 13 — Infectious/inflammatory etiologies: Chagas cardiomyopathy has the worst prognosis</h3>
+<p>Chagas disease, caused by <em>Trypanosoma cruzi</em> (NCBI:txid5693), "<em>is a common cause of heart failure (HF) in Latin America and has recently been declared endemic in the United States</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/41847775/">PMID: 41847775</a>. In a pooled analysis of 23,647 HFrEF patients, "<em>Chagasic HF had the highest incidence rates of all clinical outcomes compared with other etiologies</em>," with adjusted HRs versus ischemic HF of 1.65 (composite), 1.86 (CV death), and 2.16 (stroke). Viral myocarditis is another recognized cause; pediatric myocarditis with a DCM phenotype is "<em>characterized by early-onset heart failure, significant enrichment of likely pathogenic/pathogenic variants, and poor outcome</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/34213952/">PMID: 34213952</a>. Investigator-reported HFrEF etiologies span ischemic (57%), idiopathic, hypertensive, valvular, alcoholic, viral, and Chagasic.</p>
+<h3>Finding 14 — Cardiac fibrosis via inflammation → myofibroblast activation is a core downstream mechanism</h3>
+<p>HF remodeling involves injury-mediated immune cell infiltration and myofibroblast activation. "<em>An inflammatory to fibrotic transition corresponds with macrophage transition (M1-M2) associated with increased transforming growth factor (TGF)-β response</em>," driving "<em>degradation-resistant deposition of extracellular proteins, especially fibrillar Collagen -I, -III and -V, and non-fibrillar Collagen-IV by active myofibroblasts</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/39805714/">PMID: 39805714</a>. In angiotensin II-infused mouse hearts, platelet inhibition with clopidogrel "<em>inhibited Ang II infusion-induced accumulation of α-SMA(+) myofibroblasts and cardiac fibrosis</em>" <a href="https://pubmed.ncbi.nlm.nih.gov/23887740/">PMID: 23887740</a>. Cardiorenal syndrome features bidirectional heart-kidney inflammation and fibrosis.</p>
+<p><strong>GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> (extracellular matrix organization), <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" rel="noopener noreferrer">GO:0007179</a> (TGF-beta receptor signaling), <a href="http://purl.obolibrary.org/obo/GO_0002544" target="_blank" rel="noopener noreferrer">GO:0002544</a> (chronic inflammation). <strong>CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> (fibroblast), <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" rel="noopener noreferrer">CL:0000186</a> (myofibroblast), <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage). <strong>UBERON:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a> (kidney, secondary organ).</p>
+<h3>Finding 15 — Plasma proteomics and multi-omics reveal etiology-specific biology</h3>
+<p>High-throughput plasma proteomics (734 proteins) in 1,212 HFrEF patients identified "<em>a nine-protein panel (P9: C1QA, CCL4, REN, EGLN1, COL9A1, GP1BA, ITM2A, CNPY2, NT-proBNP) that improved risk classification compared with NT-proBNP alone</em>" (externally validated in UK Biobank) <a href="https://pubmed.ncbi.nlm.nih.gov/42258512/">PMID: 42258512</a>. Crucially, "<em>in CCC [chronic Chagas cardiomyopathy] the P9 panel underperformed NT-proBNP alone (-16%), suggesting distinct underlying disease biology</em>" — confirming etiology-specific molecular signatures. Mitochondrial-associated lncRNAs (LIPCAR, MALAT1, H19) and circulating microRNAs are emerging biomarkers <a href="https://pubmed.ncbi.nlm.nih.gov/42236984/">PMID: 42236984</a>; a hallmark transcriptomic signature is reactivation of the fetal gene program (<em>NPPA, NPPB, MYH7</em>). <strong>Resources:</strong> PRIDE/ProteomeXchange (proteomics), GEO (transcriptomics).</p>
+<h3>Finding 16 — Tiered prevention: primary risk-factor control is highest-yield</h3>
+<p>Primary prevention emphasizes "<em>Lifestyle modifications, including dietary changes, smoking cessation, physical activity, weight management, and psychosocial support</em>" plus pharmacologic control of blood pressure, lipids, and glucose <a href="https://pubmed.ncbi.nlm.nih.gov/41628971/">PMID: 41628971</a>. Life's Essential 8 and cardiovascular-kidney-metabolic (CKM) staging stratify risk: higher CKM stage conferred stepwise CVD risk up to HR 5.95 (95% CI 4.75–7.45) in a 100,727-person cohort <a href="https://pubmed.ncbi.nlm.nih.gov/40346555/">PMID: 40346555</a>. Secondary prevention uses natriuretic-peptide and global longitudinal strain (GLS) screening of stage A/B individuals (GLS screening cost-effective at €69,543/QALY <a href="https://pubmed.ncbi.nlm.nih.gov/42025682/">PMID: 42025682</a>). Tertiary prevention (GDMT, devices, cardiac rehab) limits complications.</p>
+<hr />
+<h2>Detailed Section Coverage</h2>
+<h3>1. Disease Information</h3>
+<p>HF is a clinical syndrome (see Finding 1). <strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005252" target="_blank" rel="noopener noreferrer">MONDO:0005252</a>, ICD-10 I50, ICD-11 BD10-BD1Z, MeSH D006333. <strong>Synonyms:</strong> congestive heart failure (CHF), cardiac failure, cardiac insufficiency, myocardial failure. Information derives predominantly from <strong>aggregated disease-level resources</strong> (guidelines, registries, trials) supplemented by EHR/registry-level individual-patient data (e.g., SwedeHF, MyoVasc, EUROMACS).</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors:</strong> ischemic (coronary artery disease, ~57% of HFrEF), hypertensive, genetic (DCM: <em>TTN, LMNA</em>, etc. — Finding 3), infectious (Chagas, viral myocarditis — Finding 13), valvular, alcoholic/toxic, and cardiotoxic (cancer therapies). <strong>Genetic risk:</strong> monogenic causal variants plus polygenic susceptibility; ~0.7% population carriage of actionable cardiomyopathy variants [<a href="https://pubmed.ncbi.nlm.nih.gov/35544052/" target="_blank" rel="noopener noreferrer">PMID: 35544052</a>]. <strong>Environmental risk:</strong> age, hypertension, diabetes, obesity, smoking, air/noise/light pollution [<a href="https://pubmed.ncbi.nlm.nih.gov/42095252/" target="_blank" rel="noopener noreferrer">PMID: 42095252</a>]. <strong>Protective factors:</strong> healthy lifestyle (Life's Essential 8), weight loss/bariatric surgery [<a href="https://pubmed.ncbi.nlm.nih.gov/42591586/" target="_blank" rel="noopener noreferrer">PMID: 42591586</a>], guideline-directed risk-factor control. <strong>Gene-environment interactions:</strong> genetic substrate (e.g., subclinical <em>Ttn</em> truncation) unmasked by hemodynamic stress/pressure overload [<a href="https://pubmed.ncbi.nlm.nih.gov/26504781/" target="_blank" rel="noopener noreferrer">PMID: 26504781</a>].</p>
+<h3>3. Phenotypes</h3>
+<p>See Finding 6. Phenotype types span <strong>symptoms</strong> (dyspnea, fatigue, orthopnea, PND), <strong>clinical signs</strong> (peripheral edema, elevated JVP, rales, S3 gallop), and <strong>laboratory abnormalities</strong> (elevated natriuretic peptides, troponin). Adult/late-onset, progressive with episodic decompensation, variable severity (NYHA I–IV). Quality-of-life impact is severe and central to disease burden (KCCQ, MLHFQ). HPO terms enumerated in Finding 6.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Causal genes</strong> (Finding 3): <em>TTN</em> (18%), <em>LMNA</em> (8%), <em>MYH7, MYBPC3, TNNT2, DSP, FLNC, BAG3, SCN5A, RBM20, DMD.</em> <strong>Variant types:</strong> <em>TTN</em> truncating variants (most common); <em>LMNA/FLNC</em> — arrhythmogenic, high-risk. <strong>Classification:</strong> ACMG/AMP P/LP across 45 genes [<a href="https://pubmed.ncbi.nlm.nih.gov/37795486/" target="_blank" rel="noopener noreferrer">PMID: 37795486</a>]. <strong>Inheritance:</strong> predominantly autosomal dominant. <strong>Modifiers/genotype-phenotype:</strong> LGE patterns are gene-specific (subepicardial in <em>DMD/DSP/FLNC</em>; absent/rare in <em>TNNT2/RBM20/MYH7</em>) <a href="https://pubmed.ncbi.nlm.nih.gov/37562008/">PMID: 37562008</a>. <strong>Origin:</strong> germline for inherited cardiomyopathy. <strong>Functional consequence:</strong> loss of function (<em>TTN</em> haploinsufficiency), structural/nuclear-envelope disruption (<em>LMNA</em>).</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Environmental factors:</strong> air pollution (particulate matter), noise, heat, chemical/light pollution [<a href="https://pubmed.ncbi.nlm.nih.gov/42095252/" target="_blank" rel="noopener noreferrer">PMID: 42095252</a>]; trace-element/metallomic dysregulation (iron, zinc, selenium, magnesium deficiency) [<a href="https://pubmed.ncbi.nlm.nih.gov/42606681/" target="_blank" rel="noopener noreferrer">PMID: 42606681</a>]. <strong>Lifestyle:</strong> smoking, poor diet, physical inactivity, alcohol, obesity. <strong>Infectious agents:</strong> <em>T. cruzi</em> (Chagas), coxsackievirus B, parvovirus B19, HHV-6, SARS-CoV-2 (myocarditis).</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p>See Findings 5 and 14 and the Mechanistic Model below. <strong>Pathways:</strong> RAAS, sympathetic/β-adrenergic signaling, TGF-β, AMPK/TFEB-lysosomal, SGLT2-mediated metabolic substrate shift. <strong>Cellular processes:</strong> mitochondrial dysfunction, oxidative stress, apoptosis, autophagy, inflammation, fibrosis. <strong>Metabolic:</strong> substrate shift from fatty acids to glucose/ketones, impaired oxidative phosphorylation. <strong>Immune:</strong> macrophage M1→M2 transition, β1-AAB autoimmunity. <strong>Molecular profiling:</strong> fetal gene reactivation (<em>NPPA/NPPB/MYH7</em>), plasma proteomic signatures, mito-lncRNAs.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Primary organ:</strong> heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>), specifically myocardium (<a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" rel="noopener noreferrer">UBERON:0002349</a>), left ventricle (<a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" rel="noopener noreferrer">UBERON:0002084</a>). <strong>Secondary:</strong> lungs (pulmonary congestion, <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), kidneys (cardiorenal, <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>), liver (congestion), systemic venous circulation. <strong>Body systems:</strong> cardiovascular (primary), renal, respiratory. <strong>Cell types:</strong> cardiomyocytes (<a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a>), cardiac fibroblasts/myofibroblasts (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>/<a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" rel="noopener noreferrer">CL:0000186</a>), macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), microvascular endothelial cells. <strong>Subcellular:</strong> mitochondria (<a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>), sarcoplasmic reticulum, lysosome, nucleus. <strong>Lateralization:</strong> left-sided, right-sided, or biventricular.</p>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> predominantly adult/geriatric; genetic DCM can present in childhood (pediatric myocarditis-DCM, median 1.4 y [<a href="https://pubmed.ncbi.nlm.nih.gov/34213952/" target="_blank" rel="noopener noreferrer">PMID: 34213952</a>]). <strong>Onset pattern:</strong> chronic/insidious (most) or acute (acute decompensated HF, post-MI). <strong>Stages:</strong> A → B → C → D (Universal Definition). <strong>Course:</strong> progressive with episodic decompensations; partial reversibility possible (HFimpEF, LVAD reverse remodeling). <strong>Duration:</strong> chronic, lifelong.</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Epidemiology:</strong> &gt;64 million worldwide [<a href="https://pubmed.ncbi.nlm.nih.gov/42606681/" target="_blank" rel="noopener noreferrer">PMID: 42606681</a>]; ~1-in-4 lifetime risk [<a href="https://pubmed.ncbi.nlm.nih.gov/41670570/" target="_blank" rel="noopener noreferrer">PMID: 41670570</a>]. <strong>Inheritance (genetic subset):</strong> autosomal dominant DCM; overall multifactorial/polygenic. <strong>Penetrance:</strong> incomplete, age-dependent. <strong>Expressivity:</strong> variable (genotype-specific LGE, arrhythmia risk). <strong>Demographics:</strong> prevalence rises with age; HFrEF male-predominant; regional variation (Chagas endemic in Latin America/US).</p>
+<h3>10. Diagnostics</h3>
+<p><strong>Laboratory/biomarkers:</strong> BNP/NT-proBNP (cornerstone), hs-troponin, galectin-3, sST2, GDF-15, MR-proANP, copeptin (Finding 7). <strong>Imaging:</strong> echocardiography (LVEF, GLS, diastolic function), cardiac MRI with late gadolinium enhancement (genotype-specific patterns [<a href="https://pubmed.ncbi.nlm.nih.gov/37562008/" target="_blank" rel="noopener noreferrer">PMID: 37562008</a>]). <strong>Functional:</strong> cardiopulmonary exercise testing, 6MWT. <strong>Electrophysiology:</strong> ECG (QRS duration/morphology for CRT eligibility). <strong>Biopsy:</strong> endomyocardial biopsy for myocarditis. <strong>Genetic testing:</strong> multi-gene cardiomyopathy panels (24.6–46% yield), WES/WGS; recommended for DCM/familial disease. <strong>Clinical criteria:</strong> 2021 Universal Definition; NYHA class. <strong>Differential:</strong> COPD, pulmonary embolism, valvular disease, aortic stenosis.</p>
+<h3>11. Outcome/Prognosis</h3>
+<p><strong>Mortality:</strong> five-year rates rival solid-organ malignancies [<a href="https://pubmed.ncbi.nlm.nih.gov/42606681/" target="_blank" rel="noopener noreferrer">PMID: 42606681</a>]; HFrEF all-cause death 42.7% [<a href="https://pubmed.ncbi.nlm.nih.gov/38493451/" target="_blank" rel="noopener noreferrer">PMID: 38493451</a>]. <strong>Etiology-specific:</strong> Chagas worst (CV death HR 1.86 vs ischemic). <strong>Prognostic factors:</strong> EF class, renal function, natriuretic peptides, sex, sinus rhythm. <strong>Complications:</strong> recurrent hospitalization, arrhythmia, cardiogenic shock, cardiorenal failure, stroke, thromboembolism. <strong>QoL measures:</strong> KCCQ, MLHFQ, EQ-5D, PROMIS. <strong>Risk models:</strong> LIFE-Preserved (HFpEF, C-statistic 0.66–0.71 <a href="https://pubmed.ncbi.nlm.nih.gov/41810940/">PMID: 41810940</a>), P9 proteomic panel.</p>
+<h3>12. Treatment</h3>
+<p>See Findings 4 and 10. <strong>Pharmacotherapy:</strong> ARNI, beta-blockers, MRA, SGLT2i (four pillars); + vericiguat, digitoxin, ferric carboxymaltose, loop diuretics, finerenone. <strong>Devices:</strong> CRT, ICD. <strong>Advanced:</strong> LVAD (bridge/destination), heart transplantation. <strong>Supportive/palliative:</strong> dobutamine, opioids for end-stage symptom control. <strong>Rehabilitation:</strong> supervised cardiac rehab. <strong>Personalized:</strong> phenotype-guided GDMT sequencing, genotype-informed risk stratification.</p>
+<h3>13. Prevention</h3>
+<p>Tiered (Finding 16): <strong>primary</strong> (risk-factor/lifestyle control, Life's Essential 8), <strong>secondary</strong> (NP/GLS screening of stage A/B), <strong>tertiary</strong> (GDMT, rehab, comorbidity management). No vaccine except addressing infectious triggers (vector control for Chagas). Genetic counseling and cascade screening for familial cardiomyopathy.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p>See Finding 12. Naturally occurring DCM/HF in dogs (Doberman, Boxer, Great Dane) and feline HCM (Maine Coon, Ragdoll). Strong evolutionary conservation of mitochondrial dysfunction, calcium-handling defects, and β1-AAB autoimmunity. High veterinary relevance; canine DCM is a translational model. <strong>Resource:</strong> OMIA. No zoonotic transmission of HF itself (though <em>T. cruzi</em> is zoonotic).</p>
+<h3>15. Model Organisms</h3>
+<p>See Finding 11. <strong>Mammalian:</strong> TAC/post-MI mouse and rat, <em>Ttn</em>/<em>Lmna</em>/<em>Mc1r</em> genetic mice <a href="https://pubmed.ncbi.nlm.nih.gov/39921516/">PMID: 39921516</a>. <strong>Non-mammalian:</strong> zebrafish HFpEF. <strong>In vitro:</strong> H9c2, neonatal cardiomyocytes, human iPSC-cardiomyocytes, organoids. <strong>Types:</strong> knockout, knock-in, conditional, humanized. <strong>Limitations:</strong> rodent heart rate/electrophysiology differ from human; models rarely capture multimorbid elderly HFpEF. <strong>Resources:</strong> MGI, RGD, ZFIN, IMPC, IMSR.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Heart failure is best understood as a <strong>final common pathway</strong> onto which heterogeneous etiologies converge:</p>
+<pre><code>  ETIOLOGIC TRIGGERS (upstream)
+  ├── Ischemia (MI, CAD)          ┐
+  ├── Pressure overload (HTN, AS) │
+  ├── Genetic (TTN, LMNA, etc.)   ├──► INITIAL MYOCARDIAL INJURY / OVERLOAD
+  ├── Infection (T. cruzi, viral) │
+  └── Toxic/metabolic (obesity,   ┘
+      diabetes, chemo, pollution)
+    │
+    ▼
+    ┌───────────────────────────────────────────┐
+    │  NEUROHORMONAL ACTIVATION (RAAS + SNS)     │  ← compensatory, becomes maladaptive
+    │  + MITOCHONDRIAL ENERGETIC FAILURE (↓OXPHOS,│
+    │    ↑ROS, Ca²⁺ dyshandling, ↓mitophagy)     │
+    └───────────────────────────────────────────┘
+    │
+    ▼
+    ┌───────────────────────────────────────────┐
+    │  INFLAMMATION (macrophage M1→M2, IL-1β)    │
+    │        │                                    │
+    │        ▼                                    │
+    │  TGF-β → MYOFIBROBLAST ACTIVATION           │
+    │        │                                    │
+    │        ▼                                    │
+    │  FIBROSIS (collagen I/III/IV/V deposition) │
+    │  + CARDIOMYOCYTE HYPERTROPHY/APOPTOSIS      │
+    │  + FETAL GENE REACTIVATION (NPPA/B, MYH7)  │
+    └───────────────────────────────────────────┘
+    │
+    ▼
+MALADAPTIVE REMODELING → PUMP DYSFUNCTION
+    │
+    ▼
+   CONGESTION (fluid overload) → dyspnea, edema, fatigue  (downstream = clinical syndrome)
+    │
+    ▼
+   SECONDARY ORGAN INJURY (cardiorenal, hepatic, pulmonary)
+</code></pre>
+<p><strong>Upstream mechanisms</strong> (neurohormonal activation, mitochondrial failure) are the earliest and most therapeutically tractable — this is precisely why the four GDMT pillars work: ARNI and MRA interrupt RAAS; beta-blockers interrupt SNS; SGLT2i restore mitochondrial substrate efficiency. <strong>Downstream mechanisms</strong> (established fibrosis, remodeling) are harder to reverse but partially tractable (LVAD-induced reverse remodeling, HFimpEF). The <strong>etiology-specific molecular signatures</strong> (e.g., Chagas biology diverging from the P9 proteomic panel) demonstrate that although the syndrome is shared, its molecular substrate is not uniform — the future of HF care is phenotype- and genotype-informed precision medicine.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Supports Finding</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33663906/">33663906</a></td>
+<td>Universal Definition &amp; Classification of HF</td>
+<td>F1 (definition, LVEF classes)</td>
+<td>Guideline/consensus</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38493451/">38493451</a></td>
+<td>Registry per universal definition</td>
+<td>F1 (subtype distribution)</td>
+<td>Human registry</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41670570/">41670570</a></td>
+<td>HF Prevention: Evidence Generation</td>
+<td>F2 (lifetime risk, pre-HF)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40792443/">40792443</a></td>
+<td>DCM genetics in Poland</td>
+<td>F3 (TTN/LMNA, LMNA risk)</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37795486/">37795486</a></td>
+<td>DCM panel yield (n=2088)</td>
+<td>F3 (24.6% yield, 45 genes)</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40155570/">40155570</a></td>
+<td>DCM genes to treatments</td>
+<td>F3 (TTN/LMNA/MYH7)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42016211/">42016211</a></td>
+<td>GDMT optimization in HFrEF</td>
+<td>F4 (four pillars)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41913872/">41913872</a></td>
+<td>SGLT2i in HF without diabetes</td>
+<td>F4 (mechanism, trials)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41052644/">41052644</a></td>
+<td>SGLT2i+finerenone HFmrEF/HFpEF</td>
+<td>F4 (HR 0.69)</td>
+<td>Cross-trial analysis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40801414/">40801414</a></td>
+<td>Fluid restriction in HF</td>
+<td>F5, F6 (neurohormonal)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42209899/">42209899</a></td>
+<td>Mitochondrial crosstalk in HF</td>
+<td>F5 (mitochondrial dysfunction)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42411500/">42411500</a></td>
+<td>Post-MI rat mitochondria</td>
+<td>F5 (ROS, ↓MMP)</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39450907/">39450907</a></td>
+<td>HF symptom clusters &amp; QoL</td>
+<td>F6 (five clusters)</td>
+<td>Human cross-sectional</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42336497/">42336497</a></td>
+<td>Biomarkers in HF</td>
+<td>F7 (BNP/NT-proBNP)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41166576/">41166576</a></td>
+<td>NP screening in diabetes</td>
+<td>F7 (HR 4.48)</td>
+<td>Human cohort (n=116k)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42446811/">42446811</a></td>
+<td>Age &amp; HF therapy (MyoVasc)</td>
+<td>F8 (risk factors)</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42591586/">42591586</a></td>
+<td>Bariatric surgery &amp; CV risk</td>
+<td>F8 (obesity)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42095252/">42095252</a></td>
+<td>Environmental risk factors</td>
+<td>F8 (pollution)</td>
+<td>ESC consensus</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42606681/">42606681</a></td>
+<td>Metallomic dysregulation &amp; CVD</td>
+<td>F9 (64M, iron deficiency)</td>
+<td>Systematic review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40387335/">40387335</a></td>
+<td>LVAD myocardial repair</td>
+<td>F10 (reverse remodeling)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33464950/">33464950</a></td>
+<td>Cardiac microvascular EC in pressure overload</td>
+<td>F11 (TAC model)</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26504781/">26504781</a></td>
+<td>TAC in Titin-truncated mouse</td>
+<td>F11 (Ttn model)</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36536484/">36536484</a></td>
+<td>Zebrafish/mouse ion imbalance</td>
+<td>F11 (zebrafish HFpEF)</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37505469/">37505469</a></td>
+<td>Canine DCM myosin SRX</td>
+<td>F12 (naturally occurring)</td>
+<td>Comparative</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1338376/">1338376</a></td>
+<td>Doberman mitochondrial defect</td>
+<td>F12 (conserved mechanism)</td>
+<td>Comparative</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32212256/">32212256</a></td>
+<td>BC 007 aptamer / β1-AAB</td>
+<td>F12 (autoimmune driver)</td>
+<td>Comparative/therapeutic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41847775/">41847775</a></td>
+<td>Comparative prognosis of Chagas</td>
+<td>F13 (worst prognosis)</td>
+<td>Human pooled trials</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34213952/">34213952</a></td>
+<td>DCM variants in pediatric myocarditis</td>
+<td>F13 (viral/genetic)</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39805714/">39805714</a></td>
+<td>Fibrosis in cardiorenal syndrome</td>
+<td>F14 (TGF-β, M1→M2)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23887740/">23887740</a></td>
+<td>Clopidogrel &amp; cardiac fibrosis</td>
+<td>F14 (platelet/inflammation)</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42258512/">42258512</a></td>
+<td>Plasma proteomics in HF</td>
+<td>F15 (P9 panel, Chagas biology)</td>
+<td>Human + validation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41628971/">41628971</a></td>
+<td>Saudi CVD prevention guidelines</td>
+<td>F16 (primary prevention)</td>
+<td>Guideline</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40346555/">40346555</a></td>
+<td>Life's Essential 8 / CKM stages</td>
+<td>F16 (HR 5.95)</td>
+<td>Human cohort (n=100k)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42025682/">42025682</a></td>
+<td>GLS screening cost-effectiveness</td>
+<td>F16 (secondary prevention)</td>
+<td>Cost-effectiveness</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No primary dataset was analyzed.</strong> This report is a literature/knowledge synthesis; no patient-level or omics data files were provided, so all effect sizes are quoted from published studies rather than independently re-derived.</li>
+<li><strong>HFpEF mechanism remains incompletely defined.</strong> Although SGLT2i benefit HFpEF, the molecular heterogeneity of HFpEF (metabolic, inflammatory, microvascular endotypes) is not fully resolved, and models incompletely recapitulate elderly multimorbid HFpEF.</li>
+<li><strong>Genetic yield is partial.</strong> Even comprehensive DCM panels identify a molecular diagnosis in only ~25–46%, leaving a large "genetically elusive" fraction and many variants of uncertain significance (VUS).</li>
+<li><strong>Etiology-specific biology is understudied.</strong> The Chagas proteomic divergence signals that pooled HF trials may mask etiology-specific responses; most GDMT evidence derives from predominantly ischemic/idiopathic cohorts.</li>
+<li><strong>Ontology mappings are suggested, not curator-verified.</strong> HPO/GO/CL/UBERON/NCIT terms should be confirmed against current ontology releases before database ingestion.</li>
+<li><strong>Epidemiology figures are global aggregates.</strong> Regional incidence/prevalence, sex ratios, and variant geography require registry-specific validation.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Etiology-stratified multi-omics.</strong> Integrate proteomic (P9-type panels), transcriptomic (fetal gene program), and metabolomic signatures stratified by etiology (ischemic vs. Chagas vs. genetic DCM) to build etiology-specific risk models — directly extending [<a href="https://pubmed.ncbi.nlm.nih.gov/42258512/" target="_blank" rel="noopener noreferrer">PMID: 42258512</a>].</li>
+<li><strong>Prospective validation of GLS + NP screening</strong> in stage A/B populations to quantify HF-prevention yield and cost-effectiveness beyond the German HERZCHECK simulation [<a href="https://pubmed.ncbi.nlm.nih.gov/42025682/" target="_blank" rel="noopener noreferrer">PMID: 42025682</a>].</li>
+<li><strong>Functional characterization of VUS</strong> in <em>TTN/LMNA/FLNC</em> using iPSC-cardiomyocytes and CRISPR editing to reclassify uncertain variants and expand diagnostic yield.</li>
+<li><strong>HFpEF endotyping trials</strong> pairing SGLT2i/finerenone response with mechanistic biomarkers (mitochondrial function, inflammation, microvascular density) to define treatment-responsive subgroups.</li>
+<li><strong>Comparative-medicine studies</strong> leveraging naturally occurring canine DCM (β1-AAB, mitochondrial ATP defect) to test neutralizing/aptamer therapies (e.g., BC 007) as translational bridges [<a href="https://pubmed.ncbi.nlm.nih.gov/32212256/" target="_blank" rel="noopener noreferrer">PMID: 32212256</a>].</li>
+<li><strong>Implementation science</strong> to close the GDMT gap: real-world data show persistent under-titration (especially in the elderly [<a href="https://pubmed.ncbi.nlm.nih.gov/42446811/" target="_blank" rel="noopener noreferrer">PMID: 42446811</a>]); structured "four drugs in 4 weeks" protocols warrant pragmatic trial evaluation.</li>
+<li><strong>Curator handoff:</strong> verify all suggested ontology terms (MONDO, HPO, GO, CL, UBERON, NCIT, CHEBI) against current releases and attach the exact abstract snippets provided herein as evidence items.</li>
+</ol>
+<hr />
+<p><em>Report compiled across 5 iterations, 16 confirmed findings, and 67 reviewed papers. Evidence types span human clinical (guidelines, registries, cohorts, pooled trials), model organism (mouse, rat, zebrafish), comparative (canine/feline), and computational (risk models, cost-effectiveness simulations).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Heart_Failure-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Heart_Failure-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>47</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>47</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>47</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:42016211</code> <em>(abstract only)</em>: "<em>early and combined use of the four foundational GDMT classes, with substantial reductions in mortality and heart failure hospitalization</em>"</li>
+<li>closest text in source: "Early and comprehensive initiation of renin-angiotensin system inhibition (preferably with angiotensin receptor-neprilysin inhibitors), evidence-based beta-blockers, mineralocorticoid receptor antagonists, and sodium-glucose cotransporter 2 (SGLT2) inhibitors is associated with rapid and sustained reductions in hospitalization and mortality"</li>
+<li><code>PMID:40387335</code> <em>(abstract only)</em>: "<em>reverse the molecular transformations that take place in the cardiomyocytes… eventually leading to partial or complete recovery in a subset of patients</em>"</li>
+<li>closest text in source: "LVADs were initially used as a "bridge-to-transplantation." They were later found to reverse the molecular transformations that take place in the cardiomyocytes in patients with heart failure, eventually leading to partial or complete recovery in a subset of patients"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Heart_Failure-falcon.html">← Heart Failure (Falcon)</a>
+                
+                
+                <a href="Heavy_Chain_Disease-falcon.html">Heavy Chain Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Heart_Failure.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Heart_Failure-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Heart_Failure-cyberian-codex.html"><span class="provider-pill provider-cyberian">Cyberian Codex</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Heart_Failure-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

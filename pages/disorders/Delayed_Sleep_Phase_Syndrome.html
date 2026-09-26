@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4174,6 +4251,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4221,6 +4299,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4315,6 +4394,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4379,6 +4459,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4424,7 +4505,8 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-circadian-clock-gene-polymorphisms" data-dismech-node="Circadian Clock Gene Polymorphisms" data-dismech-type="pathophysiology">
                 <div class="item-name">Circadian Clock Gene Polymorphisms</div>
 
-                <div class="item-desc">Variants in core circadian clock genes alter the molecular oscillator that drives the sleep-wake cycle. The circadian clock operates via transcription- translation feedback loops involving CLOCK, BMAL1, PER, and CRY gene families. A gain-of-function mutation in CRY1 (c.1657+3A&gt;C) creates a transcriptional inhibitor with enhanced affinity for Clock and Bmal1, lengthening the circadian period by approximately 30 minutes. Additional polymorphisms in PER3 and CLOCK contribute to DSPS susceptibility.</div>
+
+                <div class="item-desc">Variants in core circadian clock genes alter the molecular oscillator that drives the sleep-wake cycle. The circadian clock operates via transcription-translation feedback loops involving CLOCK, BMAL1, PER, and CRY gene families. A gain-of-function mutation in CRY1 (c.1657+3A&gt;C) creates a transcriptional inhibitor with enhanced affinity for Clock and Bmal1, lengthening the circadian period by approximately 30 minutes. Additional polymorphisms in PER3 and CLOCK contribute to DSPS susceptibility.</div>
 
 
 
@@ -4673,6 +4755,7 @@ This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4694,6 +4777,7 @@ This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4721,6 +4805,7 @@ This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4743,6 +4828,7 @@ This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-melatonin-secretion-timing" data-dismech-node="Altered Melatonin Secretion Timing" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Melatonin Secretion Timing</div>
+
 
                 <div class="item-desc">DSPS patients exhibit a delayed dim light melatonin onset (DLMO), reflecting a shifted circadian pacemaker. The suprachiasmatic nucleus (SCN) signal to the pineal gland for melatonin synthesis is phase-delayed, resulting in later endogenous melatonin rise and consequently delayed sleep propensity. This delay in melatonin secretion is a hallmark biomarker of the condition. However, approximately 40% of DSWPD cases may have normal melatonin timing, suggesting heterogeneity in the underlying mechanism.</div>
 
@@ -4864,6 +4950,7 @@ This pathophysiological event involves Melatonin Biosynthetic Process (GO:003018
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4885,6 +4972,7 @@ This pathophysiological event involves Melatonin Biosynthetic Process (GO:003018
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4910,6 +4998,7 @@ This pathophysiological event involves Melatonin Biosynthetic Process (GO:003018
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-photic-entrainment" data-dismech-node="Impaired Photic Entrainment" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Photic Entrainment</div>
+
 
                 <div class="item-desc">The circadian system normally entrains to the 24-hour light-dark cycle through retinal light input to the SCN via melanopsin-containing intrinsically photosensitive retinal ganglion cells (ipRGCs). In DSPS, there may be increased sensitivity to the melatonin-suppressing effect of evening light, and potentially impaired melanopsin-dependent phototransduction, resulting in a net phase delay of the circadian oscillator.</div>
 
@@ -5031,6 +5120,7 @@ This pathophysiological event involves Entrainment of Circadian Clock (GO:000964
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5053,6 +5143,7 @@ This pathophysiological event involves Entrainment of Circadian Clock (GO:000964
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-misalignment-between-circadian-phase-and-social-schedule" data-dismech-node="Misalignment Between Circadian Phase and Social Schedule" data-dismech-type="pathophysiology">
                 <div class="item-name">Misalignment Between Circadian Phase and Social Schedule</div>
+
 
                 <div class="item-desc">The rate-limiting step, and a relation rather than a state of the clock alone: it requires both a delayed endogenous phase and an externally imposed schedule that the phase cannot meet. This is what makes delayed sleep-wake phase disorder unusual among diseases - the same physiology is pathological or benign depending only on what the person is required to do, and an extreme evening chronotype with a permissive schedule is not a patient. Sleep attempted during the circadian wake-maintenance zone is delayed in onset and curtailed by the alarm clock, while wake required near the core temperature minimum brings maximal sleepiness and severe sleep inertia. Released from the schedule, the same person sleeps normally at their own phase - the diagnostic hallmark separating this disorder from chronic insomnia, with which it is routinely confused and with which it shares no treatment.</div>
 
@@ -5163,6 +5254,7 @@ This pathophysiological event involves abnormal regulation of the circadian slee
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5184,6 +5276,7 @@ This pathophysiological event involves abnormal regulation of the circadian slee
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5232,7 +5325,7 @@ This pathophysiological event involves abnormal regulation of the circadian slee
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Altered Melatonin Secretion Timing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DSPS patients exhibit a delayed dim light melatonin onset (DLMO), reflecting a shifted circadian pacemaker. The suprachiasmatic nucleus (SCN) signal to the pineal gland for melatonin synthesis is phase-delayed, resulting in later endogenous melatonin rise and consequently delayed sleep propensity. This delay in melatonin secretion is a hallmark biomarker of the condition. However, approximately 40% of DSWPD cases may have normal melatonin timing, suggesting heterogeneity in the underlying mechanism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Pinealocyte\"], \"biological_processes\": [\"Melatonin Biosynthetic Process\"], \"subtypes\": [\"Circadian-Delayed DSWPD\"], \"role\": \"amplifier\"}}, {\"id\": \"CRY1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CRY1\"], \"gene_terms\": [{\"label\": \"CRY1\", \"id\": \"hgnc:2384\"}], \"association\": \"Causative\"}}, {\"id\": \"Circadian Clock Gene Polymorphisms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Variants in core circadian clock genes alter the molecular oscillator that drives the sleep-wake cycle. The circadian clock operates via transcription- translation feedback loops involving CLOCK, BMAL1, PER, and CRY gene families. A gain-of-function mutation in CRY1 (c.1657+3A\u003eC) creates a transcriptional inhibitor with enhanced affinity for Clock and Bmal1, lengthening the circadian period by approximately 30 minutes. Additional polymorphisms in PER3 and CLOCK contribute to DSPS susceptibility.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Circadian Rhythm\"], \"genes\": [\"CRY1\", \"PER3\", \"CLOCK\"], \"gene_terms\": [{\"label\": \"CRY1\", \"id\": \"hgnc:2384\"}, {\"label\": \"PER3\", \"id\": \"hgnc:8847\"}, {\"label\": \"CLOCK\", \"id\": \"hgnc:2082\"}], \"subtypes\": [\"Circadian-Delayed DSWPD\"], \"role\": \"trigger\"}}, {\"id\": \"Impaired Photic Entrainment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The circadian system normally entrains to the 24-hour light-dark cycle through retinal light input to the SCN via melanopsin-containing intrinsically photosensitive retinal ganglion cells (ipRGCs). In DSPS, there may be increased sensitivity to the melatonin-suppressing effect of evening light, and potentially impaired melanopsin-dependent phototransduction, resulting in a net phase delay of the circadian oscillator.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Retinal Ganglion Cell\"], \"biological_processes\": [\"Entrainment of Circadian Clock\"], \"role\": \"trigger\"}}, {\"id\": \"Misalignment Between Circadian Phase and Social Schedule\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The rate-limiting step, and a relation rather than a state of the clock alone: it requires both a delayed endogenous phase and an externally imposed schedule that the phase cannot meet. This is what makes delayed sleep-wake phase disorder unusual among diseases - the same physiology is pathological or benign depending only on what the person is required to do, and an extreme evening chronotype with a permissive schedule is not a patient. Sleep attempted during the circadian wake-maintenance zone is delayed in onset and curtailed by the alarm clock, while wake required near the core temperature minimum brings maximal sleepiness and severe sleep inertia. Released from the schedule, the same person sleeps normally at their own phase - the diagnostic hallmark separating this disorder from chronic insomnia, with which it is routinely confused and with which it shares no treatment.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"entrainment of circadian clock\", \"regulation of the circadian sleep/wake cycle\"], \"role\": \"central_effector\"}}, {\"id\": \"PER3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PER3\"], \"gene_terms\": [{\"label\": \"PER3\", \"id\": \"hgnc:8847\"}], \"association\": \"Risk Factor\"}}], \"edges\": [{\"source\": \"Circadian Clock Gene Polymorphisms\", \"target\": \"Altered Melatonin Secretion Timing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A lengthened intrinsic period causes the pacemaker to stabilise at a later phase, which is read out as a delayed dim-light melatonin onset.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circadian Clock Gene Polymorphisms\", \"target\": \"Misalignment Between Circadian Phase and Social Schedule\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A delayed endogenous phase can no longer coincide with a conventional school or work schedule.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Melatonin Secretion Timing\", \"target\": \"Misalignment Between Circadian Phase and Social Schedule\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A delayed dim-light melatonin onset places the endogenous sleep-propensity window later than the required sleep opportunity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Photic Entrainment\", \"target\": \"Altered Melatonin Secretion Timing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Evening light arriving in the phase-delay portion of the response curve reinforces rather than corrects the delay, pushing melatonin onset later.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CRY1\", \"target\": \"Circadian Clock Gene Polymorphisms\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PER3\", \"target\": \"Circadian Clock Gene Polymorphisms\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Altered Melatonin Secretion Timing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DSPS patients exhibit a delayed dim light melatonin onset (DLMO), reflecting a shifted circadian pacemaker. The suprachiasmatic nucleus (SCN) signal to the pineal gland for melatonin synthesis is phase-delayed, resulting in later endogenous melatonin rise and consequently delayed sleep propensity. This delay in melatonin secretion is a hallmark biomarker of the condition. However, approximately 40% of DSWPD cases may have normal melatonin timing, suggesting heterogeneity in the underlying mechanism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Pinealocyte\"], \"biological_processes\": [\"Melatonin Biosynthetic Process\"], \"subtypes\": [\"Circadian-Delayed DSWPD\"], \"role\": \"amplifier\"}}, {\"id\": \"CRY1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CRY1\"], \"gene_terms\": [{\"label\": \"CRY1\", \"id\": \"hgnc:2384\"}], \"association\": \"Causative\"}}, {\"id\": \"Circadian Clock Gene Polymorphisms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Variants in core circadian clock genes alter the molecular oscillator that drives the sleep-wake cycle. The circadian clock operates via transcription-translation feedback loops involving CLOCK, BMAL1, PER, and CRY gene families. A gain-of-function mutation in CRY1 (c.1657+3A\u003eC) creates a transcriptional inhibitor with enhanced affinity for Clock and Bmal1, lengthening the circadian period by approximately 30 minutes. Additional polymorphisms in PER3 and CLOCK contribute to DSPS susceptibility.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Circadian Rhythm\"], \"genes\": [\"CRY1\", \"PER3\", \"CLOCK\"], \"gene_terms\": [{\"label\": \"CRY1\", \"id\": \"hgnc:2384\"}, {\"label\": \"PER3\", \"id\": \"hgnc:8847\"}, {\"label\": \"CLOCK\", \"id\": \"hgnc:2082\"}], \"subtypes\": [\"Circadian-Delayed DSWPD\"], \"role\": \"trigger\"}}, {\"id\": \"Impaired Photic Entrainment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The circadian system normally entrains to the 24-hour light-dark cycle through retinal light input to the SCN via melanopsin-containing intrinsically photosensitive retinal ganglion cells (ipRGCs). In DSPS, there may be increased sensitivity to the melatonin-suppressing effect of evening light, and potentially impaired melanopsin-dependent phototransduction, resulting in a net phase delay of the circadian oscillator.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Retinal Ganglion Cell\"], \"biological_processes\": [\"Entrainment of Circadian Clock\"], \"role\": \"trigger\"}}, {\"id\": \"Misalignment Between Circadian Phase and Social Schedule\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The rate-limiting step, and a relation rather than a state of the clock alone: it requires both a delayed endogenous phase and an externally imposed schedule that the phase cannot meet. This is what makes delayed sleep-wake phase disorder unusual among diseases - the same physiology is pathological or benign depending only on what the person is required to do, and an extreme evening chronotype with a permissive schedule is not a patient. Sleep attempted during the circadian wake-maintenance zone is delayed in onset and curtailed by the alarm clock, while wake required near the core temperature minimum brings maximal sleepiness and severe sleep inertia. Released from the schedule, the same person sleeps normally at their own phase - the diagnostic hallmark separating this disorder from chronic insomnia, with which it is routinely confused and with which it shares no treatment.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"entrainment of circadian clock\", \"regulation of the circadian sleep/wake cycle\"], \"role\": \"central_effector\"}}, {\"id\": \"PER3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PER3\"], \"gene_terms\": [{\"label\": \"PER3\", \"id\": \"hgnc:8847\"}], \"association\": \"Risk Factor\"}}], \"edges\": [{\"source\": \"Circadian Clock Gene Polymorphisms\", \"target\": \"Altered Melatonin Secretion Timing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A lengthened intrinsic period causes the pacemaker to stabilise at a later phase, which is read out as a delayed dim-light melatonin onset.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circadian Clock Gene Polymorphisms\", \"target\": \"Misalignment Between Circadian Phase and Social Schedule\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A delayed endogenous phase can no longer coincide with a conventional school or work schedule.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Melatonin Secretion Timing\", \"target\": \"Misalignment Between Circadian Phase and Social Schedule\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A delayed dim-light melatonin onset places the endogenous sleep-propensity window later than the required sleep opportunity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Photic Entrainment\", \"target\": \"Altered Melatonin Secretion Timing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Evening light arriving in the phase-delay portion of the response curve reinforces rather than corrects the delay, pushing melatonin onset later.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CRY1\", \"target\": \"Circadian Clock Gene Polymorphisms\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PER3\", \"target\": \"Circadian Clock Gene Polymorphisms\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5296,6 +5389,9 @@ This clinical feature is Abnormal pineal melatonin secretion (HP:0012689). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5310,6 +5406,7 @@ This clinical feature is Abnormal pineal melatonin secretion (HP:0012689). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5375,6 +5472,9 @@ This clinical feature is Sleep onset insomnia (HP:0031354). HP:0031354 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5389,6 +5489,7 @@ This clinical feature is Sleep onset insomnia (HP:0031354). HP:0031354 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5447,6 +5548,9 @@ This clinical feature is Excessive daytime sleepiness, annotated with Drowsiness
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5461,6 +5565,7 @@ This clinical feature is Excessive daytime sleepiness, annotated with Drowsiness
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5517,6 +5622,9 @@ This clinical feature is Sleep-wake cycle disturbance (HP:0006979). HP:0006979 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5531,6 +5639,7 @@ This clinical feature is Sleep-wake cycle disturbance (HP:0006979). HP:0006979 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5584,6 +5693,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Depression is frequently comorbid with DSPS rather than a core phenotype. It may be driven by chronic sleep deprivation, circadian misalignment, and/or shared genetic factors (CRY1 variant carriers show phenome-wide associations with major depressive disorder). Retained as a phenotype because the bidirectional relationship and high frequency in DSWPD populations make it clinically relevant.</div>
 
 
@@ -5603,6 +5715,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5627,6 +5740,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5683,6 +5797,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5697,6 +5814,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5721,6 +5839,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5817,6 +5936,9 @@ This disease-associated gene is CRY1 (hgnc:2384). hgnc:2384 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -5842,6 +5964,7 @@ This disease-associated gene is CRY1 (hgnc:2384). hgnc:2384 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5863,6 +5986,7 @@ This disease-associated gene is CRY1 (hgnc:2384). hgnc:2384 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5920,6 +6044,9 @@ This disease-associated gene is PER3 (hgnc:8847). hgnc:8847 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5934,6 +6061,7 @@ This disease-associated gene is PER3 (hgnc:8847). hgnc:8847 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5991,6 +6119,9 @@ This disease-associated gene is PER2 (hgnc:8846). hgnc:8846 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6005,6 +6136,7 @@ This disease-associated gene is PER2 (hgnc:8846). hgnc:8846 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6088,6 +6220,20 @@ This treatment is melatonin supplementation, annotated with Pharmacotherapy (NCI
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Low-dose melatonin (0.5-5 mg) administered in the evening, typically 3-7 hours before desired sleep onset (relative to DLMO), to phase-advance the circadian clock. Dosing time relative to DLMO is more critical than dose variation for phase shifting.</div>
 
 
@@ -6109,6 +6255,7 @@ This treatment is melatonin supplementation, annotated with Pharmacotherapy (NCI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6141,6 +6288,20 @@ This treatment is melatonin supplementation, annotated with Pharmacotherapy (NCI
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Timed exposure to bright light (2,500-10,000 lux) in the morning, timed after the core body temperature minimum or 1-3 hours before spontaneous awakening, to phase-advance the circadian clock. The AASM guideline endorses light therapy for children and adolescents with DSWPD.</div>
 
 
@@ -6162,6 +6323,7 @@ This treatment is melatonin supplementation, annotated with Pharmacotherapy (NCI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6194,6 +6356,20 @@ This treatment is melatonin supplementation, annotated with Pharmacotherapy (NCI
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Progressive delay of sleep times around the clock until the desired bedtime is reached. This approach exploits the natural tendency toward phase delay but requires strict schedule adherence and is difficult to maintain long-term.</div>
 
 
@@ -6215,6 +6391,7 @@ This treatment is melatonin supplementation, annotated with Pharmacotherapy (NCI
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -6279,6 +6456,20 @@ This treatment is tasimelteon, annotated with Pharmacotherapy (NCIT:C15986). NCI
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A dual MT1/MT2 melatonin receptor agonist under investigation for DSWPD. Clinical trials include evaluation in the general DSWPD population and in CRY1Δ11 variant carriers specifically. A case report describes symptom resolution in a DSWPD patient treated with tasimelteon.</div>
 
 
@@ -6300,6 +6491,7 @@ This treatment is tasimelteon, annotated with Pharmacotherapy (NCIT:C15986). NCI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6364,6 +6556,20 @@ This treatment is cognitive and behavioral intervention, annotated with Behavior
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Behavioral approaches including sleep hygiene education, stimulus control, and cognitive therapy for insomnia-related cognitions. Particularly relevant for the circadian-entrained DSWPD subtype where psychological and behavioral factors play a larger role.</div>
 
 
@@ -6385,6 +6591,7 @@ This treatment is cognitive and behavioral intervention, annotated with Behavior
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6450,6 +6657,7 @@ This treatment is cognitive and behavioral intervention, annotated with Behavior
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6471,6 +6679,7 @@ This treatment is cognitive and behavioral intervention, annotated with Behavior
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6522,6 +6731,7 @@ This treatment is cognitive and behavioral intervention, annotated with Behavior
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6628,6 +6838,7 @@ This treatment is cognitive and behavioral intervention, annotated with Behavior
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6715,6 +6926,7 @@ This treatment is cognitive and behavioral intervention, annotated with Behavior
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6790,6 +7002,7 @@ This treatment is cognitive and behavioral intervention, annotated with Behavior
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6846,14 +7059,15 @@ This treatment is cognitive and behavioral intervention, annotated with Behavior
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"the prevalence of DSWPD is estimated to be approximately 3% with little racial differences between Caucasians and Asians"</div>
+                <div class="evidence-snippet">"Delayed sleep-wake phase disorder (DSWPD) is a sleep disorder in which the habitual sleep-wake timing is delayed, resulting in difficulty in falling asleep and waking up at the desired time. ... DSWPD is typically prevalent during adolescence and young adulthood. Although there are no studies..."</div>
 
 
-                <div class="evidence-explanation">Provides a consensus prevalence estimate of approximately 3% with minimal racial differences.</div>
+                <div class="evidence-explanation">The review estimates DSWPD prevalence at approximately 3% and identifies adolescence and young adulthood as typical affected ages. It explicitly notes the absence of international comparative studies.</div>
 
 
 
@@ -6929,6 +7143,7 @@ This treatment is cognitive and behavioral intervention, annotated with Behavior
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"This is a multicenter, double-blind, randomized study to evaluate the efficacy and safety of a daily single oral dose of tasimelteon and matching placebo in male and female participants with DSWPD."</div>
@@ -6977,6 +7192,7 @@ This treatment is cognitive and behavioral intervention, annotated with Behavior
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7116,8 +7332,8 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
   description: &gt;-
     Variants in core circadian clock genes alter the molecular oscillator that
-    drives the sleep-wake cycle. The circadian clock operates via transcription-
-    translation feedback loops involving CLOCK, BMAL1, PER, and CRY gene
+    drives the sleep-wake cycle. The circadian clock operates via transcription-translation
+    feedback loops involving CLOCK, BMAL1, PER, and CRY gene
     families. A gain-of-function mutation in CRY1 (c.1657+3A&gt;C) creates a
     transcriptional inhibitor with enhanced affinity for Clock and Bmal1,
     lengthening the circadian period by approximately 30 minutes. Additional
@@ -7911,11 +8127,15 @@ prevalence:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      the prevalence of DSWPD is estimated to be approximately 3% with little
-      racial differences between Caucasians and Asians
+      Delayed sleep-wake phase disorder (DSWPD) is a sleep disorder in which the habitual sleep-wake
+      timing is delayed, resulting in difficulty in falling asleep and waking up at the desired
+      time. ... DSWPD is typically prevalent during adolescence and young adulthood. Although there
+      are no studies comparing internationally, the prevalence of DSWPD is estimated to be
+      approximately 3% with little racial differences between Caucasians and Asians.
     explanation: &gt;-
-      Provides a consensus prevalence estimate of approximately 3% with
-      minimal racial differences.
+      The review estimates DSWPD prevalence at approximately 3% and identifies adolescence and young
+      adulthood as typical affected ages. It explicitly notes the absence of international
+      comparative studies.
 inheritance:
 - name: Complex/Multifactorial
   evidence:
@@ -7975,6 +8195,8 @@ classifications:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8390,7 +8612,7 @@ PMIDs were not present in the extracted text snippets for the key primary geneti
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Delayed Sleep Phase Syndrome", "mondoId": "MONDO:0024377", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Delayed_Sleep_Phase_Syndrome", "yamlRevision": "d7839340b5d0"};
+        const OS_CONFIG = {"diseaseName": "Delayed Sleep Phase Syndrome", "mondoId": "MONDO:0024377", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Delayed_Sleep_Phase_Syndrome", "yamlRevision": "7b71c3a89ba1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

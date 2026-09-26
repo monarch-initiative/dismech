@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1581,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">ocular_morphogenesis_failure</span>
-                <span class="badge badge-count">10 disorders</span>
+                <span class="badge badge-count">11 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
                 
@@ -1812,11 +1864,13 @@ This mechanism module involves decreased closure of optic fissure (GO:0061386). 
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">10</span>
+                <span class="card-count">11</span>
             </div>
             
             <div class="crosslink-list">
@@ -1927,6 +1981,21 @@ This mechanism module involves decreased closure of optic fissure (GO:0061386). 
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Renal_Coloboma_Syndrome.html">Renal Coloboma Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Failure of Optic Fissure Closure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/SOX11-Related_Neurodevelopmental_Disorder.html">SOX11-Related Neurodevelopmental Disorder</a>
                     
                     <span class="crosslink-desc">
@@ -2030,11 +2099,13 @@ This mechanism module involves decreased closure of optic fissure (GO:0061386). 
             
             <div class="item-box anchor-target" id="module-pathophysiology-eye-field-specification-and-optic-vesicle-patterning-perturbation" data-dismech-node="Eye Field Specification and Optic Vesicle Patterning Perturbation" data-dismech-type="pathophysiology">
                 <div class="item-name">Eye Field Specification and Optic Vesicle Patterning Perturbation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The initiating lesion changes the dosage, timing, or spatial activity of a conserved early-eye regulator. The substitutable driver may be a transcription factor or enhancer (SOX2, OTX2, PAX6, RAX, MAB21L2), the STRA6/RARB/ALDH1A3 retinoid axis, WNT/FZD5 signaling, or Hedgehog signaling. Hedgehog is explicitly bidirectional: either excess or deficient pathway output can disrupt eye-field separation and optic-vesicle patterning, so the generic module records abnormal rather than increased or decreased activity.</div>
                 
@@ -2133,11 +2204,13 @@ This pathophysiological event involves abnormal camera-type eye development (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-optic-stalk-optic-cup-proximodistal-boundary-shift" data-dismech-node="Optic Stalk–Optic Cup Proximodistal Boundary Shift" data-dismech-type="pathophysiology">
                 <div class="item-name">Optic Stalk–Optic Cup Proximodistal Boundary Shift</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Abnormal proximal-distal patterning expands PAX2-positive optic-stalk tissue at the expense of the distal PAX6-positive optic-vesicle/retinal domain. In the Patched1-deficient model, the ectopic stalk extends into the retina and physically prevents the opposing fissure margins from meeting. This node is the resolved Hedgehog intermediate; non-Hedgehog conformers should normally join the module at a downstream node rather than assert this boundary shift.</div>
                 
@@ -2257,11 +2330,13 @@ This pathophysiological event involves abnormal camera-type eye morphogenesis (G
             
             <div class="item-box anchor-target" id="module-pathophysiology-disrupted-optic-cup-and-globe-morphogenesis" data-dismech-node="Disrupted Optic Cup and Globe Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Optic Cup and Globe Morphogenesis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Early-eye regulatory failure impairs optic-vesicle outgrowth, optic-cup invagination, tissue growth, and spatial patterning. Severe failure can prevent formation of the globe (anophthalmia); partial growth failure produces a small globe (microphthalmia). Because the ventral fissure is created during optic-cup invagination, the same upstream morphogenetic disturbance can also predispose its margins to fail to appose and fuse.</div>
                 
@@ -2486,11 +2561,13 @@ This pathophysiological event involves abnormal camera-type eye morphogenesis (G
             
             <div class="item-box anchor-target" id="module-pathophysiology-failure-of-optic-fissure-closure" data-dismech-node="Failure of Optic Fissure Closure" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Optic Fissure Closure</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">After optic-cup invagination creates the ventral optic fissure, its opposing margins must appose, remove intervening basement membrane, and fuse. Failure or delay of this later step leaves an inferonasal gap affecting iris, ciliary body, retina/choroid, or optic nerve and produces ocular coloboma. This node is downstream of optic-cup morphogenesis; it is not modeled as the cause of anophthalmia or microphthalmia.</div>
                 
@@ -2601,6 +2678,11 @@ This pathophysiological event involves decreased closure of optic fissure (GO:00
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Renal_Coloboma_Syndrome.html">Renal Coloboma Syndrome</a>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2624,11 +2706,13 @@ This pathophysiological event involves decreased closure of optic fissure (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-anophthalmia-microphthalmia-coloboma-spectrum-outcome" data-dismech-node="Anophthalmia–Microphthalmia–Coloboma Spectrum Outcome" data-dismech-type="pathophysiology">
                 <div class="item-name">Anophthalmia–Microphthalmia–Coloboma Spectrum Outcome</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The convergent developmental outcome is a severity spectrum comprising absent globe formation (anophthalmia), reduced globe size (microphthalmia), and/or a persistent tissue cleft (coloboma). The three can occur alone or in combination because early globe-growth failure and later fissure-closure failure are related but separable outputs of disturbed ocular morphogenesis.</div>
                 
@@ -2699,6 +2783,9 @@ This pathophysiological event involves abnormal camera-type eye morphogenesis (G
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

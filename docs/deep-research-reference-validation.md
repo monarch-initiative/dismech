@@ -1,5 +1,24 @@
 # Deep-Research Reference Validation
 
+## How we use deep research
+
+Deep-research reports seed curation with candidate mechanisms, publications, and
+ontology terms. They do not undergo the same validation as the main records and
+may contain errors. Before promoting a claim into a main record, curators must
+independently check its sources, exact evidence quotes, and ontology bindings.
+A report passing identifier checks does not establish that its claims are true
+or that its citations support them.
+
+The Deep Research section on disorder pages includes expandable evaluations and
+curation notes when available: record-level `notes` and `review_notes` that
+explicitly mention deep research, similarly identified curation-history entries,
+and links to separate [cross-provider assessments](research-synthesis.md).
+These notes preserve the curator's wording and may include broader curation
+context; their presence is not a validation badge for the report. Absence of
+displayed notes does not mean a report has passed review.
+
+## Report citation checks
+
 Deep-research (DR) providers routinely emit identifiers that look plausible and
 do not resolve, and quotes attributed to papers that do not contain them. Until
 `deep-research-client` 0.2.9 the only way to find out was to curate first and
@@ -15,16 +34,24 @@ and writes the answer into the report.
 ## What gets checked
 
 `deep-research-client[validation]` delegates to `linkml-reference-validator` —
-the same library behind `just fetch-reference` and `just validate-references` —
-so the rules are the ones dismech already uses.
+the same library behind `just fetch-reference` and `just validate-kb-references` —
+so the rules are the ones dismech already uses. Same library, different
+question: `validate-kb-references` asks whether the snippets *inside a KB
+entry* appear in the papers they cite, while the check described here asks
+whether a *report's* citations exist and its quotes hold up. (The
+deep-research-client subcommand doing the latter is itself called
+`validate-references`, which is why the dismech recipe carries `kb` in its
+name — issue #8841.)
 
 Because this path both reads and writes `references_cache/`, the recipes invoke
-it through `scripts/run_deep_research_client.sh`, which applies dismech's
-`patch_reference_validator` repairs first — exactly as
-`scripts/run_reference_validator.sh` does for the validator CLI. That matters
-most for the issue #7697 delimiter-aware frontmatter read: without it, a cached
-record whose frontmatter contains a literal `---` is truncated on read and
-reported as a **false unresolved reference**, and the guidance below tells you
+it through `scripts/run_deep_research_client.sh`, which applies dismech's Biomni
+opt-in policy before provider discovery.
+
+The cache repairs that wrapper used to apply are now upstream in
+`linkml-reference-validator`. The one worth knowing about is the issue #7697
+delimiter-aware frontmatter read: without it, a cached record whose frontmatter
+contains a literal `---` is truncated on read and reported as a **false
+unresolved reference**, and the guidance below tells you
 not to cite unresolved references. Do not call `deep-research-client` directly
 for anything that validates; go through the wrapper or the recipes.
 
@@ -59,7 +86,7 @@ undecided remainder.
 The relevance check **costs nothing extra** — no additional lookups, since it
 reads records the existence check already fetched. It is on by default; disable
 it with `--validation-no-relevance` on a research run, or
-`--no-check-relevance` on `validate-references`.
+`--no-check-relevance` on the client's `validate-references` subcommand.
 
 An off-topic flag is **a clue, not a verdict.** The reference resolved, so it is
 not a fabrication; it simply shares almost none of the report's vocabulary. A
@@ -212,6 +239,26 @@ That last caveat is the honest one and worth keeping in mind: a network failure
 and a fabricated identifier look identical from here. Treat "unresolved" as
 "check this by hand", not as proof of fabrication.
 
+### Across the whole tree
+
+The per-report blocks add up. `just dr-validation-census` walks every
+`*-deep-research-*.md` under `research/` (including the `modules/` and
+`surrogacy/` subdirectories the module and surrogacy recipes write to), sums the frontmatter counters, and prints
+totals plus a per-provider table — offline, from what is already on disk:
+
+```bash
+just dr-validation-census                  # totals + per-provider table
+just dr-validation-census --format tsv     # one row per report
+just dr-validation-census --needs-review   # the reports flagged for a look
+```
+
+It distinguishes reports validated at generation time (frontmatter block)
+from retro-fitted ones (body section only, whose counters are not
+machine-readable) and from the unvalidated majority. Rates come from the sums;
+a key a report omits counts as zero. The same blind spots as the per-report
+block apply — it cannot see NEC, misattribution, or the snippet later pasted
+into `kb/`.
+
 ## Generating a validated report
 
 Nothing to remember — it is on by default in every research recipe:
@@ -254,7 +301,7 @@ Other options `deep-research-client` accepts, if you need them for a one-off
 | `--validation-no-relevance` | Turn off the topical-relevance check. It is free and on by default, so there is rarely a reason to. |
 | `--fail-on-unresolved` | Exit non-zero when anything failed to resolve *or* any quote is unsupported. Off-topic references are excluded on purpose. For pipelines, not interactive runs. |
 
-(On the standalone `validate-references` subcommand the relevance switch is
+(On the client's standalone `validate-references` subcommand the relevance switch is
 spelled `--no-check-relevance`.)
 
 ## Checking a report that already exists

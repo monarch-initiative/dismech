@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4248,6 +4325,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4269,6 +4347,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4395,6 +4474,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4416,6 +4496,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4512,6 +4593,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4533,6 +4615,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4570,6 +4653,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-placental-hormone-driven-insulin-resistance" data-dismech-node="Placental Hormone-Driven Insulin Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Placental Hormone-Driven Insulin Resistance</div>
+
 
                 <div class="item-desc">From the second trimester, placental hormones and adipokines (human placental lactogen, placental growth hormone, progesterone, TNF-alpha, leptin) progressively reduce maternal insulin sensitivity in skeletal muscle, liver and adipose tissue. This is a normal adaptation, not a lesion: it spares maternal glucose for transplacental delivery to the fetus and reverses within days of placental delivery. It is the physiological load against which beta-cell reserve is tested.</div>
 
@@ -4717,6 +4801,7 @@ This pathophysiological event involves decreased insulin receptor signaling path
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4739,6 +4824,7 @@ This pathophysiological event involves decreased insulin receptor signaling path
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-beta-cell-compensatory-failure" data-dismech-node="Beta-Cell Compensatory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Beta-Cell Compensatory Failure</div>
+
 
                 <div class="item-desc">Maternal pancreatic beta cells normally increase insulin secretion several-fold to offset gestational insulin resistance. In GDM this compensation is inadequate. The deficit is not created by pregnancy: it reflects chronic insulin resistance, age, and inherited beta-cell dysfunction shared with type 2 diabetes, which is why the same women remain at elevated metabolic risk long after delivery. This node is the actual lesion of GDM and the point at which the disorder diverges from normal pregnancy physiology.</div>
 
@@ -4905,6 +4991,7 @@ This pathophysiological event involves decreased insulin secretion (GO:0030073).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4927,6 +5014,7 @@ This pathophysiological event involves decreased insulin secretion (GO:0030073).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-hyperglycaemia" data-dismech-node="Maternal Hyperglycaemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Maternal Hyperglycaemia</div>
+
 
                 <div class="item-desc">Maternal glucose rises across a continuum rather than to a discrete pathological level. Because glucose crosses the placenta by facilitated diffusion while maternal insulin does not, the maternal glucose concentration is transmitted directly to the fetal circulation. This node is where a maternal metabolic state becomes a fetal exposure.</div>
 
@@ -5040,6 +5128,7 @@ This pathophysiological event involves dysregulated glucose homeostasis (GO:0042
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5062,6 +5151,7 @@ This pathophysiological event involves dysregulated glucose homeostasis (GO:0042
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-hyperinsulinaemia" data-dismech-node="Fetal Hyperinsulinaemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Hyperinsulinaemia</div>
+
 
                 <div class="item-desc">The Pedersen hypothesis: maternal glucose crosses the placenta, the fetal pancreas responds with hyperinsulinaemia, and fetal insulin acts as the principal anabolic growth factor of late gestation. Cord-blood C-peptide is the direct measurable readout of this node, and HAPO showed it rises continuously with maternal glucose. Fetal hyperinsulinaemia explains both the antenatal consequence (excess growth and adiposity) and the neonatal one (hypoglycaemia when the maternal glucose supply is abruptly withdrawn at cord clamping while fetal insulin remains high).</div>
 
@@ -5228,6 +5318,7 @@ This pathophysiological event involves increased insulin secretion (GO:0030073).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5250,6 +5341,7 @@ This pathophysiological event involves increased insulin secretion (GO:0030073).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excess-fetal-growth-and-adiposity" data-dismech-node="Excess Fetal Growth and Adiposity" data-dismech-type="pathophysiology">
                 <div class="item-name">Excess Fetal Growth and Adiposity</div>
+
 
                 <div class="item-desc">Insulin-driven macrosomia is disproportionate rather than uniform, affecting insulin-sensitive tissues so that shoulder and trunk adiposity increase more than head circumference. This asymmetry is what converts excess growth into the mechanical complications of labour - shoulder dystocia, birth injury and caesarean delivery - rather than simply producing a larger but proportionate baby.</div>
 
@@ -5341,6 +5433,7 @@ This pathophysiological event involves increased fat cell differentiation (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5363,6 +5456,7 @@ This pathophysiological event involves increased fat cell differentiation (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-progression-to-type-2-diabetes" data-dismech-node="Maternal Progression to Type 2 Diabetes" data-dismech-type="pathophysiology">
                 <div class="item-name">Maternal Progression to Type 2 Diabetes</div>
+
 
                 <div class="item-desc">After delivery the gestational insulin-resistance load is removed and glycaemia normalises, but the beta-cell limitation that GDM revealed does not. Affected women carry substantially elevated lifetime risk of type 2 diabetes and cardiovascular disease, making a GDM pregnancy an early, actionable marker of metabolic trajectory rather than a closed episode. Offspring likewise carry elevated obesity and dysglycaemia risk.</div>
 
@@ -5439,6 +5533,7 @@ This pathophysiological event involves dysregulated glucose homeostasis (GO:0042
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5503,11 +5598,13 @@ This pathophysiological event involves dysregulated glucose homeostasis (GO:0042
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Prenatal and Birth<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5517,7 +5614,7 @@ This pathophysiological event involves dysregulated glucose homeostasis (GO:0042
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-maternal-hyperglycemia" data-dismech-node="Maternal hyperglycemia" data-dismech-type="phenotype">
@@ -5550,6 +5647,9 @@ This clinical feature is Maternal hyperglycemia, annotated with Hyperglycemia (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5564,6 +5664,7 @@ This clinical feature is Maternal hyperglycemia, annotated with Hyperglycemia (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5590,9 +5691,166 @@ This clinical feature is Maternal hyperglycemia, annotated with Hyperglycemia (H
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-hypoglycemia" data-dismech-node="Neonatal hypoglycemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Neonatal hypoglycemia
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001998" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001998</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal hypoglycemia (HP:0001998). HP:0001998 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18463375" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18463375" target="_blank">PMID:18463375</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary outcomes were birth weight above the 90th percentile for gestational age, primary cesarean delivery, clinically diagnosed neonatal hypoglycemia, and cord-blood serum C-peptide level above the 90th percentile."</div>
+
+
+                <div class="evidence-explanation">Confirms clinically diagnosed neonatal hypoglycaemia as a prespecified primary outcome of the glucose-outcome relationship. The snippet does not report its effect size or frequency, so the OCCASIONAL band reflects general clinical description rather than this citation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Prenatal and Birth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-shoulder-dystocia" data-dismech-node="Shoulder dystocia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Shoulder dystocia
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011413" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0011413</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Shoulder dystocia (HP:0011413). HP:0011413 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18463375" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18463375" target="_blank">PMID:18463375</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Secondary outcomes were delivery before 37 weeks of gestation, shoulder dystocia or birth injury, need for intensive neonatal care, hyperbilirubinemia, and preeclampsia."</div>
+
+
+                <div class="evidence-explanation">Confirms shoulder dystocia and birth injury as prespecified secondary outcomes in the glucose-outcome analysis. The snippet does not report the effect size, so no quantitative claim is made here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -5615,15 +5873,18 @@ This clinical feature is Maternal hyperglycemia, annotated with Hyperglycemia (H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001520</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001520</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Large for gestational age (HP:0001520). HP:0001520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5643,6 +5904,7 @@ This clinical feature is Large for gestational age (HP:0001520). HP:0001520 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5671,152 +5933,12 @@ This clinical feature is Large for gestational age (HP:0001520). HP:0001520 is a
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-hypoglycemia" data-dismech-node="Neonatal hypoglycemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neonatal hypoglycemia
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001998" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001998</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neonatal hypoglycemia (HP:0001998). HP:0001998 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18463375" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18463375" target="_blank">PMID:18463375</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Primary outcomes were birth weight above the 90th percentile for gestational age, primary cesarean delivery, clinically diagnosed neonatal hypoglycemia, and cord-blood serum C-peptide level above the 90th percentile."</div>
-
-
-                <div class="evidence-explanation">Confirms clinically diagnosed neonatal hypoglycaemia as a prespecified primary outcome of the glucose-outcome relationship. The snippet does not report its effect size or frequency, so the OCCASIONAL band reflects general clinical description rather than this citation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-shoulder-dystocia" data-dismech-node="Shoulder dystocia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Shoulder dystocia
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011413" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0011413</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Shoulder dystocia (HP:0011413). HP:0011413 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18463375" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18463375" target="_blank">PMID:18463375</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Secondary outcomes were delivery before 37 weeks of gestation, shoulder dystocia or birth injury, need for intensive neonatal care, hyperbilirubinemia, and preeclampsia."</div>
-
-
-                <div class="evidence-explanation">Confirms shoulder dystocia and birth injury as prespecified secondary outcomes in the glucose-outcome analysis. The snippet does not report the effect size, so no quantitative claim is made here.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-preeclampsia" data-dismech-node="Preeclampsia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5845,6 +5967,9 @@ This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bound to the MONDO disease term rather than HP:0100602 Preeclampsia, because that HPO term sits under Clinical modifier / Toxemia of pregnancy and is outside the HP:0000118 phenotypic-abnormality root of the PhenotypeTerm enum. The enum explicitly admits MONDO terms for complications, which is what preeclampsia is here. Same workaround as Familial_Hyperaldosteronism_Type_I.</div>
 
 
@@ -5864,6 +5989,7 @@ This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5966,6 +6092,9 @@ This disease-associated gene is TCF7L2 (hgnc:11641). hgnc:11641 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5980,6 +6109,7 @@ This disease-associated gene is TCF7L2 (hgnc:11641). hgnc:11641 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6004,6 +6134,7 @@ This disease-associated gene is TCF7L2 (hgnc:11641). hgnc:11641 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6065,6 +6196,9 @@ This disease-associated gene is MTNR1B (hgnc:7464). hgnc:7464 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6079,6 +6213,7 @@ This disease-associated gene is MTNR1B (hgnc:7464). hgnc:7464 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6140,6 +6275,9 @@ This disease-associated gene is HNF1A (hgnc:11621). hgnc:11621 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6154,6 +6292,7 @@ This disease-associated gene is HNF1A (hgnc:11621). hgnc:11621 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6215,6 +6354,9 @@ This disease-associated gene is GLIS3 (hgnc:28510). hgnc:28510 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6229,6 +6371,7 @@ This disease-associated gene is GLIS3 (hgnc:28510). hgnc:28510 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6290,6 +6433,9 @@ This disease-associated gene is SLC30A8 (hgnc:20303). hgnc:20303 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6304,6 +6450,7 @@ This disease-associated gene is SLC30A8 (hgnc:20303). hgnc:20303 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6387,6 +6534,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dietary modification and increased physical activity are the first-line treatment and are sufficient for the majority of women. They act on the insulin-resistance side of the imbalance rather than on beta-cell secretion.</div>
 
 
@@ -6408,6 +6580,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6493,6 +6666,31 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Insulin is the standard pharmacotherapy when diet and activity fail to achieve normoglycaemia. It directly substitutes for the inadequate endogenous secretory response, and does not cross the placenta.</div>
 
 
@@ -6535,6 +6733,7 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6556,6 +6755,7 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6641,6 +6841,31 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An oral insulin-sensitising agent used in some countries as an alternative or adjunct to insulin. Unlike insulin it crosses the placenta, which is the basis of the continuing debate about long-term offspring effects.</div>
 
 
@@ -6680,6 +6905,7 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6768,6 +6994,7 @@ This environmental factor is exposure to phthalate (ECTO:9000522). ECTO:9000522 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6789,6 +7016,7 @@ This environmental factor is exposure to phthalate (ECTO:9000522). ECTO:9000522 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6840,6 +7068,7 @@ This environmental factor is exposure to phthalate (ECTO:9000522). ECTO:9000522 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6920,6 +7149,7 @@ This environmental factor is exposure to bisphenol A (ECTO:9000057). ECTO:900005
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6941,6 +7171,7 @@ This environmental factor is exposure to bisphenol A (ECTO:9000057). ECTO:900005
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7051,6 +7282,7 @@ This environmental factor is exposure to bisphenol A (ECTO:9000057). ECTO:900005
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7142,6 +7374,7 @@ This environmental factor is exposure to bisphenol A (ECTO:9000057). ECTO:900005
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7206,6 +7439,7 @@ This environmental factor is exposure to bisphenol A (ECTO:9000057). ECTO:900005
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
