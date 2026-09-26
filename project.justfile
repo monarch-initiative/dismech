@@ -3790,6 +3790,16 @@ phenopacket-eval paths="tests/phenoagent/data/phenopackets":
 jev-audit *args:
     uv run python -m dismech.classifier.audit "$@"
 
+# Preview new issues from the latest published Jev queue; no API inference.
+[positional-arguments]
+plan-eval-issues n="5":
+    uv run --no-project --with click --with httpx python scripts/jev_recuration_issues.py --limit "$1"
+
+# Create up to N issues, skipping diseases with an open or closed intake issue.
+[positional-arguments]
+enqueue-eval-issues n="5":
+    uv run --no-project --with click --with httpx python scripts/jev_recuration_issues.py --limit "$1" --apply
+
 # Inventory every assertion without paid API calls.
 [positional-arguments]
 jev-audit-inventory *args:
