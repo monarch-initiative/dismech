@@ -10,7 +10,7 @@ ML/foundation models — and the ``model_type`` facet lets users narrow to one.
 
 Each record links back to the disorder/module page that owns the model, anchored
 on the same ``computational-model-<slug>`` anchor that ``render.py`` emits, and
-records whether the model is *runnable in-repo* (a ``models/<model_id>.config.yaml``
+records whether the model is *runnable in-repo* (a ``models/<model_id>/config.yaml``
 perturbation config exists) or a literature reference only.
 """
 
@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from dismech import kb_cache
+from dismech import model_registry
 from dismech.export.utils import slugify
 
 #: Repository hosts we recognise, so "where does this model live?" is a facet
@@ -100,12 +101,11 @@ def _collect_reference_ids(evidence: Any) -> list[str]:
 class ModelsExporter:
     """Export computational models to browser-friendly JSON/JS records."""
 
-    def __init__(self, models_dir: Path = Path("models")):
+    def __init__(self, models_dir: Path = model_registry.MODELS_DIR):
         #: Model ids with a runnable dismech-perturb config checked into ``models/``.
-        self.runnable_model_ids: set[str] = set()
-        if models_dir.exists():
-            for config in models_dir.glob("*.config.yaml"):
-                self.runnable_model_ids.add(config.name[: -len(".config.yaml")])
+        self.runnable_model_ids: set[str] = model_registry.runnable_model_ids(
+            models_dir
+        )
 
     def load_entry(self, file_path: Path) -> dict[str, Any]:
         """Parsed entry, shared through :mod:`dismech.kb_cache` (read-only)."""
@@ -130,7 +130,9 @@ class ModelsExporter:
 
         disease_id = None
         disease_term = entry.get("disease_term") or {}
-        if isinstance(disease_term, dict) and isinstance(disease_term.get("term"), dict):
+        if isinstance(disease_term, dict) and isinstance(
+            disease_term.get("term"), dict
+        ):
             disease_id = disease_term["term"].get("id")
 
         for idx, model in enumerate(entry.get("computational_models") or []):
@@ -168,7 +170,9 @@ class ModelsExporter:
             evidence_refs = _collect_reference_ids(model.get("evidence"))
             for finding in model.get("findings") or []:
                 if isinstance(finding, dict):
-                    evidence_refs.extend(_collect_reference_ids(finding.get("evidence")))
+                    evidence_refs.extend(
+                        _collect_reference_ids(finding.get("evidence"))
+                    )
 
             publication = model.get("publication")
             if isinstance(publication, str) and publication.strip():
@@ -278,7 +282,9 @@ class ModelsExporter:
             "total_model_types": len(
                 {r["model_type"] for r in records if r["model_type"] != "Unclassified"}
             ),
-            "total_runnable": sum(1 for r in records if r["runnable"] == "Runnable in-repo"),
+            "total_runnable": sum(
+                1 for r in records if r["runnable"] == "Runnable in-repo"
+            ),
             "total_with_repository": sum(1 for r in records if r["repository_url"]),
         }
 
@@ -317,8 +323,8 @@ def main():
     )
     parser.add_argument(
         "--models-dir",
-        default="models",
-        help="Directory of runnable dismech-perturb model configs",
+        default=str(model_registry.MODELS_DIR),
+        help="Directory of model folders (models/<model_id>/config.yaml marks a runnable one)",
     )
     parser.add_argument(
         "--output", "-o", default="app/models/data.js", help="Output file path"

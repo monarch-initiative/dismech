@@ -21,6 +21,7 @@ from dismech.perturb.sedml_export import (
     sanitize_sid,
     write_omex,
 )
+from dismech import model_registry
 from dismech.perturb.simulate import load_model_config
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -30,12 +31,16 @@ EXPORT_DIR = REPO_ROOT / "exports" / "sedml"
 
 @pytest.fixture(scope="module")
 def urate_config():
-    return load_model_config(MODELS_DIR / "urate_homeostasis.config.yaml")
+    return load_model_config(
+        model_registry.config_path("urate_homeostasis", MODELS_DIR)
+    )
 
 
 @pytest.fixture(scope="module")
 def urate_info():
-    return read_sbml_model_info(MODELS_DIR / "urate_homeostasis.xml")
+    return read_sbml_model_info(
+        MODELS_DIR / "urate_homeostasis" / model_registry.SBML_NAME
+    )
 
 
 def test_read_sbml_model_info_finds_parameters_and_species(urate_info):
@@ -51,8 +56,7 @@ def test_xpath_targets_the_right_attribute():
     parameter = ModelSymbol("f_exc", "parameter", "value", 1.0)
     species = ModelSymbol("U", "species", "initialConcentration", 5.0)
     assert parameter.xpath() == (
-        "/sbml:sbml/sbml:model/sbml:listOfParameters/sbml:parameter"
-        "[@id='f_exc']/@value"
+        "/sbml:sbml/sbml:model/sbml:listOfParameters/sbml:parameter[@id='f_exc']/@value"
     )
     assert species.xpath() == (
         "/sbml:sbml/sbml:model/sbml:listOfSpecies/sbml:species"
@@ -113,7 +117,12 @@ def test_unresolvable_references_are_reported_not_silently_dropped(
 ):
     resolved = resolve_scenario(
         "bogus",
-        {"gfr": 1.0, "gene": "NOT_A_GENE", "effect": "LoF", "param_overrides": {"nope": 2}},
+        {
+            "gfr": 1.0,
+            "gene": "NOT_A_GENE",
+            "effect": "LoF",
+            "param_overrides": {"nope": 2},
+        },
         urate_config,
         urate_info,
     )
@@ -203,7 +212,7 @@ def test_manifest_lists_every_archive_entry():
 
 def test_coupled_extension_configs_are_skipped_not_mis_exported(tmp_path):
     result = export_config(
-        MODELS_DIR / "BIOMD0000000613.config.yaml",
+        model_registry.config_path("BIOMD0000000613", MODELS_DIR),
         tmp_path,
         disorders_dir=REPO_ROOT / "kb" / "disorders",
     )
@@ -213,7 +222,7 @@ def test_coupled_extension_configs_are_skipped_not_mis_exported(tmp_path):
 
 def test_omex_archive_is_deterministic(tmp_path):
     result = export_config(
-        MODELS_DIR / "urate_homeostasis.config.yaml",
+        model_registry.config_path("urate_homeostasis", MODELS_DIR),
         tmp_path,
         disorders_dir=REPO_ROOT / "kb" / "disorders",
         write_archive=True,

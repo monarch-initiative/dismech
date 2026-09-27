@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the rosacea innate-immune Boolean model.
 
-Reads ``models/rosacea_innate_boolean.yaml``, simulates each scenario to its
+Reads ``models/rosacea_innate_boolean/spec.yaml``, simulates each scenario to its
 attractor under synchronous update, scans single and paired interventions, and
 writes a deterministic JSON result file.
 
@@ -13,12 +13,13 @@ output says what those edges imply, not what the disease does.
 
 Usage::
 
-    python models/rosacea_innate_boolean.py            # write the committed results
-    python models/rosacea_innate_boolean.py --check    # verify committed results are current
-    python models/rosacea_innate_boolean.py --print    # human-readable summary
+    python models/rosacea_innate_boolean/run.py            # write the committed results
+    python models/rosacea_innate_boolean/run.py --check    # verify committed results are current
+    python models/rosacea_innate_boolean/run.py --print    # human-readable summary
 
 Requires only the standard library plus PyYAML.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,8 +31,8 @@ import sys
 import yaml
 
 HERE = pathlib.Path(__file__).resolve().parent
-SPEC_PATH = HERE / "rosacea_innate_boolean.yaml"
-RESULTS_PATH = HERE / "rosacea_innate_boolean.results.json"
+SPEC_PATH = HERE / "spec.yaml"
+RESULTS_PATH = HERE / "results.json"
 MAX_STEPS = 64
 
 
@@ -152,11 +153,15 @@ class BooleanModel:
         self.computed = computed
         self.output_names = sorted(spec["outputs"])
         # Intervention targets are asserted false when the intervention is on.
-        self.blocks = {name: body["inhibits"] for name, body in spec["interventions"].items()}
+        self.blocks = {
+            name: body["inhibits"] for name, body in spec["interventions"].items()
+        }
 
     def initial_state(self, active_inputs, active_interventions) -> dict[str, bool]:
         state = {name: name in set(active_inputs) for name in self.inputs}
-        state.update({name: name in set(active_interventions) for name in self.interventions})
+        state.update(
+            {name: name in set(active_interventions) for name in self.interventions}
+        )
         state.update({name: False for name in self.computed_names})
         return state
 
@@ -182,7 +187,7 @@ class BooleanModel:
         for step in range(MAX_STEPS):
             key = tuple(sorted(state.items()))
             if key in seen:
-                cycle = trajectory[seen[key]:]
+                cycle = trajectory[seen[key] :]
                 return {
                     "attractor_type": "fixed_point" if len(cycle) == 1 else "cycle",
                     "cycle_length": len(cycle),
@@ -206,8 +211,8 @@ def build_results(model: BooleanModel) -> dict:
         "formalism": spec["formalism"],
         "source_entry": spec["source_entry"],
         "provenance": {
-            "generator": "models/rosacea_innate_boolean.py",
-            "spec": "models/rosacea_innate_boolean.yaml",
+            "generator": "models/rosacea_innate_boolean/run.py",
+            "spec": "models/rosacea_innate_boolean/spec.yaml",
             "note": (
                 "Repository-authored model, not a published one, and not run by "
                 "dismech-perturb. Rules transcribe curated causal edges; nothing "
@@ -259,7 +264,9 @@ def build_results(model: BooleanModel) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--output", type=pathlib.Path, default=RESULTS_PATH)
-    ap.add_argument("--check", action="store_true", help="fail if committed results are stale")
+    ap.add_argument(
+        "--check", action="store_true", help="fail if committed results are stale"
+    )
     ap.add_argument("--print", dest="show", action="store_true", help="print a summary")
     args = ap.parse_args()
 
@@ -279,7 +286,10 @@ def main() -> int:
             print(f"missing {args.output}", file=sys.stderr)
             return 1
         if args.output.read_text() != payload:
-            print(f"{args.output} is stale; re-run {pathlib.Path(__file__).name}", file=sys.stderr)
+            print(
+                f"{args.output} is stale; re-run {pathlib.Path(__file__).name}",
+                file=sys.stderr,
+            )
             return 1
         print(f"{args.output} is current")
         return 0
@@ -292,8 +302,10 @@ def main() -> int:
             active = ", ".join(scenario["active_phenotypes"]) or "none"
             print(f"\n{scenario['label']}\n  phenotypes: {active}")
         scan = results["intervention_scan"]
-        print(f"\nIntervention scan on '{scan['scenario']}' "
-              f"(baseline: {', '.join(scan['baseline_active_phenotypes'])})")
+        print(
+            f"\nIntervention scan on '{scan['scenario']}' "
+            f"(baseline: {', '.join(scan['baseline_active_phenotypes'])})"
+        )
         for name, row in scan["results"].items():
             persisting = ", ".join(row["persisting"]) or "none"
             print(f"  {name:45} persisting: {persisting}")

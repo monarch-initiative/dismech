@@ -193,6 +193,19 @@ explicit `DISMECH_KB_CACHE` still wins.
 - Generates browsable HTML pages in `pages/disorders/`
 - Links ontology terms to external browsers (HPO JAX, MONDO Monarch, OLS, etc.)
 
+### Models Directory (`models/`)
+One folder per model, `models/<model_id>/`, with fixed file names:
+`config.yaml` + `model.xml` (+ `model.ant`, `extension.ant`) for a model
+`dismech-perturb` runs, or `spec.yaml` + `run.py` + `results.json` for a model
+authored in this repository with its own runner (the rosacea Boolean network,
+the neuronal-migration agent-based model). A folder holds exactly one of
+`config.yaml` or `spec.yaml`, and the folder name is the `model_id` the KB
+record points at. `src/dismech/model_registry.py` is the only place that
+resolves these paths; route a new consumer through it rather than globbing.
+`tests/test_model_registry.py` gates the layout, so a branch still adding a
+flat `models/<id>.config.yaml` fails with a message. `just
+check-authored-models` runs every `run.py --check`. See `models/README.md`.
+
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
 pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,

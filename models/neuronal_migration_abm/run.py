@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the microtubule-dependent radial neuronal migration agent-based model.
 
-Reads ``models/neuronal_migration_abm.yaml``, simulates each scenario and
+Reads ``models/neuronal_migration_abm/spec.yaml``, simulates each scenario and
 parameter sweep on a one-dimensional cortical column, and writes a
 deterministic JSON result file.
 
@@ -15,9 +15,9 @@ disease does.
 
 Usage::
 
-    python models/neuronal_migration_abm.py            # write the committed results
-    python models/neuronal_migration_abm.py --check    # verify committed results are current
-    python models/neuronal_migration_abm.py --print    # human-readable summary
+    python models/neuronal_migration_abm/run.py            # write the committed results
+    python models/neuronal_migration_abm/run.py --check    # verify committed results are current
+    python models/neuronal_migration_abm/run.py --print    # human-readable summary
 
 Requires only the standard library plus PyYAML. Every random draw comes from a
 ``random.Random`` seeded with a string, which PyYAML-independent CPython hashes
@@ -38,8 +38,8 @@ from dataclasses import dataclass, field
 import yaml
 
 HERE = pathlib.Path(__file__).resolve().parent
-SPEC_PATH = HERE / "neuronal_migration_abm.yaml"
-RESULTS_PATH = HERE / "neuronal_migration_abm.results.json"
+SPEC_PATH = HERE / "spec.yaml"
+RESULTS_PATH = HERE / "results.json"
 
 # Thresholds that turn readouts into the `pattern` label. Stated here, and
 # copied into the results file, so a reader can see exactly what each label
@@ -477,14 +477,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.check:
         if not RESULTS_PATH.exists() or RESULTS_PATH.read_text() != payload:
             print(
-                f"{RESULTS_PATH.relative_to(HERE.parent)} is stale; re-run this script",
+                f"{RESULTS_PATH.relative_to(HERE.parents[1])} is stale; re-run this script",
                 file=sys.stderr,
             )
             return 1
         print("results are current")
         return 0
     RESULTS_PATH.write_text(payload)
-    print(f"wrote {RESULTS_PATH.relative_to(HERE.parent)}")
+    print(f"wrote {RESULTS_PATH.relative_to(HERE.parents[1])}")
     return 0
 
 

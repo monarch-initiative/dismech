@@ -3617,6 +3617,19 @@ sedml-export *args="":
 gen-model-results *args="":
     uv run python -m dismech.perturb.results_export {{args}}
 
+# Verify every repository-authored model (models/<id>/spec.yaml + run.py) has
+# current committed results: runs each run.py --check. Seconds, offline.
+[group('Analysis')]
+check-authored-models:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    status=0
+    for spec in models/*/spec.yaml; do
+        dir=$(dirname "$spec")
+        uv run python "$dir/run.py" --check || status=1
+    done
+    exit $status
+
 # Check the exported archives reproduce dismech-perturb's own numbers by
 # running each .omex through tellurium's SED-ML interpreter and diffing.
 # Requires tellurium: uv pip install tellurium

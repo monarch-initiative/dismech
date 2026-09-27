@@ -19,6 +19,7 @@ from dismech.perturb.results_export import (
     run_config,
     threshold_kind,
 )
+from dismech import model_registry
 from dismech.perturb.simulate import load_model_config
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -63,7 +64,7 @@ def test_threshold_kind_distinguishes_ratios_from_absolute_readings():
 
 def test_observables_and_thresholds_come_from_the_curated_yaml():
     config = load_model_config(
-        MODELS_DIR / "urate_homeostasis.config.yaml",
+        model_registry.config_path("urate_homeostasis", MODELS_DIR),
         disorder=json.loads(
             json.dumps(
                 {
@@ -114,7 +115,7 @@ def test_observables_and_thresholds_come_from_the_curated_yaml():
 def test_models_without_curated_variables_are_skipped(tmp_path):
     """Nothing to report is not the same as a run that produced nothing."""
     result = run_config(
-        MODELS_DIR / "urate_homeostasis.config.yaml",
+        model_registry.config_path("urate_homeostasis", MODELS_DIR),
         tmp_path,
         disorders_dir=tmp_path / "no-disorders-here",
         write=False,
@@ -125,10 +126,7 @@ def test_models_without_curated_variables_are_skipped(tmp_path):
 
 def test_committed_artifacts_exist_for_every_runnable_model():
     committed = {path.stem for path in _committed()}
-    runnable = {
-        path.name[: -len(".config.yaml")]
-        for path in MODELS_DIR.glob("*.config.yaml")
-    }
+    runnable = model_registry.runnable_model_ids(MODELS_DIR)
     assert committed == runnable, (
         "every model with a perturb config should have a committed run — "
         f"missing {sorted(runnable - committed)}, extra {sorted(committed - runnable)}. "
@@ -194,7 +192,7 @@ def test_committed_artifact_matches_its_inputs(path):
     payload = json.loads(path.read_text())
     provenance = payload["provenance"]
 
-    config_path = MODELS_DIR / f"{payload['model_id']}.config.yaml"
+    config_path = model_registry.config_path(payload["model_id"], MODELS_DIR)
     assert config_path.exists()
     actual = hashlib.sha256(config_path.read_bytes()).hexdigest()
     assert actual == provenance["config_sha256"], (
@@ -202,7 +200,7 @@ def test_committed_artifact_matches_its_inputs(path):
         "run `just gen-model-results`"
     )
 
-    sbml_path = MODELS_DIR / provenance["sbml_file"]
+    sbml_path = config_path.parent / provenance["sbml_file"]
     actual = hashlib.sha256(sbml_path.read_bytes()).hexdigest()
     assert actual == provenance["sbml_sha256"], (
         f"{path.name} was generated from a different {provenance['sbml_file']} — "
@@ -213,7 +211,9 @@ def test_committed_artifact_matches_its_inputs(path):
 @pytest.mark.parametrize("path", _committed(), ids=lambda path: path.stem)
 def test_scenarios_match_the_config(path):
     payload = json.loads(path.read_text())
-    config = load_model_config(MODELS_DIR / f"{payload['model_id']}.config.yaml")
+    config = load_model_config(
+        model_registry.config_path(payload["model_id"], MODELS_DIR)
+    )
     assert [scenario["id"] for scenario in payload["scenarios"]] == list(
         config.scenarios
     )

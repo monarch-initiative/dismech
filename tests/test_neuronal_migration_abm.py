@@ -1,6 +1,6 @@
 """Guards for the repository-authored radial neuronal migration agent-based model.
 
-The model in ``models/neuronal_migration_abm.yaml`` is a transcription of the
+The model in ``models/neuronal_migration_abm/spec.yaml`` is a transcription of the
 causal chain curated in
 ``kb/modules/microtubule_dependent_neuronal_migration_failure.yaml``. The same
 two things can silently rot here as in the rosacea Boolean model: the committed
@@ -21,10 +21,10 @@ import pytest
 import yaml
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-MODEL_DIR = REPO_ROOT / "models"
-SPEC_PATH = MODEL_DIR / "neuronal_migration_abm.yaml"
-RESULTS_PATH = MODEL_DIR / "neuronal_migration_abm.results.json"
-RUNNER_PATH = MODEL_DIR / "neuronal_migration_abm.py"
+MODEL_DIR = REPO_ROOT / "models" / "neuronal_migration_abm"
+SPEC_PATH = MODEL_DIR / "spec.yaml"
+RESULTS_PATH = MODEL_DIR / "results.json"
+RUNNER_PATH = MODEL_DIR / "run.py"
 MODULE_PATH = (
     REPO_ROOT
     / "kb"
@@ -65,7 +65,7 @@ def results():
 
 
 def test_committed_results_match_the_spec():
-    """`python models/neuronal_migration_abm.py` must be a no-op on a clean tree."""
+    """`python models/neuronal_migration_abm/run.py` must be a no-op on a clean tree."""
     runner = load_runner()
     expected = (
         json.dumps(runner.build_results(runner.load_spec()), indent=2, sort_keys=True)
@@ -73,7 +73,7 @@ def test_committed_results_match_the_spec():
     )
     assert RESULTS_PATH.read_text() == expected, (
         "committed agent-based-model results are stale; "
-        "re-run `uv run python models/neuronal_migration_abm.py`"
+        "re-run `uv run python models/neuronal_migration_abm/run.py`"
     )
 
 
