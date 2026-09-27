@@ -110,6 +110,23 @@ def test_broad_match_asserts_nothing_so_an_outside_member_is_not_a_finding(
     assert v.outside and not v.contradicted
 
 
+def test_member_bound_to_the_mapped_class_itself_counts_as_inside(tmp_path, monkeypatch):
+    """OLS hierarchicalAncestors does not include the term itself, so a member
+    bound to the very class the grouping maps must be matched reflexively.
+    Testing only membership of the ancestor set reported it as `outside` and
+    declared a correct exactMatch contradicted by its own member."""
+    _setup(
+        tmp_path, monkeypatch,
+        [_grouping("Reflexive", "MONDO:0000100", "skos:exactMatch", ["Alpha"])],
+        {"Alpha": "MONDO:0000100"},                 # the mapped class itself
+        {"MONDO:0000100": ["MONDO:0000001"]},       # ancestors exclude self
+    )
+    (v,) = gmc.build_verdicts()
+    assert [m.verdict for m in v.members] == ["descendant"]
+    assert not v.outside
+    assert not v.contradicted
+
+
 def test_failed_lookup_is_not_reported_as_outside(tmp_path, monkeypatch):
     """A network failure must never masquerade as evidence that a member sits
     outside the class — that would turn an outage into a curation finding."""

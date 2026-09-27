@@ -165,7 +165,11 @@ def build_verdicts(only: str | None = None, *, pause: float = 0.15) -> list[Grou
                 anc = ancestors(member_mondo, cache, pause=pause)
                 if anc is None:
                     verdict = "lookup_failed"
-                elif mid in anc:
+                elif member_mondo == mid or mid in anc:
+                    # Reflexive case: a member bound to the mapped class itself.
+                    # OLS hierarchicalAncestors excludes the term, so testing
+                    # only `mid in anc` reported such a member as `outside` and
+                    # could declare a correct exactMatch contradicted.
                     verdict = "descendant"
                 else:
                     verdict = "outside"
