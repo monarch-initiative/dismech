@@ -980,13 +980,13 @@ Scott, Maria Bitner-Glindzicz, Gudrun E. Moore, Sérgio B. Sousa, and Philip Sta
    Figure S1: Mapping the genomic breakpoints of the 9 exon deletion in Family 2. A) IGV screen capture showing exome sequence reads within the SNX14 locus of patient V.1 (Family 2) and two controls sequenced on the same run. The red arrow shows the region of 9 adjacent exons with no sequence reads indicating a homozygous deletion. B) Sanger sequence across the deletion breakpoint in genomic DNA of the same patient and a
 
 
-schematic diagram of the locus to show the position of the flanking Alu/Sine repeat sequences. The arrow represents the breakpoint by indicating the first base of the second Alu/Sine sequence. C) SNX14 genomic sequences from Introns 12 and 21 aligned against the Alu/Sine repeat sequence using ClustalW show the origin of the breakpoint. In the deletion, blue and red sequences are contiguous (as seen in B). D) Sanger sequence of cDNA from patient V.1 and a schematic diagram illustrate that exon 12 splices to exon 22.  
+schematic diagram of the locus to show the position of the flanking Alu/Sine repeat sequences. The arrow represents the breakpoint by indicating the first base of the second Alu/Sine sequence. C) SNX14 genomic sequences from Introns 12 and 21 aligned against the Alu/Sine repeat sequence using ClustalW show the origin of the breakpoint. In the deletion, blue and red sequences are contiguous (as seen in B). D) Sanger sequence of cDNA from patient V.1 and a schematic diagram illustrate that exon 12 splices to exon 22.
 
- Figure S2. Copy number analysis on Family 2 patient V.2 using the Affymetrix CytoScan 750K array. The minimum deleted region is defined by CGH probes marked B (86,233,056) and C (86,252,888); the maximum deleted region is defined by A (86,223,224) to D (86,257,848).  
+ Figure S2. Copy number analysis on Family 2 patient V.2 using the Affymetrix CytoScan 750K array. The minimum deleted region is defined by CGH probes marked B (86,233,056) and C (86,252,888); the maximum deleted region is defined by A (86,223,224) to D (86,257,848).
 
 
 
-       Figure S3. SNX14 cDNA sequences from Family 3, demonstrating that the splice site variant results in skipping of exon 19.  
+       Figure S3. SNX14 cDNA sequences from Family 3, demonstrating that the splice site variant results in skipping of exon 19.
 
 
  Figure S4. SNX14 levels in affected and control fibroblasts were detected by western blotting. SNX14 levels in cases and controls were analysed by immuno-blotting total protein extracted from fibroblast cells using an anti-SNX14 antibody (1:500; Sigma HPA017639). Protein loading is shown using the image obtained from a ChemiDoc MP imaging system with Mini-PROTEAN TGX Stain-Free precast gels (Bio Rad, UK). The Image data was analysed using Image Lab version 4.1 (Bio Rad, UK). A representative blot of three independent experiments with similar results is shown.
@@ -1004,7 +1004,7 @@ Protein loading
 110 kDa
 107 kDa
 
-  Figure S5. RT-PCR of SNX14 expression in fetal tissues. Tissues include heart, skin, brain, kidney, bone, liver, eye and placenta. Where available, tissues were used from two separate fetal samples.  
+  Figure S5. RT-PCR of SNX14 expression in fetal tissues. Tissues include heart, skin, brain, kidney, bone, liver, eye and placenta. Where available, tissues were used from two separate fetal samples.
 
 
  Figure S6. Human brain SNX14 and SNX13 transcript analysis. Top: Spatio-temporal SNX14 (left) and SNX13 (right) transcriptomes of the human brain using data from the Human Brain Transcriptome (HBT) database.34 This study assessed 6 brain regions (cerebellar cortex (CBC), mediodorsal nucleus of the thalamus (MD), striatum (STR), amygdale (AMY), hippocampus (HIP) and the neocortex (NCX)) over 15 periods of the human pre and post-natal development. These data were generated from Affymetrix Human Exon 1.0 ST Arrays performed on 1,340 tissue samples collected from 57 developing and adult post-mortem brains of clinically unremarkable donors representing males and females of multiple ethnicities. Levels of SNX14 increase throughout the brain during fetal development, before plateauing. In the cerebellum, expression continues to rise during postnatal life reaching its highest level during adulthood. Contrast with SNX13, which decreases towards birth, then more modestly increases in most brain regions.  Bottom: Regional distribution of SNX14 (left) and SNX13 (right) expression in human brain. Box plots of mRNA levels from 10 brain regions (left to right: the cerebellum (CRBL, n=130), frontal cortex (FCTX, n=127), hippocampus (HIPP, n=122), medulla (specifically inferior olivary nucleus, MEDU, n=119), occipital cortex (specifically primary visual cortex, OCTX, n=129), putamen (PUTM, n=129), substantia nigra (SNIG, n=101), temporal cortex (TCTX, n=119), thalamus (THAL, n=124), and intralobular white matter (WHMT, n=131)) are based on microarray experiments and plotted on a log2 scale (y-axis). Material and methods were as previously reported.34,35 In brief, these
@@ -1450,16 +1450,194 @@ Expression level in log2 scale
 CRBL(N=130)TCTX(N=119)FCTX(N=127)OCTX(N=129)THAL(N=124)HIPP(N=122)SNIG(N=101)MEDU(N=119)WHMT(N=131)PUTM(N=129)
 Source:BRAINEACFold change between CRBL and PUTM = 1.4 (p=1.8e−17)
 
-samples originate from 134 adult individuals from the UK Brain Expression Consortium and were profiled on 1231 Affymetrix Human Exon 1.0 ST arrays. Whiskers extend from the box to 1.5 times the inter-quartile range.  	    
+samples originate from 134 adult individuals from the UK Brain Expression Consortium and were profiled on 1231 Affymetrix Human Exon 1.0 ST arrays. Whiskers extend from the box to 1.5 times the inter-quartile range.
+  
 
 
-  Figure S7. p62 immunostaining of fibroblasts suggest defective autophagy. Cultured fibroblast cell suspensions from two patients and two controls were centrifuged to prepare smears using a Thermo Scientific Cytospin. A p62 antibody (1:500 dilution, BD Bioscience), was used to investigate the autophagy pathway, employing standard protocols on a Leica BOND MAX immunostainer. Many cells in the Family 3:III.2 sample were strongly positive with a granular appearance. A smaller number of positive cells with the same distinct morphology were seen in Family 2:V.1 fibroblasts. For the controls, one sample was negative, whilst the other C(2) showed a higher level of background staining without the granular morphology.  
+  Figure S7. p62 immunostaining of fibroblasts suggest defective autophagy. Cultured fibroblast cell suspensions from two patients and two controls were centrifuged to prepare smears using a Thermo Scientific Cytospin. A p62 antibody (1:500 dilution, BD Bioscience), was used to investigate the autophagy pathway, employing standard protocols on a Leica BOND MAX immunostainer. Many cells in the Family 3:III.2 sample were strongly positive with a granular appearance. A smaller number of positive cells with the same distinct morphology were seen in Family 2:V.1 fibroblasts. For the controls, one sample was negative, whilst the other C(2) showed a higher level of background staining without the granular morphology.
 
 
-Table S1. Regions of homozygosity shared between affected individuals in Families 1 and 2.  Family	  1	  (II.3	  +II.6)	   Family2	  (IV.1+IV.2+V.1)	  Chr	  Start	  End	  Size	  (bp)	  Chr	  	  Start	  End	  Size	  (bp)	  1	  49215178	  50025098	  809920	  2	  167634200	  168219266	  585066	  2	  14334445	  15105276	  770831	  3	  87497605	  87550022	  52417	  2	  98451967	  98972624	  520657	  3	  87550022	  98418129	  767324	  4	  52732440	  53571137	  838697	  3	  137516694	  138461351	  944657	  4	  59336192	  60143936	  807744	  5	  122710247	  123328850	  618603	  5	  172038414	  173762787	  1724373	  6	  80467595	  88523709	  8056114	  6	  44642275	  45480198	  837923	  6	  103137113	  103711271	  574158	  6	  67688533	  69401011	  1712478	  8	  47965922	  48816429	  850507	  6	  70500118	  88497536	  17997418	  9	  88677735	  89150849	  473114	  6	  91529972	  91695918	  165946	  11	  32236138	  34302743	  2066605	  6	  107328569	  108056760	  728191	  17	  19741141	  20387780	  646639	  8	  89115291	  89766139	  650848	  	  	   	  	  8	  115018872	  115580787	  561915	  	  	   	  	  8	  119514102	  120079494	  565392	  	  	   	  	  8	  144993574	  145971916	  978342	  	  	   	  	  11	  8403642	  9363862	  960220	  	  	   	  	  14	  103823162	  104381937	  558775	  	  	   	  	  15	  56763412	  57589554	  826142	  	  	   	  	  15	  72095961	  73111070	  1015109	  	  	   	  	  21	  43733078	  46548861	  2815783	  	  	   	  	   The largest shared region in each family, which is the only common region between the two families and contains the SNX14 locus, is highlighted in yellow. Nucleotide positions are from the hg19 assembly.  
+Table S1. Regions of homozygosity shared between affected individuals in Families 1 and 2.  Family
+  1
+  (II.3
+  +II.6)
+   Family2
+  (IV.1+IV.2+V.1)
+  Chr
+  Start
+  End
+  Size
+  (bp)
+  Chr
+  
+  Start
+  End
+  Size
+  (bp)
+  1
+  49215178
+  50025098
+  809920
+  2
+  167634200
+  168219266
+  585066
+  2
+  14334445
+  15105276
+  770831
+  3
+  87497605
+  87550022
+  52417
+  2
+  98451967
+  98972624
+  520657
+  3
+  87550022
+  98418129
+  767324
+  4
+  52732440
+  53571137
+  838697
+  3
+  137516694
+  138461351
+  944657
+  4
+  59336192
+  60143936
+  807744
+  5
+  122710247
+  123328850
+  618603
+  5
+  172038414
+  173762787
+  1724373
+  6
+  80467595
+  88523709
+  8056114
+  6
+  44642275
+  45480198
+  837923
+  6
+  103137113
+  103711271
+  574158
+  6
+  67688533
+  69401011
+  1712478
+  8
+  47965922
+  48816429
+  850507
+  6
+  70500118
+  88497536
+  17997418
+  9
+  88677735
+  89150849
+  473114
+  6
+  91529972
+  91695918
+  165946
+  11
+  32236138
+  34302743
+  2066605
+  6
+  107328569
+  108056760
+  728191
+  17
+  19741141
+  20387780
+  646639
+  8
+  89115291
+  89766139
+  650848
+  
+  
+  
+  
+  8
+  115018872
+  115580787
+  561915
+  
+  
+  
+  
+  8
+  119514102
+  120079494
+  565392
+  
+  
+  
+  
+  8
+  144993574
+  145971916
+  978342
+  
+  
+  
+  
+  11
+  8403642
+  9363862
+  960220
+  
+  
+  
+  
+  14
+  103823162
+  104381937
+  558775
+  
+  
+  
+  
+  15
+  56763412
+  57589554
+  826142
+  
+  
+  
+  
+  15
+  72095961
+  73111070
+  1015109
+  
+  
+  
+  
+  21
+  43733078
+  46548861
+  2815783
+  
+  
+  
+  
+   The largest shared region in each family, which is the only common region between the two families and contains the SNX14 locus, is highlighted in yellow. Nucleotide positions are from the hg19 assembly.
 
 Table S2: Filtering parameters used in Ingenuity Variant Analysis.
- Data corresponds to individual II.3 in Family 1 and V.1 in Family 2.  
+ Data corresponds to individual II.3 in Family 1 and V.1 in Family 2.
 Number of variants (Family 1)
 Number of variants (Family 2) Keep Exclude
 159,274199,920All variants
@@ -1472,14 +1650,66 @@ exonically variable genes
 25,032 31,313 Observed with allele frequency ≥ 0.1% in the 1000 genomes project
 or the public Complete Genomics genomes or NHLBI ESP exomes
 1,096 1,326
-Pathogenic,	  Possibly	  Pathogenic	  OR	  
-established	  gain	  of	  function	  in	  the	  literature	  
-OR	  inferred	  activating	  mutations	  by	  Ingenuity	  
-OR	  predicted	  gain	  of	  function	  by	  BSIFT	  OR	  
-Frameshift,	  in-­‐frame	  indel,	  or	  stop	  codon	  
-change	  OR	  Missense	  and	  not	  predicted	  to	  be	  
-innocuous	  by	  SIFT	  or	  Polyphen-­‐2	  OR	  disrupt	  
-splice	  site	  upto	  2.0	  bases	  into	  intron
+Pathogenic,
+  Possibly
+  Pathogenic
+  OR
+  
+established
+  gain
+  of
+  function
+  in
+  the
+  literature
+  
+OR
+  inferred
+  activating
+  mutations
+  by
+  Ingenuity
+  
+OR
+  predicted
+  gain
+  of
+  function
+  by
+  BSIFT
+  OR
+  
+Frameshift,
+  in-­‐frame
+  indel,
+  or
+  stop
+  codon
+  
+change
+  OR
+  Missense
+  and
+  not
+  predicted
+  to
+  be
+  
+innocuous
+  by
+  SIFT
+  or
+  Polyphen-­‐2
+  OR
+  disrupt
+  
+splice
+  site
+  upto
+  2.0
+  bases
+  into
+  intron
 2 22 Homozygous in case Homozygous or heterozygous in ≥1 control exome (N=6)
 1 18
 within 1 hop upstream and that are known or
@@ -1488,8 +1718,303 @@ developmental delay or diseases consistent with
 these phenotypes OR genes within 1 hop
 downstream of them
 
-Table S3 RefSeq genes in the Family 1 region of shared homozygosity chr6:70500118-88497536, showing mean coverage and % bases covered at >1x and >10x read depth.  Gene	  mean	  coverage	  %	  >1x	  %	  >10x	  LMBRD1	   71	   98	  96	  COL19A1	   66	   96	  94	  COL9A1	   90	   99	  98	  FAM135A	   58	   88	  83	  C6orf57	   89	   100	  93	  SMAP1	   64	   98	  91	  B3GAT2	   33	   88	  80	  OGFRL1	   70	   99	  87	  RIMS1	   77	   92	  89	  KCNQ5	   85	   92	  90	  KHDC1L	   67	   100	  100	  KHDC1	   50	   94	  74	  C6orf147	   1	   42	  0	  DPPA5	   183	  100	  95	  KHDC3L	   65	   96	  92	  OOEP	   33	   100	  93	  DDX43	   92	   99	  93	  MB21D1	   72	   100	  100	  MTO1	   82	   96	  87	  EEF1A1	   27	   76	  41	  SLC17A5	   65	   97	  84	  CD109	   76	   98	  96	  COL12A1	   84	   99	  96	  COX7A2	   45	   100	  90	  TMEM30A	   52	   89	  86	  FILIP1	   99	   75	  72	  SENP6	   76	   96	  94	  MYO6	   56	   95	  94	  IMPG1	   67	   96	  93	  HTR1B	   77	   81	  83	  IRAK1BP1	   78	   91	  90	  PHIP	   86	   98	  95	  HMGN3	   39	   99	  96	  LCA5	   60	   76	  70	  SH3BGRL2	   19	   83	  53	  RNY4	   0	   0	  0	  C6orf7	   0	   30	  0	  ELOVL4	   51	   87	  82	  TTK	   64	   95	  94	  BCKDHB	   68	   92	  90	  FAM46A	   89	   76	  73	  IBTK	   92	   96	  93	  TPBG	   16	   41	  15	  
+Table S3 RefSeq genes in the Family 1 region of shared homozygosity chr6:70500118-88497536, showing mean coverage and % bases covered at >1x and >10x read depth.  Gene
+  mean
+  coverage
+  %
+  >1x
+  %
+  >10x
+  LMBRD1
+   71
+   98
+  96
+  COL19A1
+   66
+   96
+  94
+  COL9A1
+   90
+   99
+  98
+  FAM135A
+   58
+   88
+  83
+  C6orf57
+   89
+   100
+  93
+  SMAP1
+   64
+   98
+  91
+  B3GAT2
+   33
+   88
+  80
+  OGFRL1
+   70
+   99
+  87
+  RIMS1
+   77
+   92
+  89
+  KCNQ5
+   85
+   92
+  90
+  KHDC1L
+   67
+   100
+  100
+  KHDC1
+   50
+   94
+  74
+  C6orf147
+   1
+   42
+  0
+  DPPA5
+   183
+  100
+  95
+  KHDC3L
+   65
+   96
+  92
+  OOEP
+   33
+   100
+  93
+  DDX43
+   92
+   99
+  93
+  MB21D1
+   72
+   100
+  100
+  MTO1
+   82
+   96
+  87
+  EEF1A1
+   27
+   76
+  41
+  SLC17A5
+   65
+   97
+  84
+  CD109
+   76
+   98
+  96
+  COL12A1
+   84
+   99
+  96
+  COX7A2
+   45
+   100
+  90
+  TMEM30A
+   52
+   89
+  86
+  FILIP1
+   99
+   75
+  72
+  SENP6
+   76
+   96
+  94
+  MYO6
+   56
+   95
+  94
+  IMPG1
+   67
+   96
+  93
+  HTR1B
+   77
+   81
+  83
+  IRAK1BP1
+   78
+   91
+  90
+  PHIP
+   86
+   98
+  95
+  HMGN3
+   39
+   99
+  96
+  LCA5
+   60
+   76
+  70
+  SH3BGRL2
+   19
+   83
+  53
+  RNY4
+   0
+   0
+  0
+  C6orf7
+   0
+   30
+  0
+  ELOVL4
+   51
+   87
+  82
+  TTK
+   64
+   95
+  94
+  BCKDHB
+   68
+   92
+  90
+  FAM46A
+   89
+   76
+  73
+  IBTK
+   92
+   96
+  93
+  TPBG
+   16
+   41
+  15
+  
 
-UBE3D	   77	   97	  95	  DOPEY1	   78	   97	  96	  PGM3	   102	   97	  88	  RWDD2A	   50	   95	  65	  ME1	   61	   96	  84	  PRSS35	   19	   46	  21	  SNAP91	   46	   97	  85	  RIPPLY2	   40	   100	  97	  CYB5R4	   66	   98	  95	  MRAP2	   51	   83	  58	  CEP162	   92	   95	  94	  TBX18	   37	   92	  79	  NT5E	   85	   91	  84	  SNX14	   77	   99	  89	  SYNCRIP	   70	   86	  72	  SNHG5	   11	   55	  23	  HTR1E	   95	   50	  48	  CGA	   19	   60	  54	  ZNF292	   47	   98	  96	  GJB7	   25	   54	  16	  SMIM8	   27	   43	  38	  C6orf163	   72	   100	  92	  C6orf164	   9	   61	  46	  C6orf165	   64	   92	  91	  SLC35A1	   65	   94	  92	  RARS2	   81	   100	  96	  ORC3	   66	   100	  98	  AKIRIN2	   27	   87	  75	  Average	   60	   86	  77	    
+UBE3D
+   77
+   97
+  95
+  DOPEY1
+   78
+   97
+  96
+  PGM3
+   102
+   97
+  88
+  RWDD2A
+   50
+   95
+  65
+  ME1
+   61
+   96
+  84
+  PRSS35
+   19
+   46
+  21
+  SNAP91
+   46
+   97
+  85
+  RIPPLY2
+   40
+   100
+  97
+  CYB5R4
+   66
+   98
+  95
+  MRAP2
+   51
+   83
+  58
+  CEP162
+   92
+   95
+  94
+  TBX18
+   37
+   92
+  79
+  NT5E
+   85
+   91
+  84
+  SNX14
+   77
+   99
+  89
+  SYNCRIP
+   70
+   86
+  72
+  SNHG5
+   11
+   55
+  23
+  HTR1E
+   95
+   50
+  48
+  CGA
+   19
+   60
+  54
+  ZNF292
+   47
+   98
+  96
+  GJB7
+   25
+   54
+  16
+  SMIM8
+   27
+   43
+  38
+  C6orf163
+   72
+   100
+  92
+  C6orf164
+   9
+   61
+  46
+  C6orf165
+   64
+   92
+  91
+  SLC35A1
+   65
+   94
+  92
+  RARS2
+   81
+   100
+  96
+  ORC3
+   66
+   100
+  98
+  AKIRIN2
+   27
+   87
+  75
+  Average
+   60
+   86
+  77
+  
 
-Table S4 Family 2 V.1 exome sequencing coverage of SNX14 showing percentage coverage at >1x or >10x sequence reads  Target % >1x % >10x exon 6:86215215-86215723 100 90.4 SNX14_exon29 6:86216951-86217007 100 100 SNX14_exon28 6:86217686-86217777 100 100 SNX14_exon27 6:86223518-86223613 100 100 SNX14_exon26 6:86223788-86223952 100 86.7 SNX14_exon25 6:86224224-86224347 100 100 SNX14_exon24 6:86227474-86227593 100 100 SNX14_exon23 6:86227726-86227766 100 100 SNX14_exon22 6:86235844-86235955 0 0 SNX14_exon21 6:86237980-86238080 0 0 SNX14_exon20 6:86239910-86239993 0 0 SNX14_exon19 6:86243317-86243518 0 0 SNX14_exon18 6:86246510-86246642 0 0 SNX14_exon17 6:86248556-86248582 0 0 SNX14_exon16 6:86251703-86251761 0 0 SNX14_exon15 6:86252900-86253024 58.4 0 SNX14_exon14 6:86253323-86253478 0 0 SNX14_exon13 6:86256830-86256944 100 100 SNX14_exon12 6:86257035-86257115 100 100 SNX14_exon11 6:86257224-86257268 100 100 SNX14_exon10 6:86258019-86258094 100 100 SNX14_exon9 6:86259441-86259597 100 81.5 SNX14_exon8 6:86267694-86267778 100 100 SNX14_exon7 6:86275050-86275137 100 100 SNX14_exon6 6:86277252-86277295 100 100 SNX14_exon5 6:86281855-86281933 100 100 SNX14_exon4 6:86282016-86282092 100 100 SNX14_exon3 6:86283976-86284096 100 100 SNX14_exon2 6:86303297-86303629 91 57.1 SNX14_exon1 Average 71 66   Average excl del exons 100 96  
+Table S4 Family 2 V.1 exome sequencing coverage of SNX14 showing percentage coverage at >1x or >10x sequence reads  Target % >1x % >10x exon 6:86215215-86215723 100 90.4 SNX14_exon29 6:86216951-86217007 100 100 SNX14_exon28 6:86217686-86217777 100 100 SNX14_exon27 6:86223518-86223613 100 100 SNX14_exon26 6:86223788-86223952 100 86.7 SNX14_exon25 6:86224224-86224347 100 100 SNX14_exon24 6:86227474-86227593 100 100 SNX14_exon23 6:86227726-86227766 100 100 SNX14_exon22 6:86235844-86235955 0 0 SNX14_exon21 6:86237980-86238080 0 0 SNX14_exon20 6:86239910-86239993 0 0 SNX14_exon19 6:86243317-86243518 0 0 SNX14_exon18 6:86246510-86246642 0 0 SNX14_exon17 6:86248556-86248582 0 0 SNX14_exon16 6:86251703-86251761 0 0 SNX14_exon15 6:86252900-86253024 58.4 0 SNX14_exon14 6:86253323-86253478 0 0 SNX14_exon13 6:86256830-86256944 100 100 SNX14_exon12 6:86257035-86257115 100 100 SNX14_exon11 6:86257224-86257268 100 100 SNX14_exon10 6:86258019-86258094 100 100 SNX14_exon9 6:86259441-86259597 100 81.5 SNX14_exon8 6:86267694-86267778 100 100 SNX14_exon7 6:86275050-86275137 100 100 SNX14_exon6 6:86277252-86277295 100 100 SNX14_exon5 6:86281855-86281933 100 100 SNX14_exon4 6:86282016-86282092 100 100 SNX14_exon3 6:86283976-86284096 100 100 SNX14_exon2 6:86303297-86303629 91 57.1 SNX14_exon1 Average 71 66   Average excl del exons 100 96
