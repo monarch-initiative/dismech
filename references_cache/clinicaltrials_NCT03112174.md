@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03112174"
+reference_id: clinicaltrials:NCT03112174
 title: Phase 3 Study of Ibrutinib in Combination With Venetoclax in Subjects With Mantle Cell Lymphoma
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase 3 Study of Ibrutinib in Combination With Venetoclax in Subjects With Mantle Cell Lymphoma

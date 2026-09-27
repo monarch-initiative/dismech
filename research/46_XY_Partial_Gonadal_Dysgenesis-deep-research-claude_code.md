@@ -1772,3 +1772,85 @@ All HPO, GO, CL, UBERON, CHEBI, and NCIT identifiers below were **verified again
 - [ESPU–SPU Consensus statement 2020: Management of Differences of Sex Development](https://www.espu.org/members/documents/espu-spu-consensus-statement-2020-management-of-differences-of-sex-development-dsd/)
 - [Sox9 Duplications Are a Relevant Cause of Sry-Negative XX Sex Reversal Dogs](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4091935/)
 - [Human Fetal Testis Xenografts Are Resistant to Phthalate-Induced Endocrine Disruption](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3440087/)
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 134 |
+| Resolved | 122 |
+| Unresolved (possible confabulation) | 1 |
+| Obsolete | 1 |
+| Unverifiable | 10 |
+| Terms whose name was checked | 85 |
+| Terms named correctly | 71 |
+| Terms named as a **different** term | 10 |
+| Terms whose name is worth a second look | 4 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `MONDO:0016674` (10 mentions) - the report calls it "MONDO", "Monarch Initiative"; MONDO calls it **46,XY partial gonadal dysgenesis**
+- `HP:0008232` (2 mentions) - the report calls it "Elevated circulating follicle stimulating hormone level", "Pituitary feedback: ↑FSH"; HP calls it **Elevated circulating follicle stimulating hormone level**
+- `HP:0000846` (2 mentions) - the report calls it "Adrenal insufficiency", "NR5A1 subgroup only: ↓cortisol/↑ACTH if adrenal involvement"; HP calls it **Adrenal insufficiency**
+- `HP:0031103` (2 mentions) - the report calls it "Sertoli cell: ↓AMH"; HP calls it **Decreased circulating antimullerian hormone circulation**
+- `CHEBI:17347` (2 mentions) - the report calls it "Reduced fetal and postnatal testosterone"; CHEBI calls it **testosterone**
+- `UBERON:0000473` (1 mention) - the report calls it "dysgenetic"; UBERON calls it **testis**
+- `UBERON:0002367` (1 mention) - the report calls it "hypoplastic"; UBERON calls it **prostate gland**
+- `UBERON:0002369` (1 mention) - the report calls it "NR5A1 subgroup only"; UBERON calls it **adrenal gland**
+- `NCIT:C15599` (3 mentions) - the report calls it "Progestogen"; NCIT calls it **Hormone Replacement Therapy**
+- `NCIT:C15329` (5 mentions) - the report calls it "Scrotoplasty, phalloplasty", "Clitoroplasty", "Vaginoplasty / urogenital sinus mobilization", "Müllerian remnant excision"; NCIT calls it **Surgical Procedure**
+
+### Unresolved terms
+
+These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:
+
+- `HP:0071514` (1 mention) - HP does not contain this term
+
+### Obsolete terms
+
+These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:
+
+- `GO:0005615` (obsolete extracellular space) (1 mention) - replaced by `GO:0005576`
+
+### Terms whose name is worth a second look
+
+The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
+
+- `HP:0040171` (2 mentions) - the report calls it "Decreased serum testosterone concentration", "Leydig cell: ↓testosterone"; HP calls it **Decreased serum testosterone concentration**, and lists "Decreased testosterone" among its other names
+- `CHEBI:16469` (2 mentions) - the report calls it "decreased 17β-estradiol"; CHEBI calls it **17beta-estradiol**, and lists "cis-estradiol" among its other names
+- `NCBITaxon:9615` (1 mention) - the report calls it "Domestic dog"; NCBITaxon calls it **Canis lupus familiaris**, and lists "Canis domesticus" among its other names
+- `NCBITaxon:9823` (1 mention) - the report calls it "Domestic pig"; NCBITaxon calls it **Sus scrofa**, and lists "pig" among its other names
+
+### Terms named inconsistently
+
+The report gives these identifiers more than one name of its own:
+
+- `MONDO:0016674` - called "MONDO", "Monarch Initiative"
+- `HP:0008232` - called "Elevated circulating follicle stimulating hormone level", "Pituitary feedback: ↑FSH"
+- `HP:0040171` - called "Decreased serum testosterone concentration", "Leydig cell: ↓testosterone"
+- `HP:0000846` - called "Adrenal insufficiency", "NR5A1 subgroup only: ↓cortisol/↑ACTH if adrenal involvement"
+- `NCIT:C15329` - called "Scrotoplasty, phalloplasty", "Clitoroplasty", "Vaginoplasty / urogenital sinus mobilization", "Müllerian remnant excision"
+
+### Prefixes with no resolver
+
+Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: `Orphanet`, `ORPHA`, `GARD`, `LOINC`, `OMIA`.
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.2.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 37 |
+| Resolved | 37 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 37 |
+| On topic | 28 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
