@@ -6,7 +6,7 @@ start_time: '2026-09-26T00:40:20.279526'
 end_time: '2026-09-26T00:51:30.616541'
 duration_seconds: 670.34
 template_file: templates/disease_pathophysiology_research.md
-template_sha: "1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666"
+template_sha: 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666
 template_variables:
   disease_name: Bacillary Angiomatosis
   mondo_id: MONDO:0000758
@@ -39,10 +39,14 @@ term_validation:
   obsolete: 1
   unverifiable: 0
   confabulation_rate: 0.0
-  labels_checked: 10
+  labels_checked: 11
   labels_matching: 2
-  labels_mismatched: 5
+  labels_mismatched: 6
   mislabelled_terms:
+  - term_id: MONDO:0000758
+    reported_labels:
+    - if available
+    ontology_label: bacillary angiomatosis
   - term_id: HP:0001945
     reported_labels:
     - Symptom
@@ -818,15 +822,16 @@ Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
 | Unresolved (possible confabulation) | 0 |
 | Obsolete | 1 |
 | Unverifiable | 0 |
-| Terms whose name was checked | 10 |
+| Terms whose name was checked | 11 |
 | Terms named correctly | 2 |
-| Terms named as a **different** term | 5 |
+| Terms named as a **different** term | 6 |
 | Terms whose name is worth a second look | 3 |
 
 ### Terms the report names something else
 
 These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
 
+- `MONDO:0000758` (3 mentions) - the report calls it "if available"; MONDO calls it **bacillary angiomatosis**
 - `HP:0001945` (1 mention) - the report calls it "Symptom"; HP calls it **Fever**
 - `HP:0002716` (1 mention) - the report calls it "Sign"; HP calls it **Lymphadenopathy**
 - `HP:0001744` (1 mention) - the report calls it "Sign"; HP calls it **Splenomegaly**
