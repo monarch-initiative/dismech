@@ -143,7 +143,7 @@ evidence items:
 | 41110921 | Retracted | `Heart_Failure` | 1 |
 
 Not cited as evidence — the other seven appear in prose or in non-evidence slots.
-Four are already recorded as retracted where they are mentioned (`PRKN-Related_Juvenile_Parkinson_Disease`
+Five are already recorded as retracted where they are mentioned (`PRKN-Related_Juvenile_Parkinson_Disease`
 carries a "Retracted-literature note" for 30135585; the `Vitamin_D-Dependent_Rickets`
 and `Rachitic_and_Osteomalacic_Disorders` groupings record 38847469 and 39569444 as
 retracted; a hypothesis assessment records 41329731 as retracted;
@@ -154,11 +154,12 @@ citation list. So curators already handle retraction by hand when they notice it
 11 live citations are the ones nobody noticed.
 
 **The reference cache cannot be the check.** `references_cache/PMID_*.md` is a
-snapshot at fetch time. Five of the 11 cached files above carry PubMed's
-`RETRACTED ARTICLE` line in the fetched abstract because they were fetched after the
-retraction; the other six (fetched earlier, or as full text) say nothing. Retraction
-is a post-publication event, so the check has to ask PubMed at check time, not read
-the cache.
+snapshot at fetch time. Five of the 11 cached files above carry a retraction marker
+because they were fetched after the retraction: two (12612585, 29958291) carry
+PubMed's `RETRACTED ARTICLE` title prefix and three (23926107, 19377461, 35865667)
+a `Retracted Publication` publication-type line; the other six (fetched earlier, or
+as full text) say nothing. Retraction is a post-publication event, so the check has
+to ask PubMed at check time, not read the cache.
 
 **Recommendation.** A `check-retracted-references` script over `esummary`: report-only
 first (the 11 above need a curator's decision each — a retracted paper cited as

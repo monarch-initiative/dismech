@@ -27,7 +27,8 @@ Usage::
     # the seed's own status (retraction / EoC / erratum / review / tag counts)
     python scripts/linked_discoveries_probe.py seed-status 9500320 40526437
 
-Both subcommands accept ``--format tsv`` (default) or ``--format json``.
+Both subcommands accept ``--format tsv`` (default) or ``--format json``, and
+``--pause``, either before or after the subcommand name.
 """
 
 from __future__ import annotations
@@ -215,19 +216,28 @@ def cmd_seed_status(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument(
+    # --pause/--format live on a shared parent so they are accepted after the
+    # subcommand as well as before it.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
         "--pause",
         type=float,
-        default=0.5,
+        default=argparse.SUPPRESS,
         help="seconds to sleep after each request (default 0.5)",
     )
-    parser.add_argument("--format", choices=("tsv", "json"), default="tsv")
+    common.add_argument("--format", choices=("tsv", "json"), default=argparse.SUPPRESS)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[common],
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    nb = sub.add_parser("neighborhood", help="one row per neighbor of a seed PMID")
+    nb = sub.add_parser(
+        "neighborhood",
+        parents=[common],
+        help="one row per neighbor of a seed PMID",
+    )
     nb.add_argument("pmid")
     nb.add_argument(
         "--neighbors", type=int, default=50, help=f"1..{MAX_NEIGHBORS} (default 50)"
@@ -245,12 +255,16 @@ def main(argv: list[str] | None = None) -> int:
     nb.set_defaults(func=cmd_neighborhood)
 
     st = sub.add_parser(
-        "seed-status", help="retraction / update / review / tag status of each PMID"
+        "seed-status",
+        parents=[common],
+        help="retraction / update / review / tag status of each PMID",
     )
     st.add_argument("pmids", nargs="+")
     st.set_defaults(func=cmd_seed_status)
 
     args = parser.parse_args(argv)
+    args.pause = getattr(args, "pause", 0.5)
+    args.format = getattr(args, "format", "tsv")
     return args.func(args)
 
 
