@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Autosomal Recessive Progressive External Ophthalmoplegia 1</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Autosomal Recessive Progressive External Ophthalmoplegia 1</h1>
             <div class="header-meta">
 
@@ -4150,7 +4293,7 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4195,7 +4338,10 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4218,7 +4364,10 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4330,6 +4479,12 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4346,6 +4501,12 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Compare mitophagy flux and mitochondrial fusion/fission dynamics across fibre types in human extraocular versus limb muscle, to test the quality-control-capacity explanation for selective vulnerability.</div>
+
+
+
+
+
+
 
 
 
@@ -4387,7 +4548,10 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33057669" target="_blank">PMID:33057669</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4478,6 +4642,12 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4494,6 +4664,12 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Profile tissue-specific mtDNA copy number and deletion load across presentations to test whether the phenotype tracks a quantitative replication-capacity threshold rather than a discrete modifier allele.</div>
+
+
+
+
+
+
 
 
 
@@ -4535,7 +4711,10 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250882" target="_blank">PMID:23250882</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4558,7 +4737,10 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250882" target="_blank">PMID:23250882</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4649,6 +4831,12 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4665,6 +4853,12 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Compare mtDNA deletion load and copy number in matched skeletal muscle from compound-heterozygote versus homozygote patients.</div>
+
+
+
+
+
+
 
 
 
@@ -4706,7 +4900,10 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16638794" target="_blank">PMID:16638794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4744,6 +4941,7 @@ PEOB1 sits within the POLG-related disorder spectrum, a continuum whose severity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polg-catalytic-and-proofreading-deficiency" data-dismech-node="POLG Catalytic and Proofreading Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">POLG Catalytic and Proofreading Deficiency</div>
+
 
                 <div class="item-desc">Biallelic pathogenic POLG variants impair the catalytic A subunit of mitochondrial DNA polymerase gamma, the only polymerase that replicates the mitochondrial genome. Depending on the domain affected, the consequence is reduced 5&#39;-3&#39; polymerase activity (polymerase-domain variants such as p.T914P, which is catalytically inactive), reduced 3&#39;-5&#39; exonuclease proofreading fidelity (exonuclease-domain variants such as p.F197S), or loss of the linker-domain interaction with the POLG2 accessory subunit that confers processivity (the common p.A467T allele). In autosomal recessive disease two such hypomorphic or null alleles are required; the residual activity of the less severe allele largely determines how much mtDNA replication capacity survives.
 </div>
@@ -4933,7 +5131,10 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11431686" target="_blank">PMID:11431686</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4956,7 +5157,10 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4979,7 +5183,10 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16024923" target="_blank">PMID:16024923</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5007,6 +5214,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-dna-replication" data-dismech-node="Impaired Mitochondrial DNA Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial DNA Replication</div>
+
 
                 <div class="item-desc">Reduced polymerase gamma activity slows and destabilises mtDNA replication. Stalled or aborted replication forks are resolved by illegitimate recombination or slipped-strand mispairing between the direct repeats that flank the mitochondrial major arc, generating large-scale deletions; the simultaneous shortfall in completed replication events lowers mtDNA copy number (depletion) in the most replication-demanding tissues.
 </div>
@@ -5149,7 +5357,10 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5175,6 +5386,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multiple-large-scale-mtdna-deletions-and-depletion" data-dismech-node="Multiple Large-Scale mtDNA Deletions and Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Multiple Large-Scale mtDNA Deletions and Depletion</div>
+
 
                 <div class="item-desc">The molecular hallmark of PEOB1 is the accumulation, in post-mitotic tissue (especially skeletal and extraocular muscle), of multiple different large-scale mtDNA deletions, frequently accompanied by a variable degree of mtDNA depletion. Unlike the single, clonal, sporadic deletion of Kearns-Sayre syndrome, these deletions are heterogeneous in breakpoint and are generated continuously throughout life because the nuclear replication defect persists. Deep sequencing of muscle mtDNA in arPEO allows the rearrangements to be mapped and their load quantified.
 </div>
@@ -5261,7 +5473,10 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12565911" target="_blank">PMID:12565911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5284,7 +5499,10 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5307,7 +5525,10 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21550804" target="_blank">PMID:21550804</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5333,6 +5554,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-expansion-above-the-biochemical-threshold" data-dismech-node="Clonal Expansion Above the Biochemical Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Expansion Above the Biochemical Threshold</div>
+
 
                 <div class="item-desc">Deleted mtDNA genomes are shorter and are amplified preferentially within individual long-lived post-mitotic cells (muscle fibre segments, neurons). Because mtDNA is polyploid, a cell remains biochemically normal until the mutant fraction crosses a threshold, after which mtDNA-encoded respiratory chain subunits become limiting. This threshold effect explains the characteristic mosaic (fibre-to-fibre) pattern of the defect rather than a uniform tissue-wide deficiency.
 </div>
@@ -5448,13 +5670,16 @@ This pathophysiological event involves abnormal mitochondrial DNA replication (G
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33057669" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33057669" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33057669" target="_blank">PMID:33057669</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5480,6 +5705,7 @@ This pathophysiological event involves abnormal mitochondrial DNA replication (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mosaic-respiratory-chain-oxphos-deficiency" data-dismech-node="Mosaic Respiratory-Chain (OXPHOS) Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Mosaic Respiratory-Chain (OXPHOS) Deficiency</div>
+
 
                 <div class="item-desc">Loss of intact mtDNA templates reduces the supply of the thirteen mtDNA-encoded respiratory-chain polypeptides. Complex IV (cytochrome c oxidase) is the most sensitive readout because three of its catalytic subunits are mtDNA-encoded and none are supplied by the nuclear genome, so affected cells become COX-negative on histochemistry while succinate dehydrogenase (entirely nuclear-encoded, complex II) is preserved or upregulated. The bioenergetic deficit affects the most oxidative, highest-demand post-mitotic cells first.
 </div>
@@ -5689,7 +5915,10 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5715,6 +5944,7 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ragged-red-and-cox-negative-fibre-pathology" data-dismech-node="Ragged-Red and COX-Negative Fibre Pathology" data-dismech-type="pathophysiology">
                 <div class="item-name">Ragged-Red and COX-Negative Fibre Pathology</div>
+
 
                 <div class="item-desc">In respiratory-chain-deficient fibre segments, a retrograde signalling response drives compensatory mitochondrial biogenesis. The resulting subsarcolemmal and intermyofibrillar accumulation of structurally abnormal mitochondria produces the ragged-red fibre on modified Gomori trichrome and the COX-negative / SDH-hyperreactive fibre on sequential COX-SDH histochemistry. Fibre atrophy, increased fibre-size variability, and endomysial fibrosis accompany the change.
 </div>
@@ -5843,7 +6073,10 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5860,13 +6093,16 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33057669" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33057669" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33057669" target="_blank">PMID:33057669</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5892,6 +6128,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-selective-extraocular-and-levator-muscle-vulnerability" data-dismech-node="Selective Extraocular and Levator Muscle Vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">Selective Extraocular and Levator Muscle Vulnerability</div>
+
 
                 <div class="item-desc">Extraocular muscles are the earliest and most severely affected tissue in all forms of PEO. They are tonically active with the fastest shortening velocities and highest firing rates of any skeletal muscle, they carry a mitochondrial content several-fold higher than limb muscle, and - critically - they show a lower mtDNA mutational threshold for COX deficiency together with a higher rate of somatic mtDNA deletion accumulation than limb muscle. The levator palpebrae superioris shares this vulnerability, which is why ptosis is typically the first sign. The reason this selective vulnerability exists is still only partly explained.
 </div>
@@ -5990,13 +6227,16 @@ This pathophysiological event occurs in extra-ocular muscle (UBERON:0001601). UB
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33057669" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33057669" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33057669" target="_blank">PMID:33057669</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6013,13 +6253,16 @@ This pathophysiological event occurs in extra-ocular muscle (UBERON:0001601). UB
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33057669" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33057669" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33057669" target="_blank">PMID:33057669</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6045,6 +6288,7 @@ This pathophysiological event occurs in extra-ocular muscle (UBERON:0001601). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-ptosis-and-external-ophthalmoplegia" data-dismech-node="Progressive Ptosis and External Ophthalmoplegia" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Ptosis and External Ophthalmoplegia</div>
+
 
                 <div class="item-desc">The defining clinical expression of PEOB1: bilateral, usually symmetric, slowly progressive ptosis followed by restriction of horizontal and vertical gaze. Because the deficit is symmetric and evolves over years, diplopia is often absent or late, and patients may adopt a chin-up head posture and frontalis overaction rather than complain of eye-movement limitation.
 </div>
@@ -6123,7 +6367,10 @@ This pathophysiological event occurs in extra-ocular muscle (UBERON:0001601). UB
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6149,6 +6396,7 @@ This pathophysiological event occurs in extra-ocular muscle (UBERON:0001601). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-myopathy-and-exercise-intolerance" data-dismech-node="Mitochondrial Myopathy and Exercise Intolerance" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Myopathy and Exercise Intolerance</div>
+
 
                 <div class="item-desc">Beyond the eye, PEOB1 produces a generalised mitochondrial myopathy with proximal limb weakness, fatigability, exercise intolerance, and in some patients bulbar involvement with dysphagia. Myopathy is a consistent accompaniment of POLG-related PEO rather than an optional extra.
 </div>
@@ -6237,13 +6485,16 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20301791" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20301791" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6260,13 +6511,16 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30451971" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30451971" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30451971" target="_blank">PMID:30451971</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6292,6 +6546,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurological-extension-of-the-polg-phenotype" data-dismech-node="Neurological Extension of the POLG Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurological Extension of the POLG Phenotype</div>
+
 
                 <div class="item-desc">Most patients with POLG-related recessive PEO develop a &#34;PEO-plus&#34; phenotype because the mtDNA maintenance defect is systemic. The commonest extensions are a length-dependent sensory ataxic axonal neuropathy (from dorsal root ganglion neuron loss), cerebellar and sensory ataxia, dysarthria and/or dysphagia, and sensorineural hearing loss. In a subset, epilepsy, migraine, myoclonus, parkinsonism, or hepatic involvement appear, blurring the boundary with the SANDO, MIRAS/ataxia-neuropathy and Alpers ends of the POLG spectrum.
 </div>
@@ -6415,7 +6670,10 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14745080" target="_blank">PMID:14745080</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6438,7 +6696,10 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12565911" target="_blank">PMID:12565911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6461,7 +6722,10 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16621917" target="_blank">PMID:16621917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6487,6 +6751,7 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-valproate-precipitated-hepatic-decompensation" data-dismech-node="Valproate-Precipitated Hepatic Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Valproate-Precipitated Hepatic Decompensation</div>
+
 
                 <div class="item-desc">Exposure to valproic acid on a POLG-deficient background can precipitate or accelerate hepatotoxicity and fulminant liver failure. This is a gene-drug interaction rather than a spontaneous feature of PEOB1: valproate impairs hepatocyte proliferation and regeneration, which a liver already limited by defective mtDNA maintenance cannot compensate for. It is the single most important actionable contraindication in the POLG-related disorders and is most often encountered when valproate is chosen to treat POLG-related epilepsy before the genetic diagnosis is known.
 </div>
@@ -6536,7 +6801,10 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16638794" target="_blank">PMID:16638794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6559,7 +6827,10 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21038416" target="_blank">PMID:21038416</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6582,7 +6853,10 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21038416" target="_blank">PMID:21038416</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6618,7 +6892,7 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-ragged-red-fibers-on-modified-gomori-trichrome">
                 <div class="item-name">
                     Ragged-Red Fibers on Modified Gomori Trichrome
 
@@ -6641,7 +6915,10 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6665,7 +6942,7 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-partial-cytochrome-c-oxidase-deficiency-on-cox-sdh-histochemistry">
                 <div class="item-name">
                     Partial Cytochrome c Oxidase Deficiency on COX-SDH Histochemistry
 
@@ -6688,7 +6965,10 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6705,13 +6985,16 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33057669" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33057669" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33057669" target="_blank">PMID:33057669</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6735,7 +7018,7 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-fiber-size-variability-atrophy-and-endomysial-fibrosis">
                 <div class="item-name">
                     Fiber Size Variability, Atrophy and Endomysial Fibrosis
 
@@ -6758,7 +7041,10 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6775,13 +7061,16 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33057669" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33057669" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33057669" target="_blank">PMID:33057669</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6805,7 +7094,7 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-multiple-large-scale-mtdna-rearrangements-in-muscle">
                 <div class="item-name">
                     Multiple Large-Scale mtDNA Rearrangements in Muscle
 
@@ -6828,7 +7117,10 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6851,7 +7143,10 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21550804" target="_blank">PMID:21550804</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6920,15 +7215,15 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Cellular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6969,19 +7264,25 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20301791" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20301791" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7036,6 +7337,9 @@ This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7048,7 +7352,10 @@ This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16638794" target="_blank">PMID:16638794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7112,6 +7419,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7124,7 +7434,10 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14745080" target="_blank">PMID:14745080</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7157,8 +7470,125 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-external-ophthalmoplegia" data-dismech-node="Progressive External Ophthalmoplegia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Progressive External Ophthalmoplegia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000590" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000590</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive external ophthalmoplegia (HP:0000590), qualified as course progressive. HP:0000590 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32042919" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient had slowly progressive bilateral ptosis and severely reduced horizontal and vertical gaze."</div>
+
+
+                <div class="evidence-explanation">Documents severe restriction of horizontal and vertical gaze in a genetically confirmed late-onset arPEO patient.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301791" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disease is typically characterized by peripheral neuropathy, ataxia, seizures, stroke-like episodes, and, in individuals with longer survival, progressive external ophthalmoplegia (PEO)."</div>
+
+
+                <div class="evidence-explanation">GeneReviews&#39; juvenile/adult-onset paragraph - the group it explicitly attributes to BIALLELIC POLG variants and autosomal recessive inheritance - lists progressive external ophthalmoplegia. Deliberately anchored here rather than on the late-onset paragraph, which GeneReviews notes may be caused by a heterozygous variant (i.e. the dominant PEOA1).
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ptosis" data-dismech-node="Ptosis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7174,10 +7604,10 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ptosis (HP:0000508), qualified as course progressive. HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7203,6 +7633,9 @@ This clinical feature is Ptosis (HP:0000508), qualified as course progressive. H
                     </div>
 
 
+
+
+
                     <div class="item-desc">GeneReviews names ptosis only in its late-onset paragraph, which its Genetic Counseling section says may be caused by a heterozygous POLG variant (i.e. the dominant PEOA1). That paragraph is therefore not cited here; the ptosis claim rests on the biallelic, biochemically confirmed arPEO case instead.
 </div>
 
@@ -7221,7 +7654,10 @@ This clinical feature is Ptosis (HP:0000508), qualified as course progressive. H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7254,7 +7690,7 @@ This clinical feature is Ptosis (HP:0000508), qualified as course progressive. H
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-myopathy" data-dismech-node="Myopathy" data-dismech-type="phenotype">
@@ -7271,15 +7707,18 @@ This clinical feature is Ptosis (HP:0000508), qualified as course progressive. H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003198</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003198</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7297,7 +7736,10 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16621917" target="_blank">PMID:16621917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7338,10 +7780,10 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001324</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscle weakness (HP:0001324), qualified as course progressive. HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7370,19 +7812,25 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as course progr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20301791" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20301791" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7405,7 +7853,10 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as course progr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16621917" target="_blank">PMID:16621917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7416,620 +7867,6 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as course progr
 
 
                 <div class="evidence-explanation">Biallelic-anchored support: this cohort was made up predominantly of sporadic compound heterozygotes, and places myopathy (the substrate of the weakness) alongside late-onset external ophthalmoplegia.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral Neuropathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Peripheral Neuropathy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0009830</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course progressive. HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12565911" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12565911" target="_blank">PMID:12565911</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Sensory neuropathy is the initial feature in Belgian compound heterozygote autosomal recessive progressive external ophthalmoplegia patients, all carrying the POLG A467T mutation"</div>
-
-
-                <div class="evidence-explanation">Sensory neuropathy was the initial feature in every compound-heterozygote recessive PEO patient in the founding Belgian cohort.
-</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301791" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Disease is typically characterized by peripheral neuropathy, ataxia, seizures, stroke-like episodes, and, in individuals with longer survival, progressive external ophthalmoplegia (PEO)."</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists peripheral neuropathy first in its juvenile/adult-onset paragraph - the group it explicitly attributes to BIALLELIC POLG variants and autosomal recessive inheritance - alongside the PEO that defines this entry.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ataxia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001251</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ataxia (HP:0001251), qualified as course progressive. HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:14745080" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14745080" target="_blank">PMID:14745080</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"an autosomal recessive syndrome comprising progressive external ophthalmoplegia (PEO), polyneuropathy, ataxia, sensorineural hearing loss, and affective disorders"</div>
-
-
-                <div class="evidence-explanation">Ataxia co-segregates with PEO in this autosomal recessive POLG family.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysarthria" data-dismech-node="Dysarthria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dysarthria
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001260</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12565911" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12565911" target="_blank">PMID:12565911</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the clinical triad of sensory ataxic neuropathy, dysarthria and ophthalmoparesis (SANDO)"</div>
-
-
-                <div class="evidence-explanation">Dysarthria appears together with ophthalmoparesis in the recessive POLG PEO phenotype described here.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16621917" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16621917" target="_blank">PMID:16621917</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"late-onset external ophthalmoplegia, ataxia, myopathy and isolated muscle pain or epilepsy"</div>
-
-
-                <div class="evidence-explanation">Epilepsy sits within the same POLG phenotypic spectrum as late-onset external ophthalmoplegia, though it is not a defining PEOB1 feature.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-exercise-intolerance" data-dismech-node="Exercise Intolerance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Exercise Intolerance
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003546</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34777884" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34777884" target="_blank">PMID:34777884</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Here, we report a 57-year-old female who presented with ophthalmoplegia, ptosis, muscle weakness, and exercise intolerance"</div>
-
-
-                <div class="evidence-explanation">A molecularly confirmed adult with compound-heterozygous pathogenic POLG variants presented with exercise intolerance as part of the PEO and mitochondrial-myopathy phenotype.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-external-ophthalmoplegia" data-dismech-node="Progressive External Ophthalmoplegia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive External Ophthalmoplegia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000590" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000590</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Progressive external ophthalmoplegia (HP:0000590), qualified as course progressive. HP:0000590 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32042919" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patient had slowly progressive bilateral ptosis and severely reduced horizontal and vertical gaze."</div>
-
-
-                <div class="evidence-explanation">Documents severe restriction of horizontal and vertical gaze in a genetically confirmed late-onset arPEO patient.
-</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301791" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Disease is typically characterized by peripheral neuropathy, ataxia, seizures, stroke-like episodes, and, in individuals with longer survival, progressive external ophthalmoplegia (PEO)."</div>
-
-
-                <div class="evidence-explanation">GeneReviews&#39; juvenile/adult-onset paragraph - the group it explicitly attributes to BIALLELIC POLG variants and autosomal recessive inheritance - lists progressive external ophthalmoplegia. Deliberately anchored here rather than on the late-onset paragraph, which GeneReviews notes may be caused by a heterozygous variant (i.e. the dominant PEOA1).
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sensory-ataxia" data-dismech-node="Sensory Ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sensory Ataxia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010871" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0010871</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sensory ataxia (HP:0010871), qualified as course progressive. HP:0010871 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12565911" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12565911" target="_blank">PMID:12565911</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The novel patient presented with sensory ataxic neuropathy and has the clinical triad of sensory ataxic neuropathy, dysarthria and ophthalmoparesis (SANDO)."</div>
-
-
-                <div class="evidence-explanation">A recessive POLG PEO patient with sensory ataxic neuropathy; the paper explicitly argues that SANDO is a variant of autosomal recessive PEO.
 </div>
 
 
@@ -8060,15 +7897,18 @@ This clinical feature is Sensory ataxia (HP:0010871), qualified as course progre
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003200" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003200</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003200" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0003200</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ragged-red muscle fibers (HP:0003200). HP:0003200 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8086,7 +7926,10 @@ This clinical feature is Ragged-red muscle fibers (HP:0003200). HP:0003200 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8127,15 +7970,18 @@ This clinical feature is Ragged-red muscle fibers (HP:0003200). HP:0003200 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003688" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003688</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003688" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003688</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cytochrome C oxidase-negative muscle fibers (HP:0003688). HP:0003688 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8153,7 +7999,10 @@ This clinical feature is Cytochrome C oxidase-negative muscle fibers (HP:0003688
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8194,15 +8043,18 @@ This clinical feature is Cytochrome C oxidase-negative muscle fibers (HP:0003688
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003557" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003557</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003557" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003557</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased variability in muscle fiber diameter (HP:0003557). HP:0003557 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8220,7 +8072,10 @@ This clinical feature is Increased variability in muscle fiber diameter (HP:0003
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8247,9 +8102,18 @@ This clinical feature is Increased variability in muscle fiber diameter (HP:0003
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-multiple-mitochondrial-dna-deletions" data-dismech-node="Multiple Mitochondrial DNA Deletions" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">5</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral Neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Multiple Mitochondrial DNA Deletions
+                        Peripheral Neuropathy
 
 
 
@@ -8261,15 +8125,153 @@ This clinical feature is Increased variability in muscle fiber diameter (HP:0003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003689" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003689</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0009830</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Multiple mitochondrial DNA deletions (HP:0003689). HP:0003689 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course progressive. HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12565911" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12565911" target="_blank">PMID:12565911</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sensory neuropathy is the initial feature in Belgian compound heterozygote autosomal recessive progressive external ophthalmoplegia patients, all carrying the POLG A467T mutation"</div>
+
+
+                <div class="evidence-explanation">Sensory neuropathy was the initial feature in every compound-heterozygote recessive PEO patient in the founding Belgian cohort.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301791" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disease is typically characterized by peripheral neuropathy, ataxia, seizures, stroke-like episodes, and, in individuals with longer survival, progressive external ophthalmoplegia (PEO)."</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists peripheral neuropathy first in its juvenile/adult-onset paragraph - the group it explicitly attributes to BIALLELIC POLG variants and autosomal recessive inheritance - alongside the PEO that defines this entry.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensory-ataxia" data-dismech-node="Sensory Ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sensory Ataxia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010871" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0010871</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensory ataxia (HP:0010871), qualified as course progressive. HP:0010871 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
 
 
 
@@ -8287,7 +8289,329 @@ This clinical feature is Multiple mitochondrial DNA deletions (HP:0003689). HP:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12565911" target="_blank">PMID:12565911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The novel patient presented with sensory ataxic neuropathy and has the clinical triad of sensory ataxic neuropathy, dysarthria and ophthalmoparesis (SANDO)."</div>
+
+
+                <div class="evidence-explanation">A recessive POLG PEO patient with sensory ataxic neuropathy; the paper explicitly argues that SANDO is a variant of autosomal recessive PEO.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ataxia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251), qualified as course progressive. HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14745080" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14745080" target="_blank">PMID:14745080</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"an autosomal recessive syndrome comprising progressive external ophthalmoplegia (PEO), polyneuropathy, ataxia, sensorineural hearing loss, and affective disorders"</div>
+
+
+                <div class="evidence-explanation">Ataxia co-segregates with PEO in this autosomal recessive POLG family.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysarthria" data-dismech-node="Dysarthria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dysarthria
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12565911" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12565911" target="_blank">PMID:12565911</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the clinical triad of sensory ataxic neuropathy, dysarthria and ophthalmoparesis (SANDO)"</div>
+
+
+                <div class="evidence-explanation">Dysarthria appears together with ophthalmoparesis in the recessive POLG PEO phenotype described here.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16621917" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16621917" target="_blank">PMID:16621917</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"late-onset external ophthalmoplegia, ataxia, myopathy and isolated muscle pain or epilepsy"</div>
+
+
+                <div class="evidence-explanation">Epilepsy sits within the same POLG phenotypic spectrum as late-onset external ophthalmoplegia, though it is not a defining PEOB1 feature.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cellular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-multiple-mitochondrial-dna-deletions" data-dismech-node="Multiple Mitochondrial DNA Deletions" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Multiple Mitochondrial DNA Deletions
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003689" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003689</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Multiple mitochondrial DNA deletions (HP:0003689). HP:0003689 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12565911" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12565911" target="_blank">PMID:12565911</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8298,6 +8622,88 @@ This clinical feature is Multiple mitochondrial DNA deletions (HP:0003689). HP:0
 
 
                 <div class="evidence-explanation">Multiple large-scale mtDNA deletions are definitional for autosomal recessive PEO.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-exercise-intolerance" data-dismech-node="Exercise Intolerance" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Exercise Intolerance
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003546</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34777884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34777884" target="_blank">PMID:34777884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we report a 57-year-old female who presented with ophthalmoplegia, ptosis, muscle weakness, and exercise intolerance"</div>
+
+
+                <div class="evidence-explanation">A molecularly confirmed adult with compound-heterozygous pathogenic POLG variants presented with exercise intolerance as part of the PEO and mitochondrial-myopathy phenotype.
 </div>
 
 
@@ -8386,6 +8792,9 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -8406,7 +8815,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11431686" target="_blank">PMID:11431686</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8429,7 +8841,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21550804" target="_blank">PMID:21550804</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8452,7 +8867,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28695364" target="_blank">PMID:28695364</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8489,8 +8907,16 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The most frequent recessive POLG allele in populations of European descent. It lies in the linker domain and acts through two distinct defects: the purified enzyme retains only ~4% of wild-type polymerase activity (a ~6-fold fall in kcat with essentially intact exonuclease function), and it fails entirely to bind and be stimulated by the POLG2 accessory subunit, so processivity collapses. It is carried by essentially all patients in the original Belgian recessive PEO cohort and occurs at a frequency of 0.6% in the Belgian population. Homozygotes span the entire POLG phenotypic continuum from Alpers-Huttenlocher to adult sensory ataxic neuropathy with ophthalmoparesis, so genotype alone does not predict presentation.
 </div>
+
+
 
 
 
@@ -8510,7 +8936,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12565911" target="_blank">PMID:12565911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8533,7 +8962,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16024923" target="_blank">PMID:16024923</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8556,7 +8988,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250882" target="_blank">PMID:23250882</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8593,8 +9028,16 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The second common recessive European founder allele, almost always carried in cis with p.Glu1143Gly. It is the commonest cause of mitochondrial recessive ataxia syndrome (MIRAS) and, in compound heterozygosity with p.A467T or a polymerase-domain variant, contributes to the recessive PEO/ataxia-neuropathy end of the spectrum. Haplotype analysis shows a single ancient European founder chromosome shared across Finland, Norway, the UK and Belgium; the carrier frequency reaches 1 in 125 in Finland.
 </div>
+
+
 
 
 
@@ -8614,7 +9057,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16080118" target="_blank">PMID:16080118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8637,7 +9083,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16080118" target="_blank">PMID:16080118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8660,7 +9109,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17426723" target="_blank">PMID:17426723</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8697,8 +9149,16 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Trans-compound heterozygosity for the two common founder alleles is a recurrent recessive genotype. In a 26-patient series, compound heterozygotes had significantly shorter survival than homozygotes for either allele, raising the possibility of a dominant-negative interaction between the two mutant subunits rather than simple additive loss of function.
 </div>
+
+
 
 
 
@@ -8718,7 +9178,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16638794" target="_blank">PMID:16638794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8741,7 +9204,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16638794" target="_blank">PMID:16638794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8778,8 +9244,16 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A worked late-onset arPEO genotype illustrating the general recessive architecture: one allele carries a novel exonuclease-domain variant (c.590T&gt;C; p.F197S) with reduced exonuclease AND polymerase activity, while the other carries a catalytically inactive polymerase-domain null (c.2740A&gt;C; p.T914P). Residual activity is supplied entirely by the hypomorphic allele, and the resulting replication deficit produces the multiple large-scale mtDNA deletions found in the patient&#39;s muscle.
 </div>
+
+
 
 
 
@@ -8799,7 +9273,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8822,7 +9299,10 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32042919" target="_blank">PMID:32042919</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8856,6 +9336,9 @@ This disease-associated gene is POLG (hgnc:9179). hgnc:9179 is a gene from the H
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8907,6 +9390,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying therapy for PEOB1. Management is supportive and multidisciplinary: occupational, physical and speech therapy for the myopathy, ataxia and dysarthria; nutritional and swallowing support; respiratory support where needed; and standard treatment of any epilepsy, movement, vision and hearing complications - subject to the valproate contraindication below.
 </div>
 
@@ -8927,7 +9424,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8991,6 +9491,31 @@ This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical correction is the mainstay of symptomatic treatment for the ptosis of PEOB1, chosen according to levator excursion: levator advancement or resection where levator function is preserved, frontalis suspension (sling) where it is not. Myogenic ptosis is a particularly difficult surgical target because the ptosis continues to worsen and because the same mitochondrial myopathy impairs protective corneal mechanisms (Bell&#39;s phenomenon, orbicularis closure). Deliberate under-correction is therefore standard - enough to clear the visual axis without producing exposure keratopathy - at the cost of a high recurrence rate.
 </div>
 
@@ -9033,7 +9558,10 @@ This treatment targets Ptosis (HP:0000508). HP:0000508 is a phenotype from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36178005" target="_blank">PMID:36178005</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9056,7 +9584,10 @@ This treatment targets Ptosis (HP:0000508). HP:0000508 is a phenotype from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36178005" target="_blank">PMID:36178005</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9079,7 +9610,10 @@ This treatment targets Ptosis (HP:0000508). HP:0000508 is a phenotype from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36178005" target="_blank">PMID:36178005</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9165,6 +9699,31 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Valproic acid (Depakene) and sodium divalproate/divalproex (Depakote) must be avoided in all POLG-related disorders, including PEOB1, because they can precipitate or accelerate liver disease and fatal hepatic failure. This is not a theoretical caution: in a 26-patient recessive POLG cohort, liver failure caused or contributed to death in eight patients, all but one of whom were on valproate. The risk is genotype-driven and detectable prospectively, so POLG genotyping should precede valproate in anyone with a suspected mitochondrial or unexplained epilepsy phenotype. This record is curated with negative valence - the intervention is withholding the drug, not administering it.
 </div>
 
@@ -9185,7 +9744,10 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9208,7 +9770,10 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16638794" target="_blank">PMID:16638794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9231,7 +9796,10 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21038416" target="_blank">PMID:21038416</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9295,6 +9863,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Liver enzymes should be monitored every three months or as clinically indicated, and liver function retested after introduction of any new anti-seizure medication - the surveillance counterpart of the valproate contraindication.
 </div>
 
@@ -9315,7 +9897,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9418,6 +10003,31 @@ This treatment uses deoxythymidine, annotated with thymidine (CHEBI:17748). CHEB
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Investigational, not standard of care. Enteral deoxycytidine plus deoxythymidine (dC/dT) aims to replenish the mitochondrial dNTP pool and so partially compensate for the reduced replication capacity of mutant polymerase gamma - the only curated treatment here that targets the causal mechanism rather than the consequences. An open-label single-arm phase 2 trial (NCT04802707) in POLG-related disorders reported improvement in the Newcastle Mitochondrial Disease Scale and stable-or-falling GDF-15 at 6 months. Important scope caveat for PEOB1: the interim cohort was children, six of ten with Alpers-Huttenlocher syndrome and two with ataxia-neuropathy spectrum, so efficacy in adult-onset recessive PEO specifically is untested.
 </div>
 
@@ -9448,13 +10058,16 @@ This treatment uses deoxythymidine, annotated with thymidine (CHEBI:17748). CHEB
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39091670" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39091670" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39091670" target="_blank">PMID:39091670</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9471,13 +10084,16 @@ This treatment uses deoxythymidine, annotated with thymidine (CHEBI:17748). CHEB
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39091670" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39091670" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39091670" target="_blank">PMID:39091670</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9500,7 +10116,10 @@ This treatment uses deoxythymidine, annotated with thymidine (CHEBI:17748). CHEB
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39091670" target="_blank">PMID:39091670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9565,6 +10184,20 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive counselling with a 25% sib recurrence risk, carrier testing for at-risk relatives once the familial variants are known, and the option of prenatal or preimplantation genetic testing. Counselling should explicitly cover the valproate contraindication for heterozygous relatives, who are at increased risk of valproate hepatotoxicity even though they do not develop PEO.
 </div>
 
@@ -9585,7 +10218,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9648,7 +10284,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28695364" target="_blank">PMID:28695364</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9675,6 +10314,314 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-diagnosis-by-biallelic-polg-variants">
+                <div class="item-name">
+                    Molecular Diagnosis by Biallelic POLG Variants
+
+                </div>
+
+                <div class="item-desc">Diagnosis rests on the clinical picture of progressive ptosis and external ophthalmoplegia (usually with a mitochondrial myopathy and neuropathy) plus identification of biallelic pathogenic POLG variants. Muscle biopsy showing ragged-red and COX-negative fibres with multiple large-scale mtDNA deletions supports the diagnosis and, historically, was the finding that redirected testing to the nuclear genome; with modern panels or exome sequencing, POLG sequencing often precedes biopsy. Critically, the requirement for BIALLELIC variants is what distinguishes PEOB1 from the autosomal dominant PEOA1, where a single heterozygous variant is diagnostic.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301791" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301791" target="_blank">PMID:20301791</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Establishing the diagnosis of a POLG-related disorder relies on clinical findings and the identification of biallelic POLG pathogenic variants on molecular genetic testing for all phenotypes except autosomal dominant progressive external ophthalmoplegia (adPEO), for which identification of a..."</div>
+
+
+                <div class="evidence-explanation">States the biallelic requirement and explicitly contrasts it with the dominant form.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21550804" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21550804" target="_blank">PMID:21550804</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"it is recommended to test POLG routinely in diagnostic laboratories whenever multiple mtDNA deletions are present, regardless of the age of onset of patients and their clinical phenotype"</div>
+
+
+                <div class="evidence-explanation">Supports POLG sequencing as first-line whenever multiple mtDNA deletions are demonstrated.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-north-east-england-adults-all-nuclear-gene-adult-mitochondrial-disease">
+                <div class="item-name">North East England adults (all nuclear-gene adult mitochondrial disease)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        2.9 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">Upper bound proxy. This is the prevalence of ALL clinically overt adult mitochondrial disease caused by nuclear-gene mutations (of which POLG is the largest single contributor); PEOB1 specifically is a fraction of this figure. No PEOB1-specific population prevalence estimate is available.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25652200" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25652200" target="_blank">PMID:25652200</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this population, nuclear mutations were responsible for clinically overt adult mitochondrial disease in 2.9 per 100,000 adults."</div>
+
+
+                <div class="evidence-explanation">Population-based minimum prevalence of nuclear-gene adult mitochondrial disease, the class to which PEOB1 belongs. Cited as PARTIAL because it is a class-level rather than a PEOB1-specific figure.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-european-descent-populations-polg-founder-allele-carriers">
+                <div class="item-name">European-descent populations (POLG founder-allele carriers)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Carrier Frequency</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1000.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000 (carriers)</span>
+
+                </div>
+
+                <div class="item-notes">Carrier frequency of the common recessive POLG founder alleles (p.A467T, p.W748S, p.G848S) reaches ~1% in several populations of European descent - equivalently 1000 carriers per 100,000. This is a carrier, not a disease, rate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17426723" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17426723" target="_blank">PMID:17426723</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They have effectively spread to populations of European descent with carrier frequencies up to 1% in several populations."</div>
+
+
+                <div class="evidence-explanation">Directly reports the ~1% carrier frequency of the common recessive POLG alleles in European-descent populations.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-finland-polg-p-w748s-carriers">
+                <div class="item-name">Finland (POLG p.W748S carriers)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Carrier Frequency</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        800.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000 (carriers)</span>
+
+                </div>
+
+                <div class="item-notes">1 in 125 general-population carrier frequency for the p.W748S founder allele.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16080118" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16080118" target="_blank">PMID:16080118</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with a carrier frequency in the general population of 1 : 125"</div>
+
+
+                <div class="evidence-explanation">Finnish general-population carrier frequency for the p.W748S POLG allele.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -9689,7 +10636,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-autosomal-dominant-progressive-external-ophthalmoplegia-1-peoa1">
                 <div class="item-name">
 
                     Autosomal Dominant Progressive External Ophthalmoplegia 1 (PEOA1)
@@ -9718,7 +10665,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11431686" target="_blank">PMID:11431686</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9744,7 +10694,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-sando-ataxia-neuropathy-spectrum-polg">
                 <div class="item-name">
 
                     SANDO / Ataxia-Neuropathy Spectrum (POLG)
@@ -9773,7 +10723,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12565911" target="_blank">PMID:12565911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9799,7 +10752,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-alpers-huttenlocher-syndrome-and-miras-polg">
                 <div class="item-name">
 
                     Alpers-Huttenlocher Syndrome and MIRAS (POLG)
@@ -9828,7 +10781,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16621917" target="_blank">PMID:16621917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9854,7 +10810,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-other-nuclear-mtdna-maintenance-disorders-twnk-rrm2b-slc25a4-tymp">
                 <div class="item-name">
 
                     Other Nuclear mtDNA Maintenance Disorders (TWNK, RRM2B, SLC25A4, TYMP)
@@ -9883,7 +10839,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21550804" target="_blank">PMID:21550804</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9909,7 +10868,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-single-large-scale-mtdna-deletion-syndromes-cpeo-kearns-sayre">
                 <div class="item-name">
 
                     Single Large-Scale mtDNA Deletion Syndromes (CPEO, Kearns-Sayre)
@@ -9938,7 +10897,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28695364" target="_blank">PMID:28695364</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9977,7 +10939,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04802707">
                 <div class="item-name">
                     NCT04802707
 
@@ -10003,7 +10965,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://clinicaltrials.gov/study/NCT04802707" target="_blank">clinicaltrials:NCT04802707</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10343,7 +11308,7 @@ pathophysiology:
   evidence:
   - reference: PMID:33057669
     reference_title: &#34;Extraocular Muscle Reveals Selective Vulnerability of Type IIB Fibers to Respiratory Chain Defects Induced by Mitochondrial DNA Alterations.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Therefore, our results showing that type IIB fibers in EOMs are affected earlier and more extensively (see Figs. 3A, 3B, 3E), suggest that these fibers might either have a faster rate of mitochondrial DNA deletion accumulation, clonal expansion, or a lower threshold compared to the other fiber types.&#34;
     explanation: &gt;
@@ -10460,7 +11425,7 @@ pathophysiology:
       arPEO muscle.
   - reference: PMID:33057669
     reference_title: &#34;Extraocular Muscle Reveals Selective Vulnerability of Type IIB Fibers to Respiratory Chain Defects Induced by Mitochondrial DNA Alterations.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;We observed fiber atrophy, ragged-red fibers, increased collagen fibrosis, and infiltration of mono-nucleated non-muscle cells&#34;
     explanation: &gt;
@@ -10517,7 +11482,7 @@ pathophysiology:
   evidence:
   - reference: PMID:33057669
     reference_title: &#34;Extraocular Muscle Reveals Selective Vulnerability of Type IIB Fibers to Respiratory Chain Defects Induced by Mitochondrial DNA Alterations.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Previous studies in CPEO patients with mtDNA deletions reported a threefold higher proportion of COX deficient fibers in EOMs compared to limb skeletal muscles&#34;
     explanation: &gt;
@@ -10529,7 +11494,7 @@ pathophysiology:
       presenting new human data; cited PARTIAL for the same reason.
   - reference: PMID:33057669
     reference_title: &#34;Extraocular Muscle Reveals Selective Vulnerability of Type IIB Fibers to Respiratory Chain Defects Induced by Mitochondrial DNA Alterations.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Ptosis due to impaired levator muscle function is a common and early clinical symptom in patients with mitochondrial myopathies&#34;
     explanation: &gt;
@@ -10593,7 +11558,7 @@ pathophysiology:
   evidence:
   - reference: PMID:20301791
     reference_title: &#34;POLG-Related Disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Characterized by ptosis and PEO, with additional features such as peripheral neuropathy, ataxia, and muscle weakness.&#34;
     explanation: &gt;
@@ -10606,7 +11571,7 @@ pathophysiology:
       juvenile/adult-onset paragraph, used for the PEO and neuropathy phenotypes.
   - reference: PMID:30451971
     reference_title: &#34;POLG-related disorders and their neurological manifestations.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The muscle weakness can extend to the limb-girdle musculature, manifesting as a proximal myopathy that can progress to a generalized myopathy.&#34;
     explanation: &gt;
@@ -10856,7 +11821,7 @@ phenotypes:
   evidence:
   - reference: PMID:20301791
     reference_title: &#34;POLG-Related Disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Characterized by ptosis and PEO, with additional features such as peripheral neuropathy, ataxia, and muscle weakness.&#34;
     explanation: &gt;
@@ -11018,7 +11983,7 @@ phenotypes:
   evidence:
   - reference: PMID:16621917
     reference_title: &#34;Phenotypic spectrum associated with mutations of the mitochondrial polymerase gamma gene.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;late-onset external ophthalmoplegia, ataxia, myopathy and isolated muscle pain or epilepsy&#34;
     explanation: &gt;
@@ -11037,7 +12002,7 @@ phenotypes:
   evidence:
   - reference: PMID:20301791
     reference_title: &#34;POLG-Related Disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Liver involvement, feeding difficulties, seizures, hypotonia, and muscle weakness are the most common clinical features.&#34;
     explanation: &gt;
@@ -11179,7 +12144,7 @@ histopathology:
       Partial COX deficiency alongside preserved fibres in arPEO muscle biopsy.
   - reference: PMID:33057669
     reference_title: &#34;Extraocular Muscle Reveals Selective Vulnerability of Type IIB Fibers to Respiratory Chain Defects Induced by Mitochondrial DNA Alterations.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Ragged red fibers were mainly COX− / SDH++&#34;
     explanation: &gt;
@@ -11202,7 +12167,7 @@ histopathology:
       Fibre-size variability recorded on arPEO muscle biopsy.
   - reference: PMID:33057669
     reference_title: &#34;Extraocular Muscle Reveals Selective Vulnerability of Type IIB Fibers to Respiratory Chain Defects Induced by Mitochondrial DNA Alterations.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;We observed fiber atrophy, ragged-red fibers, increased collagen fibrosis, and infiltration of mono-nucleated non-muscle cells&#34;
     explanation: &gt;
@@ -11507,7 +12472,7 @@ prevalence:
   evidence:
   - reference: PMID:25652200
     reference_title: &#34;Prevalence of nuclear and mitochondrial DNA mutations related to adult mitochondrial disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In this population, nuclear mutations were responsible for clinically overt adult mitochondrial disease in 2.9 per 100,000 adults.&#34;
     explanation: &gt;
@@ -11714,7 +12679,7 @@ treatments:
   evidence:
   - reference: PMID:39091670
     reference_title: &#34;Safety and efficacy of deoxycytidine/deoxythymidine combination therapy in POLG-related disorders: 6-month interim results of an open-label, single arm, phase 2 trial.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we assessed the safety and efficacy of combination therapy with deoxycytidine and deoxythymidine (dC/dT) in children with POLG-related disorders.&#34;
     explanation: &gt;
@@ -11724,7 +12689,7 @@ treatments:
       adult-onset recessive PEO.
   - reference: PMID:39091670
     reference_title: &#34;Safety and efficacy of deoxycytidine/deoxythymidine combination therapy in POLG-related disorders: 6-month interim results of an open-label, single arm, phase 2 trial.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;During the 6 months of treatment, NMDS score improved from a mean of 27.3 at baseline to 20.7 at 6 months&#34;
     explanation: &gt;
@@ -11771,6 +12736,7 @@ clinical_trials:
     defect underlying PEOB1 rather than its downstream consequences.
   evidence:
   - reference: clinicaltrials:NCT04802707
+    reference_title: &#34;A Phase II, Monocenter, Single Arm Study To Assess The Safety and Efficacy Of Combination Deoxycytidine and Deoxythymidine For Mitochondrial Depletion Disorders&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In this phase II Trial a mix of Deoxynucleosides Pyrimidine (Deoxycytidine dC and Deoxythymidine dT) will be used as early treatment of MDS.&#34;
@@ -12089,6 +13055,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: connect PEOB1 mechanisms to clinical findings</strong> · 2026-08-05T23:38:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Progressive_External_Ophthalmoplegia_1/2026-08-05T233849Z-codex-93f1f5.yaml">View source</a></p>
+                        <p class="research-review-text">Completed a publication-readiness review against the Claude Code and Falcon deep-research artifacts and the GeneReviews baseline. Added the structured POLG descriptor to the proximal polymerase-deficiency node; connected the mtDNA-deletion, respiratory-chain, muscle-pathology, ocular, myopathy, neurologic, and valproate-hepatotoxicity branches to their curated distal findings; added exercise intolerance as a disease-specific, PMID-backed phenotype; and added a POLG review citation supporting extension from extraocular to proximal/generalized myopathy. Schema, ontology-term, and reference validation passed with 98/98 snippets verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12989,7 +13968,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal Recessive Progressive External Ophthalmoplegia 1", "mondoId": "MONDO:0009783", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Recessive_Progressive_External_Ophthalmoplegia_1", "yamlRevision": "0bbb7e6a9ba5"};
+        const OS_CONFIG = {"diseaseName": "Autosomal Recessive Progressive External Ophthalmoplegia 1", "mondoId": "MONDO:0009783", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Recessive_Progressive_External_Ophthalmoplegia_1", "yamlRevision": "fa5b52468ea6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

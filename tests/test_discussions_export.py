@@ -22,6 +22,10 @@ def test_extract_discussions_includes_all_kinds():
                 "prompt": "Open question about X?",
                 "kind": "KNOWLEDGE_GAP",
                 "status": "OPEN",
+                # `phenotype#` (not `phenotypes#`) on purpose: the KB was
+                # normalised to schema slot names in #9394, but the aliases
+                # stay resolvable, and this fixture is part of what proves it.
+                # Do not "tidy" the spelling.
                 "attaches_to": ["pathophysiology#Node A", "phenotype#Pheno B"],
                 "rationale": "Why it matters.",
                 "proposed_experiments": [{"name": "Experiment 1"}],

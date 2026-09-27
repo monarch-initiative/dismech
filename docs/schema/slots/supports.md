@@ -3,6 +3,11 @@
 # Slot: supports 
 
 
+_Which way the cited evidence cuts relative to the claim. Direction only -- use `directness` for how directly the quote bears on it._
+
+
+
+
 
 URI: [dismech:slot/supports](https://w3id.org/monarch-initiative/dismech/slot/supports)
 Alias: supports
@@ -52,6 +57,10 @@ Alias: supports
 | --- |
 | SUPPORT |
 
+## Comments
+
+* Maps to EvidenceLine.directionOfEvidenceProvided in the draft SEPIO LinkML model. The NO_EVIDENCE value has no SEPIO counterpart; see EvidenceItemSupportEnum.
+
 
 
 ## Identifier and Mapping Information
@@ -74,6 +83,7 @@ Alias: supports
 | ---  | ---  |
 | self | dismech:supports |
 | native | dismech:supports |
+| exact | sepio:directionOfEvidenceProvided |
 
 
 
@@ -83,9 +93,16 @@ Alias: supports
 <details>
 ```yaml
 name: supports
+description: Which way the cited evidence cuts relative to the claim. Direction only
+  -- use `directness` for how directly the quote bears on it.
+comments:
+- Maps to EvidenceLine.directionOfEvidenceProvided in the draft SEPIO LinkML model.
+  The NO_EVIDENCE value has no SEPIO counterpart; see EvidenceItemSupportEnum.
 examples:
 - value: SUPPORT
 from_schema: https://w3id.org/monarch-initiative/dismech
+exact_mappings:
+- sepio:directionOfEvidenceProvided
 rank: 1000
 alias: supports
 domain_of:

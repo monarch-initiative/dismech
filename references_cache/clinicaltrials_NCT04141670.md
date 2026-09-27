@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04141670"
+reference_id: clinicaltrials:NCT04141670
 title: Safety and Tolerability of S 48168 (ARM 210) for the Treatment of RYR1-related Myopathies (RYR1-RM)
 content_type: summary
+full_text_attempted: true
 ---
 
 # Safety and Tolerability of S 48168 (ARM 210) for the Treatment of RYR1-related Myopathies (RYR1-RM)

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Dermoid Cyst</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Dermoid Cyst</h1>
             <div class="header-meta">
 
@@ -3972,6 +4115,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germ-cell-parthenogenetic-origin" data-dismech-node="Germ Cell Parthenogenetic Origin" data-dismech-type="pathophysiology">
                 <div class="item-name">Germ Cell Parthenogenetic Origin</div>
 
+
                 <div class="item-desc">Ovarian mature cystic teratoma originates from a single ovarian germ cell/oocyte that develops parthenogenetically (without fertilization). The tumor typically arises after completion of meiosis I with failure of meiosis II, producing a near-diploid genome that contains only maternal genetic material. This parthenogenetic origin explains the largely cytogenetically bland karyotype and the characteristic imprinting abnormalities of these tumors, distinguishing them from malignant germ cell tumors driven by isochromosome 12p and somatic mutation.
 </div>
 
@@ -4153,7 +4297,10 @@ This pathophysiological event involves meiotic cell cycle (GO:0051321). GO:00513
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37174909" target="_blank">PMID:37174909</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4176,7 +4323,10 @@ This pathophysiological event involves meiotic cell cycle (GO:0051321). GO:00513
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37372675" target="_blank">PMID:37372675</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4199,7 +4349,10 @@ This pathophysiological event involves meiotic cell cycle (GO:0051321). GO:00513
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37372675" target="_blank">PMID:37372675</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4225,6 +4378,7 @@ This pathophysiological event involves meiotic cell cycle (GO:0051321). GO:00513
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bmp15-h-ras-mapk-dysregulation-in-hereditary-ovarian-teratoma" data-dismech-node="BMP15 / H-Ras-MAPK Dysregulation in Hereditary Ovarian Teratoma" data-dismech-type="pathophysiology">
                 <div class="item-name">BMP15 / H-Ras-MAPK Dysregulation in Hereditary Ovarian Teratoma</div>
+
 
                 <div class="item-desc">In a rare hereditary, X-linked dominant ovarian (immature) teratoma, a germline BMP15 missense mutation (C262T; p.Arg88Cys) reduces secretion of mature BMP15 by ~85%. Loss of BMP15 oocyte growth-factor signaling is associated with abnormal activation of the H-Ras/MAPK pathway in oocytes, which markedly increases the rate of spontaneous parthenogenetic activation and predisposes to teratoma formation. This defines a molecular, germline-mediated route to the parthenogenetic origin seen in sporadic tumors.
 </div>
@@ -4356,7 +4510,10 @@ This pathophysiological event involves increased MAPK cascade activation, annota
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38427603" target="_blank">PMID:38427603</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4379,7 +4536,10 @@ This pathophysiological event involves increased MAPK cascade activation, annota
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38427603" target="_blank">PMID:38427603</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4402,7 +4562,10 @@ This pathophysiological event involves increased MAPK cascade activation, annota
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38427603" target="_blank">PMID:38427603</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4430,6 +4593,7 @@ This pathophysiological event involves increased MAPK cascade activation, annota
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mature-tri-lineage-tissue-differentiation" data-dismech-node="Mature Tri-Lineage Tissue Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mature Tri-Lineage Tissue Differentiation</div>
+
 
                 <div class="item-desc">Within the cyst, the activated germ cell differentiates into mature, well-differentiated somatic tissues, with ectodermal derivatives predominating: a wall lined by keratinizing squamous epithelium with numerous adnexal structures (hair follicles, sebaceous glands, occasional apocrine glands and teeth), surrounded by a dense, concentrically arranged collagen stroma. The cyst lumen accumulates lamellar keratin, hair, and sebaceous material. At craniofacial and cutaneous sites the equivalent histology arises instead from ectoderm entrapped during midline fusion.
 </div>
@@ -4644,7 +4808,10 @@ This pathophysiological event involves hair follicle development (GO:0001942). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33666111" target="_blank">PMID:33666111</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4670,6 +4837,7 @@ This pathophysiological event involves hair follicle development (GO:0001942). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-embryonic-midline-fusion-and-ectodermal-entrapment" data-dismech-node="Aberrant Embryonic Midline Fusion and Ectodermal Entrapment" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Embryonic Midline Fusion and Ectodermal Entrapment</div>
+
 
                 <div class="item-desc">For craniofacial, nasal, orbital, ocular-surface, and cutaneous dermoid cysts, the lesion arises developmentally rather than from a germ cell. Surface ectoderm becomes entrapped during fusion of the facial prominences and midline seam closure (the ectodermal-inclusion and embryonic closure-defect theories), producing an epithelial-lined cavity that contains epidermis, dermis, and adnexal structures. Nasal dermoids may retain a sinus tract and, in a subset, intracranial extension.
 </div>
@@ -4758,7 +4926,10 @@ This pathophysiological event involves abnormal multicellular organism developme
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41585020" target="_blank">PMID:41585020</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4781,7 +4952,10 @@ This pathophysiological event involves abnormal multicellular organism developme
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37685334" target="_blank">PMID:37685334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4807,6 +4981,7 @@ This pathophysiological event involves abnormal multicellular organism developme
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slowly-enlarging-cystic-mass" data-dismech-node="Slowly Enlarging Cystic Mass" data-dismech-type="pathophysiology">
                 <div class="item-name">Slowly Enlarging Cystic Mass</div>
+
 
                 <div class="item-desc">The dermoid cyst is a slow-growing, chronic lesion that gradually enlarges and does not spontaneously resolve. Enlargement and the dependent position of the ovarian mass predispose to mechanical complications (ovarian torsion, rupture) and, at intracranial and craniofacial sites, mass effect and infection. Persistence over years also underlies the rare late malignant transformation.
 </div>
@@ -4893,7 +5068,10 @@ This pathophysiological event involves abnormal multicellular organism developme
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39867042" target="_blank">PMID:39867042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4919,6 +5097,7 @@ This pathophysiological event involves abnormal multicellular organism developme
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyst-rupture-and-chemical-aseptic-meningitis" data-dismech-node="Cyst Rupture and Chemical Aseptic Meningitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cyst Rupture and Chemical Aseptic Meningitis</div>
+
 
                 <div class="item-desc">Rupture of an intracranial dermoid cyst releases lipid-rich keratinaceous contents into the subarachnoid space, provoking a chemical (aseptic) inflammatory meningitis affecting the meninges and adjacent cortex. Rupture of an ovarian dermoid likewise causes a chemical (granulomatous) peritonitis.
 </div>
@@ -4996,6 +5175,7 @@ This pathophysiological event involves keratinizing squamous epithelial cell, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malignant-transformation" data-dismech-node="Malignant Transformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Malignant Transformation</div>
+
 
                 <div class="item-desc">In approximately 1-3% of ovarian mature cystic teratomas, the mature squamous epithelial lining undergoes malignant transformation, most commonly to squamous cell carcinoma. This is a late, rare complication, more frequent in older (postmenopausal) women and large or long-standing lesions.
 </div>
@@ -5080,7 +5260,10 @@ This pathophysiological event involves keratinizing squamous epithelial cell, an
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39867042" target="_blank">PMID:39867042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5103,7 +5286,10 @@ This pathophysiological event involves keratinizing squamous epithelial cell, an
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39867042" target="_blank">PMID:39867042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5129,6 +5315,7 @@ This pathophysiological event involves keratinizing squamous epithelial cell, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paraneoplastic-anti-nmdar-encephalitis-association" data-dismech-node="Paraneoplastic Anti-NMDAR Encephalitis Association" data-dismech-type="pathophysiology">
                 <div class="item-name">Paraneoplastic Anti-NMDAR Encephalitis Association</div>
+
 
                 <div class="item-desc">Ovarian teratomas (including mature/dermoid teratomas containing neural tissue) are the commonest tumor associated with anti-N-methyl-D-aspartate receptor (anti-NMDAR) encephalitis, a paraneoplastic autoimmune syndrome. Neural tissue within the teratoma is thought to trigger an autoimmune response against NMDA receptors; tumor removal is a central component of treatment.
 </div>
@@ -5179,7 +5366,10 @@ This pathophysiological event involves keratinizing squamous epithelial cell, an
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42361457" target="_blank">PMID:42361457</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5202,7 +5392,10 @@ This pathophysiological event involves keratinizing squamous epithelial cell, an
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42361457" target="_blank">PMID:42361457</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5274,13 +5467,17 @@ This pathophysiological event involves keratinizing squamous epithelial cell, an
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Neoplasm<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5321,6 +5518,9 @@ This clinical feature is Abdominal mass (HP:0031500). HP:0031500 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5333,7 +5533,10 @@ This clinical feature is Abdominal mass (HP:0031500). HP:0031500 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39867042" target="_blank">PMID:39867042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5401,6 +5604,9 @@ This clinical feature is Limbal dermoid (HP:0001140). HP:0001140 is a phenotype 
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5408,270 +5614,8 @@ This clinical feature is Limbal dermoid (HP:0001140). HP:0001140 is a phenotype 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Immune
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-meningitis" data-dismech-node="Meningitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Meningitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001287" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001287</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37685334" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37685334" target="_blank">PMID:37685334</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Surgery is the only method of treatment in order to prevent local and intracranial inflammatory complications"</div>
-
-
-                <div class="evidence-explanation">Supports the risk of intracranial inflammatory complications from midline dermoid lesions; chemical aseptic meningitis on intracranial rupture is detailed in the narrative research report.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
+                    Genitourinary
                     <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Headache
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002315</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37685334" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37685334" target="_blank">PMID:37685334</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Surgery is the only method of treatment in order to prevent local and intracranial inflammatory complications as well as distant deformities of the facial skeleton."</div>
-
-
-                <div class="evidence-explanation">Indirect support for intracranial complications of midline dermoid lesions. Headache as a presenting symptom of intracranial dermoid cysts is documented in the narrative research report (Soto 2025).
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizure
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42361457" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42361457" target="_blank">PMID:42361457</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Paraneoplastic syndromes occurring with germ-cell-tumors (GCTs) are rare but can be life-threatening."</div>
-
-
-                <div class="evidence-explanation">Indirect support for the neurological morbidity of teratoma-associated paraneoplastic syndromes, of which seizures are a feature.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pelvic-pain" data-dismech-node="Pelvic pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pelvic pain
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0034267</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ovarian-dermoid-cyst" data-dismech-node="Ovarian dermoid cyst" data-dismech-type="phenotype">
@@ -5688,15 +5632,18 @@ This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0025274</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0025274</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ovarian dermoid cyst (HP:0025274). HP:0025274 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5714,7 +5661,10 @@ This clinical feature is Ovarian dermoid cyst (HP:0025274). HP:0025274 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37372675" target="_blank">PMID:37372675</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5755,15 +5705,18 @@ This clinical feature is Ovarian dermoid cyst (HP:0025274). HP:0025274 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012226" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012226</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012226" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012226</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ovarian teratoma (HP:0012226). HP:0012226 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5781,7 +5734,10 @@ This clinical feature is Ovarian teratoma (HP:0012226). HP:0012226 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37174909" target="_blank">PMID:37174909</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5808,6 +5764,205 @@ This clinical feature is Ovarian teratoma (HP:0012226). HP:0012226 is a phenotyp
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nasal-dermoid-cyst" data-dismech-node="Nasal dermoid cyst" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nasal dermoid cyst
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0430145" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0430145</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nasal dermoid cyst (HP:0430145). HP:0430145 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41585020" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41585020" target="_blank">PMID:41585020</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pediatric nasal dermoid/sinus cysts (NDSC) are common congenital midline craniofacial lesions associated with embryonic tissue entrapment and abnormal midline fusion during embryogenesis"</div>
+
+
+                <div class="evidence-explanation">Supports nasal dermoid sinus cyst as a common congenital midline craniofacial lesion.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41585020" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41585020" target="_blank">PMID:41585020</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"they can involve intracranial structures and predispose patients to recurrent infection, intracranial complications, and cosmetic or functional impairment"</div>
+
+
+                <div class="evidence-explanation">Documents the infection risk, intracranial extension, and cosmetic/functional morbidity of nasal dermoid sinus cysts.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-meningitis" data-dismech-node="Meningitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Meningitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001287" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001287</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37685334" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37685334" target="_blank">PMID:37685334</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Surgery is the only method of treatment in order to prevent local and intracranial inflammatory complications"</div>
+
+
+                <div class="evidence-explanation">Supports the risk of intracranial inflammatory complications from midline dermoid lesions; chemical aseptic meningitis on intracranial rupture is detailed in the narrative research report.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">3</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-intracranial-dermoid-cyst" data-dismech-node="Intracranial dermoid cyst" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intracranial dermoid cyst
@@ -5822,15 +5977,18 @@ This clinical feature is Ovarian teratoma (HP:0012226). HP:0012226 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012097</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intracranial dermoid cyst (HP:0012097). HP:0012097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5842,13 +6000,16 @@ This clinical feature is Intracranial dermoid cyst (HP:0012097). HP:0012097 is a
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37685334" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37685334" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37685334" target="_blank">PMID:37685334</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5875,9 +6036,9 @@ This clinical feature is Intracranial dermoid cyst (HP:0012097). HP:0012097 is a
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nasal-dermoid-cyst" data-dismech-node="Nasal dermoid cyst" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Nasal dermoid cyst
+                        Headache
 
 
 
@@ -5889,12 +6050,12 @@ This clinical feature is Intracranial dermoid cyst (HP:0012097). HP:0012097 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0430145" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0430145</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nasal dermoid cyst (HP:0430145). HP:0430145 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5903,52 +6064,35 @@ This clinical feature is Nasal dermoid cyst (HP:0430145). HP:0430145 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41585020" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:37685334" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41585020" target="_blank">PMID:41585020</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37685334" target="_blank">PMID:37685334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Pediatric nasal dermoid/sinus cysts (NDSC) are common congenital midline craniofacial lesions associated with embryonic tissue entrapment and abnormal midline fusion during embryogenesis"</div>
+                <div class="evidence-snippet">"Surgery is the only method of treatment in order to prevent local and intracranial inflammatory complications as well as distant deformities of the facial skeleton."</div>
 
 
-                <div class="evidence-explanation">Supports nasal dermoid sinus cyst as a common congenital midline craniofacial lesion.
-</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41585020" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41585020" target="_blank">PMID:41585020</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"they can involve intracranial structures and predispose patients to recurrent infection, intracranial complications, and cosmetic or functional impairment"</div>
-
-
-                <div class="evidence-explanation">Documents the infection risk, intracranial extension, and cosmetic/functional morbidity of nasal dermoid sinus cysts.
+                <div class="evidence-explanation">Indirect support for intracranial complications of midline dermoid lesions. Headache as a presenting symptom of intracranial dermoid cysts is documented in the narrative research report (Soto 2025).
 </div>
 
 
@@ -5964,6 +6108,134 @@ This clinical feature is Nasal dermoid cyst (HP:0430145). HP:0430145 is a phenot
 
 
                 </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizure
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42361457" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42361457" target="_blank">PMID:42361457</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Paraneoplastic syndromes occurring with germ-cell-tumors (GCTs) are rare but can be life-threatening."</div>
+
+
+                <div class="evidence-explanation">Indirect support for the neurological morbidity of teratoma-associated paraneoplastic syndromes, of which seizures are a feature.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pelvic-pain" data-dismech-node="Pelvic pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pelvic pain
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0034267</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Neoplasm
+                    <span class="cat-count">1</span>
+                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-carcinoma" data-dismech-node="Carcinoma" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5993,6 +6265,9 @@ This clinical feature is Carcinoma (HP:0030731). HP:0030731 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6005,7 +6280,10 @@ This clinical feature is Carcinoma (HP:0030731). HP:0030731 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39867042" target="_blank">PMID:39867042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6100,6 +6378,9 @@ This disease-associated gene is BMP15 (hgnc:1068). hgnc:1068 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked dominant</span>
@@ -6120,7 +6401,10 @@ This disease-associated gene is BMP15 (hgnc:1068). hgnc:1068 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38427603" target="_blank">PMID:38427603</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6149,6 +6433,9 @@ This disease-associated gene is BMP15 (hgnc:1068). hgnc:1068 is a gene from the 
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6201,6 +6488,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Complete surgical excision is the definitive treatment across all dermoid cyst subtypes. For ovarian dermoid cysts, fertility-sparing cystectomy or oophorectomy is performed, commonly via laparoscopy. Intracranial lesions require neurosurgical resection (gross total resection minimizes recurrence); nasal dermoid sinus cysts require complete excision of the cyst and tract. Completeness of resection is the primary determinant of recurrence.
 </div>
 
@@ -6221,7 +6533,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41585020" target="_blank">PMID:41585020</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6244,7 +6559,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37174909" target="_blank">PMID:37174909</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6309,6 +6627,20 @@ This treatment is oophorectomy (NCIT:C15291). NCIT:C15291 is a clinical interven
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For ovarian dermoid cysts, removal of the cyst (cystectomy) or the ovary (oophorectomy) is performed; ovarian-sparing approaches are preferred where feasible to preserve fertility.
 </div>
 
@@ -6329,7 +6661,10 @@ This treatment is oophorectomy (NCIT:C15291). NCIT:C15291 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42361457" target="_blank">PMID:42361457</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6394,6 +6729,20 @@ This treatment is laparoscopy (NCIT:C16969). NCIT:C16969 is a clinical intervent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Laparoscopy is commonly used for resection of ovarian dermoid cysts when feasible.
 </div>
 
@@ -6408,13 +6757,16 @@ This treatment is laparoscopy (NCIT:C16969). NCIT:C16969 is a clinical intervent
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37174909" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37174909" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37174909" target="_blank">PMID:37174909</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6445,6 +6797,33 @@ This treatment is laparoscopy (NCIT:C16969). NCIT:C16969 is a clinical intervent
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6922,7 +7301,7 @@ phenotypes:
   evidence:
   - reference: PMID:37685334
     reference_title: &#34;The Differential Diagnosis of Congenital Developmental Midline Nasal Masses: Histopathological, Clinical, and Radiological Aspects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;meticulous preoperative differential diagnostics is mandatory&#34;
     explanation: &gt;
@@ -7011,7 +7390,7 @@ phenotypes:
   evidence:
   - reference: PMID:37685334
     reference_title: &#34;The Differential Diagnosis of Congenital Developmental Midline Nasal Masses: Histopathological, Clinical, and Radiological Aspects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Surgery is the only method of treatment in order to prevent local and intracranial inflammatory complications as well as distant deformities of the facial skeleton.&#34;
     explanation: &gt;
@@ -7033,7 +7412,7 @@ phenotypes:
   evidence:
   - reference: PMID:42361457
     reference_title: &#34;Ovarian teratoma and the anti-N-methyl-D-aspartate receptor encephalitis paraneoplastic phenomenon: A systematic review and analysis of the literature.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Paraneoplastic syndromes occurring with germ-cell-tumors (GCTs) are rare but can be life-threatening.&#34;
     explanation: &gt;
@@ -7053,7 +7432,7 @@ phenotypes:
   evidence:
   - reference: PMID:37685334
     reference_title: &#34;The Differential Diagnosis of Congenital Developmental Midline Nasal Masses: Histopathological, Clinical, and Radiological Aspects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Surgery is the only method of treatment in order to prevent local and intracranial inflammatory complications&#34;
     explanation: &gt;
@@ -7170,7 +7549,7 @@ treatments:
   evidence:
   - reference: PMID:37174909
     reference_title: &#34;Immature Teratoma: Diagnosis and Management-A Review of the Literature.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the main therapy is fertility-sparing surgery&#34;
     explanation: &gt;
@@ -7196,6 +7575,8 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7756,7 +8137,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dermoid Cyst", "mondoId": "MONDO:0002378", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dermoid_Cyst", "yamlRevision": "edc76e37ebfb"};
+        const OS_CONFIG = {"diseaseName": "Dermoid Cyst", "mondoId": "MONDO:0002378", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dermoid_Cyst", "yamlRevision": "28a1972f0854"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

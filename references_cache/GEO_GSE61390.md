@@ -1,0 +1,11 @@
+---
+reference_id: GEO:GSE61390
+title: Genetic Correction and Metabolic Rescue of Pluripotent Cells from Patients with mtDNA
+content_type: summary
+---
+
+# Genetic Correction and Metabolic Rescue of Pluripotent Cells from Patients with mtDNA
+
+## Content
+
+Mitochondria are vital due to their principal role in energy production via oxidative phosphorylation (OXPHOS)1. Mitochondria carry their own genome (mtDNA) encoding critical genes involved in OXPHOS, therefore, mtDNA mutations cause fatal or severely debilitating disorders with limited treatment options. 2. Clinical manifestations of mtDNA disease vary based on mutation type and heteroplasmy levels i.e. presence of mutant and normal mtDNA within each cell. 3,4. We evaluated therapeutic concepts of generating genetically corrected pluripotent stem cells for patients with mtDNA mutations. We initially generated multiple iPS cell lines from a patient with mitochondrial encephalomyopathy and stroke-like episodes (MELAS) caused by a heteroplasmic 3243A>G mutation and a patient with Leigh disease carrying a homoplasmic 8993T>G mutation (Leigh-iPS). Due to spontaneous mtDNA segregation in proliferating fibroblasts, isogenic MELAS iPS cell lines were recovered containing exclusively wild type (wt) mtDNA with normal metabolic function. As expected, all iPS cells from the patient with Leigh disease were affected. Using somatic cell nuclear transfer (SCNT; Leigh-NT1), we then simultaneously replaced mutated mtDNA and generated pluripotent stem cells from the Leigh patient fibroblasts. In addition to reversing to a normal 8993G>T, oocyte derived donor mtDNA (human haplotype D4a) in Leigh-NT1 differed from the original haplotype (F1a) at a additional 47 nucleotide sites. Leigh-NT1 cells displayed normal metabolic function compared to impaired oxygen consumption and ATP production in Leigh-iPS cells or parental fibroblasts (Leigh-fib). We conclude that natural segregation of heteroplasmic mtDNA allows the generation of iPS cells with exclusively wild type mtDNA. Moreover, SCNT offers mitochondrial gene replacement strategy for patients with homoplasmic mtDNA disease.

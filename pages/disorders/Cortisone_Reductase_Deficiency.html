@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Cortisone Reductase Deficiency</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Cortisone Reductase Deficiency</h1>
             <div class="header-meta">
 
@@ -4045,7 +4188,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-cortisone-reductase-deficiency-definition">
                 <div class="item-name">Orphanet cortisone reductase deficiency definition</div>
 
                 <div class="item-desc">A rare genetic endocrine disorder with defective conversion of cortisone to active cortisol, causing ACTH-mediated adrenal androgen excess.
@@ -4090,7 +4233,10 @@
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4112,7 +4258,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21325058" target="_blank">PMID:21325058</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4148,7 +4297,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4194,7 +4343,10 @@
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4216,7 +4368,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21325058" target="_blank">PMID:21325058</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4239,7 +4394,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4285,7 +4440,10 @@
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4307,7 +4465,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23132696" target="_blank">PMID:23132696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4360,7 +4521,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-true-crd">
 
                     <div class="item-name">
                         HSD11B1-related true cortisone reductase deficiency
@@ -4414,7 +4575,10 @@ This subtype is caused by variation in HSD11B1 (hgnc:5208). hgnc:5208 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23132696" target="_blank">PMID:23132696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4440,7 +4604,7 @@ This subtype is caused by variation in HSD11B1 (hgnc:5208). hgnc:5208 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-apparent-crd">
 
                     <div class="item-name">
                         H6PD-related apparent cortisone reductase deficiency
@@ -4494,7 +4658,10 @@ This subtype is caused by variation in H6PD (hgnc:4795). hgnc:4795 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23132696" target="_blank">PMID:23132696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4541,6 +4708,7 @@ This subtype is caused by variation in H6PD (hgnc:4795). hgnc:4795 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hsd11b1-oxoreductase-loss" data-dismech-node="HSD11B1 Oxoreductase Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">HSD11B1 Oxoreductase Loss</div>
+
 
                 <div class="item-desc">HSD11B1 variants reduce 11beta-HSD1 abundance, dimer assembly, or catalytic activity, directly impairing cortisone-to-cortisol reduction.
 </div>
@@ -4690,7 +4858,10 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21325058" target="_blank">PMID:21325058</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4712,7 +4883,10 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21325058" target="_blank">PMID:21325058</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4737,6 +4911,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-h6pd-endoplasmic-reticulum-nadph-generation-failure" data-dismech-node="H6PD Endoplasmic-Reticulum NADPH Generation Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">H6PD Endoplasmic-Reticulum NADPH Generation Failure</div>
+
 
                 <div class="item-desc">H6PD loss of function reduces NADPH generation in the endoplasmic reticulum, which is required to drive 11beta-HSD1 in the cortisone-to-cortisol oxoreductase direction.
 </div>
@@ -4886,7 +5061,10 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23132696" target="_blank">PMID:23132696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4908,7 +5086,10 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12858176" target="_blank">PMID:12858176</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4930,7 +5111,10 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18628520" target="_blank">PMID:18628520</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4955,6 +5139,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cortisone-to-cortisol-regeneration" data-dismech-node="Impaired Cortisone-to-Cortisol Regeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cortisone-to-Cortisol Regeneration</div>
+
 
                 <div class="item-desc">The common biochemical lesion is reduced reduction of inactive cortisone to active cortisol in peripheral glucocorticoid target tissues, increasing cortisol clearance and weakening tissue glucocorticoid regeneration.
 </div>
@@ -5061,7 +5246,10 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21325058" target="_blank">PMID:21325058</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5083,7 +5271,10 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29843121" target="_blank">PMID:29843121</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5108,6 +5299,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acth-mediated-adrenal-hyperandrogenism" data-dismech-node="ACTH-Mediated Adrenal Hyperandrogenism" data-dismech-type="pathophysiology">
                 <div class="item-name">ACTH-Mediated Adrenal Hyperandrogenism</div>
+
 
                 <div class="item-desc">Inadequate cortisol regeneration stimulates hypothalamic-pituitary-adrenal activation and adrenal cortical steroidogenesis, producing adrenal androgen excess and related reproductive and developmental phenotypes.
 </div>
@@ -5304,7 +5496,10 @@ This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5326,7 +5521,10 @@ This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29843121" target="_blank">PMID:29843121</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5395,17 +5593,17 @@ This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5448,6 +5646,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5460,7 +5661,10 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5491,453 +5695,8 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Genitourinary
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-irregular-menstruation" data-dismech-node="Irregular menstruation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Irregular menstruation
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000858" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000858</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Irregular menstruation (HP:0000858). HP:0000858 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000858 | Irregular menstruation | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists irregular menstruation as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-infertility" data-dismech-node="Infertility" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Infertility
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000789</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hirsutism, oligoamenorrhea, central obesity and infertility in females."</div>
-
-
-                <div class="evidence-explanation">Orphanet lists infertility among female manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hirsutism" data-dismech-node="Hirsutism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hirsutism
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001007</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hirsutism, oligoamenorrhea, central obesity and infertility in females."</div>
-
-
-                <div class="evidence-explanation">Orphanet lists hirsutism among female manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypokalemia" data-dismech-node="Hypokalemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypokalemia
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002900</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002900 | Hypokalemia | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists hypokalemia as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-accelerated-skeletal-maturation" data-dismech-node="Accelerated skeletal maturation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Accelerated skeletal maturation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0005616</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:0005616 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"proportionate tall stature and accelerated bone maturation in males"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s accelerated bone maturation statement supports accelerated skeletal maturation in affected males.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tall-stature" data-dismech-node="Tall stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tall stature
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000098</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"proportionate tall stature and accelerated bone maturation in males"</div>
-
-
-                <div class="evidence-explanation">Orphanet describes tall stature and accelerated bone maturation in affected males.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">9</span>
+                    Endocrine
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-precocious-puberty" data-dismech-node="Precocious puberty" data-dismech-type="phenotype">
@@ -5956,15 +5715,18 @@ This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000826</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000826</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5982,7 +5744,10 @@ This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenot
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6004,7 +5769,10 @@ This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenot
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6015,94 +5783,6 @@ This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenot
 
 
                 <div class="evidence-explanation">The Orphanet definition describes precocious pseudopuberty.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-oligomenorrhea" data-dismech-node="Oligomenorrhea" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Oligomenorrhea
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000876</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Oligomenorrhea (HP:0000876). HP:0000876 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18628520" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18628520" target="_blank">PMID:18628520</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"CRD manifests with hyperandrogenism resulting in hirsutism, oligo-amenorrhea, and infertility in females"</div>
-
-
-                <div class="evidence-explanation">The H6PD CRD cohort paper lists oligo-amenorrhea among female hyperandrogenic manifestations.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hirsutism, oligoamenorrhea, central obesity and infertility in females."</div>
-
-
-                <div class="evidence-explanation">Orphanet lists oligoamenorrhea among female CRD manifestations.</div>
 
 
 
@@ -6134,15 +5814,18 @@ This clinical feature is Oligomenorrhea (HP:0000876). HP:0000876 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003351" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003351</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003351" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003351</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased circulating renin concentration (HP:0003351). HP:0003351 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6160,7 +5843,10 @@ This clinical feature is Decreased circulating renin concentration (HP:0003351).
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6202,15 +5888,18 @@ This clinical feature is Decreased circulating renin concentration (HP:0003351).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0008258</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0008258</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital adrenal hyperplasia (HP:0008258). HP:0008258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6228,7 +5917,10 @@ This clinical feature is Congenital adrenal hyperplasia (HP:0008258). HP:0008258
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6250,7 +5942,10 @@ This clinical feature is Congenital adrenal hyperplasia (HP:0008258). HP:0008258
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6292,15 +5987,18 @@ This clinical feature is Congenital adrenal hyperplasia (HP:0008258). HP:0008258
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012412" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012412</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012412" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012412</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Premature adrenarche (HP:0012412). HP:0012412 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6318,7 +6016,10 @@ This clinical feature is Premature adrenarche (HP:0012412). HP:0012412 is a phen
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6340,7 +6041,10 @@ This clinical feature is Premature adrenarche (HP:0012412). HP:0012412 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23132696" target="_blank">PMID:23132696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6382,15 +6086,18 @@ This clinical feature is Premature adrenarche (HP:0012412). HP:0012412 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025436" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0025436</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025436" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0025436</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated serum 11-deoxycortisol (HP:0025436). HP:0025436 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6408,7 +6115,10 @@ This clinical feature is Elevated serum 11-deoxycortisol (HP:0025436). HP:002543
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6450,15 +6160,18 @@ This clinical feature is Elevated serum 11-deoxycortisol (HP:0025436). HP:002543
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030348" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0030348</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030348" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030348</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased circulating androgen concentration (HP:0030348). HP:0030348 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6476,7 +6189,10 @@ This clinical feature is Increased circulating androgen concentration (HP:003034
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6498,7 +6214,10 @@ This clinical feature is Increased circulating androgen concentration (HP:003034
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23132696" target="_blank">PMID:23132696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6540,15 +6259,18 @@ This clinical feature is Increased circulating androgen concentration (HP:003034
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031186" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0031186</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031186" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0031186</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal circulating deoxycorticosterone level (HP:0031186). HP:0031186 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6566,7 +6288,10 @@ This clinical feature is Abnormal circulating deoxycorticosterone level (HP:0031
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6577,6 +6302,584 @@ This clinical feature is Abnormal circulating deoxycorticosterone level (HP:0031
 
 
                 <div class="evidence-explanation">Orphanet lists abnormal circulating deoxycorticosterone level as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-irregular-menstruation" data-dismech-node="Irregular menstruation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Irregular menstruation
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000858" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000858</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Irregular menstruation (HP:0000858). HP:0000858 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000858 | Irregular menstruation | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists irregular menstruation as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oligomenorrhea" data-dismech-node="Oligomenorrhea" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Oligomenorrhea
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000876</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oligomenorrhea (HP:0000876). HP:0000876 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18628520" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18628520" target="_blank">PMID:18628520</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CRD manifests with hyperandrogenism resulting in hirsutism, oligo-amenorrhea, and infertility in females"</div>
+
+
+                <div class="evidence-explanation">The H6PD CRD cohort paper lists oligo-amenorrhea among female hyperandrogenic manifestations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hirsutism, oligoamenorrhea, central obesity and infertility in females."</div>
+
+
+                <div class="evidence-explanation">Orphanet lists oligoamenorrhea among female CRD manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-infertility" data-dismech-node="Infertility" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Infertility
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000789</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hirsutism, oligoamenorrhea, central obesity and infertility in females."</div>
+
+
+                <div class="evidence-explanation">Orphanet lists infertility among female manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hirsutism" data-dismech-node="Hirsutism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hirsutism
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001007</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hirsutism, oligoamenorrhea, central obesity and infertility in females."</div>
+
+
+                <div class="evidence-explanation">Orphanet lists hirsutism among female manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypokalemia" data-dismech-node="Hypokalemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypokalemia
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002900</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002900 | Hypokalemia | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists hypokalemia as occasional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-accelerated-skeletal-maturation" data-dismech-node="Accelerated skeletal maturation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Accelerated skeletal maturation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0005616</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:0005616 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"proportionate tall stature and accelerated bone maturation in males"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s accelerated bone maturation statement supports accelerated skeletal maturation in affected males.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tall-stature" data-dismech-node="Tall stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tall stature
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000098</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"proportionate tall stature and accelerated bone maturation in males"</div>
+
+
+                <div class="evidence-explanation">Orphanet describes tall stature and accelerated bone maturation in affected males.</div>
 
 
 
@@ -6622,6 +6925,9 @@ This clinical feature is Central obesity, annotated with Abdominal obesity (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6634,7 +6940,10 @@ This clinical feature is Central obesity, annotated with Abdominal obesity (HP:0
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6736,6 +7045,9 @@ This disease-associated gene is HSD11B1 (hgnc:5208). hgnc:5208 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6748,7 +7060,10 @@ This disease-associated gene is HSD11B1 (hgnc:5208). hgnc:5208 is a gene from th
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6770,7 +7085,10 @@ This disease-associated gene is HSD11B1 (hgnc:5208). hgnc:5208 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21325058" target="_blank">PMID:21325058</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6831,6 +7149,9 @@ This disease-associated gene is H6PD (hgnc:4795). hgnc:4795 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6843,7 +7164,10 @@ This disease-associated gene is H6PD (hgnc:4795). hgnc:4795 is a gene from the H
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6865,7 +7189,10 @@ This disease-associated gene is H6PD (hgnc:4795). hgnc:4795 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23132696" target="_blank">PMID:23132696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6887,7 +7214,10 @@ This disease-associated gene is H6PD (hgnc:4795). hgnc:4795 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18628520" target="_blank">PMID:18628520</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6915,6 +7245,85 @@ This disease-associated gene is H6PD (hgnc:4795). hgnc:4795 is a gene from the H
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-cortisone-reductase-deficiency-disease-record">
+
+
+    <div class="item-name">Orphanet cortisone reductase deficiency disease record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=168588" target="_blank" rel="noopener noreferrer" title="Open ORPHA:168588">ORPHA:168588</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet&#39;s ORPHA:168588 structured record provides the exact MONDO mapping, definition, inheritance, disease genes, prevalence, and HPO phenotype rows used as structured evidence for this entry.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:168588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0000193 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet maps ORPHA:168588 exactly to MONDO:0000193.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Medical actions -->
@@ -6989,6 +7398,20 @@ This treatment uses dexamethasone (CHEBI:41879). CHEBI:41879 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Low-dose dexamethasone can suppress ACTH-driven adrenal androgen excess in apparent cortisone reductase deficiency. Hydrocortisone may be ineffective in ACRD because it is rapidly converted to cortisone.
 </div>
 
@@ -7018,7 +7441,10 @@ This treatment uses dexamethasone (CHEBI:41879). CHEBI:41879 is a therapeutic ag
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12649576" target="_blank">PMID:12649576</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7040,7 +7466,10 @@ This treatment uses dexamethasone (CHEBI:41879). CHEBI:41879 is a therapeutic ag
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29073307" target="_blank">PMID:29073307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7120,7 +7549,10 @@ This treatment targets Precocious puberty (HP:0000826). HP:0000826 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29073307" target="_blank">PMID:29073307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7142,7 +7574,10 @@ This treatment targets Precocious puberty (HP:0000826). HP:0000826 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29073307" target="_blank">PMID:29073307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7164,7 +7599,10 @@ This treatment targets Precocious puberty (HP:0000826). HP:0000826 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12649576" target="_blank">PMID:12649576</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7251,7 +7689,10 @@ This treatment targets Precocious puberty (HP:0000826). HP:0000826 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12858176" target="_blank">PMID:12858176</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7291,7 +7732,10 @@ This treatment targets Precocious puberty (HP:0000826). HP:0000826 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21325058" target="_blank">PMID:21325058</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7363,7 +7807,10 @@ This treatment targets Precocious puberty (HP:0000826). HP:0000826 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23132696" target="_blank">PMID:23132696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7403,7 +7850,10 @@ This treatment targets Precocious puberty (HP:0000826). HP:0000826 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12858176" target="_blank">PMID:12858176</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7475,7 +7925,10 @@ This treatment targets Precocious puberty (HP:0000826). HP:0000826 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23132696" target="_blank">PMID:23132696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7515,7 +7968,10 @@ This treatment targets Precocious puberty (HP:0000826). HP:0000826 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29843121" target="_blank">PMID:29843121</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7586,7 +8042,10 @@ This treatment targets Precocious puberty (HP:0000826). HP:0000826 is a phenotyp
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7626,7 +8085,10 @@ This treatment targets Precocious puberty (HP:0000826). HP:0000826 is a phenotyp
                         <a href="https://bioregistry.io/ORPHA:168588" target="_blank">ORPHA:168588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7650,6 +8112,274 @@ This treatment targets Precocious puberty (HP:0000826). HP:0000826 is a phenotyp
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-urinary-steroid-metabolite-profiling">
+                <div class="item-name">
+                    Urinary steroid metabolite profiling
+
+                </div>
+
+                <div class="item-desc">Gas chromatography/mass spectrometry-based urinary steroid profiling can identify the cortisone reductase defect and distinguish apparent H6PD-related CRD from true HSD11B1-related CRD.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        urine chemistry measurement
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C61044" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C61044</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Steroid metabolite signatures can discriminate ACRD from true CRD.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23132696" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23132696" target="_blank">PMID:23132696</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Steroid profile analysis of a 24-h urine collection provides a diagnostic method for discriminating between ACRD and CRD."</div>
+
+
+                <div class="evidence-explanation">The study directly supports urine steroid profiling as a diagnostic discriminator.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18628520" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18628520" target="_blank">PMID:18628520</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Gas chromatography/mass spectrometry identified steroid biomarkers that correlated with CRD in each case."</div>
+
+
+                <div class="evidence-explanation">This supports GC/MS urinary steroid biomarkers as a diagnostic approach in CRD.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12649576" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12649576" target="_blank">PMID:12649576</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis is based on determinations of urinary steroid metabolites."</div>
+
+
+                <div class="evidence-explanation">This pediatric ACRD case report supports urinary steroid metabolite testing for diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-hsd11b1-and-h6pd-molecular-genetic-testing">
+                <div class="item-name">
+                    HSD11B1 and H6PD molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Sequencing of HSD11B1 and H6PD helps confirm the molecular cause after a biochemical steroid-profile pattern suggests CRD or ACRD.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Pathogenic HSD11B1 variants support true CRD; pathogenic H6PD variants support apparent CRD.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23132696" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23132696" target="_blank">PMID:23132696</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we were able to establish a steroid metabolite signature differentiating ACRD and CRD, providing a basis for genetic diagnosis and future individualised management."</div>
+
+
+                <div class="evidence-explanation">The study links steroid profiles to subsequent molecular genetic diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8778,6 +9508,18 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">This entry emphasizes the disease-defining steroid-metabolism mechanism and the Orphanet very/frequent phenotype set. Falcon deep research was integrated for urinary steroid biomarker evidence and for case-report treatment evidence supporting dexamethasone adrenal androgen suppression; no CRD-specific interventional clinical trial was identified in the research output.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
