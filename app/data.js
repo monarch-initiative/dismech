@@ -46889,14 +46889,16 @@ window.searchData = [
       "CGL1",
       "CGL2",
       "CGL3",
-      "CGL4"
+      "CGL4",
+      "CGL-PPARG"
     ],
-    "description": "Berardinelli-Seip congenital lipodystrophy is a rare autosomal recessive generalized lipodystrophy with near-total adipose tissue loss from birth or early infancy, muscular hypertrophy, severe insulin resistance, hypertriglyceridemia, hepatic steatosis, hepatomegaly, and early diabetes. The four established molecular subtypes are caused by biallelic pathogenic variants in AGPAT2, BSCL2, CAV1, and CAVIN1/PTRF. These genes converge on impaired triglyceride or phospholipid handling, lipid-droplet biology, adipocyte differentiation, and caveola formation in adipocytes. Failure to store triglycerides in adipose tissue diverts lipid to liver and skeletal muscle and combines with severe leptin deficiency to drive the metabolic phenotype. Treatment is supportive and metabolic, including dietary management, conventional diabetes and hyperlipidemia therapy, and metreleptin replacement for generalized lipodystrophy.\n",
+    "description": "Berardinelli-Seip congenital lipodystrophy is a rare autosomal recessive generalized lipodystrophy with near-total adipose tissue loss from birth or early infancy, muscular hypertrophy, severe insulin resistance, hypertriglyceridemia, hepatic steatosis, hepatomegaly, and early diabetes. The four numbered molecular subtypes are caused by biallelic pathogenic variants in AGPAT2, BSCL2, CAV1, and CAVIN1/PTRF; a further, much rarer form is caused by biallelic PPARG variants. These genes converge on impaired triglyceride or phospholipid handling, lipid-droplet biology, adipocyte differentiation, and caveola formation in adipocytes. Failure to store triglycerides in adipose tissue diverts lipid to liver and skeletal muscle and combines with severe leptin deficiency to drive the metabolic phenotype. Treatment is supportive and metabolic, including dietary management, conventional diabetes and hyperlipidemia therapy, and metreleptin replacement for generalized lipodystrophy.\n",
     "pathophysiology": [
       "AGPAT2 acylglycerol synthesis defect",
       "BSCL2 seipin lipid-droplet dysregulation",
       "CAV1 caveola and lipid-droplet defect",
       "CAVIN1 caveola biogenesis defect",
+      "PPARG adipogenic nuclear receptor deficiency",
       "Generalized adipose tissue loss",
       "Ectopic triglyceride accumulation",
       "Hypoleptinemia-driven metabolic dysregulation",
@@ -46917,6 +46919,7 @@ window.searchData = [
       "fat cell differentiation",
       "lipid droplet organization",
       "caveola assembly",
+      "preadipocyte differentiation into adipocytes",
       "insulin receptor signaling pathway"
     ],
     "phenotypes": [
@@ -46982,7 +46985,8 @@ window.searchData = [
       "AGPAT2 pathogenic variants",
       "BSCL2 pathogenic variants",
       "CAV1 pathogenic variants",
-      "CAVIN1 pathogenic variants"
+      "CAVIN1 pathogenic variants",
+      "PPARG pathogenic variants"
     ],
     "treatments": [
       "Metreleptin replacement therapy",
@@ -47000,10 +47004,10 @@ window.searchData = [
     "source_file": "Berardinelli_Seip_Congenital_Lipodystrophy.yaml",
     "page_url": "../pages/disorders/Berardinelli-Seip_Congenital_Lipodystrophy.html",
     "num_phenotypes": 20,
-    "num_pathophysiology": 8,
-    "num_genes": 4,
+    "num_pathophysiology": 9,
+    "num_genes": 5,
     "num_treatments": 5,
-    "causal_graph_edges": "47",
+    "causal_graph_edges": "49",
     "causal_graph_longest_path": "6"
   },
   {
@@ -71983,7 +71987,21 @@ window.searchData = [
       "CMT2F",
       "CMT2Z",
       "CMT2K",
-      "CMT2CC"
+      "CMT2CC",
+      "CMT2L",
+      "CMT2N",
+      "CMT2Q",
+      "CMT2U",
+      "CMT2V",
+      "CMT2X",
+      "CMT2A1",
+      "CMT2B1",
+      "CMT2R",
+      "CMT2Y",
+      "CMT2EE",
+      "CMT2DD",
+      "DGAT2-CMT2",
+      "GAN2"
     ],
     "description": "Charcot-Marie-Tooth disease type 2 (CMT2) is a group of inherited peripheral neuropathies characterized by axonal degeneration of peripheral nerves without primary demyelination. Unlike CMT1, which involves Schwann cell dysfunction and demyelination, CMT2 is primarily an axonopathy with normal or near-normal nerve conduction velocities (>38 m/s) but reduced compound muscle action potential amplitudes. CMT2 is genetically heterogeneous, with over 20 subtypes identified. The most common subtype is CMT2A (MFN2 mutations); the remaining subtypes \u2014 including CMT2B (RAB7A), CMT2E (NEFL), CMT2F (HSPB1), CMT2K (GDAP1), and the recessive SORD-related form \u2014 are each individually rarer, and a large fraction of CMT2 remains genetically unsolved. Clinical features include progressive distal muscle weakness and atrophy, sensory loss, foot deformities, and areflexia, typically with onset in the first to second decade of life.\n",
     "pathophysiology": [
@@ -71993,6 +72011,14 @@ window.searchData = [
       "Impaired Endosomal Trafficking",
       "Impaired Neurotrophin Signaling Endosome Axonal Transport",
       "SORD Deficiency and Sorbitol Accumulation",
+      "Small Heat-Shock Protein Chaperone Dysfunction",
+      "Aminoacyl-tRNA Synthetase Loss of Function",
+      "Impaired Autophagy-Lysosome Function",
+      "Nuclear Lamina Disruption",
+      "Mitochondrial Energy Production Failure",
+      "Impaired Mitochondrial DNA Maintenance",
+      "Impaired Mitochondrial Fission",
+      "Axonal Sodium-Potassium ATPase Dysfunction",
       "Distal Axonal Degeneration"
     ],
     "cell_types": [
@@ -72010,6 +72036,14 @@ window.searchData = [
       "Endosome to lysosome transport",
       "Axonal transport",
       "Carbohydrate metabolic process",
+      "Protein folding",
+      "tRNA aminoacylation for protein translation",
+      "Autophagosome maturation",
+      "Lysosome organization",
+      "Nuclear envelope organization",
+      "ATP biosynthetic process",
+      "Mitochondrial DNA metabolic process",
+      "Mitochondrial fission",
       "Autophagy"
     ],
     "phenotypes": [
@@ -72058,7 +72092,21 @@ window.searchData = [
       "HSPB1",
       "MORC2",
       "GDAP1",
-      "NEFH"
+      "NEFH",
+      "HSPB8",
+      "AARS1",
+      "DHTKD1",
+      "MARS1",
+      "NAGLU",
+      "SPG11",
+      "KIF1B",
+      "LMNA",
+      "TRIM2",
+      "VCP",
+      "MPV17",
+      "ATP1A1",
+      "DGAT2",
+      "DCAF8"
     ],
     "treatments": [
       "Physical Therapy and Rehabilitation",
@@ -72076,10 +72124,10 @@ window.searchData = [
     "source_file": "Charcot-Marie-Tooth_Disease_Type_2.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_2.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 7,
-    "num_genes": 10,
+    "num_pathophysiology": 15,
+    "num_genes": 24,
     "num_treatments": 9,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "47",
     "causal_graph_longest_path": "4"
   },
   {
@@ -157675,6 +157723,117 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Human Monocytic Ehrlichiosis",
+    "disease_id": "MONDO:0000225",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tick-borne disease",
+      "Ehrlichiosis"
+    ],
+    "creation_date": "2026-09-25T10:29:22Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Human monocytic ehrlichiosis is an acute Lone Star tick-borne bacterial infection caused by the obligate intracellular bacterium Ehrlichia chaffeensis. The organism infects monocytes and macrophages, proliferates in cytoplasmic membrane-bound morulae, uses type IV secretion effectors to preserve its intracellular niche and acquire iron, and produces a febrile illness with thrombocytopenia, leukopenia, and elevated hepatic transaminases.",
+    "pathophysiology": [
+      "Amblyomma-Borne Ehrlichia Inoculation",
+      "Mononuclear Phagocyte Ehrlichia Entry",
+      "Ehrlichia Vacuolar Niche",
+      "Etf-2 RAB5 Vacuole Maturation Arrest",
+      "Etf-3 Ferritinophagy Iron Acquisition",
+      "Mononuclear Ehrlichia Persistence",
+      "TNF-Neutrophil Immunopathology",
+      "Acute Febrile Cytopenic HME",
+      "Ehrlichia Ribosomal Translation (Doxycycline Target)",
+      "Cell-Penetrant Antimicrobial Requirement"
+    ],
+    "cell_types": [
+      "monocyte",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "symbiont entry into host cell",
+      "biological process involved in interaction with host",
+      "symbiont-mediated suppression of host phagosome maturation",
+      "ferritinophagy",
+      "tumor necrosis factor production",
+      "translation",
+      "response to antibiotic"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Thrombocytopenia",
+      "Leukopenia",
+      "Elevated Hepatic Transaminases",
+      "Acute Respiratory Distress Syndrome",
+      "Hemophagocytosis",
+      "Headache",
+      "Myalgia",
+      "Skin rash",
+      "Acute kidney injury",
+      "Multi-organ failure",
+      "Lymphopenia",
+      "Hyponatremia",
+      "Anemia",
+      "Vomiting",
+      "Diarrhea",
+      "Meningoencephalitis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0001873",
+      "HP:0001882",
+      "HP:0002910",
+      "HP:0033677",
+      "HP:0012156",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0000988",
+      "HP:0001919",
+      "HP:0001888",
+      "HP:0002902",
+      "HP:0001903",
+      "HP:0002013",
+      "HP:0002014",
+      "HP:0002383"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Doxycycline"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Human_Monocytic_Ehrlichiosis.yaml",
+    "page_url": "../pages/disorders/Human_Monocytic_Ehrlichiosis.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 10,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Human Papillomavirus Infection",
     "disease_id": "MONDO:0005161",
     "category": "Infectious Disease",
@@ -237979,12 +238138,12 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 5,
     "num_treatments": 8,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "2"
   },
   {
     "name": "Obesity Due to MC4R Pathway Disruption",
-    "disease_id": "MONDO:0011122",
+    "disease_id": null,
     "category": "Metabolic Disorder",
     "parents": [
       "Obesity",
@@ -238002,9 +238161,10 @@ window.searchData = [
       "PCSK1",
       "MC4R",
       "SH2B1",
-      "NCOA1"
+      "NCOA1",
+      "SIM1"
     ],
-    "description": "Obesity due to MC4R pathway disruption is a mechanism-based umbrella entry for obesity states that converge on impaired leptin-melanocortin signaling in the hypothalamus. The shared disease logic is failure of satiety-promoting and energy expenditure-promoting signaling through the leptin/POMC/MC4R axis, whether caused by acquired hypothalamic injury, congenital structural hypothalamic abnormalities, syndromic upstream pathway defects, or rare monogenic disorders involving LEP, LEPR, POMC, PCSK1, MC4R, SH2B1, or NCOA1.",
+    "description": "Obesity due to MC4R pathway disruption is a mechanism-based umbrella entry for obesity states that converge on impaired leptin-melanocortin signaling in the hypothalamus. The shared disease logic is failure of satiety-promoting and energy expenditure-promoting signaling through the leptin/POMC/MC4R axis, whether caused by acquired hypothalamic injury, congenital structural hypothalamic abnormalities, syndromic upstream pathway defects, or rare monogenic disorders involving LEP, LEPR, POMC, PCSK1, MC4R, SIM1, SH2B1, or NCOA1.",
     "pathophysiology": [
       "MC4R pathway signaling failure",
       "Hyperphagia and failed satiety",
@@ -238065,7 +238225,8 @@ window.searchData = [
       "PCSK1",
       "MC4R",
       "SH2B1",
-      "NCOA1"
+      "NCOA1",
+      "SIM1"
     ],
     "treatments": [
       "Dietary and lifestyle intervention",
@@ -238079,9 +238240,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Obesity_Due_to_MC4R_Pathway_Disruption.html",
     "num_phenotypes": 6,
     "num_pathophysiology": 3,
-    "num_genes": 7,
+    "num_genes": 8,
     "num_treatments": 4,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
   {
@@ -253154,6 +253315,7 @@ window.searchData = [
     "pathophysiology": [
       "Defective corneodesmosome-mediated corneocyte cohesion",
       "Loss of corneodesmosin and epidermal barrier breakdown",
+      "Filaggrin-2 deficiency with secondary corneodesmosin reduction",
       "Protease-inhibitor imbalance and corneocyte over-desquamation",
       "Crosslinking-enzyme deficiency in acral PSS"
     ],
@@ -253167,6 +253329,7 @@ window.searchData = [
       "Cell-cell adhesion",
       "Keratinocyte differentiation",
       "Establishment of skin barrier",
+      "Keratinocyte cell-cell adhesion in the cornified layers",
       "Proteolysis of corneodesmosomal adhesion proteins",
       "Keratinization / cornified envelope formation"
     ],
@@ -253228,11 +253391,11 @@ window.searchData = [
     "source_file": "Peeling_Skin_Syndrome.yaml",
     "page_url": "../pages/disorders/Peeling_Skin_Syndrome.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 7,
     "num_treatments": 5,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Pelger-Huet-like Anomaly and Episodic Fever with Abdominal Pain",
@@ -317259,13 +317422,17 @@ window.searchData = [
       "AXIN2-related",
       "PAX9-related",
       "MSX1-related",
-      "EDA-related"
+      "EDA-related",
+      "GREM2-related",
+      "TSPEAR-related"
     ],
-    "description": "Tooth agenesis is the congenital absence of one or more teeth resulting from disrupted odontogenesis, and is the most common developmental anomaly of human dentition. Severity is graded by the number of teeth that fail to develop (conventionally excluding third molars): hypodontia denotes absence of one to five teeth, oligodontia denotes absence of six or more teeth, and anodontia denotes complete absence of teeth. Nonsyndromic tooth agenesis is genetically heterogeneous; the great majority of identified mutations cluster in seven genes that converge on the signaling networks governing tooth-germ initiation and patterning: the WNT/beta-catenin pathway (WNT10A, WNT10B, the co-receptor LRP6, and the negative regulator AXIN2), the transcription factors PAX9 and MSX1 acting in the dental mesenchyme, and the ectodysplasin (EDA-EDAR-EDARADD-NF-kappaB) pathway. Tooth agenesis arises from arrest of the reciprocal epithelial-mesenchymal signaling that drives the dental lamina through the initiation, bud, cap, and bell stages, so the number and pattern of missing teeth are fixed during embryonic development and do not progress thereafter. AXIN2-associated oligodontia additionally confers increased colorectal cancer risk.",
+    "description": "Tooth agenesis is the congenital absence of one or more teeth resulting from disrupted odontogenesis, and is the most common developmental anomaly of human dentition. Severity is graded by the number of teeth that fail to develop (conventionally excluding third molars): hypodontia denotes absence of one to five teeth, oligodontia denotes absence of six or more teeth, and anodontia denotes complete absence of teeth. Nonsyndromic tooth agenesis is genetically heterogeneous; the identified mutations cluster in a small number of genes that converge on the signaling networks governing tooth-germ initiation and patterning: the WNT/beta-catenin pathway (WNT10A, WNT10B, the co-receptor LRP6, and the negative regulator AXIN2), the transcription factors PAX9 and MSX1 acting in the dental mesenchyme, and the ectodysplasin (EDA-EDAR-EDARADD-NF-kappaB) pathway. Two further genes sit outside those three arms: GREM2, a BMP antagonist, places a subtype in the TGF-beta/BMP arm of odontogenic signaling, and TSPEAR is expressed in the enamel knot, the structure that coordinates patterning of the developing tooth cusps. Tooth agenesis arises from arrest of the reciprocal epithelial-mesenchymal signaling that drives the dental lamina through the initiation, bud, cap, and bell stages, so the number and pattern of missing teeth are fixed during embryonic development and do not progress thereafter. AXIN2-associated oligodontia additionally confers increased colorectal cancer risk.",
     "pathophysiology": [
       "WNT/beta-catenin Signaling Deficiency",
       "EDA-EDAR-NF-kappaB Signaling Deficiency",
       "Dental Mesenchyme Transcription Factor Deficiency",
+      "BMP Antagonist Dysregulation",
+      "Enamel Knot Signaling Disruption",
       "Impaired Odontogenesis"
     ],
     "cell_types": [
@@ -317284,6 +317451,7 @@ window.searchData = [
       "Canonical Wnt signaling pathway",
       "Canonical NF-kappaB signal transduction",
       "Regulation of odontogenesis",
+      "Regulation of BMP signaling pathway",
       "Odontogenesis"
     ],
     "phenotypes": [
@@ -317318,7 +317486,9 @@ window.searchData = [
       "MSX1 Pathogenic Variants",
       "LRP6 Loss-of-Function Variants",
       "WNT10B Variants",
-      "EDA Variants"
+      "EDA Variants",
+      "GREM2 Variants",
+      "TSPEAR Biallelic Loss-of-Function Variants"
     ],
     "treatments": [
       "Prosthodontic Rehabilitation",
@@ -317330,10 +317500,10 @@ window.searchData = [
     "source_file": "Tooth_Agenesis.yaml",
     "page_url": "../pages/disorders/Tooth_Agenesis.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 4,
-    "num_genes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 9,
     "num_treatments": 3,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "4"
   },
   {
@@ -330953,6 +331123,8 @@ window.searchData = [
       "IGF2 Loss of Imprinting",
       "MicroRNA Processing Defect",
       "Nephron Progenitor Self-Renewal",
+      "REST Repressor Inactivation",
+      "TRIM28 Tumor Suppressor Loss",
       "Persistent Blastemal Progenitor State",
       "Wilms Tumor Outgrowth",
       "TP53-Deficient Anaplastic Progression"
@@ -331022,8 +331194,12 @@ window.searchData = [
       "Chromosome 1q Gain",
       "Combined LOH 1p/16q",
       "TP53 Mutations",
-      "DROSHA and DICER1 Mutations",
-      "SIX1/SIX2 Mutations"
+      "DROSHA Mutations",
+      "DICER1 Mutations",
+      "SIX1 Mutations",
+      "SIX2 Mutations",
+      "REST Germline Inactivating Variants",
+      "TRIM28 Germline Truncating Variants"
     ],
     "treatments": [
       "Surgical Resection",
@@ -331039,10 +331215,10 @@ window.searchData = [
     "source_file": "Wilms_Tumor.yaml",
     "page_url": "../pages/disorders/Wilms_Tumor.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 11,
-    "num_genes": 9,
+    "num_pathophysiology": 13,
+    "num_genes": 13,
     "num_treatments": 4,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "6"
   },
   {
@@ -337034,17 +337210,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3190,
-  "total_subtypes": 4253,
-  "total_disorders_and_subtypes": 7443,
-  "total_unique_evidence_sources": 46447,
-  "total_unique_publications": 43645,
+  "total_disorder_pages": 3191,
+  "total_subtypes": 4271,
+  "total_disorders_and_subtypes": 7462,
+  "total_unique_evidence_sources": 46497,
+  "total_unique_publications": 43691,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 287,
-  "total_pathographs": 3185,
-  "total_unique_pathological_events": 20146,
+  "total_pathographs": 3186,
+  "total_unique_pathological_events": 20168,
   "total_modules": 179,
-  "total_research_reports": 3304,
+  "total_research_reports": 3305,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 106
