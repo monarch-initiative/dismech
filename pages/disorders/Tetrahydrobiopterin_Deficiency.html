@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Tetrahydrobiopterin Deficiency</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Tetrahydrobiopterin Deficiency</h1>
             <div class="header-meta">
 
@@ -3987,7 +4130,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal Recessive
 
@@ -4032,7 +4175,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4054,7 +4200,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33977029" target="_blank">PMID:33977029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4119,7 +4268,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ptps-deficiency">
 
                     <div class="item-name">
                         6-Pyruvoyl-Tetrahydropterin Synthase Deficiency (PTPSD)
@@ -4130,6 +4279,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                PTS
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:9689</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PTS (hgnc:9689). hgnc:9689 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4155,7 +4323,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4177,7 +4348,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32456656" target="_blank">PMID:32456656</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4203,7 +4377,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dhpr-deficiency">
 
                     <div class="item-name">
                         Dihydropteridine Reductase Deficiency (DHPRD)
@@ -4214,6 +4388,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                QDPR
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9752" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:9752</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in QDPR (hgnc:9752). hgnc:9752 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4239,7 +4432,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33977029" target="_blank">PMID:33977029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4265,7 +4461,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gtpch-deficiency">
 
                     <div class="item-name">
                         GTP Cyclohydrolase I Deficiency (autosomal recessive, AR-GTPCHD)
@@ -4276,6 +4472,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                GCH1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4193" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4193</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GCH1 (hgnc:4193). hgnc:4193 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4301,7 +4516,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39001623" target="_blank">PMID:39001623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4327,7 +4545,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-pcd-deficiency">
 
                     <div class="item-name">
                         Pterin-4-alpha-Carbinolamine Dehydratase Deficiency (PCDD)
@@ -4338,6 +4556,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                PCBD1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:8646" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:8646</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PCBD1 (hgnc:8646). hgnc:8646 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4363,7 +4600,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32456656" target="_blank">PMID:32456656</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4389,7 +4629,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-spr-deficiency">
 
                     <div class="item-name">
                         Sepiapterin Reductase Deficiency (SRD)
@@ -4400,6 +4640,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                SPR
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11257" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11257</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SPR (hgnc:11257). hgnc:11257 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4425,7 +4684,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38585541" target="_blank">PMID:38585541</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4504,7 +4766,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32456656" target="_blank">PMID:32456656</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4545,6 +4810,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bh4-biosynthesis-and-regeneration-gene-defect" data-dismech-node="BH4 Biosynthesis and Regeneration Gene Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">BH4 Biosynthesis and Regeneration Gene Defect</div>
 
+
                 <div class="item-desc">Biallelic pathogenic variants in BH4 de novo synthesis genes (GCH1, PTS, SPR) or regeneration genes (QDPR, PCBD1) initiate disease by abolishing or reducing the corresponding pterin enzyme activity.</div>
 
 
@@ -4567,11 +4833,11 @@
         GCH1
 
 
-    <a href="https://bioregistry.io/hgnc:4193" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4193</a>
+    <a href="https://bioregistry.io/hgnc:4193" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:4193</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves decreased GCH1 (hgnc:4193). hgnc:4193 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4610,11 +4876,11 @@ This pathophysiological event involves decreased GCH1 (hgnc:4193). hgnc:4193 is 
         PTS
 
 
-    <a href="https://bioregistry.io/hgnc:9689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:9689</a>
+    <a href="https://bioregistry.io/hgnc:9689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:9689</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves decreased PTS (hgnc:9689). hgnc:9689 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4653,11 +4919,11 @@ This pathophysiological event involves decreased PTS (hgnc:9689). hgnc:9689 is a
         SPR
 
 
-    <a href="https://bioregistry.io/hgnc:11257" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11257</a>
+    <a href="https://bioregistry.io/hgnc:11257" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:11257</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves decreased SPR (hgnc:11257). hgnc:11257 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4696,11 +4962,11 @@ This pathophysiological event involves decreased SPR (hgnc:11257). hgnc:11257 is
         QDPR
 
 
-    <a href="https://bioregistry.io/hgnc:9752" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:9752</a>
+    <a href="https://bioregistry.io/hgnc:9752" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:9752</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves decreased QDPR (hgnc:9752). hgnc:9752 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4739,11 +5005,11 @@ This pathophysiological event involves decreased QDPR (hgnc:9752). hgnc:9752 is 
         PCBD1
 
 
-    <a href="https://bioregistry.io/hgnc:8646" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:8646</a>
+    <a href="https://bioregistry.io/hgnc:8646" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:8646</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves decreased PCBD1 (hgnc:8646). hgnc:8646 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4785,10 +5051,15 @@ This pathophysiological event involves decreased PCBD1 (hgnc:8646). hgnc:8646 is
 
 
 
+
+
         <span class="tag tag-classification">functional_impact: loss_of_function_or_hypomorphic</span>
 
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic pathogenic variants in a BH4 synthesis or regeneration gene.</div>
 
@@ -4833,7 +5104,10 @@ This pathophysiological event involves decreased PCBD1 (hgnc:8646). hgnc:8646 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32456656" target="_blank">PMID:32456656</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4855,7 +5129,10 @@ This pathophysiological event involves decreased PCBD1 (hgnc:8646). hgnc:8646 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38168036" target="_blank">PMID:38168036</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4881,6 +5158,7 @@ This pathophysiological event involves decreased PCBD1 (hgnc:8646). hgnc:8646 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tetrahydrobiopterin-cofactor-deficiency" data-dismech-node="Tetrahydrobiopterin Cofactor Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Tetrahydrobiopterin Cofactor Deficiency</div>
 
+
                 <div class="item-desc">Depletion of the BH4 cofactor that is obligatory for the aromatic amino acid hydroxylases phenylalanine, tyrosine, and tryptophan hydroxylase.</div>
 
 
@@ -4902,11 +5180,11 @@ This pathophysiological event involves decreased PCBD1 (hgnc:8646). hgnc:8646 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006729" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006729</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006729" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006729</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased tetrahydrobiopterin biosynthetic process (GO:0006729). GO:0006729 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4966,7 +5244,10 @@ This pathophysiological event involves decreased tetrahydrobiopterin biosyntheti
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4992,6 +5273,7 @@ This pathophysiological event involves decreased tetrahydrobiopterin biosyntheti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-aromatic-amino-acid-hydroxylase-activity" data-dismech-node="Impaired Aromatic Amino Acid Hydroxylase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Aromatic Amino Acid Hydroxylase Activity</div>
 
+
                 <div class="item-desc">BH4-dependent phenylalanine hydroxylase, tyrosine hydroxylase, and tryptophan hydroxylase lose activity, simultaneously blocking phenylalanine clearance and catecholamine/serotonin precursor synthesis.</div>
 
 
@@ -5013,11 +5295,11 @@ This pathophysiological event involves decreased tetrahydrobiopterin biosyntheti
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042423" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042423</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042423" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0042423</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased catecholamine biosynthetic process (GO:0042423). GO:0042423 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5085,7 +5367,10 @@ This pathophysiological event involves decreased catecholamine biosynthetic proc
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5111,6 +5396,7 @@ This pathophysiological event involves decreased catecholamine biosynthetic proc
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperphenylalaninemia" data-dismech-node="Hyperphenylalaninemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperphenylalaninemia</div>
 
+
                 <div class="item-desc">Phenylalanine accumulates in blood when BH4-dependent PAH activity is impaired; it is the diagnostic hallmark for most BH4 deficiencies except AD-GTPCHD and SRD.</div>
 
 
@@ -5132,11 +5418,11 @@ This pathophysiological event involves decreased catecholamine biosynthetic proc
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006559" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006559</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006559" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006559</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased L-phenylalanine catabolic process (GO:0006559). GO:0006559 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5196,7 +5482,10 @@ This pathophysiological event involves decreased L-phenylalanine catabolic proce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32456656" target="_blank">PMID:32456656</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5222,6 +5511,7 @@ This pathophysiological event involves decreased L-phenylalanine catabolic proce
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-monoamine-neurotransmitter-deficiency" data-dismech-node="Monoamine Neurotransmitter Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Monoamine Neurotransmitter Deficiency</div>
 
+
                 <div class="item-desc">Reduced dopamine, norepinephrine, and serotonin synthesis from BH4-dependent tyrosine and tryptophan hydroxylase failure; the clinically dominant mechanism, reflected by low CSF homovanillic acid and 5-hydroxyindoleacetic acid.</div>
 
 
@@ -5236,11 +5526,11 @@ This pathophysiological event involves decreased L-phenylalanine catabolic proce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000700</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000700</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000700 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5266,11 +5556,11 @@ This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000850" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000850</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000850" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000850</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves serotonergic neuron (CL:0000850). CL:0000850 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5307,11 +5597,11 @@ This pathophysiological event involves serotonergic neuron (CL:0000850). CL:0000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042416" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0042416</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042416" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0042416</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased dopamine biosynthetic process (GO:0042416). GO:0042416 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5341,11 +5631,11 @@ This pathophysiological event involves decreased dopamine biosynthetic process (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042427" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0042427</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042427" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0042427</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased serotonin biosynthetic process (GO:0042427). GO:0042427 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5375,11 +5665,11 @@ This pathophysiological event involves decreased serotonin biosynthetic process 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042421" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0042421</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042421" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0042421</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased norepinephrine biosynthetic process (GO:0042421). GO:0042421 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5416,11 +5706,11 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0000955</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5468,7 +5758,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32456656" target="_blank">PMID:32456656</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5490,7 +5783,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40243727" target="_blank">PMID:40243727</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5516,6 +5812,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurological-disease" data-dismech-node="Neurological Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurological Disease</div>
 
+
                 <div class="item-desc">Convergent neurological phenotype of BH4 deficiency: developmental delay, hypotonia, dystonia, parkinsonism, oculogyric crises, and seizures, often unresponsive to phenylalanine restriction alone and requiring neurotransmitter precursor therapy.</div>
 
 
@@ -5530,11 +5827,11 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5571,11 +5868,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0007268</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5612,11 +5909,11 @@ This pathophysiological event involves abnormal chemical synaptic transmission (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0000955</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5696,7 +5993,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5744,7 +6044,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"5-Hydroxytryptophan\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Serotonin precursor that bypasses BH4-dependent tryptophan hydroxylation to restore central serotonin synthesis; combined with levodopa.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"5-hydroxytryptophan\"]}}, {\"id\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in BH4 de novo synthesis genes (GCH1, PTS, SPR) or regeneration genes (QDPR, PCBD1) initiate disease by abolishing or reducing the corresponding pterin enzyme activity.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GCH1\", \"PTS\", \"SPR\", \"QDPR\", \"PCBD1\"], \"gene_terms\": [{\"label\": \"GCH1\", \"id\": \"hgnc:4193\", \"modifier\": \"DECREASED\"}, {\"label\": \"PTS\", \"id\": \"hgnc:9689\", \"modifier\": \"DECREASED\"}, {\"label\": \"SPR\", \"id\": \"hgnc:11257\", \"modifier\": \"DECREASED\"}, {\"label\": \"QDPR\", \"id\": \"hgnc:9752\", \"modifier\": \"DECREASED\"}, {\"label\": \"PCBD1\", \"id\": \"hgnc:8646\", \"modifier\": \"DECREASED\"}], \"genetic_context\": {\"functional_impact\": \"loss_of_function_or_hypomorphic\", \"description\": \"Biallelic pathogenic variants in a BH4 synthesis or regeneration gene.\"}}}, {\"id\": \"CSF Neurotransmitter Metabolites\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Decreased\", \"readouts\": [{\"target\": \"Monoamine Neurotransmitter Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low CSF HVA and 5-HIAA report reduced central dopamine and serotonin synthesis.\"}]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"GCH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GCH1\"], \"gene_terms\": [{\"label\": \"GCH1\", \"id\": \"hgnc:4193\"}], \"subtypes\": [\"GTPCH Deficiency\"], \"association\": \"Causative\"}}, {\"id\": \"Generalized Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperphenylalaninemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"CHEBI:58095\", \"term_label\": \"L-phenylalanine zwitterion\", \"readouts\": [{\"target\": \"Hyperphenylalaninemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated blood phenylalanine reports impaired BH4-dependent PAH activity.\"}]}}, {\"id\": \"Hyperprolactinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000870\"}}, {\"id\": \"Impaired Aromatic Amino Acid Hydroxylase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BH4-dependent phenylalanine hydroxylase, tyrosine hydroxylase, and tryptophan hydroxylase lose activity, simultaneously blocking phenylalanine clearance and catecholamine/serotonin precursor synthesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"catecholamine biosynthetic process\"]}}, {\"id\": \"Levodopa/Carbidopa\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dopamine precursor (with a peripheral decarboxylase inhibitor) replaces deficient central dopamine; core neurotransmitter therapy across AR-GTPCHD, PTPSD, SRD, and DHPRD.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levodopa\", \"carbidopa\"]}}, {\"id\": \"Monoamine Neurotransmitter Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced dopamine, norepinephrine, and serotonin synthesis from BH4-dependent tyrosine and tryptophan hydroxylase failure; the clinically dominant mechanism, reflected by low CSF homovanillic acid and 5-hydroxyindoleacetic acid.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dopaminergic neuron\", \"serotonergic neuron\"], \"biological_processes\": [\"dopamine biosynthetic process\", \"serotonin biosynthetic process\", \"norepinephrine biosynthetic process\"], \"locations\": [\"brain\"]}}, {\"id\": \"Neurological Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent neurological phenotype of BH4 deficiency: developmental delay, hypotonia, dystonia, parkinsonism, oculogyric crises, and seizures, often unresponsive to phenylalanine restriction alone and requiring neurotransmitter precursor therapy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"brain\"]}}, {\"id\": \"Oculogyric Crisis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010553\"}}, {\"id\": \"PCBD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PCBD1\"], \"gene_terms\": [{\"label\": \"PCBD1\", \"id\": \"hgnc:8646\"}], \"subtypes\": [\"PCD Deficiency\"], \"association\": \"Causative\"}}, {\"id\": \"PTS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTS\"], \"gene_terms\": [{\"label\": \"PTS\", \"id\": \"hgnc:9689\"}], \"subtypes\": [\"PTPS Deficiency\"], \"association\": \"Causative\"}}, {\"id\": \"Parkinsonism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001300\"}}, {\"id\": \"Phenylalanine-Restricted Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary phenylalanine restriction used when sapropterin is unavailable, to reduce hyperphenylalaninemia in HPA-associated BH4 deficiencies; insufficient alone for the neurotransmitter deficit.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"QDPR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"QDPR\"], \"gene_terms\": [{\"label\": \"QDPR\", \"id\": \"hgnc:9752\"}], \"subtypes\": [\"DHPR Deficiency\"], \"association\": \"Causative\"}}, {\"id\": \"SPR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SPR\"], \"gene_terms\": [{\"label\": \"SPR\", \"id\": \"hgnc:11257\"}], \"subtypes\": [\"SPR Deficiency\"], \"association\": \"Causative\"}}, {\"id\": \"Sapropterin (BH4)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tetrahydrobiopterin cofactor replacement to lower blood phenylalanine in HPA-associated BH4 deficiencies (PTPSD, AR-GTPCHD, some DHPRD); limited CNS access means it does not normalize central monoamine synthesis alone.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sapropterin\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tetrahydrobiopterin Cofactor Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of the BH4 cofactor that is obligatory for the aromatic amino acid hydroxylases phenylalanine, tyrosine, and tryptophan hydroxylase.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tetrahydrobiopterin biosynthetic process\"]}}], \"edges\": [{\"source\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"target\": \"Tetrahydrobiopterin Cofactor Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of pterin enzyme activity depletes the BH4 cofactor pool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tetrahydrobiopterin Cofactor Deficiency\", \"target\": \"Impaired Aromatic Amino Acid Hydroxylase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cofactor loss disables phenylalanine, tyrosine, and tryptophan hydroxylases.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Aromatic Amino Acid Hydroxylase Activity\", \"target\": \"Hyperphenylalaninemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of phenylalanine hydroxylase activity raises blood phenylalanine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Aromatic Amino Acid Hydroxylase Activity\", \"target\": \"Monoamine Neurotransmitter Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of tyrosine and tryptophan hydroxylase activity reduces dopamine, norepinephrine, and serotonin synthesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperphenylalaninemia\", \"target\": \"Neurological Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Untreated hyperphenylalaninemia contributes to neurotoxicity and neurodevelopmental impairment alongside the monoamine deficit.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"brain phenylalanine accumulation and large-neutral-amino-acid transport competition\"]}, {\"source\": \"Monoamine Neurotransmitter Deficiency\", \"target\": \"Neurological Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopamine, norepinephrine, and serotonin deficiency produce dystonia, parkinsonism, developmental delay, hypotonia, and seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Monoamine Neurotransmitter Deficiency\", \"target\": \"Hyperprolactinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of dopaminergic tone disinhibits pituitary prolactin secretion, producing hyperprolactinemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced hypothalamic dopaminergic inhibition of lactotrophs\"]}, {\"source\": \"Neurological Disease\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BH4-deficiency neurologic disease commonly manifests as global developmental delay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurological Disease\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Monoamine-deficient neurologic disease produces dystonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurological Disease\", \"target\": \"Generalized Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial/generalized hypotonia is a frequent presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurological Disease\", \"target\": \"Parkinsonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopamine deficiency yields parkinsonism/hypokinesia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurological Disease\", \"target\": \"Oculogyric Crisis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopaminergic deficiency produces oculogyric crises.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurological Disease\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe BH4 deficiency (especially PTPSD/DHPRD) can include epilepsy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sapropterin (BH4)\", \"target\": \"Hyperphenylalaninemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levodopa/Carbidopa\", \"target\": \"Monoamine Neurotransmitter Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"5-Hydroxytryptophan\", \"target\": \"Monoamine Neurotransmitter Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phenylalanine-Restricted Diet\", \"target\": \"Hyperphenylalaninemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hyperphenylalaninemia\", \"target\": \"Hyperphenylalaninemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated blood phenylalanine reports impaired BH4-dependent PAH activity.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Monoamine Neurotransmitter Deficiency\", \"target\": \"CSF Neurotransmitter Metabolites\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low CSF HVA and 5-HIAA report reduced central dopamine and serotonin synthesis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PTS\", \"target\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"QDPR\", \"target\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GCH1\", \"target\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCBD1\", \"target\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPR\", \"target\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"5-Hydroxytryptophan\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Serotonin precursor that bypasses BH4-dependent tryptophan hydroxylation to restore central serotonin synthesis; combined with levodopa.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"5-hydroxytryptophan\"]}}, {\"id\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in BH4 de novo synthesis genes (GCH1, PTS, SPR) or regeneration genes (QDPR, PCBD1) initiate disease by abolishing or reducing the corresponding pterin enzyme activity.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GCH1\", \"PTS\", \"SPR\", \"QDPR\", \"PCBD1\"], \"gene_terms\": [{\"label\": \"GCH1\", \"id\": \"hgnc:4193\", \"modifier\": \"DECREASED\"}, {\"label\": \"PTS\", \"id\": \"hgnc:9689\", \"modifier\": \"DECREASED\"}, {\"label\": \"SPR\", \"id\": \"hgnc:11257\", \"modifier\": \"DECREASED\"}, {\"label\": \"QDPR\", \"id\": \"hgnc:9752\", \"modifier\": \"DECREASED\"}, {\"label\": \"PCBD1\", \"id\": \"hgnc:8646\", \"modifier\": \"DECREASED\"}], \"genetic_context\": {\"functional_impact\": \"loss_of_function_or_hypomorphic\", \"description\": \"Biallelic pathogenic variants in a BH4 synthesis or regeneration gene.\"}}}, {\"id\": \"CSF Neurotransmitter Metabolites\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Decreased\", \"readouts\": [{\"target\": \"Monoamine Neurotransmitter Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low CSF HVA and 5-HIAA report reduced central dopamine and serotonin synthesis.\"}]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"GCH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GCH1\"], \"gene_terms\": [{\"label\": \"GCH1\", \"id\": \"hgnc:4193\"}], \"subtypes\": [\"GTPCH Deficiency\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Generalized Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperphenylalaninemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"CHEBI:58095\", \"term_label\": \"L-phenylalanine zwitterion\", \"readouts\": [{\"target\": \"Hyperphenylalaninemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated blood phenylalanine reports impaired BH4-dependent PAH activity.\"}]}}, {\"id\": \"Hyperprolactinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000870\"}}, {\"id\": \"Impaired Aromatic Amino Acid Hydroxylase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BH4-dependent phenylalanine hydroxylase, tyrosine hydroxylase, and tryptophan hydroxylase lose activity, simultaneously blocking phenylalanine clearance and catecholamine/serotonin precursor synthesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"catecholamine biosynthetic process\"]}}, {\"id\": \"Levodopa/Carbidopa\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dopamine precursor (with a peripheral decarboxylase inhibitor) replaces deficient central dopamine; core neurotransmitter therapy across AR-GTPCHD, PTPSD, SRD, and DHPRD.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levodopa\", \"carbidopa\"]}}, {\"id\": \"Monoamine Neurotransmitter Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced dopamine, norepinephrine, and serotonin synthesis from BH4-dependent tyrosine and tryptophan hydroxylase failure; the clinically dominant mechanism, reflected by low CSF homovanillic acid and 5-hydroxyindoleacetic acid.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dopaminergic neuron\", \"serotonergic neuron\"], \"biological_processes\": [\"dopamine biosynthetic process\", \"serotonin biosynthetic process\", \"norepinephrine biosynthetic process\"], \"locations\": [\"brain\"]}}, {\"id\": \"Neurological Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent neurological phenotype of BH4 deficiency: developmental delay, hypotonia, dystonia, parkinsonism, oculogyric crises, and seizures, often unresponsive to phenylalanine restriction alone and requiring neurotransmitter precursor therapy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"brain\"]}}, {\"id\": \"Oculogyric Crisis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010553\"}}, {\"id\": \"PCBD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PCBD1\"], \"gene_terms\": [{\"label\": \"PCBD1\", \"id\": \"hgnc:8646\"}], \"subtypes\": [\"PCD Deficiency\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PTS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTS\"], \"gene_terms\": [{\"label\": \"PTS\", \"id\": \"hgnc:9689\"}], \"subtypes\": [\"PTPS Deficiency\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Parkinsonism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001300\"}}, {\"id\": \"Phenylalanine-Restricted Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary phenylalanine restriction used when sapropterin is unavailable, to reduce hyperphenylalaninemia in HPA-associated BH4 deficiencies; insufficient alone for the neurotransmitter deficit.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"QDPR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"QDPR\"], \"gene_terms\": [{\"label\": \"QDPR\", \"id\": \"hgnc:9752\"}], \"subtypes\": [\"DHPR Deficiency\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SPR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SPR\"], \"gene_terms\": [{\"label\": \"SPR\", \"id\": \"hgnc:11257\"}], \"subtypes\": [\"SPR Deficiency\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Sapropterin (BH4)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tetrahydrobiopterin cofactor replacement to lower blood phenylalanine in HPA-associated BH4 deficiencies (PTPSD, AR-GTPCHD, some DHPRD); limited CNS access means it does not normalize central monoamine synthesis alone.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sapropterin\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tetrahydrobiopterin Cofactor Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of the BH4 cofactor that is obligatory for the aromatic amino acid hydroxylases phenylalanine, tyrosine, and tryptophan hydroxylase.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tetrahydrobiopterin biosynthetic process\"]}}], \"edges\": [{\"source\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"target\": \"Tetrahydrobiopterin Cofactor Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of pterin enzyme activity depletes the BH4 cofactor pool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tetrahydrobiopterin Cofactor Deficiency\", \"target\": \"Impaired Aromatic Amino Acid Hydroxylase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cofactor loss disables phenylalanine, tyrosine, and tryptophan hydroxylases.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Aromatic Amino Acid Hydroxylase Activity\", \"target\": \"Hyperphenylalaninemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of phenylalanine hydroxylase activity raises blood phenylalanine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Aromatic Amino Acid Hydroxylase Activity\", \"target\": \"Monoamine Neurotransmitter Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of tyrosine and tryptophan hydroxylase activity reduces dopamine, norepinephrine, and serotonin synthesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperphenylalaninemia\", \"target\": \"Neurological Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Untreated hyperphenylalaninemia contributes to neurotoxicity and neurodevelopmental impairment alongside the monoamine deficit.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"brain phenylalanine accumulation and large-neutral-amino-acid transport competition\"]}, {\"source\": \"Monoamine Neurotransmitter Deficiency\", \"target\": \"Neurological Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopamine, norepinephrine, and serotonin deficiency produce dystonia, parkinsonism, developmental delay, hypotonia, and seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Monoamine Neurotransmitter Deficiency\", \"target\": \"Hyperprolactinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of dopaminergic tone disinhibits pituitary prolactin secretion, producing hyperprolactinemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced hypothalamic dopaminergic inhibition of lactotrophs\"]}, {\"source\": \"Neurological Disease\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BH4-deficiency neurologic disease commonly manifests as global developmental delay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurological Disease\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Monoamine-deficient neurologic disease produces dystonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurological Disease\", \"target\": \"Generalized Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial/generalized hypotonia is a frequent presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurological Disease\", \"target\": \"Parkinsonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopamine deficiency yields parkinsonism/hypokinesia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurological Disease\", \"target\": \"Oculogyric Crisis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopaminergic deficiency produces oculogyric crises.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurological Disease\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe BH4 deficiency (especially PTPSD/DHPRD) can include epilepsy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sapropterin (BH4)\", \"target\": \"Hyperphenylalaninemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levodopa/Carbidopa\", \"target\": \"Monoamine Neurotransmitter Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"5-Hydroxytryptophan\", \"target\": \"Monoamine Neurotransmitter Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phenylalanine-Restricted Diet\", \"target\": \"Hyperphenylalaninemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hyperphenylalaninemia\", \"target\": \"Hyperphenylalaninemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated blood phenylalanine reports impaired BH4-dependent PAH activity.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Monoamine Neurotransmitter Deficiency\", \"target\": \"CSF Neurotransmitter Metabolites\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low CSF HVA and 5-HIAA report reduced central dopamine and serotonin synthesis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PTS\", \"target\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"QDPR\", \"target\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GCH1\", \"target\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCBD1\", \"target\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPR\", \"target\": \"BH4 Biosynthesis and Regeneration Gene Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5763,17 +6063,187 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(8)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Endocrine
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperprolactinemia" data-dismech-node="Hyperprolactinemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperprolactinemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating prolactin concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000870</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperprolactinemia, annotated with Increased circulating prolactin concentration (HP:0000870). HP:0000870 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Reflects loss of dopaminergic inhibition of prolactin secretion.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40638773" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other features of the condition can include psychiatric comorbidities (ADHD, anxiety, depression), infant feeding difficulties leading to early growth failure, hyperprolactinemia"</div>
+
+
+                <div class="evidence-explanation">GeneReviews documents hyperprolactinemia as a recognized feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperphenylalaninemia" data-dismech-node="Hyperphenylalaninemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperphenylalaninemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004923" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004923</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperphenylalaninemia (HP:0004923). HP:0004923 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">First diagnostic hallmark for most BH4 deficiencies (except AD-GTPCHD and SRD).</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32456656" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32456656" target="_blank">PMID:32456656</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hyperphenylalaninemia (HPA) is the first diagnostic hallmark for most BH4 deficiencies, apart from autosomal dominant guanosine triphosphate cyclohydrolase I deficiency and sepiapterin reductase deficiency."</div>
+
+
+                <div class="evidence-explanation">Establishes hyperphenylalaninemia as the diagnostic biochemical phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -5796,15 +6266,18 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001290</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001290</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5822,7 +6295,10 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5850,11 +6326,11 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
@@ -5873,15 +6349,18 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5899,7 +6378,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33977029" target="_blank">PMID:33977029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5921,7 +6403,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40243727" target="_blank">PMID:40243727</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5963,15 +6448,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Risk increased in HPA-associated forms and untreated/late-diagnosed disease.</div>
@@ -5991,7 +6479,10 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33977029" target="_blank">PMID:33977029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6033,15 +6524,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6059,7 +6553,10 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38585541" target="_blank">PMID:38585541</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6099,15 +6596,18 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001300</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6125,7 +6625,10 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6136,6 +6639,78 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
                 <div class="evidence-explanation">Lists parkinsonism among the neurologic phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oculogyric-crisis" data-dismech-node="Oculogyric Crisis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Oculogyric Crisis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010553" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0010553</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oculogyric crisis (HP:0010553). HP:0010553 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38585541" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38585541" target="_blank">PMID:38585541</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical manifestations include motor and speech delay, axial hypotonia, dystonia, weakness, oculogyric crises, diurnal fluctuation, and improvement of symptoms during sleep."</div>
+
+
+                <div class="evidence-explanation">Documents oculogyric crises as a movement-disorder feature.</div>
 
 
 
@@ -6167,15 +6742,18 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">More prominent in severe PTPSD and DHPRD.</div>
@@ -6195,7 +6773,10 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33980295" target="_blank">PMID:33980295</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6235,15 +6816,18 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6261,7 +6845,10 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38585541" target="_blank">PMID:38585541</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6301,15 +6888,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002066</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6327,7 +6917,10 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40243727" target="_blank">PMID:40243727</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6338,219 +6931,6 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
                 <div class="evidence-explanation">Documents ataxia in an SRD family.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperphenylalaninemia" data-dismech-node="Hyperphenylalaninemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperphenylalaninemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004923" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0004923</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperphenylalaninemia (HP:0004923). HP:0004923 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">First diagnostic hallmark for most BH4 deficiencies (except AD-GTPCHD and SRD).</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32456656" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32456656" target="_blank">PMID:32456656</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Hyperphenylalaninemia (HPA) is the first diagnostic hallmark for most BH4 deficiencies, apart from autosomal dominant guanosine triphosphate cyclohydrolase I deficiency and sepiapterin reductase deficiency."</div>
-
-
-                <div class="evidence-explanation">Establishes hyperphenylalaninemia as the diagnostic biochemical phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-oculogyric-crisis" data-dismech-node="Oculogyric Crisis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Oculogyric Crisis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010553" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0010553</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Oculogyric crisis (HP:0010553). HP:0010553 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38585541" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38585541" target="_blank">PMID:38585541</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The clinical manifestations include motor and speech delay, axial hypotonia, dystonia, weakness, oculogyric crises, diurnal fluctuation, and improvement of symptoms during sleep."</div>
-
-
-                <div class="evidence-explanation">Documents oculogyric crises as a movement-disorder feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperprolactinemia" data-dismech-node="Hyperprolactinemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperprolactinemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Increased circulating prolactin concentration</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000870</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperprolactinemia, annotated with Increased circulating prolactin concentration (HP:0000870). HP:0000870 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Reflects loss of dopaminergic inhibition of prolactin secretion.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40638773" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other features of the condition can include psychiatric comorbidities (ADHD, anxiety, depression), infant feeding difficulties leading to early growth failure, hyperprolactinemia"</div>
-
-
-                <div class="evidence-explanation">GeneReviews documents hyperprolactinemia as a recognized feature.</div>
 
 
 
@@ -6623,17 +7003,22 @@ This clinical feature is Hyperprolactinemia, annotated with Increased circulatin
                         Gene: PTS
 
 
-    <a href="https://bioregistry.io/hgnc:9689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:9689</a>
+    <a href="https://bioregistry.io/hgnc:9689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:9689</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PTS (hgnc:9689). hgnc:9689 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6650,7 +7035,10 @@ This disease-associated gene is PTS (hgnc:9689). hgnc:9689 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6692,17 +7080,22 @@ This disease-associated gene is PTS (hgnc:9689). hgnc:9689 is a gene from the HU
                         Gene: QDPR
 
 
-    <a href="https://bioregistry.io/hgnc:9752" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:9752</a>
+    <a href="https://bioregistry.io/hgnc:9752" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:9752</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is QDPR (hgnc:9752). hgnc:9752 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6719,7 +7112,10 @@ This disease-associated gene is QDPR (hgnc:9752). hgnc:9752 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32022462" target="_blank">PMID:32022462</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6761,17 +7157,22 @@ This disease-associated gene is QDPR (hgnc:9752). hgnc:9752 is a gene from the H
                         Gene: GCH1
 
 
-    <a href="https://bioregistry.io/hgnc:4193" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:4193</a>
+    <a href="https://bioregistry.io/hgnc:4193" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:4193</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GCH1 (hgnc:4193). hgnc:4193 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6788,7 +7189,10 @@ This disease-associated gene is GCH1 (hgnc:4193). hgnc:4193 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39001623" target="_blank">PMID:39001623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6830,17 +7234,22 @@ This disease-associated gene is GCH1 (hgnc:4193). hgnc:4193 is a gene from the H
                         Gene: PCBD1
 
 
-    <a href="https://bioregistry.io/hgnc:8646" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:8646</a>
+    <a href="https://bioregistry.io/hgnc:8646" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:8646</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PCBD1 (hgnc:8646). hgnc:8646 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6857,7 +7266,10 @@ This disease-associated gene is PCBD1 (hgnc:8646). hgnc:8646 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24204001" target="_blank">PMID:24204001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6899,17 +7311,22 @@ This disease-associated gene is PCBD1 (hgnc:8646). hgnc:8646 is a gene from the 
                         Gene: SPR
 
 
-    <a href="https://bioregistry.io/hgnc:11257" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:11257</a>
+    <a href="https://bioregistry.io/hgnc:11257" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:11257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SPR (hgnc:11257). hgnc:11257 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6926,7 +7343,10 @@ This disease-associated gene is SPR (hgnc:11257). hgnc:11257 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40243727" target="_blank">PMID:40243727</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6956,6 +7376,9 @@ This disease-associated gene is SPR (hgnc:11257). hgnc:11257 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6968,331 +7391,6 @@ This disease-associated gene is SPR (hgnc:11257). hgnc:11257 is a gene from the 
             <div class="item-box treatment-box anchor-target" id="treatment-sapropterin-bh4" data-dismech-node="Sapropterin (BH4)" data-dismech-type="treatment">
                 <div class="item-name">
                     Sapropterin (BH4)
-                </div>
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-
-
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
-                    </span>
-
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    </div>
-
-
-
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-
-
-
-                    <span class="tag tag-treatment">
-                        sapropterin
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CHEBI_59560" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:59560</a>
-
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses sapropterin (CHEBI:59560). CHEBI:59560 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
-                    </span>
-
-                </div>
-
-
-
-                <div class="item-desc">Tetrahydrobiopterin cofactor replacement to lower blood phenylalanine in HPA-associated BH4 deficiencies (PTPSD, AR-GTPCHD, some DHPRD); limited CNS access means it does not normalize central monoamine synthesis alone.</div>
-
-
-                <div class="item-meta" style="margin-top: 8px;">
-                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-
-                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
-                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
-                            INHIBITS
-                        </span>
-                        <strong style="color: #5b21b6;">Hyperphenylalaninemia</strong>
-
-                        <span style="color: #7c3aed;"> &mdash; BH4 cofactor replacement restores residual PAH activity, lowering blood phenylalanine.</span>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40638773" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Immediate therapy with sapropterin (tetrahydrobiopterin dihydrochloride; BH4), a cofactor/cosubstrate of PAH, is recommended to reduce blood Phe concentrations in individuals with hyperphenylalaninemia."</div>
-
-
-                <div class="evidence-explanation">Supports sapropterin acting on the hyperphenylalaninemia node.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-                    </div>
-
-                </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40638773" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Immediate therapy with sapropterin (tetrahydrobiopterin dihydrochloride; BH4), a cofactor/cosubstrate of PAH, is recommended to reduce blood Phe concentrations in individuals with hyperphenylalaninemia."</div>
-
-
-                <div class="evidence-explanation">GeneReviews recommends sapropterin as first-line cofactor therapy.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-            </div>
-
-            <div class="item-box treatment-box anchor-target" id="treatment-levodopa-carbidopa" data-dismech-node="Levodopa/Carbidopa" data-dismech-type="treatment">
-                <div class="item-name">
-                    Levodopa/Carbidopa
-                </div>
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-
-
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
-                    </span>
-
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    </div>
-
-
-
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-
-
-
-                    <span class="tag tag-treatment">
-                        levodopa
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15765" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:15765</a>
-
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
-                    </span>
-
-
-
-                    <span class="tag tag-treatment">
-                        carbidopa
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3395" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:3395</a>
-
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses carbidopa (CHEBI:3395). CHEBI:3395 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
-                    </span>
-
-                </div>
-
-
-
-                <div class="item-desc">Dopamine precursor (with a peripheral decarboxylase inhibitor) replaces deficient central dopamine; core neurotransmitter therapy across AR-GTPCHD, PTPSD, SRD, and DHPRD.</div>
-
-
-                <div class="item-meta" style="margin-top: 8px;">
-                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-
-                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
-                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
-                            INHIBITS
-                        </span>
-                        <strong style="color: #5b21b6;">Monoamine Neurotransmitter Deficiency</strong>
-
-                        <span style="color: #7c3aed;"> &mdash; Levodopa bypasses tyrosine hydroxylase to restore central dopamine.</span>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38585541" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38585541" target="_blank">PMID:38585541</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Levodopa/carbidopa and 5-hydroxytryptophan are used for treatment."</div>
-
-
-                <div class="evidence-explanation">Supports levodopa/carbidopa acting on the monoamine-deficiency node.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-                    </div>
-
-                </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40243727" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40243727" target="_blank">PMID:40243727</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"SRD patients manifest a broad constellation of symptoms, albeit well-managed using low-dose L-dopa/carbidopa."</div>
-
-
-                <div class="evidence-explanation">Independent cohort confirms L-dopa/carbidopa efficacy.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-            </div>
-
-            <div class="item-box treatment-box anchor-target" id="treatment-5-hydroxytryptophan" data-dismech-node="5-Hydroxytryptophan" data-dismech-type="treatment">
-                <div class="item-name">
-                    5-Hydroxytryptophan
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
@@ -7334,25 +7432,50 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="tag tag-treatment">
-                        5-hydroxytryptophan
+                        sapropterin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28171" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:28171</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_59560" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:59560</a>
 
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
-This treatment uses 5-hydroxytryptophan (CHEBI:28171). CHEBI:28171 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+This treatment uses sapropterin (CHEBI:59560). CHEBI:59560 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
 
 
 
-                <div class="item-desc">Serotonin precursor that bypasses BH4-dependent tryptophan hydroxylation to restore central serotonin synthesis; combined with levodopa.</div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Tetrahydrobiopterin cofactor replacement to lower blood phenylalanine in HPA-associated BH4 deficiencies (PTPSD, AR-GTPCHD, some DHPRD); limited CNS access means it does not normalize central monoamine synthesis alone.</div>
 
 
                 <div class="item-meta" style="margin-top: 8px;">
@@ -7362,9 +7485,9 @@ This treatment uses 5-hydroxytryptophan (CHEBI:28171). CHEBI:28171 is a therapeu
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
-                        <strong style="color: #5b21b6;">Monoamine Neurotransmitter Deficiency</strong>
+                        <strong style="color: #5b21b6;">Hyperphenylalaninemia</strong>
 
-                        <span style="color: #7c3aed;"> &mdash; 5-HTP bypasses tryptophan hydroxylase to restore central serotonin.</span>
+                        <span style="color: #7c3aed;"> &mdash; BH4 cofactor replacement restores residual PAH activity, lowering blood phenylalanine.</span>
 
 
 
@@ -7374,23 +7497,26 @@ This treatment uses 5-hydroxytryptophan (CHEBI:28171). CHEBI:28171 is a therapeu
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38585541" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:40638773" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38585541" target="_blank">PMID:38585541</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Levodopa/carbidopa and 5-hydroxytryptophan are used for treatment."</div>
+                <div class="evidence-snippet">"Immediate therapy with sapropterin (tetrahydrobiopterin dihydrochloride; BH4), a cofactor/cosubstrate of PAH, is recommended to reduce blood Phe concentrations in individuals with hyperphenylalaninemia."</div>
 
 
-                <div class="evidence-explanation">Supports 5-HTP acting on the serotonin arm of monoamine deficiency.</div>
+                <div class="evidence-explanation">Supports sapropterin acting on the hyperphenylalaninemia node.</div>
 
 
 
@@ -7415,23 +7541,26 @@ This treatment uses 5-hydroxytryptophan (CHEBI:28171). CHEBI:28171 is a therapeu
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33977029" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:40638773" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33977029" target="_blank">PMID:33977029</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"All patients received treatment with l-dopa and 5-hydroxytryptophan"</div>
+                <div class="evidence-snippet">"Immediate therapy with sapropterin (tetrahydrobiopterin dihydrochloride; BH4), a cofactor/cosubstrate of PAH, is recommended to reduce blood Phe concentrations in individuals with hyperphenylalaninemia."</div>
 
 
-                <div class="evidence-explanation">Clinical series documents 5-HTP as standard combined therapy.</div>
+                <div class="evidence-explanation">GeneReviews recommends sapropterin as first-line cofactor therapy.</div>
 
 
 
@@ -7444,9 +7573,9 @@ This treatment uses 5-hydroxytryptophan (CHEBI:28171). CHEBI:28171 is a therapeu
 
             </div>
 
-            <div class="item-box treatment-box anchor-target" id="treatment-folinic-acid" data-dismech-node="Folinic Acid" data-dismech-type="treatment">
+            <div class="item-box treatment-box anchor-target" id="treatment-levodopa-carbidopa" data-dismech-node="Levodopa/Carbidopa" data-dismech-type="treatment">
                 <div class="item-name">
-                    Folinic Acid
+                    Levodopa/Carbidopa
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
@@ -7488,21 +7617,433 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="tag tag-treatment">
-                        folinic acid
+                        levodopa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15640" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:15640</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15765" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:15765</a>
 
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
+This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        carbidopa
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3395" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-43">CHEBI:3395</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carbidopa (CHEBI:3395). CHEBI:3395 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Dopamine precursor (with a peripheral decarboxylase inhibitor) replaces deficient central dopamine; core neurotransmitter therapy across AR-GTPCHD, PTPSD, SRD, and DHPRD.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Monoamine Neurotransmitter Deficiency</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Levodopa bypasses tyrosine hydroxylase to restore central dopamine.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38585541" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38585541" target="_blank">PMID:38585541</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Levodopa/carbidopa and 5-hydroxytryptophan are used for treatment."</div>
+
+
+                <div class="evidence-explanation">Supports levodopa/carbidopa acting on the monoamine-deficiency node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40243727" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40243727" target="_blank">PMID:40243727</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SRD patients manifest a broad constellation of symptoms, albeit well-managed using low-dose L-dopa/carbidopa."</div>
+
+
+                <div class="evidence-explanation">Independent cohort confirms L-dopa/carbidopa efficacy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-5-hydroxytryptophan" data-dismech-node="5-Hydroxytryptophan" data-dismech-type="treatment">
+                <div class="item-name">
+                    5-Hydroxytryptophan
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        5-hydroxytryptophan
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28171" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:28171</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses 5-hydroxytryptophan (CHEBI:28171). CHEBI:28171 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Serotonin precursor that bypasses BH4-dependent tryptophan hydroxylation to restore central serotonin synthesis; combined with levodopa.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Monoamine Neurotransmitter Deficiency</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; 5-HTP bypasses tryptophan hydroxylase to restore central serotonin.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38585541" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38585541" target="_blank">PMID:38585541</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Levodopa/carbidopa and 5-hydroxytryptophan are used for treatment."</div>
+
+
+                <div class="evidence-explanation">Supports 5-HTP acting on the serotonin arm of monoamine deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33977029" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33977029" target="_blank">PMID:33977029</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All patients received treatment with l-dopa and 5-hydroxytryptophan"</div>
+
+
+                <div class="evidence-explanation">Clinical series documents 5-HTP as standard combined therapy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-folinic-acid" data-dismech-node="Folinic Acid" data-dismech-type="treatment">
+                <div class="item-name">
+                    Folinic Acid
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        folinic acid
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15640" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:15640</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
 This treatment uses folinic acid, annotated with 5-formyltetrahydrofolic acid (CHEBI:15640). CHEBI:15640 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -7525,7 +8066,10 @@ This treatment uses folinic acid, annotated with 5-formyltetrahydrofolic acid (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2878984" target="_blank">PMID:2878984</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7556,7 +8100,7 @@ This treatment uses folinic acid, annotated with 5-formyltetrahydrofolic acid (C
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7584,6 +8128,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7617,7 +8186,10 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7658,7 +8230,10 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7689,7 +8264,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7722,6 +8297,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Physical, occupational, and speech therapy plus management of seizures, spasticity, and sleep disorders for residual neurodevelopmental disability.</div>
 
 
@@ -7741,7 +8330,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7835,7 +8427,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7884,7 +8479,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40638773" target="_blank">PMID:40638773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7963,7 +8561,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40243727" target="_blank">PMID:40243727</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7987,6 +8588,96 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-hyperphenylalaninemia-worldwide">
+                <div class="item-name">Hyperphenylalaninemia worldwide</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">1-2% of HPA cases</span>
+
+
+
+                </div>
+
+                <div class="item-notes">BH4 deficiencies account for approximately 1-2% of individuals with hyperphenylalaninemia; PTPSD is the most frequent (~54%) and DHPRD the second (~33%) of HPA-associated BH4 deficiencies. Among HPA cases, mean HPA incidence in Europe is ~1:10,000.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33980295" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33980295" target="_blank">PMID:33980295</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BH4D accounts for approximately 1–2 % of HPA cases"</div>
+
+
+                <div class="evidence-explanation">Newborn-screening cohort supports the 1-2% BH4-deficiency fraction of hyperphenylalaninemia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8060,11 +8751,16 @@ has_subtypes:
     snippet: &#34;PTS-related tetrahydrobiopterin deficiency (PTPSD) results in a lack of tetrahydropterin, an important cofactor for phenylalanine hydroxylase (PAH), tyrosine hydroxylase, and tryptophan hydroxylase.&#34;
     explanation: GeneReviews defines PTPSD as a distinct BH4-deficiency subtype affecting the aromatic amino acid hydroxylases.
   - reference: PMID:32456656
-    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH4) deficiencies.&#34;
+    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH(4)) deficiencies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Tetrahydrobiopterin (BH4) deficiencies comprise a group of six rare neurometabolic disorders characterized by insufficient synthesis of the monoamine neurotransmitters dopamine and serotonin due to a disturbance of BH4 biosynthesis or recycling.&#34;
     explanation: The consensus guideline establishes the multi-subtype structure of BH4 deficiency.
+  genes:
+  - preferred_term: PTS
+    term:
+      id: hgnc:9689
+      label: PTS
 - name: DHPR Deficiency
   display_name: Dihydropteridine Reductase Deficiency (DHPRD)
   subtype_term:
@@ -8084,6 +8780,11 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we identified one with autosomal recessive GTP cyclohydrolase I (ar GTPCH) deficiency, two with 6-pyruvoyl-tetrahydropterin synthase (PTPS) deficiency, three with sepiapterin reductase (SR) deficiency, and three with DHPR deficiency.&#34;
     explanation: Clinical case series documents DHPR deficiency among the BH4-deficiency subtypes.
+  genes:
+  - preferred_term: QDPR
+    term:
+      id: hgnc:9752
+      label: QDPR
 - name: GTPCH Deficiency
   display_name: GTP Cyclohydrolase I Deficiency (autosomal recessive, AR-GTPCHD)
   subtype_term:
@@ -8102,6 +8803,11 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The GCH1 gene encodes the enzyme guanosine triphosphate cyclohydrolase I (GTPCH), which catalyzes the rate-limiting step in the biosynthesis of tetrahydrobiopterin (BH4), a critical cofactor in the production of monoamine neurotransmitters.&#34;
     explanation: Defines AR-GTPCH deficiency as a BH4 biosynthesis subtype.
+  genes:
+  - preferred_term: GCH1
+    term:
+      id: hgnc:4193
+      label: GCH1
 - name: PCD Deficiency
   display_name: Pterin-4-alpha-Carbinolamine Dehydratase Deficiency (PCDD)
   subtype_term:
@@ -8115,11 +8821,16 @@ has_subtypes:
     primapterinuria and later risk of HNF1A-like MODY and hypomagnesemia.
   evidence:
   - reference: PMID:32456656
-    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH4) deficiencies.&#34;
+    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH(4)) deficiencies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hyperphenylalaninemia (HPA) is the first diagnostic hallmark for most BH4 deficiencies, apart from autosomal dominant guanosine triphosphate cyclohydrolase I deficiency and sepiapterin reductase deficiency.&#34;
     explanation: Consensus guideline frames PCD deficiency among the HPA-associated BH4 deficiencies.
+  genes:
+  - preferred_term: PCBD1
+    term:
+      id: hgnc:8646
+      label: PCBD1
 - name: SPR Deficiency
   display_name: Sepiapterin Reductase Deficiency (SRD)
   subtype_term:
@@ -8139,6 +8850,11 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Sepiapterin reductase deficiency (SRD) is an exceedingly rare neurotransmitter disease caused by an enzyme error involved in the synthesis of tetrahydrobiopterin (BH4).&#34;
     explanation: Defines SRD as a BH4-synthesis subtype.
+  genes:
+  - preferred_term: SPR
+    term:
+      id: hgnc:11257
+      label: SPR
 inheritance:
 - name: Autosomal Recessive
   description: &gt;-
@@ -8171,6 +8887,7 @@ genetic:
       id: hgnc:9689
       label: PTS
   association: Causative
+  relationship_type: CAUSATIVE
   subtype: PTPS Deficiency
   notes: &gt;-
     Biallelic pathogenic PTS variants cause 6-pyruvoyl-tetrahydropterin synthase
@@ -8189,6 +8906,7 @@ genetic:
       id: hgnc:9752
       label: QDPR
   association: Causative
+  relationship_type: CAUSATIVE
   subtype: DHPR Deficiency
   notes: &gt;-
     Biallelic QDPR variants abolish dihydropteridine reductase (DHPR) activity,
@@ -8208,6 +8926,7 @@ genetic:
       id: hgnc:4193
       label: GCH1
   association: Causative
+  relationship_type: CAUSATIVE
   subtype: GTPCH Deficiency
   notes: &gt;-
     Biallelic GCH1 variants cause autosomal recessive GTP cyclohydrolase I
@@ -8226,6 +8945,7 @@ genetic:
       id: hgnc:8646
       label: PCBD1
   association: Causative
+  relationship_type: CAUSATIVE
   subtype: PCD Deficiency
   notes: &gt;-
     Biallelic PCBD1 variants cause pterin-4-alpha-carbinolamine dehydratase
@@ -8245,6 +8965,7 @@ genetic:
       id: hgnc:11257
       label: SPR
   association: Causative
+  relationship_type: CAUSATIVE
   subtype: SPR Deficiency
   notes: &gt;-
     Biallelic SPR variants block the final de novo BH4-synthesis step, causing
@@ -8289,7 +9010,7 @@ mechanistic_hypotheses:
     precursor supplementation (L-dopa/carbidopa, 5-hydroxytryptophan).
   evidence:
   - reference: PMID:32456656
-    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH4) deficiencies.&#34;
+    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH(4)) deficiencies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Tetrahydrobiopterin (BH4) deficiencies comprise a group of six rare neurometabolic disorders characterized by insufficient synthesis of the monoamine neurotransmitters dopamine and serotonin due to a disturbance of BH4 biosynthesis or recycling.&#34;
@@ -8331,7 +9052,7 @@ pathophysiology:
     functional_impact: loss_of_function_or_hypomorphic
   evidence:
   - reference: PMID:32456656
-    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH4) deficiencies.&#34;
+    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH(4)) deficiencies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;characterized by insufficient synthesis of the monoamine neurotransmitters dopamine and serotonin due to a disturbance of BH4 biosynthesis or recycling.&#34;
@@ -8423,7 +9144,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:32456656
-      reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH4) deficiencies.&#34;
+      reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH(4)) deficiencies.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;characterized by insufficient synthesis of the monoamine neurotransmitters dopamine and serotonin due to a disturbance of BH4 biosynthesis or recycling.&#34;
@@ -8447,7 +9168,7 @@ pathophysiology:
     modifier: DECREASED
   evidence:
   - reference: PMID:32456656
-    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH4) deficiencies.&#34;
+    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH(4)) deficiencies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hyperphenylalaninemia (HPA) is the first diagnostic hallmark for most BH4 deficiencies, apart from autosomal dominant guanosine triphosphate cyclohydrolase I deficiency and sepiapterin reductase deficiency.&#34;
@@ -8504,7 +9225,7 @@ pathophysiology:
       label: brain
   evidence:
   - reference: PMID:32456656
-    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH4) deficiencies.&#34;
+    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH(4)) deficiencies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Early supplementation of neurotransmitter precursors and where appropriate, treatment of HPA results in significant improvement of motor and cognitive function.&#34;
@@ -8644,7 +9365,7 @@ phenotypes:
       label: Hyperphenylalaninemia
   evidence:
   - reference: PMID:32456656
-    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH4) deficiencies.&#34;
+    reference_title: &#34;Consensus guideline for the diagnosis and treatment of tetrahydrobiopterin (BH(4)) deficiencies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hyperphenylalaninemia (HPA) is the first diagnostic hallmark for most BH4 deficiencies, apart from autosomal dominant guanosine triphosphate cyclohydrolase I deficiency and sepiapterin reductase deficiency.&#34;
@@ -9081,6 +9802,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10044,7 +10767,7 @@ Most HPA-associated forms diagnosed in newborn period via screening programs; no
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Tetrahydrobiopterin Deficiency", "mondoId": "MONDO:0016543", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tetrahydrobiopterin_Deficiency", "yamlRevision": "fc693740f612"};
+        const OS_CONFIG = {"diseaseName": "Tetrahydrobiopterin Deficiency", "mondoId": "MONDO:0016543", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tetrahydrobiopterin_Deficiency", "yamlRevision": "e5347ea947d6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

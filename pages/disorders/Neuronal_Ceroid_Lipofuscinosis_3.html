@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Neuronal Ceroid Lipofuscinosis 3</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Neuronal Ceroid Lipofuscinosis 3</h1>
             <div class="header-meta">
 
@@ -4128,7 +4271,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4174,7 +4317,10 @@
                         <a href="https://bioregistry.io/CGGV:assertion_6be652b4-092f-4d1c-9606-4dfeb689c4b9-2023-04-04T040000.000Z" target="_blank">CGGV:assertion_6be652b4-092f-4d1c-9606-4dfeb689c4b9-2023-04-04T040000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4240,7 +4386,7 @@
 
 
 
-    <span class="entity-ref-chip">progression#Late multisystem decline and mortality</span>
+    <a class="entity-ref-chip" href="#progression-late-multisystem-decline-and-mortality">progression#Late multisystem decline and mortality</a>
 
 
 
@@ -4268,7 +4414,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4291,7 +4440,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4329,6 +4481,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cln3-endolysosomal-membrane-dysfunction" data-dismech-node="CLN3 endolysosomal membrane dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">CLN3 endolysosomal membrane dysfunction</div>
+
 
                 <div class="item-desc">CLN3 dysfunction perturbs endolysosomal membrane biology, lysosomal cargo handling, and cholesterol trafficking. The resulting lysosomal storage phenotype includes fingerprint inclusions in patient material and cholesterol accumulation in late endosome/lysosome fractions, contributing to progressive retinal and neuronal degeneration.
 </div>
@@ -4563,7 +4716,10 @@ This pathophysiological event involves dysregulated cholesterol transport (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4586,7 +4742,10 @@ This pathophysiological event involves dysregulated cholesterol transport (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37245481" target="_blank">PMID:37245481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4612,6 +4771,7 @@ This pathophysiological event involves dysregulated cholesterol transport (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-cholesterol-storage" data-dismech-node="Lysosomal Cholesterol Storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Cholesterol Storage</div>
+
 
                 <div class="item-desc">CLN3 disease late endosome/lysosome fractions accumulate cholesterol, supporting a lysosomal cholesterol storage mechanism that overlaps with other lipid-trafficking lysosomal disorders.
 </div>
@@ -4718,7 +4878,10 @@ This pathophysiological event involves dysregulated cholesterol transport (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37245481" target="_blank">PMID:37245481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4744,6 +4907,7 @@ This pathophysiological event involves dysregulated cholesterol transport (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-retinal-degeneration" data-dismech-node="Progressive Retinal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Retinal Degeneration</div>
+
 
                 <div class="item-desc">CLN3 disease causes early, rapidly progressive retinal degeneration with macular atrophy, outer retinal loss, electrophysiologic abnormalities, and visual failure.
 </div>
@@ -4842,7 +5006,10 @@ This pathophysiological event involves photoreceptor cell (CL:0000210). CL:00002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4868,6 +5035,7 @@ This pathophysiological event involves photoreceptor cell (CL:0000210). CL:00002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-neurobehavioral-decline" data-dismech-node="Progressive Neurobehavioral Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Neurobehavioral Decline</div>
+
 
                 <div class="item-desc">CLN3 disease progresses to cognitive impairment, behavioral symptoms, seizures, motor deterioration, sleep disruption, and advanced adolescent or adult neuropsychiatric/autonomic episodes.
 </div>
@@ -4936,7 +5104,10 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4959,7 +5130,10 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37771451" target="_blank">PMID:37771451</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5029,11 +5203,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(9)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5103,6 +5277,9 @@ This clinical feature is Cardiac manifestations, annotated with Cardiac conducti
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5115,7 +5292,10 @@ This clinical feature is Cardiac manifestations, annotated with Cardiac conducti
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5147,8 +5327,121 @@ This clinical feature is Cardiac manifestations, annotated with Cardiac conducti
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-feeding-difficulties-requiring-enteral-feeding-tube" data-dismech-node="Feeding difficulties requiring enteral feeding tube" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Feeding difficulties requiring enteral feeding tube
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Tube feeding</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033454" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0033454</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties requiring enteral feeding tube, annotated with Tube feeding (HP:0033454), qualified as young adult onset, mean 22.0y. HP:0033454 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: YOUNG ADULT; mean 22.0y</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41501856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"feeding difficulties requiring enteral feeding tube (22.0 ± 1.6,N= 35)"</div>
+
+
+                <div class="evidence-explanation">Pooled weighted mean age at onset from a single natural-history study supports enteral feeding dependence as a late CLN3 disease milestone.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-visual-impairment" data-dismech-node="Visual impairment" data-dismech-type="phenotype">
@@ -5167,10 +5460,10 @@ This clinical feature is Cardiac manifestations, annotated with Cardiac conducti
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Visual impairment (HP:0000505), qualified as juvenile onset, mean 6.1y. HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5210,6 +5503,9 @@ This clinical feature is Visual impairment (HP:0000505), qualified as juvenile o
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5222,7 +5518,10 @@ This clinical feature is Visual impairment (HP:0000505), qualified as juvenile o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5245,7 +5544,10 @@ This clinical feature is Visual impairment (HP:0000505), qualified as juvenile o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5268,7 +5570,10 @@ This clinical feature is Visual impairment (HP:0000505), qualified as juvenile o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33137890" target="_blank">PMID:33137890</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5279,6 +5584,79 @@ This clinical feature is Visual impairment (HP:0000505), qualified as juvenile o
 
 
                 <div class="evidence-explanation">This review supports visual impairment as the initial manifestation in more than 80% of patients, supporting the VERY_FREQUENT band.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-degeneration" data-dismech-node="Retinal degeneration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Retinal degeneration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000546</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36964447" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36964447" target="_blank">PMID:36964447</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CLN3 patients presented at median age 6.2 years with visual decline."</div>
+
+
+                <div class="evidence-explanation">This genetically confirmed CLN3 ocular cohort supports early visual decline with retinal biomarker abnormalities.
 </div>
 
 
@@ -5309,15 +5687,18 @@ This clinical feature is Visual impairment (HP:0000505), qualified as juvenile o
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000512</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000512</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Electronegative electroretinogram, annotated with Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5335,7 +5716,10 @@ This clinical feature is Electronegative electroretinogram, annotated with Abnor
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36964447" target="_blank">PMID:36964447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5358,7 +5742,10 @@ This clinical feature is Electronegative electroretinogram, annotated with Abnor
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5399,15 +5786,18 @@ This clinical feature is Electronegative electroretinogram, annotated with Abnor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011504" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0011504</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011504" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011504</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bull&#39;s eye maculopathy (HP:0011504). HP:0011504 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5425,7 +5815,10 @@ This clinical feature is Bull&#39;s eye maculopathy (HP:0011504). HP:0011504 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5448,7 +5841,10 @@ This clinical feature is Bull&#39;s eye maculopathy (HP:0011504). HP:0011504 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36964447" target="_blank">PMID:36964447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5489,10 +5885,10 @@ This clinical feature is Bull&#39;s eye maculopathy (HP:0011504). HP:0011504 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000618" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000618</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000618" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000618</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Complete blindness, annotated with Blindness (HP:0000618), qualified as juvenile onset, mean 11.4y. HP:0000618 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5532,6 +5928,9 @@ This clinical feature is Complete blindness, annotated with Blindness (HP:000061
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5544,7 +5943,10 @@ This clinical feature is Complete blindness, annotated with Blindness (HP:000061
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5573,11 +5975,11 @@ This clinical feature is Complete blindness, annotated with Blindness (HP:000061
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">9</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive impairment" data-dismech-type="phenotype">
@@ -5594,10 +5996,10 @@ This clinical feature is Complete blindness, annotated with Blindness (HP:000061
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cognitive impairment (HP:0100543), qualified as juvenile onset, mean 9.3y. HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5637,6 +6039,9 @@ This clinical feature is Cognitive impairment (HP:0100543), qualified as juvenil
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5649,7 +6054,10 @@ This clinical feature is Cognitive impairment (HP:0100543), qualified as juvenil
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5672,7 +6080,10 @@ This clinical feature is Cognitive impairment (HP:0100543), qualified as juvenil
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5713,10 +6124,10 @@ This clinical feature is Cognitive impairment (HP:0100543), qualified as juvenil
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000708</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atypical behavior (HP:0000708), qualified as juvenile onset, mean 8.5y. HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5756,6 +6167,9 @@ This clinical feature is Atypical behavior (HP:0000708), qualified as juvenile o
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5768,7 +6182,10 @@ This clinical feature is Atypical behavior (HP:0000708), qualified as juvenile o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113550" target="_blank">PMID:37113550</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5791,7 +6208,10 @@ This clinical feature is Atypical behavior (HP:0000708), qualified as juvenile o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5814,7 +6234,10 @@ This clinical feature is Atypical behavior (HP:0000708), qualified as juvenile o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37771451" target="_blank">PMID:37771451</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5855,10 +6278,10 @@ This clinical feature is Atypical behavior (HP:0000708), qualified as juvenile o
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002360</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sleep disturbance (HP:0002360), qualified as juvenile onset, mean 11.0y. HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5898,6 +6321,9 @@ This clinical feature is Sleep disturbance (HP:0002360), qualified as juvenile o
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5910,7 +6336,10 @@ This clinical feature is Sleep disturbance (HP:0002360), qualified as juvenile o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38500130" target="_blank">PMID:38500130</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5933,7 +6362,10 @@ This clinical feature is Sleep disturbance (HP:0002360), qualified as juvenile o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5944,6 +6376,134 @@ This clinical feature is Sleep disturbance (HP:0002360), qualified as juvenile o
 
 
                 <div class="evidence-explanation">Pooled weighted mean age at onset from a single natural-history cohort contributing to the pooled analysis; note the wide standard deviation.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-deterioration" data-dismech-node="Motor deterioration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Motor deterioration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002333" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002333</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor deterioration (HP:0002333), qualified as juvenile onset, mean 11.0y. HP:0002333 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: JUVENILE; mean 11.0y</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31926949" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Presentation is typically in early childhood with vision loss at 4 to 10 years of age, behavioral and cognitive dysfunction at 7 to 10 years of age, and progressive motor decline and seizures at 10 to 13 years of age"</div>
+
+
+                <div class="evidence-explanation">This review text within the CLN3 ocular paper describes the typical timing of motor decline in juvenile CLN3 disease.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41501856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"motor decline (11.0 ± 3.8,N= 108)"</div>
+
+
+                <div class="evidence-explanation">Pooled weighted mean age at onset from combined natural-history cohorts supports the timing of motor decline in CLN3 disease.
 </div>
 
 
@@ -5974,10 +6534,10 @@ This clinical feature is Sleep disturbance (HP:0002360), qualified as juvenile o
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250), qualified as juvenile onset, mean 10.2y. HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6017,6 +6577,9 @@ This clinical feature is Seizure (HP:0001250), qualified as juvenile onset, mean
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6029,7 +6592,10 @@ This clinical feature is Seizure (HP:0001250), qualified as juvenile onset, mean
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6052,7 +6618,10 @@ This clinical feature is Seizure (HP:0001250), qualified as juvenile onset, mean
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6093,10 +6662,10 @@ This clinical feature is Seizure (HP:0001250), qualified as juvenile onset, mean
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001300</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Parkinsonism (HP:0001300), qualified as juvenile onset, mean 14.1y. HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6136,6 +6705,9 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as juvenile onset,
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6148,7 +6720,10 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as juvenile onset,
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33137890" target="_blank">PMID:33137890</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6171,7 +6746,10 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as juvenile onset,
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6212,15 +6790,18 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as juvenile onset,
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000726</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000726</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6238,7 +6819,10 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33137890" target="_blank">PMID:33137890</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6249,201 +6833,6 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
                 <div class="evidence-explanation">This review describes the progressive CLN3 neurodegenerative course as leading to dementia.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-degeneration" data-dismech-node="Retinal degeneration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Retinal degeneration
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000546</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36964447" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36964447" target="_blank">PMID:36964447</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"CLN3 patients presented at median age 6.2 years with visual decline."</div>
-
-
-                <div class="evidence-explanation">This genetically confirmed CLN3 ocular cohort supports early visual decline with retinal biomarker abnormalities.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-deterioration" data-dismech-node="Motor deterioration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Motor deterioration
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002333" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002333</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Motor deterioration (HP:0002333), qualified as juvenile onset, mean 11.0y. HP:0002333 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: JUVENILE; mean 11.0y</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31926949" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Presentation is typically in early childhood with vision loss at 4 to 10 years of age, behavioral and cognitive dysfunction at 7 to 10 years of age, and progressive motor decline and seizures at 10 to 13 years of age"</div>
-
-
-                <div class="evidence-explanation">This review text within the CLN3 ocular paper describes the typical timing of motor decline in juvenile CLN3 disease.
-</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41501856" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"motor decline (11.0 ± 3.8,N= 108)"</div>
-
-
-                <div class="evidence-explanation">Pooled weighted mean age at onset from combined natural-history cohorts supports the timing of motor decline in CLN3 disease.
 </div>
 
 
@@ -6474,10 +6863,10 @@ This clinical feature is Motor deterioration (HP:0002333), qualified as juvenile
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002463</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002463</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Speech and language impairment, annotated with Language impairment (HP:0002463), qualified as juvenile onset, mean 12.7y. HP:0002463 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6517,6 +6906,9 @@ This clinical feature is Speech and language impairment, annotated with Language
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6529,7 +6921,10 @@ This clinical feature is Speech and language impairment, annotated with Language
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6572,10 +6967,10 @@ This clinical feature is Speech and language impairment, annotated with Language
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Loss of independent walking, annotated with Loss of ambulation (HP:0002505), qualified as young adult onset, mean 19.5y. HP:0002505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6615,6 +7010,9 @@ This clinical feature is Loss of independent walking, annotated with Loss of amb
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6627,7 +7025,10 @@ This clinical feature is Loss of independent walking, annotated with Loss of amb
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6638,104 +7039,6 @@ This clinical feature is Loss of independent walking, annotated with Loss of amb
 
 
                 <div class="evidence-explanation">Pooled weighted mean age at onset from three natural-history cohorts supports loss of independent walking as a late-stage CLN3 milestone.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-feeding-difficulties-requiring-enteral-feeding-tube" data-dismech-node="Feeding difficulties requiring enteral feeding tube" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Feeding difficulties requiring enteral feeding tube
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Tube feeding</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033454" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0033454</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Feeding difficulties requiring enteral feeding tube, annotated with Tube feeding (HP:0033454), qualified as young adult onset, mean 22.0y. HP:0033454 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: YOUNG ADULT; mean 22.0y</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41501856" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"feeding difficulties requiring enteral feeding tube (22.0 ± 1.6,N= 35)"</div>
-
-
-                <div class="evidence-explanation">Pooled weighted mean age at onset from a single natural-history study supports enteral feeding dependence as a late CLN3 disease milestone.
 </div>
 
 
@@ -6824,6 +7127,9 @@ This disease-associated gene is CLN3 (hgnc:2074). hgnc:2074 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6836,7 +7142,10 @@ This disease-associated gene is CLN3 (hgnc:2074). hgnc:2074 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6865,6 +7174,9 @@ This disease-associated gene is CLN3 (hgnc:2074). hgnc:2074 is a gene from the H
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6916,6 +7228,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No established disease-modifying therapy for CLN3 disease is modeled here. Management remains supportive while gene therapy and other investigational approaches are under study.
 </div>
 
@@ -6936,7 +7262,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33137890" target="_blank">PMID:33137890</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7001,6 +7330,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">AAV9-mediated CLN3 gene replacement is an investigational disease-targeted strategy supported by model data and clinical trial activity, not established care.
 </div>
 
@@ -7021,7 +7375,10 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37035740" target="_blank">PMID:37035740</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7084,6 +7441,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pharmacological activation of the lysosomal calcium channel TRPML1 (MCOLN1) partially reverses the CLN3 lysosomal storage phenotype in a human CLN3-knockout retinal pigment epithelial cell model, reducing storage of globotriaosylceramide and mitochondrial ATP synthase subunit c. The rescue is incomplete — bis(monoacylglycero)phosphate levels were not restored — and this is an in vitro proof-of-concept only, with no human data.
 </div>
 
@@ -7122,7 +7504,10 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39080379" target="_blank">PMID:39080379</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7208,6 +7593,31 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Mycophenolate mofetil was tested as an immunomodulatory strategy in JNCL on the rationale that autoimmune/neuroinflammatory mechanisms contribute to disease progression. It is investigational for CLN3 disease, not established care.
 </div>
 
@@ -7228,7 +7638,10 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33137890" target="_blank">PMID:33137890</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7294,7 +7707,10 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39080379" target="_blank">PMID:39080379</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7317,7 +7733,10 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33137890" target="_blank">PMID:33137890</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7368,7 +7787,10 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7391,7 +7813,10 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33137890" target="_blank">PMID:33137890</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7418,6 +7843,545 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-visual-onset">
+                <div class="item-name">Early visual onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: 4 to 10 years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Classic juvenile CLN3 typically starts with rapidly progressive visual loss from retinal degeneration. A meta-analysis screening nine natural-history studies (423 patients) puts the weighted mean age at onset of vision loss, pooled from four of those studies, at 6.1 (± 1.6) years (N = 254) — significantly younger than all other core symptoms in the pooled timeline (PMID:41501856).
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31926949" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Presentation is typically in early childhood with vision loss at 4 to 10 years of age"</div>
+
+
+                <div class="evidence-explanation">This CLN3 ocular phenotype paper summarizes the usual first clinical phase of juvenile CLN3 disease.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41501856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"From four studies, we calculated a weighted mean of 6.1 ± 1.6 years (N= 254), which was a significantly younger age than all other symptoms"</div>
+
+
+                <div class="evidence-explanation">Data pooled from four of the screened natural-history studies (N = 254) confirm vision loss as the earliest and most tightly clustered core symptom onset in classic CLN3 disease.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-cognitive-and-behavioral-decline">
+                <div class="item-name">Cognitive and behavioral decline</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: 7 to 10 years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Cognitive and behavioral dysfunction usually follows the visual decline, with anxiety, mood disturbance, and other atypical behaviors becoming clinically important. A pooled meta-analysis places the weighted mean age at onset of behavioural change at 8.5 (± 3.9) years (N = 194) and of cognitive decline at 9.3 (± 3.1) years (N = 219), consistent with this phase window (PMID:41501856).
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31926949" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"behavioral and cognitive dysfunction at 7 to 10 years of age"</div>
+
+
+                <div class="evidence-explanation">This supports the timing of neurobehavioral decline after visual onset.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37113550" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113550" target="_blank">PMID:37113550</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"behavioral symptoms like mood disturbances and anxiety are common."</div>
+
+
+                <div class="evidence-explanation">This review supports behavioral symptoms as part of the CLN3 disease trajectory.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41501856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"behavioural changes (8.5 ± 3.9,N= 194)"</div>
+
+
+                <div class="evidence-explanation">Pooled natural-history data quantify the weighted mean age at onset of behavioural change, supporting the timing of this phase.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-motor-decline-and-seizures">
+                <div class="item-name">Motor decline and seizures</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: 10 to 18 years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Motor deterioration and seizures follow in later childhood. A pooled meta-analysis places the weighted mean age at onset of seizures at 10.2 (± 3.0) years (N = 243) and of motor decline at 11.0 (± 3.8) years (N = 108) (PMID:41501856).
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31926949" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31926949" target="_blank">PMID:31926949</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"progressive motor decline and seizures at 10 to 13 years of age, eventually leading to premature death in the second or third decade of life."</div>
+
+
+                <div class="evidence-explanation">This supports the onset of the motor-decline and seizure phase at 10 to 13 years in classic juvenile CLN3 disease. The mortality it describes is carried by the subsequent late multisystem decline phase.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41501856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"which revealed an average age of onset for seizures of 10.2 ± 3.0 (N= 243) years"</div>
+
+
+                <div class="evidence-explanation">Pooled natural-history data quantify the weighted mean age at onset of seizures, supporting the timing of this phase.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41501856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"motor decline (11.0 ± 3.8,N= 108)"</div>
+
+
+                <div class="evidence-explanation">Pooled natural-history data quantify the weighted mean age at onset of motor decline, supporting the timing of this phase.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-late-multisystem-decline-and-mortality">
+                <div class="item-name">Late multisystem decline and mortality</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: 18 years through the third decade</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Cardiac conduction abnormalities, loss of independent walking, and enteral-feeding dependence cluster in the late second and third decade, shortly before death. These pooled weighted mean ages at onset are: 17.8 (± 4.4) years (N = 45) for cardiac manifestations, 19.5 (± 3.2) years (N = 70) for loss of independent walking, 22.0 (± 1.6) years (N = 35) for feeding difficulties requiring enteral feeding, and 22.4 (± 4.4) years (N = 95) for death. Cardiac manifestations and loss of independent walking occur at similar ages, but earlier than feeding difficulties and death, which occur together around 22 years. Life expectancy is reported as twenty to thirty years with a range of 20-39 years, so this phase is not bounded by the 22.4-year weighted mean age at death. These are weighted means pooled across heterogeneous studies, not a single prospective cohort: nine studies were screened into the meta-analysis, but each symptom&#39;s weighted mean derives from only one to four of them, and per-symptom N ranges from 35 to 254 across the full 13-symptom timeline, so confidence is uneven, and the late milestones here (cardiac N = 45, enteral feeding N = 35) rest on especially small subsets. Ages are age at reported onset, so they inherit ascertainment and diagnostic-delay bias from the source cohorts (see PMID:31926949 on delayed diagnosis and ophthalmic masquerades).
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41501856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cardiac manifestations (17.8 ± 4.4,N= 45), loss of independent walking (19.5 ± 3.2,N= 70), feeding difficulties requiring enteral feeding tube (22.0 ± 1.6,N= 35), and death (22.4 ± 4.4,N= 95)"</div>
+
+
+                <div class="evidence-explanation">Pooled natural-history data define the late-stage milestone sequence and weighted mean age at death in CLN3 disease. Each figure derives from a small subset of the nine screened studies: cardiac manifestations two (N = 45), loss of independent walking three (N = 70), feeding difficulties one (N = 35), and death two (N = 95).
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41501856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501856" target="_blank">PMID:41501856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The life expectancy of people with classic CLN3 disease is twenty to thirty years"</div>
+
+
+                <div class="evidence-explanation">Reported life expectancy extends through the third decade, supporting the upper bound of this phase beyond the 22.4-year weighted mean age at death.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states-and-several-european-countries">
+                <div class="item-name">United States and several European countries</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">CLN3 disease birth incidence is approximately 1 per 100,000 live newborns in the United States and Germany.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33137890" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33137890" target="_blank">PMID:33137890</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The incidence of CLN3-disease in the United States and several European countries (for example, Germany) is approximately 1 per 100,000 live newborns"</div>
+
+
+                <div class="evidence-explanation">This review reports the ~1 per 100,000 live-newborn CLN3 disease birth incidence in the US and Europe.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-finland-scandinavia">
+                <div class="item-name">Finland (Scandinavia)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        4.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">JNCL reaches its highest prevalence in Scandinavia, with slightly more than 1 in 25,000 live newborns in Finland (carrier frequency ~1 in 70), reflecting a founder mutation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33137890" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33137890" target="_blank">PMID:33137890</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The highest prevalence of JNCL is found in the Scandinavian countries, especially in Finland (slightly more than 1 in 25,000 live newborns with a carrier frequency of 1 in 70)"</div>
+
+
+                <div class="evidence-explanation">This review reports the elevated Finnish JNCL birth prevalence (~1 in 25,000) and 1-in-70 carrier frequency from a founder mutation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -7433,7 +8397,7 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03770572">
                 <div class="item-name">
                     NCT03770572
 
@@ -7501,7 +8465,10 @@ This clinical trial targets Cognitive impairment (HP:0100543). HP:0100543 is a p
                         <a href="https://clinicaltrials.gov/study/NCT03770572" target="_blank">clinicaltrials:NCT03770572</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7525,7 +8492,7 @@ This clinical trial targets Cognitive impairment (HP:0100543). HP:0100543 is a p
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01399047">
                 <div class="item-name">
                     NCT01399047
 
@@ -7593,7 +8560,10 @@ This clinical trial targets Seizure (HP:0001250). HP:0001250 is a phenotype from
                         <a href="https://clinicaltrials.gov/study/NCT01399047" target="_blank">clinicaltrials:NCT01399047</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7617,7 +8587,7 @@ This clinical trial targets Seizure (HP:0001250). HP:0001250 is a phenotype from
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05174039">
                 <div class="item-name">
                     NCT05174039
 
@@ -7668,7 +8638,10 @@ This clinical trial targets Cognitive impairment (HP:0100543). HP:0100543 is a p
                         <a href="https://clinicaltrials.gov/study/NCT05174039" target="_blank">clinicaltrials:NCT05174039</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7692,7 +8665,7 @@ This clinical trial targets Cognitive impairment (HP:0100543). HP:0100543 is a p
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04637282">
                 <div class="item-name">
                     NCT04637282
 
@@ -7760,7 +8733,10 @@ This clinical trial targets Cognitive impairment (HP:0100543). HP:0100543 is a p
                         <a href="https://clinicaltrials.gov/study/NCT04637282" target="_blank">clinicaltrials:NCT04637282</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9388,6 +10364,25 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Address PR review: TRPML1 rescue, missing trials, vacuolated lymphocytes, ICIMD evidence</strong> · 2026-07-31T07:59:12Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neuronal_Ceroid_Lipofuscinosis_3/2026-07-31T075912Z-pr-shepherd-47860d.yaml">View source</a></p>
+                        <p class="research-review-text">PR Shepherd fixes for the four IMPORTANT items in the ai4c-reviewer review of PR #7192. (1) TRPML1 under-consumption: added an &#39;Experimental TRPML1 agonist lysosomal-storage rescue&#39; treatment carrying the paper&#39;s headline finding as an IN_VITRO evidence item, linked via target_mechanisms INHIBITS to the &#39;CLN3 endolysosomal membrane dysfunction&#39; node (which already conforms to lysosomal_substrate_accumulation). Framed as incomplete in-vitro proof-of-concept, noting BMP levels were not restored. (2) Trials: added the three missing research-surfaced programs - NCT01399047 mycophenolate mofetil, NCT05174039 miglustat, NCT04637282 PLX-200 (the Phase 3 flagged as blocking). References fetched with just fetch-reference; no cache file was hand-created. Phase and status were confirmed against the live ClinicalTrials.gov v2 API rather than taken from the deep-research artifact: NCT01399047 PHASE2/COMPLETED, NCT05174039 PHASE1+PHASE2 (recorded PHASE_I, no combined value in schema), NCT04637282 PHASE3/NOT_YET_RECRUITING (recorded NOT_RECRUITING, no NOT_YET_RECRUITING value in schema); both substitutions are stated in the trial descriptions. Also added a mycophenolate mofetil treatment (CHEBI:8764, verified with OAK). (3) Added &#39;Vacuolated lymphocytes on peripheral blood film&#39; as a biochemical entry with the two already-cached exact quotes from PMID:31926949 and PMID:33137890 - the classic accessible CLN3 bedside screening marker. (4) Dropped the ICIMD evidence item whose snippet supported only the generic &#39;lysosomal storage disease&#39; framework rather than the ICIMD placement, per the disease-classification skill&#39;s preference for notes alone; expanded the notes to cite the icimd.yaml is_a axiom and state why no evidence is attached. Also applied non-blocking suggestion 5: added harrisons_chapter NEUROLOGIC and GENETICS_ENVIRONMENT_DISEASE. Validated: just validate, validate-terms, validate-references all pass; all 44 evidence snippets in the entry re-verified as exact whitespace-normalized substrings of their cache files.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Augment JNCL CLN3 entry</strong> · 2026-07-30T23:42:33Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neuronal_Ceroid_Lipofuscinosis_3/2026-07-30T234233Z-claude-code-3e3031.yaml">View source</a></p>
+                        <p class="research-review-text">Augmented the existing CLN3 juvenile Batten (JNCL) entry after falcon deep research. Added lysosomal-storage and ICIMD classifications, structured prevalence (PMID:33137890), a biochemical block for mitochondrial ATP synthase subunit c storage (PMID:39080379), four new phenotypes (electronegative ERG, bull&#39;s-eye maculopathy, Parkinsonism, dementia), a VERY_FREQUENT frequency on visual impairment, biological_scale tags on all pathophysiology nodes, and a clinical_trials block for the intrathecal AAV9-CLN3 gene therapy trial NCT03770572. All snippets verified against cached references; validation and reference validation pass; compliance improved from 89.6 to 91.4 percent global.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

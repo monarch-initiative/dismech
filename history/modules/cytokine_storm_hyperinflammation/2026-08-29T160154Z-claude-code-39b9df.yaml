@@ -1,0 +1,39 @@
+history_version: 1
+target:
+  kind: module
+  slug: cytokine_storm_hyperinflammation
+  path: kb/modules/cytokine_storm_hyperinflammation.yaml
+session:
+  id: 2026-08-29T160154Z-claude-code-39b9df
+  timestamp: '2026-08-29T16:01:54Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/8872
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - treatments
+  - evidence
+  summary: Migrate retired PARTIAL evidence value to a SUPPORT/REFUTE pair
+  details: |
+    Main merged #10003 (issue #7439), which retired PARTIAL and WRONG_STATEMENT from EvidenceItemSupportEnum and split evidence direction from directness. That migration rewrote kb/disorders/ on main, but this module file exists only on this branch, so nothing on main could reach it - and the merge was clean precisely because there was no overlap. The stale value was left behind and broke schema validation:
+
+      'PARTIAL' is not one of ['SUPPORT', 'REFUTE', 'NO_EVIDENCE'] in /treatments/0/evidence/1/supports
+
+    The item was the deliberate one recording that IL-6 blockade did not prevent delayed neurotoxicity in the humanized-mouse model while IL-1 receptor antagonism did. Rather than swap the value, applied the remedy the schema itself prescribes for this shape (DirectnessEnum comments): "one evidence item making two claims, and the fix is to split it into a SUPPORT item and a REFUTE item, each quoting the sentence that carries it."
+
+    The snippet did bundle two claims about two different agents - tocilizumab failing at the neurotoxicity endpoint, and anakinra succeeding there. Only the first bears on the tocilizumab treatment this evidence is attached to; the second is about a different drug and belongs to the module's scope prose, where it already sits. So the item is now supports: REFUTE with directness: DIRECT, quoting only the tocilizumab-failure sentence, and the explanation is rewritten to drop the two references to PARTIAL and to name what it refutes (IL-6 blockade as sufficient) and why it is paired with the SUPPORT item above it from the same paper.
+
+    That pairing is the schema's intended shape and reads more sharply than PARTIAL did: one item says the agent prevents the syndrome, the next says it fails at a named endpoint, and together they carry the parallel-arms claim that a single graded value could only gesture at.
+
+    Checked the rest of this PR's files for retired enum values: none remain in either module or in the five edited disorder entries.
+
+    Validation: linkml-validate clean (the failing check), reference validator 14/14 with the trimmed snippet still an exact substring, term validation passed, snippet-grading gate clean, entity refs and duplicate keys OK.

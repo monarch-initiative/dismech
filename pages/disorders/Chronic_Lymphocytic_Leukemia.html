@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Chronic Lymphocytic Leukemia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Chronic Lymphocytic Leukemia</h1>
             <div class="header-meta">
 
@@ -4120,7 +4263,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ighv-mutated-cll">
 
                     <div class="item-name">
                         IGHV Mutated CLL
@@ -4148,7 +4291,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ighv-unmutated-cll">
 
                     <div class="item-name">
                         IGHV Unmutated CLL
@@ -4197,6 +4340,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-b-cell-receptor-signaling-dysregulation" data-dismech-node="B-cell Receptor Signaling Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">B-cell Receptor Signaling Dysregulation</div>
+
 
                 <div class="item-desc">CLL cells exhibit constitutive B-cell receptor (BCR) signaling, either through autonomous signaling or antigen-driven activation. This chronic BCR stimulation activates downstream kinases including BTK, PI3K, and SYK, driving proliferation and survival. BCR signaling intensity correlates with clinical aggressiveness.</div>
 
@@ -4319,6 +4463,7 @@ This pathophysiological event involves increased B cell activation (GO:0042113).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-btk-pathway-activation" data-dismech-node="BTK Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">BTK Pathway Activation</div>
 
+
                 <div class="item-desc">Bruton tyrosine kinase (BTK) is essential for BCR signaling and CLL cell survival. BTK activation promotes NF-kB signaling, cell adhesion, and tissue homing. BTK inhibitors disrupt these signals, mobilizing CLL cells from protective tissue microenvironments and inducing apoptosis.</div>
 
 
@@ -4397,6 +4542,7 @@ This pathophysiological event involves increased signal transduction (GO:0007165
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microenvironmental-survival-signals" data-dismech-node="Microenvironmental Survival Signals" data-dismech-type="pathophysiology">
                 <div class="item-name">Microenvironmental Survival Signals</div>
+
 
                 <div class="item-desc">CLL cells depend on interactions with the tissue microenvironment including nurse-like cells, T cells, and stromal cells in lymph nodes and bone marrow. These interactions provide survival signals through chemokines, cytokines, and direct cell contact. Disrupting these interactions is therapeutically important.</div>
 
@@ -4511,6 +4657,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nf-kb-activation-and-survival" data-dismech-node="NF-kB Activation and Survival" data-dismech-type="pathophysiology">
                 <div class="item-name">NF-kB Activation and Survival</div>
 
+
                 <div class="item-desc">NF-kB transcription factors are constitutively activated in CLL and promote expression of anti-apoptotic genes including BCL2, MCL1, and XIAP. This contributes to the apoptosis resistance characteristic of CLL cells.</div>
 
 
@@ -4589,6 +4736,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cll-cell-accumulation" data-dismech-node="CLL Cell Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">CLL Cell Accumulation</div>
+
 
                 <div class="item-desc">The combination of defective apoptosis, microenvironmental support, and low-level proliferation leads to progressive accumulation of clonal B cells. CLL is primarily a disease of accumulation rather than rapid proliferation.</div>
 
@@ -4730,7 +4878,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-small-b-cell-clonal-expansion">
                 <div class="item-name">
                     Small B-Cell Clonal Expansion
 
@@ -4754,15 +4902,20 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29670635" target="_blank">PMID:29670635</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
                 </div>
 
-                <div class="evidence-snippet">"Chronic lymphocytic leukemia (CLL) is characterized by the clonal expansion of"</div>
+                <div class="evidence-snippet">"Chronic lymphocytic leukemia (CLL) is characterized by the clonal expansion of small mature-looking CD19+ CD23+ CD5+ B-cells that accumulate in the blood, bone marrow, and lymphoid organs."</div>
 
 
-                <div class="evidence-explanation">Abstract describes CLL as characterized by clonal expansion of CLL B cells.</div>
+                <div class="evidence-explanation">States that CLL is defined by clonal expansion of small mature-appearing CD5+ B cells accumulating in blood, marrow and lymphoid organs, which is the finding recorded here.</div>
 
 
 
@@ -4871,6 +5024,9 @@ This clinical feature is Lymphoproliferative disorder (HP:0005523). HP:0005523 i
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-anemia" data-dismech-node="Anemia" data-dismech-type="phenotype">
@@ -4907,6 +5063,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-thrombocytopenia" data-dismech-node="Thrombocytopenia" data-dismech-type="phenotype">
@@ -4934,6 +5093,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4984,6 +5146,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4996,7 +5161,10 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1139039" target="_blank">PMID:1139039</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5052,6 +5220,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5064,7 +5235,10 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1139039" target="_blank">PMID:1139039</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5129,6 +5303,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5141,7 +5318,10 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18755702" target="_blank">PMID:18755702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5210,6 +5390,9 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5246,6 +5429,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5309,6 +5495,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-del-11q-atm" data-dismech-node="del(11q)/ATM" data-dismech-type="genetic">
@@ -5318,6 +5507,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Intermediate-Risk Marker)</span>
 
                 </div>
+
+
+
 
 
 
@@ -5339,6 +5531,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ighv" data-dismech-node="IGHV" data-dismech-type="genetic">
@@ -5354,12 +5549,18 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
             </div>
 
         </div>
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5434,6 +5635,20 @@ This treatment uses ibrutinib (CHEBI:76612). CHEBI:76612 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-in-class irreversible BTK inhibitor that disrupts BCR signaling, mobilizes CLL cells from tissue niches, and induces apoptosis. Effective in all risk groups including TP53-mutated CLL. Continuous therapy until progression.</div>
 
 
@@ -5453,7 +5668,10 @@ This treatment uses ibrutinib (CHEBI:76612). CHEBI:76612 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26639149" target="_blank">PMID:26639149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5539,6 +5757,20 @@ This treatment uses acalabrutinib (CHEBI:167707). CHEBI:167707 is a therapeutic 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Second-generation selective BTK inhibitor with improved kinase selectivity and potentially fewer off-target effects than ibrutinib. Effective as monotherapy or combined with obinutuzumab.</div>
 
 
@@ -5612,7 +5844,21 @@ This treatment uses venetoclax (CHEBI:133021). CHEBI:133021 is a therapeutic age
 
 
 
-                <div class="item-desc">BCL2 inhibitor venetoclax combined with anti-CD20 antibody obinutuzumab achieves high rates of undetectable MRD and enables time-limited therapy (12 months). Particularly effective in treatment-naive CLL.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">BCL2 inhibitor venetoclax combined with the anti-CD20 antibody obinutuzumab, given as fixed-duration (1 year) therapy in previously untreated CLL. In the randomized CLL14 study it gave markedly superior progression-free survival to chlorambucil-obinutuzumab, and minimal residual disease status at the end of therapy predicted how long that benefit lasted. The fixed-duration principle for venetoclax plus an anti-CD20 antibody was established separately in the relapsed/refractory setting by MURANO, which used rituximab rather than obinutuzumab.</div>
 
 
 
@@ -5621,9 +5867,59 @@ This treatment uses venetoclax (CHEBI:133021). CHEBI:133021 is a therapeutic age
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41467-023-37648-w" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41467-023-37648-w" target="_blank">DOI:10.1038/s41467-023-37648-w</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These data indicate sustained long-term efficacy of fixed-duration Ven-Obi in patients with previously untreated CLL."</div>
+
+
+                <div class="evidence-explanation">CLL14, the randomized phase 3 trial of this exact regimen, reports sustained efficacy of 1-year venetoclax-obinutuzumab in previously untreated CLL.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41467-023-37648-w" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41467-023-37648-w" target="_blank">DOI:10.1038/s41467-023-37648-w</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In both arms, MRD status at the end of therapy is associated with longer PFS."</div>
+
+
+                <div class="evidence-explanation">Supports the role of end-of-therapy minimal residual disease status as the predictor of durability under this time-limited regimen.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:30523712" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -5631,7 +5927,12 @@ This treatment uses venetoclax (CHEBI:133021). CHEBI:133021 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30523712" target="_blank">PMID:30523712</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5641,7 +5942,7 @@ This treatment uses venetoclax (CHEBI:133021). CHEBI:133021 is a therapeutic age
                 <div class="evidence-snippet">"The MURANO study demonstrated significant progression-free survival (PFS) benefit for fixed-duration venetoclax-rituximab compared with bendamustine-rituximab in relapsed/refractory chronic lymphocytic leukemia."</div>
 
 
-                <div class="evidence-explanation">The MURANO Phase III study demonstrated venetoclax-rituximab&#39;s superiority in relapsed/refractory CLL with significantly improved progression-free survival.</div>
+                <div class="evidence-explanation">Supports fixed-duration venetoclax plus an anti-CD20 antibody as an effective strategy in CLL. Marked INDIRECT because MURANO tested venetoclax-rituximab in relapsed/refractory disease, not the venetoclax-obinutuzumab regimen in previously untreated patients that this entry describes.</div>
 
 
 
@@ -5717,6 +6018,20 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Fludarabine, cyclophosphamide, and rituximab combination was standard for fit patients with mutated IGHV without del(17p)/TP53 mutation. Can achieve long remissions in this favorable subgroup but largely replaced by targeted agents.</div>
 
 
@@ -5763,6 +6078,20 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5822,6 +6151,92 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-most-common-adult-leukemia">
+                <div class="item-name">Most common adult leukemia</div>
+
+                <div class="item-desc">Chronic lymphocytic leukemia is the most common type of leukemia in adults.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41572562" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41572562" target="_blank">PMID:41572562</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chronic lymphocytic leukemia (CLL) is the most common type of leukemia in adults."</div>
+
+
+                <div class="evidence-explanation">Background statement of a five-patient clinical series, which states directly that CLL is the most common adult leukemia. The series itself is about cutaneous presentation and is cited here only for this epidemiological statement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -5834,7 +6249,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000534">
                 <div class="item-name">
                     Analysis of DNA methylation in normal B cells and chronic lymphocytic leukemia
 
@@ -5873,7 +6288,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000885">
                 <div class="item-name">
                     Whole Genome Sequencing to track subclonal heterogeneity in 18  samples from 3 Chronic Lymphocytic Leukemia patients subjected to repeated cycles of therapy.
 
@@ -5908,7 +6323,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001821">
                 <div class="item-name">
                     Epigenome and transcriptome profiling of chronic lymphocytic leukemia patients
 
@@ -5947,7 +6362,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000082941">
                 <div class="item-name">
                     Aging-related proteome alterations in B cells may predispose for chronic lymphocytic leukemia - nuclear proteins of elderly B cells
 
@@ -5980,7 +6395,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-dbgap-phs000364">
                 <div class="item-name">
                     Genome-Wide Analysis of Chronic Lymphocytic Leukemia
 
@@ -6064,8 +6479,12 @@ epidemiology:
   - reference: PMID:41572562
     reference_title: &#34;\&#34;Leukemic pernio\&#34;: perniosis-like presentations of chronic lymphocytic leukemia.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Chronic lymphocytic leukemia (CLL) is the most common type of leukemia in adults.&#34;
-    explanation: This abstract explicitly states that CLL is the most common adult leukemia.
+    explanation: &gt;-
+      Background statement of a five-patient clinical series, which states directly that
+      CLL is the most common adult leukemia. The series itself is about cutaneous
+      presentation and is cited here only for this epidemiological statement.
 has_subtypes:
 - name: IGHV Mutated CLL
   description: &gt;-
@@ -6171,7 +6590,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:67038
-      reference_title: &#34;B-cell chronic lymphocytic leukemia (Orphanet structured-database record)&#34;
+      reference_title: &#34;B-cell chronic lymphocytic leukemia&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;B-cell chronic lymphocytic leukemia (B-CLL) is a type of B-cell non-Hodgkin lymphoma&#34;
@@ -6181,7 +6600,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:67038
-      reference_title: &#34;B-cell chronic lymphocytic leukemia (Orphanet structured-database record)&#34;
+      reference_title: &#34;B-cell chronic lymphocytic leukemia&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;cervical lymphadenopathy, splenomegaly and frequent infections&#34;
@@ -6191,7 +6610,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:67038
-      reference_title: &#34;B-cell chronic lymphocytic leukemia (Orphanet structured-database record)&#34;
+      reference_title: &#34;B-cell chronic lymphocytic leukemia&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;cervical lymphadenopathy, splenomegaly and frequent infections&#34;
@@ -6203,7 +6622,7 @@ pathophysiology:
     - Autoimmune hemolytic anemia, marrow infiltration, or hypersplenism.
     evidence:
     - reference: ORPHA:67038
-      reference_title: &#34;B-cell chronic lymphocytic leukemia (Orphanet structured-database record)&#34;
+      reference_title: &#34;B-cell chronic lymphocytic leukemia&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;autoimmune complications such as autoimmune hemolytic anemia or immune thrombocytopenia.&#34;
@@ -6215,7 +6634,7 @@ pathophysiology:
     - Immune thrombocytopenia, marrow infiltration, or hypersplenism.
     evidence:
     - reference: ORPHA:67038
-      reference_title: &#34;B-cell chronic lymphocytic leukemia (Orphanet structured-database record)&#34;
+      reference_title: &#34;B-cell chronic lymphocytic leukemia&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;autoimmune complications such as autoimmune hemolytic anemia or immune thrombocytopenia.&#34;
@@ -6227,7 +6646,7 @@ pathophysiology:
     - CLL-associated immunodeficiency.
     evidence:
     - reference: ORPHA:67038
-      reference_title: &#34;B-cell chronic lymphocytic leukemia (Orphanet structured-database record)&#34;
+      reference_title: &#34;B-cell chronic lymphocytic leukemia&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;cervical lymphadenopathy, splenomegaly and frequent infections&#34;
@@ -6237,7 +6656,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:67038
-      reference_title: &#34;B-cell chronic lymphocytic leukemia (Orphanet structured-database record)&#34;
+      reference_title: &#34;B-cell chronic lymphocytic leukemia&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;unintentional weight loss, severe fatigue, fever (without evidence of infection), and night sweats&#34;
@@ -6247,7 +6666,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:67038
-      reference_title: &#34;B-cell chronic lymphocytic leukemia (Orphanet structured-database record)&#34;
+      reference_title: &#34;B-cell chronic lymphocytic leukemia&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;unintentional weight loss, severe fatigue, fever (without evidence of infection), and night sweats&#34;
@@ -6265,8 +6684,12 @@ histopathology:
   - reference: PMID:29670635
     reference_title: &#34;Chronic Lymphocytic Leukemia B-Cell Normal Cellular Counterpart: Clues From a Functional Perspective.&#34;
     supports: SUPPORT
-    snippet: &#34;Chronic lymphocytic leukemia (CLL) is characterized by the clonal expansion of&#34;
-    explanation: Abstract describes CLL as characterized by clonal expansion of CLL B cells.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Chronic lymphocytic leukemia (CLL) is characterized by the clonal expansion of small mature-looking CD19+ CD23+ CD5+ B-cells that accumulate in the blood, bone marrow, and lymphoid organs.&#34;
+    explanation: &gt;-
+      States that CLL is defined by clonal expansion of small mature-appearing CD5+
+      B cells accumulating in blood, marrow and lymphoid organs, which is the finding
+      recorded here.
 
 phenotypes:
 - category: Hematologic
@@ -6457,9 +6880,14 @@ treatments:
         label: acalabrutinib
 - name: Venetoclax plus Obinutuzumab
   description: &gt;-
-    BCL2 inhibitor venetoclax combined with anti-CD20 antibody obinutuzumab
-    achieves high rates of undetectable MRD and enables time-limited
-    therapy (12 months). Particularly effective in treatment-naive CLL.
+    BCL2 inhibitor venetoclax combined with the anti-CD20 antibody obinutuzumab,
+    given as fixed-duration (1 year) therapy in previously untreated CLL. In the
+    randomized CLL14 study it gave markedly superior progression-free survival to
+    chlorambucil-obinutuzumab, and minimal residual disease status at the end of
+    therapy predicted how long that benefit lasted. The fixed-duration principle
+    for venetoclax plus an anti-CD20 antibody was established separately in the
+    relapsed/refractory setting by MURANO, which used rituximab rather than
+    obinutuzumab.
   treatment_term:
     preferred_term: targeted therapy
     term:
@@ -6471,12 +6899,33 @@ treatments:
         id: CHEBI:133021
         label: venetoclax
   evidence:
+  - reference: DOI:10.1038/s41467-023-37648-w
+    reference_title: Transcriptomic profiles and 5-year results from the randomized CLL14 study of venetoclax plus obinutuzumab versus chlorambucil plus obinutuzumab in chronic lymphocytic leukemia
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: These data indicate sustained long-term efficacy of fixed-duration Ven-Obi in patients with previously untreated CLL.
+    explanation: &gt;-
+      CLL14, the randomized phase 3 trial of this exact regimen, reports sustained
+      efficacy of 1-year venetoclax-obinutuzumab in previously untreated CLL.
+  - reference: DOI:10.1038/s41467-023-37648-w
+    reference_title: Transcriptomic profiles and 5-year results from the randomized CLL14 study of venetoclax plus obinutuzumab versus chlorambucil plus obinutuzumab in chronic lymphocytic leukemia
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: In both arms, MRD status at the end of therapy is associated with longer PFS.
+    explanation: &gt;-
+      Supports the role of end-of-therapy minimal residual disease status as the
+      predictor of durability under this time-limited regimen.
   - reference: PMID:30523712
     reference_title: &#39;Fixed Duration of Venetoclax-Rituximab in Relapsed/Refractory Chronic Lymphocytic Leukemia Eradicates Minimal Residual Disease and Prolongs Survival: Post-Treatment Follow-Up of the MURANO Phase III Study.&#39;
     supports: SUPPORT
+    directness: INDIRECT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The MURANO study demonstrated significant progression-free survival (PFS) benefit for fixed-duration venetoclax-rituximab compared with bendamustine-rituximab in relapsed/refractory chronic lymphocytic leukemia.&#34;
-    explanation: The MURANO Phase III study demonstrated venetoclax-rituximab&#39;s superiority in relapsed/refractory CLL with significantly improved progression-free survival.
+    explanation: &gt;-
+      Supports fixed-duration venetoclax plus an anti-CD20 antibody as an effective
+      strategy in CLL. Marked INDIRECT because MURANO tested venetoclax-rituximab in
+      relapsed/refractory disease, not the venetoclax-obinutuzumab regimen in
+      previously untreated patients that this entry describes.
 - name: Chemoimmunotherapy (FCR)
   description: &gt;-
     Fludarabine, cyclophosphamide, and rituximab combination was standard
@@ -6583,9 +7032,13 @@ references:
     - reference: DOI:10.1038/s41419-024-06528-6
       reference_title: Leukemic cell-secreted interleukin-9 suppresses cytotoxic T cell-mediated killing in chronic lymphocytic leukemia
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: IN_VITRO
       snippet: The tumor microenvironment (TME) plays a central role in the pathogenesis of chronic lymphocytic leukemia (CLL), contributing to disease progression and chemoresistance.
-      explanation: Deep research cited this publication as relevant literature for Chronic Lymphocytic Leukemia.
+      explanation: &gt;-
+        Deep research cited this publication as relevant literature for Chronic
+        Lymphocytic Leukemia; the quoted sentence is the paper&#39;s framing of the
+        microenvironment&#39;s role. The study itself tests this in culture, using
+        cytotoxic T cells grown in leukemic-cell-conditioned media.
 - reference: DOI:10.1038/s41467-023-37648-w
   title: Transcriptomic profiles and 5-year results from the randomized CLL14 study of venetoclax plus obinutuzumab versus chlorambucil plus obinutuzumab in chronic lymphocytic leukemia
   found_in:
@@ -6619,15 +7072,25 @@ references:
   found_in:
   - Chronic_Lymphocytic_Leukemia-deep-research-falcon.md
   findings:
-  - statement: The gut microbiota plays a critical role in maintaining a healthy human body and its dysregulation is associated with various diseases.
-    supporting_text: The gut microbiota plays a critical role in maintaining a healthy human body and its dysregulation is associated with various diseases.
+  - statement: Lower gut microbiome diversity was associated with more advanced or aggressive CLL in patients, and with faster disease course in the Eu-TCL1 mouse model.
+    supporting_text: Interestingly, CLL patients with lower microbiome diversity and an enrichment of bacteria linked to poor health suffered from a more advanced or aggressive form of CLL.
     evidence:
     - reference: DOI:10.3324/haematol.2023.284693
       reference_title: The diversity of the microbiome impacts chronic lymphocytic leukemia development in mice and humans
       supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Interestingly, CLL patients with lower microbiome diversity and an enrichment of bacteria linked to poor health suffered from a more advanced or aggressive form of CLL.
+      explanation: &gt;-
+        Reports the patient-cohort result of this study, replacing a generic
+        background sentence about gut microbiota that said nothing about CLL.
+    - reference: DOI:10.3324/haematol.2023.284693
+      reference_title: The diversity of the microbiome impacts chronic lymphocytic leukemia development in mice and humans
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
-      snippet: The gut microbiota plays a critical role in maintaining a healthy human body and its dysregulation is associated with various diseases.
-      explanation: Deep research cited this publication as relevant literature for Chronic Lymphocytic Leukemia.
+      snippet: In the Eµ-TCL1 mouse model of CLL, we observed a faster course of disease when mice were housed in high hygiene conditions.
+      explanation: &gt;-
+        The mouse arm of the same study, split out so the animal result carries its
+        own evidence_source rather than being merged with the patient-cohort claim.
 - reference: DOI:10.3324/haematol.2024.285754
   title: &#39;Pirtobrutinib monotherapy in Bruton tyrosine kinase inhibitor-intolerant patients with B-cell malignancies: results of the phase I/II BRUIN trial&#39;
   found_in:
@@ -6752,7 +7215,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1002/ajh.25595" target="_blank">DOI:10.1002/ajh.25595</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6821,7 +7287,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1007/s00277-024-05823-8" target="_blank">DOI:10.1007/s00277-024-05823-8</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6890,7 +7359,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1038/s41375-022-01802-y" target="_blank">DOI:10.1038/s41375-022-01802-y</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6959,7 +7431,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1038/s41375-024-02224-8" target="_blank">DOI:10.1038/s41375-024-02224-8</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7028,17 +7503,20 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1038/s41419-024-06528-6" target="_blank">DOI:10.1038/s41419-024-06528-6</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
                 <div class="evidence-snippet">"The tumor microenvironment (TME) plays a central role in the pathogenesis of chronic lymphocytic leukemia (CLL), contributing to disease progression and chemoresistance."</div>
 
 
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chronic Lymphocytic Leukemia.</div>
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chronic Lymphocytic Leukemia; the quoted sentence is the paper&#39;s framing of the microenvironment&#39;s role. The study itself tests this in culture, using cytotoxic T cells grown in leukemic-cell-conditioned media.</div>
 
 
 
@@ -7097,7 +7575,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-023-37648-w" target="_blank">DOI:10.1038/s41467-023-37648-w</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7166,7 +7647,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1182/blood-2017-09-806398" target="_blank">DOI:10.1182/blood-2017-09-806398</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7216,16 +7700,16 @@ datasets:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">The gut microbiota plays a critical role in maintaining a healthy human body and its dysregulation is associated with various diseases.</div>
+            <div class="reference-finding-statement">Lower gut microbiome diversity was associated with more advanced or aggressive CLL in patients, and with faster disease course in the Eu-TCL1 mouse model.</div>
 
 
-            <div class="reference-finding-supporting">"The gut microbiota plays a critical role in maintaining a healthy human body and its dysregulation is associated with various diseases."</div>
+            <div class="reference-finding-supporting">"Interestingly, CLL patients with lower microbiome diversity and an enrichment of bacteria linked to poor health suffered from a more advanced or aggressive form of CLL."</div>
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -7235,22 +7719,27 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3324/haematol.2023.284693" target="_blank">DOI:10.3324/haematol.2023.284693</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The gut microbiota plays a critical role in maintaining a healthy human body and its dysregulation is associated with various diseases."</div>
+                <div class="evidence-snippet">"Interestingly, CLL patients with lower microbiome diversity and an enrichment of bacteria linked to poor health suffered from a more advanced or aggressive form of CLL."</div>
 
 
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Chronic Lymphocytic Leukemia.</div>
+                <div class="evidence-explanation">Reports the patient-cohort result of this study, replacing a generic background sentence about gut microbiota that said nothing about CLL.</div>
 
 
 
             </div>
 
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -7304,7 +7793,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3324/haematol.2024.285754" target="_blank">DOI:10.3324/haematol.2024.285754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7373,7 +7865,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.6004/jnccn.2024.7020" target="_blank">DOI:10.6004/jnccn.2024.7020</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7410,6 +7905,19 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Evidence-integrity review: claims vs cited publication text</strong> · 2026-08-29T21:42:17Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Chronic_Lymphocytic_Leukemia/2026-08-29T214217Z-claude-code-90375d.yaml">View source</a></p>
+                        <p class="research-review-text">Evidence-integrity review of 28 evidence items against 17 cached references (6 PMIDs, ORPHA:67038, 10 DOIs), re-reading each cited publication; DOI-backed snippets hand-verified since the validator skips them by prefix. Five defects fixed: (1) the main integrity failure - the Venetoclax plus Obinutuzumab treatment, described as fixed-duration therapy for treatment-naive CLL, was evidenced solely by MURANO (venetoclax plus rituximab, relapsed/refractory); added two exact CLL14 quotes (DOI:10.1038/s41467-023-37648-w) supporting the actual regimen and population, downgraded the MURANO item to PARTIAL naming both mismatches, and attributed the two trials separately in the description; (2) a histopathology snippet truncated mid-sentence replaced with the complete sentence naming the CD19+CD23+CD5+ immunophenotype; (3) an epidemiology item&#39;s provenance (background statement in a five-patient dermatology series) made explicit; (4) an IL-9 conditioned-media/culture study regraded HUMAN_CLINICAL to IN_VITRO; (5) a microbiome paper&#39;s generic non-CLL sentence tagged MODEL_ORGANISM replaced by the study&#39;s patient-cohort result (HUMAN_CLINICAL) with the mouse result split into a second MODEL_ORGANISM item per the split-mixed-sources rule. Left unfixed: four pathophysiology nodes, all genetic entries and several phenotypes/treatments carry no evidence at all (coverage gap requiring new sources); deep-research bibliography stubs quote background sentences but say so honestly; a Watch-and-Wait treatment_term bound to NCIT Cancer Screening flagged as a term-selection question, out of scope. Assessment: cache-backed clinical evidence sound and correctly graded, but the entry is thin - the mechanism chain is unevidenced prose - and the venetoclax regimen mismatch was exactly the trial-fame-attached-to-wrong-regimen failure mode. Validation: just validate and strict snippet audit pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8579,7 +9087,7 @@ with notable tolerability signals (e.g., no discontinuations for the same AE tha
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chronic Lymphocytic Leukemia", "mondoId": "MONDO:0004948", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Lymphocytic_Leukemia", "yamlRevision": "d12855b6c60b"};
+        const OS_CONFIG = {"diseaseName": "Chronic Lymphocytic Leukemia", "mondoId": "MONDO:0004948", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Lymphocytic_Leukemia", "yamlRevision": "f00953ffc2a9"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

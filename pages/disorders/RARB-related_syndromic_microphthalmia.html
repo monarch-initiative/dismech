@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>RARB-related syndromic microphthalmia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>RARB-related syndromic microphthalmia</h1>
             <div class="header-meta">
 
@@ -3979,7 +4122,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4024,7 +4167,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4046,7 +4192,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37321544" target="_blank">PMID:37321544</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4069,7 +4218,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4114,7 +4263,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4136,7 +4288,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37321544" target="_blank">PMID:37321544</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4239,7 +4394,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4261,7 +4419,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27120018" target="_blank">PMID:27120018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4346,7 +4507,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4368,7 +4532,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37321544" target="_blank">PMID:37321544</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4453,7 +4620,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37092537" target="_blank">PMID:37092537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4475,7 +4645,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37321544" target="_blank">PMID:37321544</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4560,7 +4733,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7607068" target="_blank">PMID:7607068</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4582,7 +4758,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29308367" target="_blank">PMID:29308367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4604,7 +4783,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28833556" target="_blank">PMID:28833556</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4704,6 +4886,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4720,6 +4908,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Compare protein stability, ligand binding, RXR heterodimerization, and coactivator recruitment of dominant-negative versus recessive loss-of-function RARB variants to identify the molecular property that determines single-allele manifestation.</div>
+
+
+
+
+
+
 
 
 
@@ -4772,6 +4966,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4795,7 +4995,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37321544" target="_blank">PMID:37321544</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4883,6 +5086,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4899,6 +5108,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Compare transcriptomic responses to retinoic acid in patient-derived iPSC models and optic-cup or cerebral organoids carrying gain-of-function and biallelic loss-of-function variants to identify dysregulated target genes such as PITX2.</div>
+
+
+
+
+
+
 
 
 
@@ -4940,7 +5155,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27120018" target="_blank">PMID:27120018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4977,6 +5195,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rarb-receptor-dysfunction" data-dismech-node="RARB Receptor Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">RARB Receptor Dysfunction</div>
+
 
                 <div class="item-desc">Pathogenic variants in RARB alter the retinoic acid receptor beta protein, a ligand-activated nuclear receptor. De novo dominant missense variants in and around the ligand-binding domain increase ligand-induced transcriptional activity (gain-of-function), biallelic nonsense and frameshift variants abolish receptor activity (recessive loss-of-function), and some heterozygous loss-of-function variants disrupt wild-type receptor function through a dominant-negative effect. Missense variants in the highly conserved DNA-binding domain form a further loss-of-function class, reducing steady-state protein levels and impairing nuclear localization of the receptor.</div>
 
@@ -5204,7 +5423,10 @@ This pathophysiological event involves abnormal retinoic acid binding (GO:000197
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5226,7 +5448,10 @@ This pathophysiological event involves abnormal retinoic acid binding (GO:000197
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37092537" target="_blank">PMID:37092537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5248,7 +5473,10 @@ This pathophysiological event involves abnormal retinoic acid binding (GO:000197
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31816153" target="_blank">PMID:31816153</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5275,6 +5503,7 @@ This pathophysiological event involves abnormal retinoic acid binding (GO:000197
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-retinoic-acid-target-gene-transcription" data-dismech-node="Dysregulated Retinoic Acid Target Gene Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Retinoic Acid Target Gene Transcription</div>
+
 
                 <div class="item-desc">Dysfunctional RARB perturbs transcription of retinoic acid target genes. Dominant gain-of-function variants increase ligand-induced transcriptional activity two- to threefold over the wild-type receptor, loss-of-function alleles eliminate target gene activation, and overexpression of RARB elevates downstream effectors such as FOXC1. In the developing eye, the homeodomain transcription factor Pitx2 is a key retinoic-acid-responsive target gene in neural crest cells.</div>
 
@@ -5427,7 +5656,10 @@ This pathophysiological event involves abnormal retinoic acid receptor signaling
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5449,7 +5681,10 @@ This pathophysiological event involves abnormal retinoic acid receptor signaling
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27120018" target="_blank">PMID:27120018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5471,7 +5706,10 @@ This pathophysiological event involves abnormal retinoic acid receptor signaling
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39450403" target="_blank">PMID:39450403</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5498,6 +5736,7 @@ This pathophysiological event involves abnormal retinoic acid receptor signaling
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-eye-development" data-dismech-node="Abnormal Eye Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Eye Development</div>
+
 
                 <div class="item-desc">Retinoic acid signaling coordinates morphogenic movements, cell growth, and differentiation during eye development; disrupted RARB-mediated transcription impairs ocular morphogenesis and produces microphthalmia, anophthalmia, coloboma, and anterior segment defects. Conditional receptor inactivation in mice places the critical site of retinoic acid action during eye morphogenesis in neural crest-derived periocular mesenchyme.</div>
 
@@ -5715,7 +5954,10 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39450403" target="_blank">PMID:39450403</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5737,7 +5979,10 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5759,7 +6004,10 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18539269" target="_blank">PMID:18539269</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5786,6 +6034,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-lung-development" data-dismech-node="Abnormal Lung Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Lung Development</div>
+
 
                 <div class="item-desc">Disrupted embryonic retinoid signaling perturbs pulmonary development and underlies the pulmonary hypoplasia or agenesis of the PDAC malformation pattern.</div>
 
@@ -5834,7 +6083,10 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5859,6 +6111,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-diaphragm-development" data-dismech-node="Abnormal Diaphragm Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Diaphragm Development</div>
+
 
                 <div class="item-desc">Disrupted embryonic retinoid signaling perturbs diaphragm formation and produces congenital diaphragmatic hernia or eventration.</div>
 
@@ -5907,7 +6160,10 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5929,7 +6185,10 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7607068" target="_blank">PMID:7607068</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5954,6 +6213,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-cardiac-development" data-dismech-node="Abnormal Cardiac Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Cardiac Development</div>
+
 
                 <div class="item-desc">Disrupted embryonic retinoid signaling perturbs cardiac morphogenesis and contributes to the congenital heart malformations of the PDAC pattern.</div>
 
@@ -6002,7 +6262,10 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6024,7 +6287,10 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7923367" target="_blank">PMID:7923367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6049,6 +6315,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-brain-development-and-function" data-dismech-node="Abnormal Brain Development and Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Brain Development and Function</div>
+
 
                 <div class="item-desc">Precise regulation of retinoic acid signaling is required for human brain development and function. RARB disruption produces severe global developmental delay, intellectual disability, and a progressive motor disorder with spasticity, dystonia, and sometimes chorea, together with Chiari type I malformation in the majority of survivors.</div>
 
@@ -6113,7 +6380,10 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27120018" target="_blank">PMID:27120018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6135,7 +6405,10 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37092537" target="_blank">PMID:37092537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6157,7 +6430,10 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9272952" target="_blank">PMID:9272952</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6228,15 +6504,15 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(9)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6279,6 +6555,9 @@ This clinical feature is congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6291,7 +6570,10 @@ This clinical feature is congenital heart defect, annotated with Abnormal heart 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6356,6 +6638,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6368,7 +6653,10 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27120018" target="_blank">PMID:27120018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6400,7 +6688,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microphthalmia" data-dismech-node="Microphthalmia" data-dismech-type="phenotype">
@@ -6433,6 +6721,9 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6445,7 +6736,10 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6456,6 +6750,78 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                 <div class="evidence-explanation">Review of reported MCOPS12 cases documents universal bilateral microphthalmia, supporting the VERY_FREQUENT frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anophthalmia" data-dismech-node="Anophthalmia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anophthalmia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000528</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24075189" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Anophthalmia and/or microphthalmia, pulmonary hypoplasia, diaphragmatic hernia, and cardiac defects are the main features of PDAC syndrome."</div>
+
+
+                <div class="evidence-explanation">Anophthalmia is a main feature of the PDAC syndrome caused by RARB mutation.</div>
 
 
 
@@ -6485,15 +6851,18 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000589</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6511,7 +6880,10 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39450403" target="_blank">PMID:39450403</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6533,7 +6905,10 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6573,15 +6948,18 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0007957</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007957</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6599,7 +6977,10 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6639,15 +7020,18 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000659</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000659</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6665,7 +7049,10 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6705,15 +7092,18 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000526</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000526</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aniridia (HP:0000526). HP:0000526 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6731,7 +7121,10 @@ This clinical feature is Aniridia (HP:0000526). HP:0000526 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6762,9 +7155,164 @@ This clinical feature is Aniridia (HP:0000526). HP:0000526 is a phenotype from t
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">2</span>
+                    Genitourinary
+                    <span class="cat-count">1</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-unilateral-renal-agenesis" data-dismech-node="Unilateral renal agenesis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Unilateral renal agenesis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000122" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000122</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Unilateral renal agenesis (HP:0000122). HP:0000122 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41942473" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"multiple congenital anomalies were identified, including bilateral microphthalmia, aniridia, corpus callosum hypoplasia, left diaphragmatic eventration (later confirmed as a diaphragmatic hernia postoperatively), duodenal obstruction with intestinal malrotation, and left renal agenesis"</div>
+
+
+                <div class="evidence-explanation">Left renal agenesis was documented among the congenital anomalies of a confirmed RARB case.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-diaphragmatic-hernia" data-dismech-node="Congenital diaphragmatic hernia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Congenital diaphragmatic hernia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000776</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:0000776 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41942473" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A review of 14 previously reported cases revealed universal bilateral microphthalmia (100%), global motor delay (100%) and intellectual disability (100%), whereas diaphragmatic hernias and congenital heart disease were observed in 57% and 43% of patients, respectively"</div>
+
+
+                <div class="evidence-explanation">Diaphragmatic hernias were observed in 57% of reviewed MCOPS12 cases, supporting the FREQUENT frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6782,15 +7330,18 @@ This clinical feature is Aniridia (HP:0000526). HP:0000526 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6808,7 +7359,10 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6830,7 +7384,10 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27120018" target="_blank">PMID:27120018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6870,15 +7427,18 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6896,7 +7456,10 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6924,11 +7487,11 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">9</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
@@ -6947,15 +7510,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6973,7 +7539,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27120018" target="_blank">PMID:27120018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7015,15 +7584,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7041,7 +7613,10 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7083,15 +7658,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7109,7 +7687,10 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7151,15 +7732,18 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Language delay, annotated with Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7177,7 +7761,10 @@ This clinical feature is Language delay, annotated with Delayed speech and langu
                         <a href="https://bioregistry.io/ORPHA:689829" target="_blank">ORPHA:689829</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7217,15 +7804,18 @@ This clinical feature is Language delay, annotated with Delayed speech and langu
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7243,7 +7833,10 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37321544" target="_blank">PMID:37321544</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7265,7 +7858,10 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27120018" target="_blank">PMID:27120018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7305,15 +7901,18 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002072</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7331,7 +7930,10 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27120018" target="_blank">PMID:27120018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7342,290 +7944,6 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
                 <div class="evidence-explanation">Chorea was reported as a variable accompaniment of the RARB-related progressive movement disorder.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizure
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41942473" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He also had refractory epilepsy with seizures, which remained poorly controlled despite multiple trials of different antiepileptic drugs."</div>
-
-
-                <div class="evidence-explanation">Refractory epilepsy was documented in an individual with a de novo RARB variant.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-hypoplasia" data-dismech-node="Pulmonary hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary hypoplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002089</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24075189" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Anophthalmia and/or microphthalmia, pulmonary hypoplasia, diaphragmatic hernia, and cardiac defects are the main features of PDAC syndrome."</div>
-
-
-                <div class="evidence-explanation">Pulmonary hypoplasia is a main feature of the PDAC syndrome caused by RARB mutation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anophthalmia" data-dismech-node="Anophthalmia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anophthalmia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000528</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24075189" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Anophthalmia and/or microphthalmia, pulmonary hypoplasia, diaphragmatic hernia, and cardiac defects are the main features of PDAC syndrome."</div>
-
-
-                <div class="evidence-explanation">Anophthalmia is a main feature of the PDAC syndrome caused by RARB mutation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-diaphragmatic-hernia" data-dismech-node="Congenital diaphragmatic hernia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Congenital diaphragmatic hernia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000776</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:0000776 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41942473" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A review of 14 previously reported cases revealed universal bilateral microphthalmia (100%), global motor delay (100%) and intellectual disability (100%), whereas diaphragmatic hernias and congenital heart disease were observed in 57% and 43% of patients, respectively"</div>
-
-
-                <div class="evidence-explanation">Diaphragmatic hernias were observed in 57% of reviewed MCOPS12 cases, supporting the FREQUENT frequency.</div>
 
 
 
@@ -7657,15 +7975,18 @@ This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:000077
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0007099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0007099</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7683,7 +8004,10 @@ This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27120018" target="_blank">PMID:27120018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7705,7 +8029,10 @@ This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7745,15 +8072,18 @@ This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0033725</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0033725</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7771,7 +8101,10 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7797,9 +8130,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-unilateral-renal-agenesis" data-dismech-node="Unilateral renal agenesis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Unilateral renal agenesis
+                        Seizure
 
 
 
@@ -7811,15 +8144,18 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000122" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000122</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Unilateral renal agenesis (HP:0000122). HP:0000122 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7837,17 +8173,101 @@ This clinical feature is Unilateral renal agenesis (HP:0000122). HP:0000122 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"multiple congenital anomalies were identified, including bilateral microphthalmia, aniridia, corpus callosum hypoplasia, left diaphragmatic eventration (later confirmed as a diaphragmatic hernia postoperatively), duodenal obstruction with intestinal malrotation, and left renal agenesis"</div>
+                <div class="evidence-snippet">"He also had refractory epilepsy with seizures, which remained poorly controlled despite multiple trials of different antiepileptic drugs."</div>
 
 
-                <div class="evidence-explanation">Left renal agenesis was documented among the congenital anomalies of a confirmed RARB case.</div>
+                <div class="evidence-explanation">Refractory epilepsy was documented in an individual with a de novo RARB variant.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-hypoplasia" data-dismech-node="Pulmonary hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary hypoplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002089</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24075189" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Anophthalmia and/or microphthalmia, pulmonary hypoplasia, diaphragmatic hernia, and cardiac defects are the main features of PDAC syndrome."</div>
+
+
+                <div class="evidence-explanation">Pulmonary hypoplasia is a main feature of the PDAC syndrome caused by RARB mutation.</div>
 
 
 
@@ -7937,6 +8357,9 @@ This disease-associated gene is RARB (hgnc:9865). hgnc:9865 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7949,7 +8372,10 @@ This disease-associated gene is RARB (hgnc:9865). hgnc:9865 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7971,7 +8397,10 @@ This disease-associated gene is RARB (hgnc:9865). hgnc:9865 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37092537" target="_blank">PMID:37092537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7993,7 +8422,10 @@ This disease-associated gene is RARB (hgnc:9865). hgnc:9865 is a gene from the H
                         <a href="https://bioregistry.io/ORPHA:689829" target="_blank">ORPHA:689829</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8023,6 +8455,9 @@ This disease-associated gene is RARB (hgnc:9865). hgnc:9865 is a gene from the H
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8075,6 +8510,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No disease-specific therapy exists. Management is supportive and multidisciplinary, addressing respiratory distress and feeding difficulties in infancy (including enteral feeding support such as gastrostomy), neurodevelopmental disability, the progressive movement disorder (antispasticity and antidystonic agents, botulinum toxin for focal dystonia), and surveillance of Chiari type I malformation with neurosurgical evaluation as needed.</div>
 
 
@@ -8094,7 +8543,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8116,7 +8568,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27120018" target="_blank">PMID:27120018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8180,6 +8635,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Serial socket expansion with progressively larger acrylic conformers, with management of associated orbital cysts, enables ocular prosthesis wear and good cosmetic outcomes in anophthalmia and microphthalmia.</div>
 
 
@@ -8199,7 +8668,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36257503" target="_blank">PMID:36257503</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8221,7 +8693,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12812886" target="_blank">PMID:12812886</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8285,6 +8760,20 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Neonatal surgical repair of congenital diaphragmatic hernia with respiratory support is required in affected infants.</div>
 
 
@@ -8304,7 +8793,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8368,6 +8860,20 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Physical, occupational, and speech therapy address the severe developmental delay, hypotonia, and progressive movement disorder.</div>
 
 
@@ -8387,7 +8893,10 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8472,6 +8981,20 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antiepileptic drugs are used for seizure management; epilepsy in RARB-related disease can be refractory to multiple agents.</div>
 
 
@@ -8491,7 +9014,10 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41942473" target="_blank">PMID:41942473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8554,6 +9080,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling addresses the two inheritance modes: most dominant cases arise de novo (low recurrence risk), whereas recessive families with asymptomatic heterozygous carrier parents face a 25% recurrence risk.</div>
 
 
@@ -8573,7 +9113,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37321544" target="_blank">PMID:37321544</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8603,6 +9146,425 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Diagnosis is established by identification of a pathogenic RARB variant. Most reported cases were solved by whole-exome sequencing (singleton or trio), which detects both the dominant de novo variants and the biallelic recessive alleles; RARB testing is recommended in complex ocular malformations accompanied by systemic and neurodevelopmental abnormalities.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical whole-exome sequencing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C101295" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C101295</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Heterozygous (usually de novo) pathogenic RARB variant in dominant disease, or biallelic pathogenic RARB variants in recessive disease.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24075189" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24075189" target="_blank">PMID:24075189</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using whole-exome sequencing, we found that two PDAC-syndrome-affected siblings, but not their unaffected sibling, were compound heterozygous for nonsense"</div>
+
+
+                <div class="evidence-explanation">Whole-exome sequencing identified the first biallelic RARB variants in PDAC syndrome siblings.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37321544" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37321544" target="_blank">PMID:37321544</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We used trio whole-exome sequencing to explore the molecular basis of disease in an individual with congenital eye abnormality and movement disorder."</div>
+
+
+                <div class="evidence-explanation">Trio whole-exome sequencing is used to identify de novo RARB variants in eye-brain disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-magnetic-resonance-imaging">
+                <div class="item-name">
+                    Brain magnetic resonance imaging
+
+                </div>
+
+                <div class="item-desc">Brain MRI characterizes the associated central nervous system malformations of RARB-related disease and is recommended in affected individuals.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        magnetic resonance imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Chiari type I malformation in the majority of survivors, and corpus callosum hypoplasia in a subset.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27120018" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27120018" target="_blank">PMID:27120018</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The majority of subjects also showed Chiari type I malformation and severe feeding difficulties."</div>
+
+
+                <div class="evidence-explanation">Brain imaging identifies Chiari type I malformation in the majority of surviving RARB-affected individuals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-fetal-ultrasonography">
+                <div class="item-name">
+                    Fetal ultrasonography
+
+                </div>
+
+                <div class="item-desc">Prenatal ultrasound can detect the structural malformations of RARB-related disease, including microphthalmia and congenital diaphragmatic hernia, enabling prenatal recognition in familial cases.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        fetal ultrasonography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C222238" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C222238</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Congenital eye anomalies are prenatally detected in a minority of cases; detection rates are higher when extraocular malformations are present.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38528322" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38528322" target="_blank">PMID:38528322</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CEAs were prenatally diagnosed in 23.5% of cases."</div>
+
+
+                <div class="evidence-explanation">Population-registry data quantify the prenatal detectability of congenital eye anomalies, the presenting feature of RARB-related disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag">&lt;1 in 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet worldwide point-prevalence class below 1 in 1,000,000, sourced from the 52-individual clinical review of Caron et al. 2023 (PMID:37092537). For context, anophthalmia and microphthalmia of all causes affect up to 2 per 10,000 live births (PMID:35716026); RARB-related disease is an ultra-rare syndromic subset.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:689829" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:689829" target="_blank">ORPHA:689829</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&lt;1 / 1 000 000 | Worldwide | Point prevalence | PMID:37092537"</div>
+
+
+                <div class="evidence-explanation">Orphanet epidemiology table for MCOPS12 (ORPHA:689829).</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35716026" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35716026" target="_blank">PMID:35716026</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Anophthalmia and microphthalmia (A/M) are rare birth defects affecting up to 2 per 10,000 live births."</div>
+
+
+                <div class="evidence-explanation">Population-based context for the background prevalence of anophthalmia and microphthalmia, of which RARB-related MCOPS12 is an ultra-rare syndromic subset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8736,6 +9698,7 @@ prevalence:
     RARB-related disease is an ultra-rare syndromic subset.
   evidence:
   - reference: ORPHA:689829
+    reference_title: &#34;Microphthalmia-motor delay-language delay-brain anomalies-diaphragmatic hernia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;&lt;1 / 1 000 000 | Worldwide | Point prevalence | PMID:37092537&#34;
@@ -9158,6 +10121,7 @@ genetic:
     snippet: &#34;we report 25 affected individuals with 17 novel pathogenic or likely pathogenic variants in RARB&#34;
     explanation: A large allelic series confirms RARB as the causal gene across 52 reviewed affected individuals.
   - reference: ORPHA:689829
+    reference_title: &#34;Microphthalmia-motor delay-language delay-brain anomalies-diaphragmatic hernia syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;RARB | retinoic acid receptor beta | hgnc:9865 | Disease-causing germline mutation(s) in&#34;
@@ -9880,6 +10844,8 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10835,7 +11801,7 @@ v                         v                         v
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "RARB-related syndromic microphthalmia", "mondoId": "MONDO:0014229", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "RARB-related_syndromic_microphthalmia", "yamlRevision": "8d30571c9ace"};
+        const OS_CONFIG = {"diseaseName": "RARB-related syndromic microphthalmia", "mondoId": "MONDO:0014229", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "RARB-related_syndromic_microphthalmia", "yamlRevision": "ff0f02eba45c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

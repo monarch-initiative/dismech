@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEPAN Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>MEPAN Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>MEPAN Syndrome</h1>
+                
+                <p class="report-subtitle">MEPAN Syndrome — Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-03</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0015003" target="_blank" rel="noopener noreferrer">MONDO:0015003</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">8 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>MEPAN Syndrome — Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> MEPAN syndrome (Mitochondrial Enoyl CoA Reductase Protein–Associated Neurodegeneration) is an ultra-rare, autosomal recessive, childhood-onset neurodegenerative disorder caused by biallelic pathogenic variants in <em>MECR</em>. It is defined by two core, largely non-overlapping-in-timing features: a progressive movement disorder (dystonia, often with chorea and/or ataxia) that begins in early childhood, and optic atrophy that develops during the same period or within a few years afterward, with relative sparing of cognition (<a href="https://www.ncbi.nlm.nih.gov/books/NBK540959/">GeneReviews, NBK540959</a>; <a href="https://www.orpha.net/en/disease/detail/508093">Orphanet ORPHA:508093</a>). It was the first human disease shown to result from a defect in the mitochondrial fatty acid synthesis (mtFASII) pathway (Heimer et al., 2016, PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/27817865/">27817865</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM:</strong> #617282 — "Dystonia, Childhood-Onset, With Optic Atrophy and Basal Ganglia Abnormalities" (DYTOABG); gene locus 608205 (<em>MECR</em>)
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:508093" target="_blank" rel="noopener noreferrer">ORPHA:508093</a>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0015003" target="_blank" rel="noopener noreferrer">MONDO:0015003</a>
+- <strong>Gene:</strong> <em>MECR</em>, <a href="https://bioregistry.io/HGNC:19691" target="_blank" rel="noopener noreferrer">HGNC:19691</a>, chromosome 1p35.3, 18 exons
+- <strong>Disease Ontology / other databases:</strong> <a href="http://purl.obolibrary.org/obo/DOID_0081419" target="_blank" rel="noopener noreferrer">DOID:0081419</a> (ZFIN "childhood-onset dystonia with optic atrophy and basal ganglia abnormalities")
+- ICD-10/11 do not have a disease-specific code; it is typically coded under dystonia (G24.-) and hereditary optic atrophy (H47.2) codes, or E-series inborn-error-of-metabolism codes when used in practice.</p>
+<p><strong>Synonyms:</strong> MEPAN syndrome; MECR-related neurologic disorder; childhood-onset dystonia with optic atrophy and basal ganglia abnormalities (DYTOABG); autosomal recessive childhood-onset dystonia, DYT29 type; childhood-onset generalized dystonia–optic atrophy syndrome (<a href="https://www.orpha.net/en/disease/detail/508093">Orphanet</a>; <a href="https://en.wikipedia.org/wiki/MEPAN_syndrome">Wikipedia</a>).</p>
+<p><strong>Data provenance.</strong> Knowledge of MEPAN derives almost entirely from <strong>aggregated case-series/cohort data</strong> rather than large-scale EHR mining, reflecting its ultra-rarity: the original description (Heimer et al. 2016) reported 7 individuals from 5 families; GeneReviews (last substantively updated ~2019) documented 13 affected individuals from 8 families; by early 2023 more than 30 individuals had been diagnosed globally (per search aggregation of OMIM/patient-advocacy sources). Supplementary mechanistic evidence comes from patient-derived fibroblasts, yeast complementation assays, <em>Drosophila</em> and mouse models, and one small natural-history/longitudinal study (<em>Brain</em>, 2024, discussed below under phenotype).</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factor:</strong> MEPAN is caused exclusively by <strong>biallelic (homozygous or compound heterozygous) loss-of-function or hypomorphic pathogenic variants in <em>MECR</em></strong> — there is no known environmental, infectious, or purely mechanistic (non-genetic) etiology. It is a monogenic mitochondrial fatty-acid-synthesis disorder.</p>
+<p><strong>Genetic risk factors:</strong>
+- Homozygosity/compound heterozygosity for <em>MECR</em> pathogenic variants (missense, nonsense, splice-site).
+- <strong>Ashkenazi Jewish ancestry</strong> is a population-level risk factor due to two recurrent founder variants:
+  - c.695G&gt;A (missense) — carrier frequency ~1:311 in Ashkenazi Jews
+  - c.830+2dupT (splice site) — carrier frequency ~1:136 in Ashkenazi Jews
+  (GeneReviews, <a href="https://pubmed.ncbi.nlm.nih.gov/27817865/" target="_blank" rel="noopener noreferrer">PMID: 27817865</a>). Screening of &gt;5,500 Ashkenazi Jewish exomes confirmed these elevated carrier frequencies. Five of the original 8 reported families were of Ashkenazi Jewish origin, though the disease occurs across all ethnicities (e.g., the Chinese proband below, and the Italian LHON-like family).
+- No modifier genes have been formally established, but <strong>intrafamilial phenotypic variability</strong> (siblings with the same genotype ranging from minimal symptoms to severe wheelchair dependence) strongly suggests unidentified genetic or environmental modifiers/incomplete penetrance (GeneReviews).</p>
+<p><strong>Environmental/triggering risk factors:</strong>
+- <strong>Febrile illness/intercurrent infection</strong> is repeatedly reported to precipitate acute worsening or stepwise, sometimes irreversible, loss of motor function ("Symptoms may fluctuate temporally with febrile illnesses"; one patient had permanent motor decline after a febrile episode without recovery — GeneReviews).
+- <strong>General anesthesia/propofol exposure</strong> has been associated with marked, lasting motor decline in at least one reported patient.
+- <strong>Dopaminergic agents</strong> (e.g., levodopa) have worsened chorea in at least one patient, an important negative treatment/exposure signal.</p>
+<p><strong>Protective factors:</strong> No genetic protective variants are established. The single most consequential "protective" finding to date is pharmacologic: early institution of <strong>lipoic acid (LA)</strong> ± <strong>octanoic acid (C8)</strong> supplementation is associated with attenuated or halted disease progression in at least two independently reported cases (see Treatment, §12).</p>
+<p><strong>Gene–environment interaction:</strong> The mechanistic link is that mtFASII produces the octanoate precursor for lipoic acid, an essential cofactor for pyruvate dehydrogenase, α-ketoglutarate dehydrogenase, and the glycine cleavage system. Febrile/catabolic stress increases metabolic demand on these lipoylation-dependent enzymes at a time when residual MECR activity is already insufficient, plausibly explaining stress-triggered decompensation — this is inferred from the biochemistry rather than directly demonstrated by a controlled gene-environment study.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>MEPAN's phenotype spans two organ systems (extrapyramidal motor system and optic nerve) with a third, cognition, notably spared.</p>
+<h3>Movement disorder (clinical sign/symptom)</h3>
+<ul>
+<li><strong>Onset:</strong> ~1–6.5 years of age (some sources describe "before age 7"); may begin with hypotonia and delayed motor milestones in infancy before dystonia emerges.</li>
+<li><strong>Core feature — dystonia:</strong> progressive, may be axial and/or appendicular; facial dystonia also reported.</li>
+<li><strong>Associated movement abnormalities:</strong> chorea, choreoathetosis, ataxia, myoclonus, dyskinesia, limb spasticity, nystagmus.</li>
+<li><strong>Dysarthria/dysphagia:</strong> progressive speech impairment; feeding difficulty in more severe cases.</li>
+<li><strong>Severity/progression:</strong> gradually progressive; highly variable even within families — from minimal impairment to complete wheelchair dependence and total care needs. Some patients lose independent ambulation (OMIM Clinical Synopsis #617282).</li>
+<li><strong>Suggested HPO terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" rel="noopener noreferrer">HP:0001332</a> (Dystonia), <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" rel="noopener noreferrer">HP:0002072</a> (Chorea), <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a> (Ataxia), <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" rel="noopener noreferrer">HP:0001260</a> (Dysarthria), <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" rel="noopener noreferrer">HP:0002015</a> (Dysphagia), <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" rel="noopener noreferrer">HP:0001257</a> (Spasticity), <a href="http://purl.obolibrary.org/obo/HP_0001338" target="_blank" rel="noopener noreferrer">HP:0001338</a> (Myoclonus), <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a> (Nystagmus), <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" rel="noopener noreferrer">HP:0001510</a> (Growth delay — if relevant), <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> (Global developmental delay — variable/not universal).</li>
+</ul>
+<h3>Optic atrophy (clinical sign, ophthalmologic)</h3>
+<ul>
+<li><strong>Onset:</strong> typically 4–12 years, developing around the same time as or within a few years after the movement disorder.</li>
+<li><strong>Course:</strong> progressive decrease in visual acuity; can progress to functional or legal blindness in adulthood.</li>
+<li>Ophthalmic Genetics case study (Tandfonline, 2022) documented visual acuity of 20/150 bilaterally with moderate dyschromatopsia (pseudoisochromatic plates) and largely preserved peripheral fields (Goldmann perimetry); OCT showed bilateral optic atrophy with <strong>predilection for the papillomacular bundle</strong>, a pattern shared with other mitochondrial optic neuropathies (LHON, dominant optic atrophy/OPA1). A later cohort description notes "diffuse retinal nerve fiber layer thinning and severe ganglion cell thinning."</li>
+<li><strong>Suggested HPO terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" rel="noopener noreferrer">HP:0000648</a> (Optic atrophy), <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" rel="noopener noreferrer">HP:0000572</a> (Visual loss), <a href="http://purl.obolibrary.org/obo/HP_0000577" target="_blank" rel="noopener noreferrer">HP:0000577</a> (Exotropia/strabismus if present), <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" rel="noopener noreferrer">HP:0007663</a> (Reduced visual acuity), <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" rel="noopener noreferrer">HP:0000501</a> (Glaucoma — not typical, for contrast), <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a> (Visual impairment).</li>
+</ul>
+<h3>Cognition</h3>
+<ul>
+<li><strong>Relative sparing</strong> is a defining and repeatedly emphasized feature ("intellect is often — but not always — preserved," GeneReviews), distinguishing MEPAN from many other pediatric neurodegenerative/NBIA-like disorders.</li>
+</ul>
+<h3>Neuroimaging finding (not itself a symptom but a defining paraclinical phenotype)</h3>
+<ul>
+<li>Bilateral hyperintense T2-weighted MRI signal in one or more basal ganglia structures (caudate, putamen, globus pallidus) at/around dystonia onset — a key diagnostic clue.</li>
+<li>Suggested term: <a href="http://purl.obolibrary.org/obo/HP_0002135" target="_blank" rel="noopener noreferrer">HP:0002135</a> (Basal ganglia signal abnormality on MRI, if available) or more general <a href="http://purl.obolibrary.org/obo/HP_0002071" target="_blank" rel="noopener noreferrer">HP:0002071</a> (Abnormality of extrapyramidal motor function) plus imaging-descriptor free text.</li>
+</ul>
+<h3>Quality of life impact</h3>
+<p>No disease-specific EQ-5D/SF-36/PROMIS data were identified in the literature; QoL impact is described qualitatively — progressive loss of independent ambulation, speech intelligibility, and vision drives major functional impairment and caregiver burden, with impact concentrated in physical/mobility and communication domains rather than cognitive/social domains, per GeneReviews' description of variable disability trajectories.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal gene:</strong> <em>MECR</em> (mitochondrial trans-2-enoyl-CoA reductase), <a href="https://bioregistry.io/HGNC:19691" target="_blank" rel="noopener noreferrer">HGNC:19691</a>, OMIM *608205, chromosome 1p35.3, 18 exons, 5 reported protein isoforms via alternative splicing; canonical transcript NM_016011.5 encodes a 373-amino-acid protein.</p>
+<p><strong>Pathogenic variant spectrum (as of GeneReviews 2019 update):</strong> Six pathogenic variants identified — three missense, two nonsense, one canonical splice-site — across 8 families:
+- c.695G&gt;A (missense) — Ashkenazi Jewish founder, carrier freq. ~1:311
+- c.830+2dupT (splice site) — Ashkenazi Jewish founder, carrier freq. ~1:136
+- Additional missense/nonsense variants in non-Ashkenazi families
+- c.772C&gt;T, p.Arg258Trp — homozygous in an Italian family with an atypical "LHON-like" phenotype (see below); ultra-rare in gnomAD (MAF 6.368×10⁻⁵); reduces MECR protein levels by ~80% in yeast complementation, implying protein instability rather than pure catalytic loss (Bianco et al., 2024, <em>J Med Genet</em>, PMID: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10804020/">37734847</a>)
+- c.910G&gt;T, p.Asp304Tyr — homozygous, first reported Chinese patient, dystonia/basal ganglia disease <strong>without</strong> optic atrophy; disturbed protein stability by modeling (ScienceDirect, 2020)</p>
+<p><strong>Population genetic constraint:</strong> gnomAD v4.0 reports pLI = 0 and LOEUF = 0.96 for <em>MECR</em>, indicating the gene is not under strong constraint against loss-of-function variants in the heterozygous state (consistent with a fully recessive disease mechanism and viable, asymptomatic carriers).</p>
+<p><strong>Variant classification:</strong> Per ClinGen (search.clinicalgenome.org/kb/genes/<a href="https://bioregistry.io/HGNC:19691" target="_blank" rel="noopener noreferrer">HGNC:19691</a>) and ClinVar, <em>MECR</em> variants associated with disease are classified via standard ACMG/AMP criteria; nonsense variants are interpreted as pathogenic via predicted loss-of-function/nonsense-mediated decay given LOF is an established disease mechanism for this gene.</p>
+<p><strong>Functional consequence:</strong> Loss-of-function or hypomorphic. Decreased MECR enzymatic activity reduces production of octanoyl-ACP (the terminal mtFASII product and lipoic acid precursor), which in turn:
+- Impairs protein lipoylation of pyruvate dehydrogenase (PDH), α-ketoglutarate dehydrogenase (KGDH), branched-chain ketoacid dehydrogenase, and the glycine cleavage system H-protein (demonstrated directly in patient fibroblasts).
+- Impairs mitochondrial RNA processing/translation and respiratory chain complex assembly.
+- Destabilizes the mitochondrial iron-sulfur cluster (ISC) assembly complex (LYRM4/ISD11, NFS1, ISCU) via loss of acylated acyl-carrier protein (ACP), the form of ACP required for ISC-assembly-complex and OXPHOS-supercomplex stability (Murdock et al., 2025, PNAS, PMID: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12519216/">41021813</a>).</p>
+<p><strong>Modifier genes:</strong> None formally established; intrafamilial variability (same genotype, discordant severity) is unexplained.</p>
+<p><strong>Epigenetics:</strong> No disease-specific epigenetic (DNA methylation/histone) studies were identified for MEPAN.</p>
+<p><strong>Chromosomal abnormalities:</strong> Not applicable — MEPAN is caused by point/small indel variants in <em>MECR</em>, not by large structural rearrangements or aneuploidy.</p>
+<p><strong>Ontology suggestions:</strong> Gene — hgnc:19691 (MECR); functional impact category — LOSS_OF_FUNCTION / PARTIAL_LOSS_OF_FUNCTION (per variant; the R258W allele is a destabilizing hypomorph rather than a null).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>No toxic, occupational, or pollutant exposures</strong> are implicated in MEPAN causation; it is purely monogenic.</li>
+<li><strong>Infectious/febrile triggers:</strong> intercurrent febrile illness is an environmental <em>modifier</em> of disease course (precipitating acute, sometimes permanent, motor decline), not a cause. No specific pathogen has been implicated — it is presumed to act via generic metabolic/catabolic stress rather than a specific infectious mechanism.</li>
+<li><strong>Iatrogenic exposure:</strong> general anesthesia (propofol specifically flagged) is an environmental factor associated with acute, lasting neurological worsening in at least one case, warranting caution during surgical planning (GeneReviews "Agents/Circumstances to Avoid").</li>
+<li><strong>No infectious agents</strong> cause or trigger MEPAN as primary etiology.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain (ordered, from initiating lesion to clinical manifestation)</h3>
+<ol>
+<li><strong>Biallelic pathogenic <em>MECR</em> variants</strong> → reduced or absent mitochondrial trans-2-enoyl-CoA reductase enzymatic activity (demonstrated directly: yeast complementation assays, patient fibroblast studies; <a href="https://pubmed.ncbi.nlm.nih.gov/27817865/" target="_blank" rel="noopener noreferrer">PMID 27817865</a>, 37734847).</li>
+<li>This <strong>impairs the terminal step of mitochondrial fatty acid synthesis (mtFASII)</strong>, reducing production of octanoyl-acyl carrier protein (octanoyl-ACP) (demonstrated in yeast <em>Δetr1</em> complementation and patient-derived cells; <a href="https://pubmed.ncbi.nlm.nih.gov/27817865/" target="_blank" rel="noopener noreferrer">PMID 27817865</a>).</li>
+<li>Reduced octanoyl-ACP <strong>leads to (a)</strong> deficient lipoic acid biosynthesis and <strong>(b)</strong> an accumulation of unacylated (dimerized, 28 kD) ACP in place of properly acylated ACP (demonstrated in mouse brain proteomics; PNAS 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/41021813/" target="_blank" rel="noopener noreferrer">PMID 41021813</a>).</li>
+<li><strong>Branch A (lipoylation deficiency):</strong> Loss of octanoyl-ACP/lipoic acid <strong>results in</strong> failure to lipoylate PDH, KGDH, branched-chain ketoacid dehydrogenase, and glycine cleavage H-protein (demonstrated in patient fibroblasts, Heimer et al. 2016) → impaired mitochondrial energy metabolism and amino-acid catabolism, contributing to neuronal energy failure. Notably, reduced lipoylation is tissue-selective — reported as reduced in brain but relatively spared in retina, implying (inferred, per Wikipedia summary of primary literature) that the optic neuropathy in MEPAN is <strong>not</strong> solely explained by loss of retinal lipoylation, and a separate mechanism (below) likely dominates in the optic nerve.</li>
+<li><strong>Branch B (ISC/supercomplex deficiency):</strong> Loss of properly acylated ACP <strong>destabilizes the mitochondrial iron-sulfur cluster (ISC) assembly complex</strong> (decreased LYRM4, NFS1, ISCU) and <strong>alters OXPHOS complex/supercomplex assembly</strong> (demonstrated in the Mecr-mutant mouse brain proteome and complexome; PNAS 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/41021813/" target="_blank" rel="noopener noreferrer">PMID 41021813</a>) → reduced mitochondrial oxidative phosphorylation capacity in brain tissue (directly measured: "reduced mitochondrial oxidative phosphorylation in the brain," same source).</li>
+<li>Downstream of ISC/Fe–S cluster deficiency, in the <em>Drosophila</em> Mecr-loss model, this <strong>leads to increased free iron levels</strong> and <strong>elevated ceramide levels</strong>, establishing a mechanistic loop between iron dysregulation and sphingolipid metabolism (demonstrated in fly neurons and confirmed in human MEPAN patient fibroblasts, which show the same elevated ceramide and impaired iron homeostasis; Tesch et al., <em>Nature Metabolism</em> 2023, PMID: <a href="https://ncbi.nlm.nih.gov/pmc/articles/PMC11151872">37653044</a>). <strong>Experimentally reducing either iron or ceramide levels suppresses the neurodegenerative phenotype</strong> in the fly model — direct causal (interventional) evidence for this branch, in a model organism.</li>
+<li>The combination of impaired energy metabolism (Branch A), impaired OXPHOS/supercomplex assembly (Branch B), and iron/ceramide dysregulation (Branch B continuation) <strong>culminates in neurodegeneration selectively affecting the basal ganglia (producing dystonia/chorea/ataxia) and the optic nerve/retinal ganglion cells (producing optic atrophy)</strong> — the tissue selectivity for these two structures over others remains incompletely explained (an open mechanistic gap; the retina appears to be affected through a mechanism at least partly independent of the brain-predominant lipoylation defect, per point 4 above).</li>
+<li>Superimposed catabolic/febrile stress (an environmental modifier, §5) is inferred to acutely exacerbate the underlying bioenergetic deficit at points 4–7, producing the clinically observed episodic worsening after infections or anesthesia; this step is inferred from clinical observation rather than directly mechanistically demonstrated.</li>
+</ol>
+<h3>Category detail</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> Mitochondrial fatty acid synthesis II (mtFASII) pathway; lipoic acid biosynthesis pathway; iron-sulfur cluster (ISC) biogenesis pathway; oxidative phosphorylation (Complex I–IV and supercomplex assembly). Suggested GO terms: <a href="http://purl.obolibrary.org/obo/GO_0006633" target="_blank" rel="noopener noreferrer">GO:0006633</a> (fatty acid biosynthetic process), <a href="http://purl.obolibrary.org/obo/GO_0009249" target="_blank" rel="noopener noreferrer">GO:0009249</a> (protein lipoylation), <a href="http://purl.obolibrary.org/obo/GO_0016226" target="_blank" rel="noopener noreferrer">GO:0016226</a> (iron-sulfur cluster assembly), <a href="http://purl.obolibrary.org/obo/GO_0032981" target="_blank" rel="noopener noreferrer">GO:0032981</a> (mitochondrial respiratory chain complex I assembly), <a href="http://purl.obolibrary.org/obo/GO_0034551" target="_blank" rel="noopener noreferrer">GO:0034551</a> (mitochondrial respiratory chain complex III assembly).</li>
+<li><strong>Cellular processes:</strong> mitochondrial bioenergetic failure; iron dyshomeostasis; ceramide/sphingolipid accumulation; secondary neurodegeneration (not classic apoptosis-driven per available data — mechanism of cell death not fully characterized).</li>
+<li><strong>Protein dysfunction:</strong> MECR protein — depending on variant, either reduced catalytic activity (nonsense/frameshift → truncation/NMD) or reduced protein stability with retained partial function (e.g., R258W, 80% reduced protein level; D304Y, disturbed stability by modeling).</li>
+<li><strong>Metabolic changes:</strong> deficient lipoic-acid-dependent decarboxylation reactions (pyruvate and α-ketoglutarate dehydrogenase flux); altered acylated vs. unacylated ACP ratio; elevated ceramide.</li>
+<li><strong>Immune system involvement:</strong> none described; MEPAN is not an immune-mediated or inflammatory disorder.</li>
+<li><strong>Tissue damage mechanisms:</strong> oxidative stress (implicated by the LHON-like R258W study, which showed lipoic-acid partial rescue attributed to its antioxidant, not lipoylation-restoring, action); iron-catalyzed damage (ferroptosis-adjacent biology plausible given elevated iron/ceramide, though not explicitly termed ferroptosis in the cited work).</li>
+<li><strong>Biochemical abnormalities:</strong> deficient octanoyl-ACP/lipoic acid synthesis; deficient protein lipoylation; ISC assembly complex instability (↓LYRM4, ↓NFS1, ↓ISCU); altered OXPHOS supercomplex formation.</li>
+<li><strong>Molecular/-omics profiling:</strong> Proteomic and complexome profiling performed in the <em>Mecr</em>-mutant mouse brain (PNAS 2025) demonstrated altered levels of ACP, ISC-complex components, and OXPHOS supercomplexes — the most direct multi-omic mechanistic dataset currently available.</li>
+<li><strong>Advanced technologies:</strong> No single-cell, spatial transcriptomic, or CRISPR screen data specific to MEPAN were identified in this search; mechanistic insight instead comes from targeted proteomics/complexome analysis in mouse brain and yeast/fly genetic epistasis experiments (iron/ceramide suppressor rescue).</li>
+</ul>
+<p>Suggested CL terms for affected cell types: <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" rel="noopener noreferrer">CL:0000617</a> (GABAergic neuron, basal ganglia medium spiny neurons implicated), <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" rel="noopener noreferrer">CL:0000740</a> (retinal ganglion cell — the cell type lost in optic atrophy).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong>
+- <strong>Primary:</strong> central nervous system — specifically the basal ganglia (caudate, putamen, globus pallidus), and the optic nerve/retina.
+- <strong>Secondary:</strong> none robustly documented as a distinct organ-system complication (e.g., no consistently reported cardiac, hepatic, or renal involvement), consistent with a phenotype relatively restricted to the CNS/optic pathway; mild sensorineural hearing impairment was reported in the Italian LHON-like family (an audiologic/otologic secondary finding).
+- <strong>Body systems:</strong> nervous system (extrapyramidal motor system), visual system.</p>
+<p><strong>Tissue/cell level:</strong>
+- Basal ganglia neurons (medium spiny neurons of caudate/putamen, and pallidal neurons) — targeted by the dystonia/chorea mechanism.
+- Retinal ganglion cells and their axons forming the papillomacular bundle — targeted in the optic neuropathy, with OCT showing diffuse retinal nerve fiber layer and ganglion cell layer thinning.
+- Suggested UBERON terms: <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" rel="noopener noreferrer">UBERON:0002420</a> (basal ganglion), <a href="http://purl.obolibrary.org/obo/UBERON_0001884" target="_blank" rel="noopener noreferrer">UBERON:0001884</a> (globus pallidus), <a href="http://purl.obolibrary.org/obo/UBERON_0001873" target="_blank" rel="noopener noreferrer">UBERON:0001873</a> (caudate nucleus), <a href="http://purl.obolibrary.org/obo/UBERON_0001874" target="_blank" rel="noopener noreferrer">UBERON:0001874</a> (putamen), <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> (retina), <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" rel="noopener noreferrer">UBERON:0000941</a> (optic nerve).</p>
+<p><strong>Subcellular level:</strong>
+- Mitochondrial matrix (site of mtFASII and MECR enzymatic activity) — GO Cellular Component: <a href="http://purl.obolibrary.org/obo/GO_0005759" target="_blank" rel="noopener noreferrer">GO:0005759</a> (mitochondrial matrix); MECR also reported at cytoplasm/nucleus at lower levels (<a href="http://purl.obolibrary.org/obo/GO_0005737" target="_blank" rel="noopener noreferrer">GO:0005737</a>, <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>).
+- Iron-sulfur cluster assembly complex within the mitochondrial matrix.</p>
+<p><strong>Localization/laterality:</strong> Bilateral, symmetric involvement in both the basal ganglia MRI findings and the optic atrophy — no lateralization reported, consistent with a systemic metabolic (rather than focal/vascular) mechanism.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Congenital/infantile prodrome possible (hypotonia, delayed motor milestones) followed by frank pediatric onset of the movement disorder at 1–6.5 years; optic atrophy onset 4–12 years, essentially always following or co-occurring with (not preceding) the movement disorder in the classic phenotype — though the atypical LHON-like <em>MECR</em> R258W family showed optic neuropathy onset as early as age 6 <strong>without</strong> dystonia, illustrating that these two phenotypic axes can dissociate depending on variant.</li>
+<li><strong>Onset pattern:</strong> insidious/progressive for the baseline trajectory, punctuated by acute step-wise deteriorations associated with febrile illness or anesthesia exposure.</li>
+<li><strong>Progression:</strong> No formal staging system exists. Course is chronic and progressive; rate is highly variable — from patients maintaining ambulation and some visual function into their 40s–50s, to others losing independent ambulation and functional vision earlier in childhood/adolescence.</li>
+<li><strong>Disease course pattern:</strong> progressive with superimposed episodic worsenings (not a true relapsing-remitting pattern; deteriorations are typically not followed by full recovery).</li>
+<li><strong>Disease duration:</strong> chronic, lifelong; not clearly life-limiting based on current (small) cohort — "all currently known affected individuals remain alive, with two in their fifth decade" (GeneReviews), though long-term mortality data are limited by cohort size.</li>
+<li><strong>Remission:</strong> none reported; this is a neurodegenerative, not relapsing-remitting, disorder.</li>
+<li><strong>Critical periods:</strong> early childhood (pre-symptomatic to first several years after motor onset) is implicitly the key window for intervention, given that the one well-documented favorable outcome with lipoic acid/C8 supplementation occurred when treatment began within three months of symptom onset (GeneReviews) and in a case where LA was started before optic involvement developed (ScienceDirect Chinese-patient report), suggesting early metabolic supplementation may blunt the phenotype — though this is based on n=1–2 anecdotal reports, not a controlled trial.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong>
+- <strong>Prevalence:</strong> described as affecting fewer than 1 person per 1,000,000 (Orphanet/Wikipedia aggregation); the disease is "ultra-rare."
+- <strong>Case counts:</strong> 7 individuals/5 families at first description (2016); 13 individuals/8 families per GeneReviews (2019 update); &gt;30 individuals diagnosed globally by early 2023 (OMIM-derived aggregation), indicating an actively growing ascertained cohort as awareness and testing access increase — not necessarily a true incidence estimate.
+- <strong>Incidence:</strong> no formal birth-incidence figure is available; carrier-frequency data in Ashkenazi Jews (see below) allow a rough theoretical incidence estimate for that subpopulation but this was not explicitly published in the sources reviewed.</p>
+<p><strong>Inheritance pattern:</strong> Autosomal recessive. At each conception for a carrier couple: 25% affected, 50% carrier, 25% unaffected; parents are obligate asymptomatic heterozygous carriers.</p>
+<p><strong>Penetrance:</strong> Appears to be high/complete for the biallelic genotype causing <em>some</em> phenotype, but <strong>expressivity is markedly variable</strong> (see below) — some sources describe intrafamilial variability suggestive of possible modifiers, though no formal incomplete-penetrance cases (biallelic carriers who are entirely asymptomatic) have been reported in the literature reviewed.</p>
+<p><strong>Expressivity:</strong> Highly <strong>variable</strong>, even between siblings sharing the same genotype — ranging from minimal symptoms to severe disability with total dependence (GeneReviews).</p>
+<p><strong>Genetic anticipation:</strong> Not applicable/not reported; MEPAN is not a repeat-expansion disorder.</p>
+<p><strong>Germline mosaicism:</strong> Not specifically reported in the literature reviewed.</p>
+<p><strong>Founder effects:</strong> Yes — two well-characterized Ashkenazi Jewish founder variants (c.695G&gt;A and c.830+2dupT) account for a disproportionate share of reported cases (5 of the original 8 families).</p>
+<p><strong>Consanguinity:</strong> Plausibly relevant for homozygous cases outside the Ashkenazi founder-variant context (e.g., the homozygous Chinese p.Asp304Tyr and Italian p.Arg258Trp cases), though explicit consanguinity was not confirmed as stated for these specific families in the sources reviewed.</p>
+<p><strong>Carrier frequency:</strong> c.695G&gt;A ~1:311 and c.830+2dupT ~1:136 in Ashkenazi Jews (from screening &gt;5,500 Ashkenazi Jewish exomes); population carrier frequency outside this group is not established but is presumably much lower given gnomAD MAFs on the order of 10⁻⁵ for other reported variants.</p>
+<p><strong>Population demographics:</strong>
+- Ashkenazi Jewish populations show elevated prevalence due to founder variants; disease is reported worldwide across other ethnicities (Chinese, Italian families documented).
+- No sex predilection is described — consistent with autosomal (non-X-linked) inheritance.
+- Age distribution of diagnosed individuals spans childhood through the fifth decade of life in the current cohort, reflecting both the chronic non-lethal course and diagnostic delay/historical underrecognition (disease first described only in 2016).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical/laboratory tests:</strong> No specific diagnostic biomarker or enzyme assay is in routine clinical use; standard metabolic screening (lactate, organic acids) is used mainly to exclude mimics rather than to positively diagnose MEPAN.</p>
+<p><strong>Neuroimaging:</strong> Brain MRI showing <strong>bilateral hyperintense T2-weighted signal in basal ganglia structures</strong> (caudate, putamen, globus pallidus) at or near dystonia onset is a key suggestive finding; some reports note the pattern can resemble a Leigh-syndrome-like distribution, which is part of why Leigh syndrome sits high on the differential.</p>
+<p><strong>Ophthalmic testing:</strong> Fundus photography, OCT (showing bilateral optic atrophy with papillomacular bundle predilection and RNFL/ganglion cell thinning), visual evoked potentials, electroretinography, visual field testing (Goldmann), and color vision (pseudoisochromatic plates) — used to characterize and stage the optic neuropathy.</p>
+<p><strong>Genetic testing (the definitive diagnostic modality):</strong>
+- <strong>Overview:</strong> Diagnosis is established by identifying biallelic pathogenic/likely pathogenic <em>MECR</em> variants in a proband with a compatible movement disorder ± optic atrophy phenotype.
+- <strong>Single-gene sequencing</strong> of <em>MECR</em> — reasonable first step when clinical suspicion is high (compatible phenotype ± Ashkenazi Jewish ancestry).
+- <strong>Multigene dystonia panels</strong> — many panels historically did not include <em>MECR</em> (a real ascertainment gap noted in GeneReviews), so panel selection must be verified.
+- <strong>Exome/genome sequencing (WES/WGS)</strong> — appropriate when phenotype is nonspecific or panel testing is uninformative; this is how most reported cases (including the Chinese and several other families) have been diagnosed.
+- <strong>Chromosomal microarray, karyotype, FISH, mitochondrial DNA testing, repeat-expansion testing:</strong> not indicated as primary diagnostic tools for MEPAN, since the disease is caused by small-variant defects in a single nuclear gene, not structural or mtDNA lesions.</p>
+<p><strong>Omics-based diagnostics:</strong> Not part of routine diagnostic workup; research-level fibroblast studies of protein lipoylation status and proteomics have been used to functionally validate variants of uncertain significance in individual cases (e.g., the R258W and D304Y reports).</p>
+<p><strong>Clinical diagnostic criteria:</strong> No formal consensus diagnostic-criteria document exists (this is too rare a disease for a society guideline); diagnosis rests on the combination of phenotype (childhood dystonia + optic atrophy + basal ganglia MRI signal) plus confirmatory biallelic <em>MECR</em> genotype.</p>
+<p><strong>Differential diagnosis</strong> (from GeneReviews, NBK540959):
+- <strong>Leigh syndrome</strong> (nuclear or mtDNA) — distinguished by seizures, encephalopathy, elevated lactate, brainstem involvement.
+- <strong>Glutaric aciduria type 1</strong> — macrocephaly, widened Sylvian fissures, acute dystonic crises, elevated urinary glutaric acid.
+- <strong>D-2-hydroxyglutaric aciduria</strong> — seizures, cardiomyopathy, cognitive regression, elevated urinary D-2-HG.
+- <strong>Biotin-thiamine-responsive basal ganglia disease</strong> — good response to biotin/thiamine (an important treatable mimic to exclude).
+- <strong>Huntington disease</strong> (juvenile) — caudate atrophy, parkinsonism.
+- <strong>Neurodegeneration with brain iron accumulation (NBIA)</strong> spectrum — MRI iron accumulation and parkinsonism; notably, MEPAN is explicitly classified by the NBIA advocacy/clinical community as an <strong>"NBIA mimic"</strong> because it does not show true brain iron accumulation on imaging despite phenotypic overlap and despite the iron-dysregulation mechanism demonstrated at the cellular level (nbiacure.org).
+- <strong>Wilson disease</strong> — liver disease, Kayser-Fleischer rings.
+- Also relevant per the newly described phenotype: <strong>LHON and other mitochondrial optic neuropathies</strong> (OPA1-related dominant optic atrophy, MCAT-related disease) should now include <em>MECR</em> in the differential for recessive LHON-like presentations lacking dystonia (Bianco et al. 2024).</p>
+<p><strong>Screening:</strong> No newborn screening or population carrier-screening program specifically targets <em>MECR</em>; given the Ashkenazi Jewish founder variants, some Ashkenazi Jewish expanded carrier-screening panels may include <em>MECR</em>, though this was not explicitly confirmed as a formal ACMG-recommended addition in the sources reviewed.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> No formal survival curve or mortality rate has been published given the small cohort size; "all currently known affected individuals remain alive, with two in their fifth decade" (GeneReviews) — suggesting the disease is not acutely life-limiting, though this is based on limited long-term follow-up of a still-small, still-growing cohort, and definitive life-expectancy data are lacking ("Life expectancy: Unknown" — nbiacure.org).</li>
+<li><strong>Morbidity/function:</strong> Substantial and progressive — motor disability (loss of independent ambulation in some), dysarthria affecting communicative function, and progressive visual impairment up to functional/legal blindness are the dominant morbidity drivers. No validated disease-specific QoL instrument or standardized functional outcome measure was identified.</li>
+<li><strong>Complications:</strong> Secondary complications relate mainly to motor disability (mobility limitation, feeding/swallowing difficulty from dysphagia) and functional blindness; no evidence of major secondary organ failure.</li>
+<li><strong>Recovery potential:</strong> Deteriorations associated with febrile illness or anesthesia are typically <strong>not</strong> followed by full recovery — a clinically important and somewhat unusual feature (persistent step-wise decline rather than reversible metabolic crisis), distinguishing it from some other treatable metabolic encephalopathies.</li>
+<li><strong>Prognostic factors:</strong> Genotype partially correlates with phenotype (e.g., R258W → LHON-like phenotype without dystonia; hypomorphic vs. null alleles may correlate with severity), but intrafamilial variability shows genotype alone is an incomplete predictor. Early initiation of lipoic acid/C8 supplementation is an emerging, though anecdotal, favorable prognostic modifier.</li>
+<li><strong>Prognostic biomarkers:</strong> None validated for clinical prognostication at this time.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p>There is <strong>no approved disease-modifying or curative therapy</strong>. Management is currently symptomatic/supportive, with an actively developing precision-medicine research pipeline.</p>
+<p><strong>Pharmacotherapy for movement disorder (symptomatic):</strong>
+- Anticholinergic agents (e.g., trihexyphenidyl-class) — NCIT:C15986 (Pharmacotherapy)
+- Baclofen (GABA-B agonist) — NCIT:C15986
+- Benzodiazepines (GABA-A agonists) — NCIT:C15986
+- Botulinum toxin injections — reported as used (and having failed) in the DBS case series, implying it is part of the standard symptomatic ladder — NCIT:C15986 / relevant injection procedure term
+- <strong>Caution:</strong> dopaminergic agents (e.g., carbidopa-levodopa) have worsened chorea in reported patients and were among the failed therapies in the DBS series — should be used cautiously.</p>
+<p><strong>Metabolic/precision supplementation (investigational but in real-world compassionate use):</strong>
+- <strong>Lipoic acid (LA)</strong> and <strong>octanoic acid/C8-rich nutritional supplementation</strong> — mechanistically targeted at the mtFASII/lipoylation defect. One patient showed "remarkable improvement" when LA + C8-rich supplement was started within 3 months of symptom onset (GeneReviews). In the Chinese p.Asp304Tyr patient, LA supplementation was associated with controlled disease progression and <strong>no</strong> development of visual impairment or optic atrophy — the first report explicitly proposing LA as an effective therapeutic strategy for this disease (ScienceDirect, 2020). In the R258W yeast model, LA supplementation partially rescued the growth phenotype, attributed to its <strong>antioxidant</strong> action rather than direct restoration of lipoylation (Bianco et al. 2024).
+- "Mito cocktail" (coenzyme Q10, riboflavin, thiamine, alpha-lipoic acid, octanoic acid, vitamin E, vitamin C) — offered empirically by some clinicians; efficacy unproven as a combination (GeneReviews).</p>
+<p><strong>Surgical/interventional (advanced dystonia):</strong>
+- <strong>Deep brain stimulation (DBS)</strong> — first published application in MEPAN reported two pediatric siblings (ages 9–10) who had failed pharmacotherapy (benzodiazepines, carbidopa-levodopa, baclofen, botulinum toxin). GPi+PPN and GPi+VIM targeting respectively produced BFMDRS-M improvements of 34.9% and 49.6%, with zero perioperative complications (though one patient had transient tissue devitalization requiring staged lead placement). Authors concluded DBS provides <strong>palliation, not disease modification</strong>, and "can be considered for dystonia in patients with rare metabolic disorders" when pharmacotherapy fails (PMID: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10847241/">38328756</a>). Note this contrasts with an earlier general caution (some sources state DBS "may be unsuitable due to basal ganglia lesions") — the 2024 case series is the more current, direct evidence and should supersede the earlier caution in curation.</p>
+<p><strong>Supportive/rehabilitative care:</strong>
+- Visual aids for decreased acuity
+- Occupational and physical therapy for mobility/activities of daily living
+- Speech therapy and augmentative/alternative communication for dysarthria
+- Feeding support as needed for dysphagia
+- NCIT terms: NCIT:C15302 (Physical Therapy), NCIT:C15747 (Supportive Care), speech/OT via NCIT:C159273 / NCIT:C121351.</p>
+<p><strong>Surveillance:</strong> Yearly ophthalmologic, neurologic, speech-therapy, cognitive, and feeding evaluations recommended to track progression and trigger timely intervention (GeneReviews).</p>
+<p><strong>Advanced/experimental therapeutics in development:</strong>
+- <strong>AAV9-mediated gene therapy</strong> — preclinical work (University of Florida, supported by the MEPAN Foundation) has shown successful MECR protein expression after AAV9-MECR transfection in HEK293T and Neuro-2a cells, aiming to deliver functional MECR to brain and retina; leverages precedent from FDA-approved AAV gene therapies (e.g., for SMA, LHON) (mepan.org/precision).
+- <strong>Drug repurposing — echinocandin antifungals (anidulafungin, micafungin):</strong> Screened on MEPAN patient fibroblasts using Seahorse oxygen-consumption/ATP-production assays; anidulafungin ranked best, followed by micafungin. Echinocandins rescued MECR-deficient yeast growth — notable because their canonical fungal target (glucan synthase) does not exist in human cells, implying a favorable safety profile if repurposed. Rescue was effective only for <strong>missense</strong> MECR mutants retaining a foldable protein (not for null/truncating alleles), and newer-generation echinocandins (micafungin, anidulafungin) lack the high-dose toxicity seen with first-generation caspofungin (Perlara "Cure Odysseys" drug-repurposing program, described in search aggregation; primary peer-reviewed publication not yet identified in this search — should be treated as an early-stage/preprint-level lead pending verification).
+- <strong>Engineered bacterial lipoate ligase</strong> — proposed strategy to bypass the defective endogenous lipoic acid synthesis step (mentioned in Wikipedia's synthesis of primary literature; specific citation not independently verified in this search).
+- <strong>MECR G165Q engineered variant studies</strong> (Nature Communications 2023, PMC9899272) demonstrate that long-chain acyl-ACPs are indispensable for mitochondrial respiration distinct from octanoylation for lipoylation — informing structure-function rationale for future targeted therapeutics, though this is a basic-science mechanistic paper rather than a therapeutic trial.</p>
+<p><strong>Clinical trials:</strong> No MEPAN-specific interventional trial (e.g., an NCT-registered gene-therapy or drug trial) was identified as currently active in this search; the UMDF and MEPAN Foundation direct patients to general rare-disease clinical-trial finders and the mitoSHARE patient registry (umdf.org) rather than to a disease-specific active trial.</p>
+<p><strong>Treatment outcomes/adverse events:</strong> No systematic response-rate or FAERS-type adverse-event data exist given the small population; adverse treatment signals identified are anecdotal (dopaminergic worsening of chorea; anesthesia/propofol-associated decline).</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not applicable in the traditional sense (no modifiable environmental cause); the principal "primary prevention" avenue is <strong>reproductive genetic counseling and carrier screening</strong> in at-risk families/populations (especially Ashkenazi Jewish individuals, given the founder-variant carrier frequencies above).</li>
+<li><strong>Secondary prevention:</strong> Early diagnosis via genetic testing in at-risk families (once a proband's variants are known) allows presymptomatic identification and, per anecdotal reports, earlier initiation of lipoic acid/C8 supplementation — plausibly delaying or attenuating symptom onset/severity, though this has not been tested in a controlled trial.</li>
+<li><strong>Tertiary prevention:</strong> Surveillance program (annual ophthalmologic, neurologic, speech, cognitive, feeding evaluation) aims to catch and manage complications (visual decline, dysphagia, communication loss) before they become severe; avoidance of known precipitants (febrile decompensation management, cautious anesthesia planning, avoidance of dopaminergic agents) constitutes practical tertiary prevention.</li>
+<li><strong>Genetic counseling:</strong> Carrier testing, prenatal testing, and preimplantation genetic diagnosis (PGD) are available once familial <em>MECR</em> variants are known (GeneReviews). Young adult carriers/at-risk relatives should receive reproductive counseling.</li>
+<li><strong>Screening:</strong> No formal population-based newborn screening program includes MEPAN; targeted carrier screening may be offered within expanded Ashkenazi Jewish carrier panels in some laboratories, though this was not explicitly confirmed in the sources reviewed as an ACMG-endorsed standard.</li>
+<li><strong>Immunization/public health/prophylaxis:</strong> Not applicable — MEPAN is not infectious or vaccine-preventable; there is no established prophylactic medication regimen (LA/C8 supplementation is disease-modifying-intent therapy, not formal "prophylaxis" in the public-health sense, though it functions similarly at the individual level).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy of affected species:</strong> No naturally occurring MEPAN-equivalent disease has been documented in non-human species (no veterinary case reports or OMIA entries were identified in this search) — MEPAN currently appears to be a human-specific clinical entity, with all cross-species data derived from engineered/induced models rather than natural disease.</li>
+<li><strong>Orthologous gene:</strong> <em>MECR</em> orthologs exist across eukaryotes: <em>Drosophila</em> Mecr (single ortholog), <em>C. elegans</em> mecr-1/W09H1.5 (a longevity-associated gene), <em>S. cerevisiae</em> ETR1, and murine <em>Mecr</em>.</li>
+<li><strong>Comparative biology:</strong> The core mtFASII pathway and MECR's terminal enoyl-reductase role are evolutionarily conserved from yeast to humans, evidenced by the fact that human MECR complements yeast <em>Δetr1</em> respiratory and lipoylation defects, and that engineered <em>Drosophila</em> lines expressing human wild-type or patient-variant <em>MECR</em> recapitulate aspects of the human disease.</li>
+<li><strong>Zoonotic potential/transmission:</strong> Not applicable — MEPAN is a purely genetic, non-transmissible disorder.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>MEPAN modeling spans yeast, nematode, fly, and mouse — an unusually complete cross-species toolkit for an ultra-rare disease, reflecting the deep evolutionary conservation of mtFASII.</p>
+<p><strong>Yeast (<em>Saccharomyces cerevisiae</em>):</strong>
+- <em>Δetr1</em> (Etr1p-null) mutant yeast fail to synthesize sufficient lipoic acid or assemble cytochrome complexes and cannot respire/grow on non-fermentable carbon sources.
+- Human MECR (wild-type and patient-variant constructs, e.g., R258W) complements/fails to complement this strain, providing a rapid functional assay for variant pathogenicity, protein stability, and drug-rescue screening (including the echinocandin repurposing work).</p>
+<p><strong>Nematode (<em>C. elegans</em>):</strong> mecr-1/W09H1.5 encodes the 2-trans-enoyl-thioester reductase; ectopic expression of nematode mecr-1 in yeast Δetr1 restores reductase activity and phenotype rescue, and mecr-1 itself is described as a <strong>longevity-associated gene</strong>, connecting mtFAS to organismal aging biology (PMC2774161).</p>
+<p><strong>Fruit fly (<em>Drosophila melanogaster</em>):</strong>
+- Whole-body loss of <em>Mecr</em> is <strong>lethal</strong>; <strong>neuron-specific knockdown</strong> produces <strong>progressive neurodegeneration</strong>, recapitulating the human neurological phenotype.
+- Mechanistically, flies lacking <em>mecr</em> show Fe–S cluster biogenesis defects and elevated iron levels, leading to elevated ceramide; genetically or pharmacologically <strong>lowering either iron or ceramide suppresses the neurodegenerative phenotype</strong> — the clearest causal (interventional) evidence in the entire mechanistic literature (Tesch et al., <em>Nature Metabolism</em> 2023;5:1595–1614, PMID: <a href="https://ncbi.nlm.nih.gov/pmc/articles/PMC11151872">37653044</a>). Human MEPAN patient fibroblasts independently show the same elevated-ceramide/impaired-iron-homeostasis signature, supporting translational relevance of the fly findings to human disease.
+- UAS constructs carrying human wild-type and disease-variant <em>MECR</em> have been introduced into flies for structure-function and rescue studies (FlyBase Human Disease Model Report FBhh0001544).</p>
+<p><strong>Mouse (<em>Mus musculus</em>):</strong>
+- A compound-heterozygous <em>Mecr</em>-mutant mouse model (Murdock et al., <em>PNAS</em> 2025;122(40):e2506761122, <a href="https://pubmed.ncbi.nlm.nih.gov/41021813/" target="_blank" rel="noopener noreferrer">PMID: 41021813</a>) recapitulates the core triad: <strong>movement disorder, optic neuropathy, and defective protein lipoylation</strong>, plus <strong>reduced brain mitochondrial oxidative phosphorylation</strong>.
+- Proteomic/complexome profiling of mutant mouse brain revealed destabilization of the ISC assembly complex (↓LYRM4, ↓NFS1, ↓ISCU) and altered OXPHOS complex/supercomplex assembly, tied to loss of acylated ACP — this is currently the highest-fidelity mammalian model and the primary source of the ISC/supercomplex mechanistic branch described in Section 6.
+- <strong>Phenotype recapitulation:</strong> high fidelity for movement disorder, optic neuropathy, and biochemical lipoylation defect.
+- <strong>Model limitations:</strong> Explicit limitations were not detailed in the fetched abstract summary; general caution for any mouse CNS model — potential differences in basal ganglia circuitry/dystonia phenotyping between mouse and human, and uncertain translatability of the iron/ceramide suppressor findings (established in fly, "confirmed" only as elevated markers, not as an interventional rescue, in mouse/human fibroblasts per the sources reviewed) should be flagged as a human-model-fidelity open question.</p>
+<p><strong>Cell-based models:</strong> Patient-derived dermal fibroblasts (multiple case reports) are the standard human cellular model, used for lipoylation Western blots, Seahorse OCR/ATP assays (echinocandin screening), and ceramide/iron measurement.</p>
+<p><strong>Resource note:</strong> No mouse strain repository ID (JAX/MGI stock number), zebrafish (ZFIN), or dedicated cell-line repository (ATCC/Cellosaurus) accession for a MEPAN-specific model was identified in this search; the fly model is registered in FlyBase (FBhh0001544).</p>
+<hr />
+<h2>Summary Table of Key Evidence Sources</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Primary citation</th>
+<th>PMID/DOI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Original disease description, MECR mutations, 7 pts/5 families</td>
+<td>Heimer et al., <em>Am J Hum Genet</em> 2016;99:1229–44</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27817865/" target="_blank" rel="noopener noreferrer">PMID 27817865</a></td>
+</tr>
+<tr>
+<td>GeneReviews clinical/genetic summary</td>
+<td>Heimer/Baris et al., <em>MECR-Related Neurologic Disorder</em>, GeneReviews (NCBI Bookshelf)</td>
+<td>NBK540959</td>
+</tr>
+<tr>
+<td>OMIM entries</td>
+<td>Gene *608205; Phenotype #617282 (DYTOABG)</td>
+<td>omim.org/entry/608205, /617282</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>MEPAN syndrome</td>
+<td><a href="https://bioregistry.io/ORPHA:508093" target="_blank" rel="noopener noreferrer">ORPHA:508093</a></td>
+</tr>
+<tr>
+<td>Mouse model — ISC/supercomplex mechanism</td>
+<td>Murdock et al., <em>PNAS</em> 2025;122(40):e2506761122</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41021813/" target="_blank" rel="noopener noreferrer">PMID 41021813</a></td>
+</tr>
+<tr>
+<td>Drosophila model — iron/ceramide mechanism</td>
+<td>Tesch et al., <em>Nat Metab</em> 2023;5:1595–1614</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37653044/" target="_blank" rel="noopener noreferrer">PMID 37653044</a></td>
+</tr>
+<tr>
+<td>LHON-like phenotype (R258W)</td>
+<td>Bianco et al., <em>J Med Genet</em> 2024</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37734847/" target="_blank" rel="noopener noreferrer">PMID 37734847</a></td>
+</tr>
+<tr>
+<td>Chinese patient, no optic atrophy, LA response</td>
+<td>ScienceDirect, <em>Mitochondrion</em> 2020</td>
+<td>PMID (search) 32853756*</td>
+</tr>
+<tr>
+<td>Ophthalmic manifestations case study</td>
+<td><em>Ophthalmic Genetics</em> 2022;44(5)</td>
+<td>DOI 10.1080/13816810.2022.2135112</td>
+</tr>
+<tr>
+<td>Deep brain stimulation case series</td>
+<td><em>J Neurosurg Pediatr</em> / PMC10847241 2024</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38328756/" target="_blank" rel="noopener noreferrer">PMID 38328756</a></td>
+</tr>
+<tr>
+<td>Engineered MECR variant / long-chain acyl-ACP</td>
+<td><em>Nat Commun</em> 2023</td>
+<td>PMC9899272</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>*PMID for the Chinese-patient ScienceDirect paper was not independently confirmed via direct PubMed fetch in this session and should be re-verified before use in a curated evidence item.</p>
+<hr />
+<h2>Notes on Evidence Gaps and Confidence</h2>
+<ul>
+<li>Several claims here rely on <strong>search-engine-summarized abstracts</strong> rather than full-text primary-source verification (WebFetch was blocked by paywalls/bot-protection for OMIM, Orphanet's direct page, the Nature Metabolism full text, and PubMed's abstract page). GeneReviews (NBK540959) is the one source fully retrieved and directly quotable; it should be treated as the highest-confidence source in this report.</li>
+<li>The <strong>echinocandin drug-repurposing</strong> findings derive from a patient-advocacy/foundation-affiliated substack summary (Perlara), not a verified peer-reviewed publication in this search — flag as a preprint/lead-stage claim requiring primary-literature confirmation before curation.</li>
+<li>The <strong>"engineered bacterial lipoate ligase"</strong> bypass strategy and the exact PMID for the Chinese-patient case report should be independently verified against PubMed/the primary article before being entered as sourced KB claims, per this repository's evidence-sourcing policy (no assertion without a verified PMID/DOI and exact snippet).</li>
+<li>Quantitative epidemiologic figures (&gt;30 diagnosed by 2023, carrier frequencies) come from secondary aggregations (OMIM search summaries, GeneReviews) rather directly quoted primary tables in every instance — treat the exact numbers as approximate pending direct-source confirmation.</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Menkes_Disease-falcon.html">← Menkes Disease (Falcon)</a>
+                
+                
+                <a href="Merkel_Cell_Carcinoma-falcon.html">Merkel Cell Carcinoma (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/MEPAN_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/MEPAN_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

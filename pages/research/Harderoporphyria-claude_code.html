@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harderoporphyria · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Harderoporphyria</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Harderoporphyria</h1>
+                
+                <p class="report-subtitle">Harderoporphyria: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0030048" target="_blank" rel="noopener noreferrer">MONDO:0030048</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">25 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Harderoporphyria: Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Harderoporphyria (HARPO) is an extremely rare, autosomal recessive, erythropoietic (hematologically dominant) variant of hereditary coproporphyria (HCP). It is caused by biallelic (homozygous or compound heterozygous) pathogenic variants in <em>CPOX</em>, the gene encoding coproporphyrinogen oxidase (coproporphyrinogen-III oxidase, CPOX/CPO), the sixth enzyme of the heme biosynthetic pathway. Unlike classic heterozygous HCP — an autosomal dominant acute hepatic porphyria with neurovisceral attacks — harderoporphyria presents in the neonatal period with severe hemolytic anemia, jaundice, hepatosplenomegaly, and cutaneous photosensitivity, and is biochemically defined by massive fecal excretion of the tricarboxylic porphyrin <strong>harderoporphyrin</strong>, an intermediate normally present only in trace amounts (<a href="https://en.wikipedia.org/wiki/Harderoporphyria">Wikipedia</a>; <a href="https://omim.org/entry/618892">OMIM #618892</a>; Nordmann et al. 1983, PMID pending/<a href="https://www.jci.org/articles/view/111039">JCI</a>).</p>
+<p><strong>Key identifiers:</strong>
+| Resource | ID |
+|---|---|
+| OMIM (disease) | <strong>#618892</strong> — Harderoporphyria; HARPO |
+| OMIM (related, allelic disorder) | #121300 — Coproporphyria, Hereditary (HCP) |
+| OMIM (gene) | <em>612732 — Coproporphyrinogen Oxidase; CPOX |
+| Orphanet | </em><em><a href="https://bioregistry.io/ORPHA:659672" target="_blank" rel="noopener noreferrer">ORPHA:659672</a></em><em> (Harderoporphyria); gene page <a href="https://www.orpha.net/en/disease/gene/CPOX">Orphanet CPOX</a> |
+| MeSH | C562816 |
+| SNOMED CT | 238056003 |
+| ICD-10-CM | E80.29 (Other porphyria) — no disease-specific code exists; harderoporphyria and HCP are both subsumed under the "other porphyria" E80.2x block (<a href="https://www.icd10data.com/ICD10CM/Codes/E00-E89/E70-E88/E80-/E80.29">ICD10Data</a>) |
+| Gene (HGNC) | CPOX, <a href="https://bioregistry.io/HGNC:2321" target="_blank" rel="noopener noreferrer">HGNC:2321</a>, chromosome </em><em>3q11.2</em>* (some sources cite 3q12) |
+| MONDO | Not yet independently confirmed in this search pass — flag for direct MONDO lookup during curation |</p>
+<p><strong>Synonyms:</strong> Harderoporphyria; Homozygous hereditary coproporphyria (a related but non-identical term, since not all homozygous/biallelic <em>CPOX</em> genotypes produce the harderoporphyrin-excess phenotype); erythropoietic variant of hereditary coproporphyria.</p>
+<p><strong>Evidence basis:</strong> All published knowledge derives from <strong>individual case reports and small case series</strong> (fewer than a dozen kindreds described worldwide since 1983) rather than large aggregated cohorts or registries — a defining feature of this ultra-rare disorder that should be reflected in curation confidence levels.</p>
+<p>Sources: <a href="https://en.wikipedia.org/wiki/Harderoporphyria">Wikipedia: Harderoporphyria</a>; <a href="https://omim.org/entry/618892">OMIM #618892</a>; <a href="https://omim.org/entry/612732">OMIM *612732</a>; <a href="https://www.orpha.net/en/disease/gene/CPOX">Orphanet CPOX gene page</a></p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2a. Disease Causal Factors — Genetic</h3>
+<p>Harderoporphyria is caused <strong>exclusively</strong> by biallelic loss-of-function/altered-function variants in <em>CPOX</em>. It is a purely monogenic, enzymopathic disorder — there is no known environmental or infectious primary cause, although environmental porphyrinogenic triggers modulate expressivity (see below).</p>
+<h3>2b. Genetic Risk Factors</h3>
+<ul>
+<li><strong>The defining genotype-phenotype rule</strong>: Missense variants restricted to five amino acid residues encoded by <strong>exon 6, positions D400–K404</strong> of CPOX, when present in the homozygous state or compound heterozygous with a "null" (loss-of-function) allele, produce the harderoporphyria phenotype rather than classic acute HCP. This is described in the literature as <strong>"the first known metabolic disorder in which the clinical expression of disease (acute hepatic vs. erythropoietic) depended on the location and type of mutation within the same gene"</strong> (Schmitt et al. 2005, <em>Hum Mol Genet</em> 14:3089–3098; summarized via <a href="https://omim.org/entry/618892">OMIM #618892</a>).</li>
+<li><strong>K404E</strong> (c.1210A&gt;G, p.Lys404Glu; rs121917868) is the most recurrently reported harderoporphyria-associated allele: all five patients from three families in the founding literature carried K404E in homozygosity or compound heterozygosity with a null <em>CPOX</em> allele. Enzymatic expression studies (K404E mutant CPOX expressed in <em>E. coli</em>) showed the Michaelis constant (Km) for the mutant enzyme was ~10-fold higher than wild type, implicating Lys404 in substrate binding, together with reduced catalytic activity and premature release of the harderoporphyrinogen intermediate (search synthesis of Schmitt et al. 2005; <a href="https://www.jci.org/articles/view/111039">Nordmann et al. 1983, JCI</a>).</li>
+<li><strong>H327R</strong> — a second, distinct missense variant reported causing harderoporphyria via homozygosity, described in "Harderoporphyria due to homozygosity for coproporphyrinogen oxidase missense mutation H327R" (<a href="https://pubmed.ncbi.nlm.nih.gov/21103937/">PubMed 21103937</a>; also indexed at <a href="https://link.springer.com/article/10.1007/s10545-010-9237-9">Springer/JIMD</a>).</li>
+<li>A four-amino-acid in-frame deletion in the same D400–K404 hot-region has also been reported, again "a region of the enzyme mutated in 7 of the 8 previously reported cases" of harderoporphyria, in a patient with compound heterozygous <em>CPOX</em> mutations and lifelong photosensitivity (<a href="https://www.sciencedirect.com/science/article/pii/S2214426918301484">Frank/ScienceDirect case report, PMID 30828546</a>).</li>
+<li><strong>Population frequency of K404E</strong>: reported in gnomAD at an allele frequency of approximately <strong>0.009%</strong>, consistent with extreme rarity of the harderoporphyria phenotype (which requires two hits) even though heterozygous carriers of K404E are essentially asymptomatic HCP carriers.</li>
+<li><strong>Contrast with typical HCP variants</strong>: heterozygous pathogenic variants distributed across all seven <em>CPOX</em> exons cause classic autosomal-dominant HCP with reduced penetrance; missense, nonsense, splice-site, and small deletion/insertion variants are all represented (GeneReviews: <a href="https://www.ncbi.nlm.nih.gov/books/NBK114807/">Hereditary Coproporphyria</a>, citing Lamoril et al. 2001, <a href="https://pubmed.ncbi.nlm.nih.gov/11309681/" target="_blank" rel="noopener noreferrer">PMID 11309681</a>, "no genotype-phenotype correlation exists" for classic HCP severity — in contrast to the sharp genotype-phenotype rule that specifically produces harderoporphyria).</li>
+<li><strong>Consanguinity / homozygosity mechanism</strong>: Because two hits are needed, harderoporphyria arises typically in the setting of (a) parental consanguinity producing true homozygosity for a hot-region allele, or (b) compound heterozygosity for a hot-region missense allele plus an unrelated null allele inherited from the other, typically unaffected or mildly HCP-affected, parent. In the founding Nordmann family, both parents showed only mild biochemical abnormalities (lymphocyte CPOX activity ~50% of normal, consistent with heterozygous HCP carrier status), while the three affected children had lymphocyte CPOX activity reduced to ~10% of control.</li>
+</ul>
+<h3>2c. Environmental / Modifying Risk Factors</h3>
+<p>As in all hepatic porphyrias, <strong>porphyrinogenic triggers</strong> exacerbate biochemical and clinical expression, although the literature specific to harderoporphyria emphasizes that neither abdominal pain nor neuropsychiatric acute attacks are typically observed in the classic neonatal harderoporphyria presentation (unlike HCP). Recognized triggers relevant to the broader HCP/CPOX-deficiency spectrum (applicable especially to heterozygous relatives and to milder harderoporphyria variants) include:
+- Cytochrome P450-inducing/porphyrinogenic drugs (barbiturates, certain anticonvulsants, sulfonamides, estrogens/progestogens)
+- Fasting/caloric restriction
+- Alcohol
+- Intercurrent infection and physiological stress
+- Hormonal factors (menstrual cycle, pregnancy) in the classic-HCP spectrum
+- <strong>Light exposure</strong>, specifically the Soret-band (~400–410 nm) and near-visible wavelengths that photoactivate accumulated porphyrins in skin and red cells, driving the photosensitivity and hemolysis; avoidance of light &lt;510 nm has been reported to reduce cutaneous manifestations, anemia, and splenomegaly in erythropoietic porphyrias generally.</p>
+<h3>2d. Protective Factors</h3>
+<p>No specific genetic or environmental protective factors for harderoporphyria are described in the literature; this reflects both its rarity and its being a loss-of-function enzymopathy rather than a susceptibility trait. Reduced penetrance of the underlying heterozygous HCP genotype (documented in classic HCP) is presumed but not specifically quantified for the harderoporphyria compound state.</p>
+<h3>2e. Gene-Environment Interaction</h3>
+<p>The core gene-environment relationship is that heme-pathway-inducing drugs and metabolic stress amplify hepatic ALAS1 activity and pathway flux through the partially deficient CPOX enzyme, increasing intermediate accumulation (harderoporphyrinogen/harderoporphyrin, coproporphyrinogen) in both hepatic (classic HCP-like) and erythroid (harderoporphyria-specific) compartments; light then photoactivates the accumulated erythroid/cutaneous porphyrins to produce hemolysis and skin damage.</p>
+<p>Sources: <a href="https://omim.org/entry/618892">OMIM #618892</a>; <a href="https://www.jci.org/articles/view/111039">Nordmann et al. 1983</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21103937/">PubMed 21103937</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK114807/">GeneReviews HCP</a>; <a href="https://www.sciencedirect.com/science/article/pii/S2214426918301484">ScienceDirect case report</a></p>
+<hr />
+<h2>3. Phenotypes</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Frequency/Notes</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Severe hemolytic anemia</td>
+<td>Laboratory abnormality / hematologic sign</td>
+<td>Neonatal</td>
+<td>Core, near-universal feature across reported cases</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" rel="noopener noreferrer">HP:0001878</a> (Hemolytic anemia); consider <a href="http://purl.obolibrary.org/obo/HP_0004804" target="_blank" rel="noopener noreferrer">HP:0004804</a> (early-onset) qualifier</td>
+</tr>
+<tr>
+<td>Neonatal jaundice</td>
+<td>Clinical sign</td>
+<td>Birth / first days of life</td>
+<td>Presenting feature in essentially all reported neonates</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" rel="noopener noreferrer">HP:0000952</a> (Jaundice)</td>
+</tr>
+<tr>
+<td>Hepatosplenomegaly</td>
+<td>Physical sign</td>
+<td>Neonatal/infantile, chronic</td>
+<td>Reported consistently, secondary to chronic hemolysis and extramedullary erythropoiesis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" rel="noopener noreferrer">HP:0001433</a> (Hepatosplenomegaly)</td>
+</tr>
+<tr>
+<td>Cutaneous photosensitivity</td>
+<td>Symptom/sign</td>
+<td>Can present neonatally or emerge later; described as lifelong in at least one case</td>
+<td>Skin fragility/blistering in light-exposed areas, similar to other cutaneous porphyrias</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" rel="noopener noreferrer">HP:0000992</a> (Cutaneous photosensitivity)</td>
+</tr>
+<tr>
+<td>Bullae / skin fragility</td>
+<td>Physical sign</td>
+<td>Variable</td>
+<td>Overlaps with the ~20% of classic HCP patients who develop bullous photosensitivity</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> (Skin lesion) / <a href="http://purl.obolibrary.org/obo/HP_0032169" target="_blank" rel="noopener noreferrer">HP:0032169</a> (bullae, if separately modeled)</td>
+</tr>
+<tr>
+<td>Elevated erythrocyte protoporphyrin</td>
+<td>Laboratory abnormality</td>
+<td>Present from neonatal period</td>
+<td>Reported increased in erythrocytes in the founding cases</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025230" target="_blank" rel="noopener noreferrer">HP:0025230</a> (or closest available porphyrin-elevation term; verify against enum)</td>
+</tr>
+<tr>
+<td>Markedly elevated fecal harderoporphyrin</td>
+<td>Laboratory abnormality</td>
+<td>Present from birth</td>
+<td>Pathognomonic biochemical signature — &gt;60% of total fecal porphyrin in affected homozygotes vs. &lt;20% in unaffected/heterozygous carriers</td>
+<td>No dedicated HPO term identified; capture as biochemical marker rather than HPO phenotype</td>
+</tr>
+<tr>
+<td>Elevated urinary coproporphyrin</td>
+<td>Laboratory abnormality</td>
+<td>Present from birth</td>
+<td>Large amount of coproporphyrin found in urine in addition to fecal harderoporphyrin</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0032263" target="_blank" rel="noopener noreferrer">HP:0032263</a> (Coproporphyrinuria) if present in enum, else free text</td>
+</tr>
+<tr>
+<td>Markedly decreased lymphocyte/erythrocyte CPOX activity</td>
+<td>Laboratory abnormality</td>
+<td>Constitutional</td>
+<td>~10% of normal in affected homozygotes (vs. ~50% in heterozygous HCP carriers/parents)</td>
+<td>No direct HPO enzyme-activity term; model as biochemical finding</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Absence of classic acute HCP features:</strong> A clinically important negative finding repeatedly emphasized in the literature is that <strong>harderoporphyria patients do not exhibit the abdominal pain or neuropsychiatric/neurovisceral attacks</strong> characteristic of classic acute hepatic HCP, distinguishing the erythropoietic/hematologic clinical gestalt of harderoporphyria from its allelic, dominantly inherited counterpart.</p>
+<p><strong>Severity/progression:</strong> Severity is described as variable but generally significant enough to require close neonatal hematologic monitoring; some patients require red cell transfusion support for hemolytic anemia (inferred by analogy with related erythropoietic porphyrias — see Treatment section; direct harderoporphyria-specific transfusion data were not found in this pass and should be verified against the primary case reports before citation).</p>
+<p><strong>Quality of life impact:</strong> Not separately quantified in available literature (no disease-specific EQ-5D/SF-36 data identified); QoL burden can be inferred as substantial in the neonatal/infantile period due to anemia and photosensitivity, but this should be flagged as an evidence gap rather than asserted numerically.</p>
+<p>Sources: <a href="https://en.wikipedia.org/wiki/Harderoporphyria">Wikipedia: Harderoporphyria</a>; <a href="https://www.jci.org/articles/view/111039">Nordmann et al. 1983</a>; case-report synthesis of "Neonatal Hemolytic Anemia Due to Inherited Harderoporphyria" (<a href="https://ashpublications.org/blood/article/91/4/1453/139523/Neonatal-Hemolytic-Anemia-Due-to-Inherited">ASH Blood 91:1453, 1998</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/9454777/">PubMed 9454777</a>)</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<ul>
+<li><strong>Causal gene:</strong> <em>CPOX</em> (coproporphyrinogen oxidase), <a href="https://bioregistry.io/HGNC:2321" target="_blank" rel="noopener noreferrer">HGNC:2321</a>, OMIM *612732, chromosome 3q11.2 (also cited as 3q12 in some resources — reconcile against Ensembl/NCBI Gene during curation).</li>
+<li><strong>Protein:</strong> Coproporphyrinogen-III oxidase (CPOX/CPO), a homodimeric, oxygen-dependent mitochondrial intermembrane-space enzyme (EC 1.3.3.3).</li>
+<li><strong>Enzymatic reaction:</strong> CPOX catalyzes the <strong>sequential oxidative decarboxylation</strong> of the 2- and 4-propionate side chains of coproporphyrinogen III to vinyl groups, producing protoporphyrinogen IX. The reaction proceeds via an obligate <strong>tricarboxylic intermediate, harderoporphyrinogen</strong> (2-vinyl-4,6,7-tripropionate porphyrinogen): the 4-propionate group cannot be attacked until the 2-propionate group has already been decarboxylated. Mechanistic studies suggest both decarboxylations occur at the same active site, which becomes transiently inaccessible after the first decarboxylation, requiring substrate/intermediate rotation before the second decarboxylation can proceed (summarized from enzymology literature, e.g. <a href="https://pubmed.ncbi.nlm.nih.gov/629747/">PubMed 629747</a>; <a href="https://www.sciencedirect.com/topics/pharmacology-toxicology-and-pharmaceutical-science/coproporphyrinogen-oxidase">ScienceDirect topic overview</a>).</li>
+<li><strong>Structural basis of the harderoporphyria mutations:</strong> Crystal structures of CPOX orthologs (human and yeast Hem13p) show a central seven-stranded antiparallel β-sheet flanked by helices, with a deep, conserved active-site cleft that adopts open and closed conformations via an ~8 Å helix movement upon substrate binding — closing over the substrate to protect the reactive intermediate from inappropriate oxidation and to position it for the second decarboxylation step. Harderoporphyria-associated missense variants (K404E, H327R, and the D400–K404 hot-region deletion) are proposed to destabilize this closed conformation or the substrate-binding geometry specifically at the point where harderoporphyrinogen would normally be retained for its second decarboxylation — causing <strong>premature release of harderoporphyrinogen/harderoporphyrin</strong> rather than complete conversion to protoporphyrinogen IX. This structural hypothesis explains why only this narrow residue window produces the erythropoietic/harderoporphyrin-excess phenotype rather than simple loss of total enzyme activity (synthesis of Schmitt et al. 2005 and CPOX crystallography literature, e.g. <a href="https://pubmed.ncbi.nlm.nih.gov/14633981/">PubMed 14633981</a>; <a href="https://www.jbc.org/article/S0021-9258(20)72951-0/fulltext">JBC Hem13p structure</a>).</li>
+<li><strong>Variant classification (ACMG/ClinVar):</strong> K404E (c.1210A&gt;G / rs121917868) is classified <strong>Pathogenic</strong> in ClinVar, with functional/enzymatic data (elevated Km, reduced Vmax) supporting pathogenicity. H327R and the D400–K404 in-frame deletion are reported pathogenic missense/deletion variants specific to harderoporphyria case reports.</li>
+<li><strong>Zygosity requirement:</strong> Harderoporphyria requires <strong>homozygosity or compound heterozygosity</strong> for a hot-region (D400–K404) missense allele, generally paired with a null (loss-of-function) allele on the other chromosome — i.e., biallelic <em>CPOX</em> involvement, contrasted with the single heterozygous hit sufficient for classic dominant HCP.</li>
+<li><strong>Modifier genes:</strong> None specifically documented for harderoporphyria. In the broader porphyria literature, digenic/oligogenic interactions (e.g., co-inheritance of <em>CPOX</em> with <em>ALAD</em> or <em>PPOX</em> variants) have been described to modulate phenotype severity in HCP generally (GeneReviews, citing Hasegawa et al. 2017, <a href="https://pubmed.ncbi.nlm.nih.gov/28349448/" target="_blank" rel="noopener noreferrer">PMID 28349448</a>), but no harderoporphyria-specific digenic modifier has been reported in this search pass.</li>
+<li><strong>Epigenetics:</strong> No disease-specific epigenetic (DNA methylation/histone) data were identified for harderoporphyria or CPOX deficiency.</li>
+<li><strong>Chromosomal abnormalities:</strong> None reported; harderoporphyria is caused by point mutations/small indels, not large structural chromosomal rearrangements.</li>
+<li><strong>Somatic vs. germline:</strong> Exclusively germline; harderoporphyria is a congenital, constitutional Mendelian disorder.</li>
+</ul>
+<p><strong>Suggested ontology terms:</strong> Gene: <code>hgnc:2321</code> (CPOX); relevant GO molecular function: <code>GO:0004109</code> (coproporphyrinogen oxidase activity); relevant GO biological process: <code>GO:0006783</code> (heme biosynthetic process) / <code>GO:0033013</code> (tetrapyrrole metabolic process).</p>
+<p>Sources: <a href="https://omim.org/entry/612732">OMIM *612732</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK114807/">GeneReviews HCP</a>; <a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/453/">ClinVar VCV000000453</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/14633981/">PubMed 14633981</a></p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>Harderoporphyria has no independent environmental, infectious, or lifestyle causal factor — it is a purely monogenic disorder — but disease <em>expression</em> is environmentally modulated:</p>
+<ul>
+<li><strong>Light exposure</strong> is the dominant environmental modifier, driving the cutaneous photosensitivity component and likely contributing to porphyrin-mediated hemolysis via phototoxic damage to circulating erythrocytes carrying excess porphyrin. Avoidance of visible light in the ~400–510 nm range is the mainstay non-pharmacologic intervention across the erythropoietic porphyria spectrum.</li>
+<li><strong>Porphyrinogenic drugs/xenobiotics</strong> (CYP450 inducers such as certain barbiturates, sulfonamide antibiotics, and hormonal agents) can, by analogy with classic HCP, increase hepatic heme-pathway flux and porphyrin precursor/intermediate accumulation, though harderoporphyria's dominant lesion is erythroid rather than hepatic and direct harderoporphyria-specific drug-trigger case data were not identified in this pass.</li>
+<li><strong>Fasting/caloric restriction and intercurrent illness</strong> are recognized triggers for acute exacerbation in the broader HCP disease family.</li>
+<li><strong>No infectious agent</strong> is implicated in pathogenesis.</li>
+</ul>
+<p>Sources: General porphyria trigger literature via <a href="https://www.ncbi.nlm.nih.gov/books/NBK114807/">GeneReviews HCP</a>; erythropoietic porphyria light-avoidance data via general erythropoietic protoporphyria/CEP literature (<a href="https://ashpublications.org/blood/article/141/24/2921/494865/How-I-treat-erythropoietic-protoporphyria-and-X">How I treat EPP/XLP, ASH Blood 141:2921</a>)</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain (upstream → downstream)</h3>
+<ol>
+<li><strong>Molecular trigger (upstream):</strong> Biallelic <em>CPOX</em> variants concentrated in exon 6 residues D400–K404 (e.g., K404E, H327R) impair the enzyme's ability to complete the second oxidative decarboxylation step of coproporphyrinogen III metabolism, and/or destabilize the closed, substrate-protective active-site conformation.</li>
+<li><strong>Enzymatic consequence:</strong> The reaction stalls after the first decarboxylation, and the intermediate <strong>harderoporphyrinogen is released prematurely</strong> from the active site rather than undergoing the second decarboxylation to protoporphyrinogen IX. Kinetic studies show markedly increased Km (reduced substrate affinity) and reduced Vmax for mutant enzyme.</li>
+<li><strong>Biochemical accumulation:</strong> Harderoporphyrinogen (and its oxidized product, harderoporphyrin) plus coproporphyrinogen/coproporphyrin accumulate — disproportionately in the <strong>erythroid compartment</strong>, where high heme-pathway flux during erythropoiesis exposes the partially defective enzyme to saturating substrate concentrations, in contrast to the lower flux in hepatocytes of classic (heterozygous) HCP. This tissue-specific flux difference is the proposed mechanistic explanation for why the harderoporphyria genotype manifests primarily as an erythropoietic/hematologic disease rather than a hepatic/neurovisceral one.</li>
+<li><strong>Cellular consequence — hemolysis:</strong> Accumulated porphyrins in developing and circulating erythrocytes are photoreactive; upon light exposure they generate reactive oxygen species that damage the erythrocyte membrane, producing chronic hemolysis, jaundice, and compensatory extramedullary erythropoiesis (hepatosplenomegaly).</li>
+<li><strong>Cellular/tissue consequence — cutaneous photosensitivity:</strong> The same photoactivation mechanism operating in dermal capillaries and skin-resident porphyrin deposits produces the light-triggered skin fragility/blistering phenotype, analogous to (but biochemically distinct from) other cutaneous porphyrias such as congenital erythropoietic porphyria and erythropoietic protoporphyria.</li>
+<li><strong>Organismal outcome:</strong> Chronic hemolytic anemia with neonatal jaundice, hepatosplenomegaly from extramedullary hematopoiesis and reticuloendothelial porphyrin/hemolysis burden, and lifelong photosensitivity, generally <strong>without</strong> the acute neurovisceral (abdominal pain, neuropathy, psychiatric) attacks that define classic hepatic HCP — reflecting the relatively preserved hepatic ALA/PBG handling in harderoporphyria compared to the erythroid-dominant porphyrin burden.</li>
+</ol>
+<h3>Molecular pathway</h3>
+<p>Heme biosynthesis (KEGG hsa00860 / Reactome heme biosynthesis pathway): Glycine + succinyl-CoA → ALA (ALAS1/ALAS2) → PBG (ALAD) → hydroxymethylbilane (HMBS) → uroporphyrinogen III (UROS) → coproporphyrinogen III (UROD) → <strong>[CPOX, defective step]</strong> → protoporphyrinogen IX → protoporphyrin IX (PPOX) → heme (FECH, with iron insertion).</p>
+<h3>Cell types and tissues involved</h3>
+<ul>
+<li>Erythroid precursors / developing erythrocytes (primary site of pathological porphyrin accumulation) — consider <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" rel="noopener noreferrer">CL:0000038</a> (erythroid progenitor cell) / <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a> (erythrocyte)</li>
+<li>Hepatocytes (secondary/lesser contribution relative to classic HCP) — <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" rel="noopener noreferrer">UBERON:0001155</a> liver structures</li>
+<li>Reticuloendothelial system / spleen macrophages (hemolysis clearance, splenomegaly) — <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a> spleen</li>
+<li>Skin (keratinocytes, dermal vasculature) — site of phototoxic injury — <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> skin</li>
+</ul>
+<h3>Suggested GO terms</h3>
+<ul>
+<li><a href="http://purl.obolibrary.org/obo/GO_0004109" target="_blank" rel="noopener noreferrer">GO:0004109</a> coproporphyrinogen oxidase activity (molecular function, defective)</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" rel="noopener noreferrer">GO:0006783</a> heme biosynthetic process (biological process, disrupted)</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a> response to oxidative stress (downstream, in phototoxic hemolysis)</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> apoptotic process / <a href="http://purl.obolibrary.org/obo/GO_0070265" target="_blank" rel="noopener noreferrer">GO:0070265</a> necrotic cell death (candidate downstream erythrocyte injury processes, not yet specifically documented for harderoporphyria)</li>
+</ul>
+<h3>Omics / advanced technologies</h3>
+<p>No transcriptomic, proteomic, metabolomic, single-cell, or spatial data specific to harderoporphyria patients or models were identified in this search — an evidence gap typical of an ultra-rare Mendelian disease with fewer than a dozen published cases. Metabolomic characterization is effectively limited to targeted porphyrin fractionation (fecal harderoporphyrin, urinary coproporphyrin, erythrocyte protoporphyrin) reported in the founding case series.</p>
+<p>Sources: <a href="https://www.jci.org/articles/view/111039">Nordmann et al. 1983</a>; Schmitt et al. 2005 (<em>Hum Mol Genet</em> 14:3089–3098, summarized via <a href="https://omim.org/entry/618892">OMIM #618892</a>); <a href="https://pubmed.ncbi.nlm.nih.gov/629747/">PubMed 629747</a> (decarboxylation sequence mechanism); <a href="https://pubmed.ncbi.nlm.nih.gov/14633981/">PubMed 14633981</a> (crystal structure)</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong>
+- <strong>Primary:</strong> Bone marrow/erythroid tissue (site of porphyrin overproduction), skin (photosensitivity), liver and spleen (secondary — hepatosplenomegaly from hemolysis and extramedullary erythropoiesis)
+- <strong>Secondary/complications:</strong> Biliary system (increased bilirubin turnover from hemolysis); potential iron-overload target organs if chronic transfusion is required (liver, heart, endocrine organs) — inferred from general chronic-hemolysis/transfusion management principles, not harderoporphyria-specific data
+- <strong>Body systems:</strong> Hematologic/hematopoietic system (primary); integumentary system (photosensitivity); hepatobiliary system (secondary)</p>
+<p><strong>Tissue and cell level:</strong>
+- Erythroid lineage cells (proerythroblasts through mature erythrocytes) — <a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" rel="noopener noreferrer">CL:0000765</a> (erythroblast), <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a> (erythrocyte)
+- Hepatocytes — <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a>
+- Splenic reticuloendothelial macrophages — <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage)
+- Epidermal keratinocytes and dermal microvasculature (photosensitivity target) — <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a> (keratinocyte)</p>
+<p><strong>Subcellular level:</strong>
+- Mitochondria — CPOX is localized to the mitochondrial intermembrane space, where the terminal three steps of heme synthesis (CPOX, PPOX, FECH) occur; GO Cellular Component: <a href="http://purl.obolibrary.org/obo/GO_0005758" target="_blank" rel="noopener noreferrer">GO:0005758</a> (mitochondrial intermembrane space)
+- Cytosol — earlier heme pathway steps (ALAD through UROD) occur in the cytosol before substrate re-enters mitochondria for the CPOX step</p>
+<p><strong>Localization:</strong> Systemic/hematologic (not focal); cutaneous manifestations are typically distributed over light-exposed skin (face, dorsal hands), consistent with other photosensitive porphyrias — bilateral, light-exposure-dependent rather than laterality-defined.</p>
+<p>Suggested UBERON terms: <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a> (bone marrow), <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a> (blood), <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> (skin), <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a> (spleen), <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" rel="noopener noreferrer">UBERON:0001155</a> (liver).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Congenital/neonatal. The hallmark presentation across essentially all reported cases is severe jaundice and hemolytic anemia <strong>at birth or within the first days of life</strong>. Photosensitivity may be present from early infancy or, in at least one reported case, persist as "lifelong photosensitivity" into adulthood.</li>
+<li><strong>Onset pattern:</strong> Acute at birth (hemolytic/jaundice component), with a chronic, persistent course thereafter for the photosensitivity and biochemical porphyrin-excess phenotype.</li>
+<li><strong>Progression/course:</strong> Described as a chronic, lifelong biochemical abnormality (elevated harderoporphyrin/coproporphyrin excretion, reduced CPOX activity) with a hematologic component that may stabilize after the neonatal period but with persistent photosensitivity. No formal staging system exists for this disease given its rarity.</li>
+<li><strong>Progression rate:</strong> Not systematically quantified across a cohort; case reports describe chronic hemolytic anemia as an ongoing feature beyond the neonatal period rather than a self-limited neonatal event alone.</li>
+<li><strong>Remission patterns:</strong> Not established; no natural-history or registry data were identified describing spontaneous remission.</li>
+<li><strong>Critical periods:</strong> The neonatal period is clinically critical both for diagnosis (distinguishing harderoporphyria from other causes of neonatal hemolytic anemia and jaundice, e.g., thalassemia, hemolytic disease of the newborn, G6PD deficiency, other porphyrias) and for management of hyperbilirubinemia risk (kernicterus).</li>
+</ul>
+<p>Sources: <a href="https://www.jci.org/articles/view/111039">Nordmann et al. 1983</a>; <a href="https://ashpublications.org/blood/article/91/4/1453/139523/Neonatal-Hemolytic-Anemia-Due-to-Inherited">ASH Blood 91:1453 (1998)</a>; <a href="https://www.sciencedirect.com/science/article/pii/S2214426918301484">ScienceDirect lifelong photosensitivity case</a></p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance pattern:</strong> Autosomal recessive (biallelic <em>CPOX</em> variants), in contrast to the autosomal dominant, reduced-penetrance inheritance of classic HCP caused by heterozygous <em>CPOX</em> variants. This makes CPOX one of relatively few genes in which <strong>different zygosity states produce clinically and biochemically distinct named disorders</strong> in the same locus.</li>
+<li><strong>Penetrance:</strong> Full/high penetrance is implied for the harderoporphyria neonatal phenotype in the reported cases (all documented biallelic D400–K404-region carriers presented with disease), though the very small number of published cases limits confident penetrance estimation. By contrast, heterozygous HCP (the "carrier" state in most harderoporphyria kindreds) shows well-documented <strong>reduced penetrance</strong> (GeneReviews, citing Whatley et al. 2009, <a href="https://pubmed.ncbi.nlm.nih.gov/19460837/" target="_blank" rel="noopener noreferrer">PMID 19460837</a>, and Blake et al. 1992, <a href="https://pubmed.ncbi.nlm.nih.gov/1733615/" target="_blank" rel="noopener noreferrer">PMID 1733615</a>).</li>
+<li><strong>Expressivity:</strong> Variable within the erythropoietic/hepatic spectrum depending on exact genotype (D400–K404 hot-region variant vs. variants elsewhere in the gene), which is the central genotype-phenotype finding of this disease.</li>
+<li><strong>Genetic anticipation:</strong> Not applicable — harderoporphyria is not a repeat-expansion disorder.</li>
+<li><strong>Germline mosaicism:</strong> Not specifically reported for CPOX/harderoporphyria in this search pass.</li>
+<li><strong>Founder effects:</strong> Not documented for harderoporphyria specifically; K404E and H327R have each been reported in only a small number of unrelated families, insufficient to establish founder-population data confidently.</li>
+<li><strong>Consanguinity:</strong> Plausible risk-elevating factor for true homozygosity (as opposed to compound heterozygosity) given the rarity of individual pathogenic alleles, though the founding Nordmann family history was not explicitly confirmed as consanguineous in the retrieved summary — verify against primary source before asserting in curation.</li>
+<li><strong>Carrier frequency:</strong> Not independently established for harderoporphyria; heterozygous HCP carrier frequency (from which harderoporphyria compound heterozygotes/homozygotes arise) is not precisely quantified in general population; K404E allele frequency itself is approximately 0.009% in gnomAD.</li>
+</ul>
+<p><strong>Population demographics:</strong>
+- <strong>Prevalence:</strong> Harderoporphyria is described in the literature as having <strong>"fewer than 10 cases reported worldwide"</strong>, making formal prevalence/incidence estimation essentially impossible; it is likely underdiagnosed given its atypical (non-classic-porphyria) presentation as neonatal hemolytic anemia, which is more commonly worked up for thalassemia, hemolytic disease of the newborn, or red cell enzymopathies before porphyria is considered.
+- <strong>Geographic distribution:</strong> No specific endemic region identified; reported cases span multiple, geographically dispersed families (originally described in a French kindred by Nordmann et al.).
+- <strong>Sex ratio:</strong> No sex predilection has been reported for harderoporphyria itself (autosomal recessive, non-sex-linked); note this contrasts with classic HCP, where clinical attacks (in the general HCP/AIP acute-porphyria literature) are more frequent in women due to hormonal triggers, but this hormonal-attack pattern is not the dominant harderoporphyria presentation.
+- <strong>Age distribution:</strong> Neonatal/infantile predominance at diagnosis, given the characteristic presentation.</p>
+<p>Sources: <a href="https://en.wikipedia.org/wiki/Harderoporphyria">Wikipedia: Harderoporphyria</a>; <a href="https://omim.org/entry/618892">OMIM #618892</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK114807/">GeneReviews HCP</a></p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical/laboratory tests:</strong>
+- <strong>Fecal porphyrin fractionation</strong> — the key diagnostic test: demonstration that <strong>harderoporphyrin constitutes the majority (&gt;60%) of total fecal porphyrin</strong>, versus &lt;20% in unaffected individuals and heterozygous HCP carriers. This is the biochemical signature that distinguishes harderoporphyria from classic HCP (where COPRO &gt;&gt; PROTO with 60–95% coproporphyrin isomer-III predominance, but without harderoporphyrin excess).
+- <strong>Urinary porphyrin analysis</strong> — elevated coproporphyrin excretion.
+- <strong>Erythrocyte protoporphyrin</strong> — elevated, reflecting the erythroid-dominant lesion.
+- <strong>Lymphocyte/erythrocyte coproporphyrinogen oxidase enzyme activity assay</strong> — markedly reduced (~10% of normal) in affected homozygotes/compound heterozygotes vs. ~50% in heterozygous HCP carriers (parents); this quantitative distinction supports zygosity inference even before molecular confirmation.
+- <strong>Urinary porphobilinogen (PBG) and ALA</strong> — the classic marker for acute hepatic porphyria attacks (elevated in acute HCP attacks); relevant for excluding/assessing an acute hepatic component, though harderoporphyria itself is not characterized by the acute neurovisceral attacks that make PBG the primary diagnostic marker in classic HCP.
+- <strong>Complete blood count, reticulocyte count, bilirubin (direct/indirect), haptoglobin, LDH</strong> — standard hemolysis work-up, essential to the differential diagnosis of neonatal hemolytic anemia.</p>
+<p><strong>Genetic testing:</strong>
+- <strong>CPOX sequence analysis (single-gene test or targeted porphyria gene panel)</strong> is the definitive diagnostic approach, given that sequence analysis detects ~97% of pathogenic <em>CPOX</em> variants (GeneReviews); deletion/duplication analysis captures additional cases not found by sequencing alone.
+- <strong>Targeted variant testing</strong> for known harderoporphyria hot-region alleles (K404E, H327R) can be used once family segregation is suspected.
+- Whole exome/genome sequencing is a reasonable approach in an undiagnosed neonate with hemolytic anemia of unclear etiology, particularly when initial hemoglobinopathy/enzymopathy work-up is unrevealing.</p>
+<p><strong>Imaging:</strong> Not disease-specific; abdominal ultrasound may document hepatosplenomegaly as part of the general hemolysis work-up.</p>
+<p><strong>Biopsy/histopathology:</strong> Not a primary diagnostic modality for harderoporphyria; no disease-specific histopathological signature was identified in this search.</p>
+<p><strong>Differential diagnosis</strong> (drawing on the neonatal hemolytic anemia and porphyria literatures):
+- Thalassemia syndromes and other hemoglobinopathies
+- Hemolytic disease of the newborn (Rh/ABO incompatibility)
+- Red cell membrane and enzyme defects (hereditary spherocytosis, G6PD deficiency, pyruvate kinase deficiency)
+- Congenital erythropoietic porphyria (Günther disease) — also presents with neonatal hemolysis and severe photosensitivity, but distinguished biochemically by uroporphyrin/coproporphyrin I isomer excess rather than harderoporphyrin
+- Classic (heterozygous) hereditary coproporphyria and other acute hepatic porphyrias (variegate porphyria, acute intermittent porphyria) — distinguished by absence of the acute neurovisceral attack pattern and by the specific harderoporphyrin excess
+- Neonatal-onset hereditary coproporphyria (a related but distinct entity reported with massive coproporphyrin elevation, cutaneous blistering, and hemolytic anemia without harderoporphyrin predominance — see <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5740044/">PMC5740044</a>)</p>
+<p><strong>Screening:</strong> No population-based or newborn screening program exists for harderoporphyria given its extreme rarity; diagnosis relies on clinical suspicion in a neonate with unexplained hemolytic anemia plus family history of CPOX mutations/HCP, followed by targeted biochemical and molecular testing. Cascade/carrier testing in relatives of an index case is appropriate once a pathogenic variant is identified, consistent with general recessive-disorder genetic counseling practice.</p>
+<p>Sources: <a href="https://www.jci.org/articles/view/111039">Nordmann et al. 1983</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK114807/">GeneReviews HCP</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5740044/">PMC5740044</a></p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> No formal survival statistics exist given the extremely small number of reported cases; the disease is not generally described as immediately life-threatening if recognized and supported through the neonatal period, though severe unrecognized neonatal hyperbilirubinemia/hemolysis in any etiology carries a risk of kernicterus if untreated.</li>
+<li><strong>Morbidity:</strong> Chronic hemolytic anemia and lifelong photosensitivity represent the principal ongoing morbidity; hepatosplenomegaly from chronic hemolysis/extramedullary hematopoiesis is a secondary morbidity.</li>
+<li><strong>Complications:</strong> By analogy with other chronic hemolytic/porphyric conditions — risk of gallstones (pigment stones from chronic hemolysis), potential need for chronic transfusion with associated iron-overload risk if severe, and skin damage/scarring from recurrent phototoxic injury. These are inferred from general hemolytic-anemia and erythropoietic-porphyria management literature rather than harderoporphyria-specific outcome data, and should be flagged as extrapolated rather than directly evidenced.</li>
+<li><strong>Recovery potential:</strong> Case reports describe long-term survival with supportive management (implied by case reports following patients into later childhood/adulthood, e.g., the "lifelong photosensitivity" case), suggesting a chronic but non-fatal natural history when appropriately managed, though this is based on a handful of published cases rather than systematic outcome data.</li>
+<li><strong>Prognostic factors:</strong> Not systematically studied; presumably genotype (which specific hot-region variant, and whether compound heterozygous with a null allele vs. true homozygous) and degree of residual CPOX activity influence severity, mirroring the genotype-driven mechanism that defines the disease category itself.</li>
+</ul>
+<p><strong>Evidence gap note:</strong> This section is the weakest-evidenced area in the literature for this disease; curators should represent prognosis claims with appropriately hedged confidence given the case-report-only evidence base.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p>No disease-specific, evidence-based treatment guideline or clinical trial exists for harderoporphyria (consistent with its status as an ultra-rare, case-report-only disease). Management is supportive and extrapolated from general practice in erythropoietic/hemolytic porphyrias and neonatal hemolytic anemia:</p>
+<p><strong>Supportive/symptomatic care:</strong>
+- <strong>Photoprotection</strong> — strict avoidance of sunlight/blue-violet light (&lt;510 nm), protective clothing, opaque/broad-spectrum sunscreens, window-glass filtering — mainstay for the cutaneous photosensitivity and porphyrin-driven hemolysis component, by direct analogy with erythropoietic protoporphyria and congenital erythropoietic porphyria management (NCIT candidate: NCIT:C15747 Supportive Care; behavioral/lifestyle modality).
+- <strong>Management of neonatal hyperbilirubinemia</strong> — standard phototherapy/exchange transfusion protocols as clinically indicated for jaundice, with the caveat that porphyria-associated photosensitivity requires careful wavelength selection to avoid worsening porphyrin photoactivation (a clinically important nuance versus standard neonatal jaundice phototherapy).
+- <strong>Red blood cell transfusion</strong> — supportive management of severe/symptomatic hemolytic anemia, as used across erythropoietic porphyrias generally to correct anemia and, at higher chronic-transfusion intensity, to suppress endogenous erythropoiesis and thereby reduce porphyrin overproduction — though this carries iron-overload risk requiring chelation if used chronically. Direct harderoporphyria-specific transfusion-dependency data were not confirmed in this search pass.
+- <strong>Splenectomy</strong> — reported as "variably successful" for hemolysis/hypersplenism in erythropoietic porphyrias broadly; no harderoporphyria-specific outcome data identified.
+- <strong>Avoidance of porphyrinogenic drug triggers</strong> (barbiturates, certain sulfonamides, other CYP450 inducers) — standard precaution extrapolated from HCP/acute-porphyria management, applicable to the hepatic/coproporphyrin component of the disease.
+- <strong>Genetic counseling</strong> — for parents/family members given autosomal recessive inheritance, including carrier testing of relatives and reproductive counseling (NCIT:C15240 Genetic Counseling).</p>
+<p><strong>Pharmacotherapy (extrapolated from HCP, not harderoporphyria-specific):</strong>
+- <strong>Hematin/hemin (Panhematin)</strong> — the standard treatment for acute attacks in classic HCP, given intravenously to suppress hepatic ALAS1 via negative feedback; relevant primarily if a harderoporphyria patient develops a superimposed acute hepatic-type attack, though this is not the typical harderoporphyria clinical pattern (NCIT:C15986 Pharmacotherapy; therapeutic_agent consideration: hemin, CHEBI-bindable).
+- <strong>Givosiran</strong> (an ALAS1-directed siRNA, FDA-approved 2019 for recurrent acute hepatic porphyria attacks) — approved for classic acute hepatic porphyrias including HCP with ≥4 attacks/year; <strong>not established for harderoporphyria</strong>, whose clinical pattern is erythropoietic/hemolytic rather than acute-attack-driven, so applicability is speculative rather than evidenced (therapeutic_modality candidate: SIRNA; NCIT term to be verified).
+- <strong>Intravenous glucose/carbohydrate loading</strong> — standard adjunct during any acute hepatic-type exacerbation, by suppressing ALAS1 induction.</p>
+<p><strong>Experimental/investigational:</strong> No harderoporphyria-specific clinical trials (NCT-registered) were identified in this search. Curators should check ClinicalTrials.gov directly for any porphyria-basket trials that might include biallelic CPOX-deficiency patients before asserting a negative.</p>
+<p><strong>Curative options:</strong> No curative therapy (e.g., gene therapy, hematopoietic stem cell transplantation) has been reported for harderoporphyria specifically, though HSCT is the established curative approach for the mechanistically related congenital erythropoietic porphyria, and could be a reasonable extrapolated future direction worth flagging as a knowledge gap rather than an established treatment.</p>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/books/NBK114807/">GeneReviews HCP</a> (hematin/givosiran management of classic HCP attacks); general erythropoietic-porphyria management literature (<a href="https://ashpublications.org/blood/article/141/24/2921/494865/How-I-treat-erythropoietic-protoporphyria-and-X">ASH Blood 141:2921, How I treat EPP/XLP</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10170564/">PMC10170564, CEP management</a>)</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not applicable in the traditional sense (Mendelian recessive genetic disorder); the closest analog is <strong>preconception/prenatal genetic counseling and carrier screening</strong> in families with a known harderoporphyria proband or CPOX pathogenic variant, given the autosomal recessive inheritance and identifiable causal alleles.</li>
+<li><strong>Secondary prevention:</strong> Early recognition of neonatal hemolytic anemia/jaundice with appropriate porphyrin work-up in at-risk families (known CPOX carrier parents) could enable earlier diagnosis and photoprotective/supportive intervention, though no formal newborn screening protocol exists.</li>
+<li><strong>Tertiary prevention:</strong> Trigger avoidance (light exposure, porphyrinogenic drugs, fasting) to reduce the frequency/severity of hemolytic and cutaneous exacerbations in a diagnosed patient — standard practice extrapolated from the broader porphyria management literature.</li>
+<li><strong>Genetic counseling:</strong> Recommended for parents of an affected child (both obligate heterozygous HCP carriers) regarding 25% recurrence risk in future pregnancies (autosomal recessive), and for extended family members regarding carrier status and reproductive risk, especially relevant in consanguineous kindreds.</li>
+<li><strong>Prenatal/preimplantation testing:</strong> Feasible in principle once the familial CPOX variants are known (standard molecular prenatal diagnosis/PGD approach for a known biallelic Mendelian disorder), though no harderoporphyria-specific prenatal diagnosis case was identified in this search.</li>
+<li><strong>Public health measures:</strong> Not applicable — this is not an environmentally or infectiously mediated disease amenable to population-level public health intervention.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> No naturally occurring harderoporphyria (biallelic CPOX hot-region variant) has been reported in a non-human species in this search pass.</li>
+<li><strong>Related naturally occurring CPOX-deficiency phenotype — the Nakano mouse cataract model:</strong> A hypomorphic <em>Cpox</em> mutation was identified as the cause of hereditary cataract in the classic <strong>Nakano (nctam) mouse</strong> strain, an unexpected connection between a heme-pathway enzyme defect and lens cataractogenesis (<a href="https://pubmed.ncbi.nlm.nih.gov/23631845/" target="_blank" rel="noopener noreferrer">PMID 23631845</a>), distinct from — but genetically related to — the human harderoporphyria/HCP disease spectrum via the same gene.</li>
+<li><strong>BALB.NCT-Cpox^nct mouse model of hereditary coproporphyria:</strong> Derived from the Nakano cataract allele backcrossed onto BALB/c, this mouse is <strong>homozygous for a p.R380L CPOX substitution</strong> retaining only ~15% of wild-type enzyme activity. It shows drastically increased blood and hepatic coproporphyrin from a young age, excessive urinary coproporphyrin and porphyrin-precursor excretion, neuromuscular symptoms, and (in female mice specifically) hypertension — recapitulating features of human HCP. This is described as filling a prior gap, since <strong>no prior animal model had jointly reproduced the causal gene mutation, reduced CPOX enzyme activity, porphyrin accumulation, and clinical symptoms of HCP</strong> together (<a href="https://ncbi.nlm.nih.gov/pmc/articles/PMC10036863">PMC10036863</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36967721/">PubMed 36967721</a>). Because this model is homozygous (not restricted to the D400–K404 hot region) it is best characterized as an HCP model rather than a harderoporphyria-specific (harderoporphyrin-excess) model — an important nuance for curation, since it does not reproduce the disease-defining harderoporphyrin-predominant biochemical signature.</li>
+<li><strong>ENU mutagenesis mouse model of HCP:</strong> A separate ENU-induced mouse model of hereditary coproporphyria has also been reported (<a href="https://pubmed.ncbi.nlm.nih.gov/28600349/" target="_blank" rel="noopener noreferrer">PMID 28600349</a>), independent of the Nakano-derived strain, further supporting Cpox-deficient mice as a tractable system for studying HCP-spectrum biology, again without specific confirmation of harderoporphyrin-predominant biochemistry.</li>
+<li><strong>Comparative biology:</strong> The heme biosynthetic pathway, including CPOX, is highly conserved from yeast (<em>Saccharomyces cerevisiae</em> Hem13p, whose crystal structure has informed human CPOX active-site models) through mammals, supporting cross-species mechanistic inference, though no species other than mouse (via the two models above) has a documented naturally occurring or induced Cpox-deficiency phenotype relevant to this KB.</li>
+<li><strong>Zoonotic potential / transmission:</strong> Not applicable — harderoporphyria is a non-communicable, purely genetic disorder.</li>
+</ul>
+<p>Sources: <a href="https://ncbi.nlm.nih.gov/pmc/articles/PMC10036863">PMC10036863 / BALB.NCT-Cpoxnct model</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23631845/">PubMed 23631845, Nakano cataract Cpox mutation</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28600349/">PubMed 28600349, ENU mutagenesis HCP mouse model</a></p>
+<hr />
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Species</th>
+<th>Genotype</th>
+<th>Fidelity to human disease</th>
+<th>Key findings</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BALB.NCT-Cpox^nct</td>
+<td>Mouse (<em>Mus musculus</em>, BALB/c background)</td>
+<td>Homozygous p.R380L <em>Cpox</em> hypomorphic missense (G→T substitution), ~15% residual enzyme activity</td>
+<td><strong>Recapitulates classic HCP</strong> (elevated blood/liver coproporphyrin, urinary coproporphyrin and precursor excretion, neuromuscular symptoms, sex-specific hypertension in females) — does <strong>not</strong> specifically model the harderoporphyrin-predominant biochemistry that defines harderoporphyria, since the R380L substitution lies outside the human D400–K404 hot region</td>
+<td>First mouse model to jointly reproduce causal gene defect, reduced enzyme activity, porphyrin accumulation, and clinical HCP-like symptoms</td>
+<td><a href="https://ncbi.nlm.nih.gov/pmc/articles/PMC10036863">PMC10036863</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36967721/">PubMed 36967721</a></td>
+</tr>
+<tr>
+<td>Nakano (nctam) cataract mouse</td>
+<td>Mouse</td>
+<td>Hypomorphic <em>Cpox</em> mutation (progenitor strain for BALB.NCT-Cpox^nct)</td>
+<td>Originally characterized for a cataract phenotype, not primarily a porphyria model</td>
+<td>Established the cataract–CPOX genetic link that led to the HCP mouse model above</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23631845/">PubMed 23631845</a></td>
+</tr>
+<tr>
+<td>ENU-mutagenesis Cpox mouse</td>
+<td>Mouse</td>
+<td>ENU-induced <em>Cpox</em> variant</td>
+<td>HCP-like phenotype from forward-genetics screen</td>
+<td>Independent confirmation that murine Cpox loss-of-function reproduces coproporphyria-relevant biology</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28600349/">PubMed 28600349</a></td>
+</tr>
+<tr>
+<td><em>E. coli</em> recombinant expression system</td>
+<td>Bacterial (in vitro/computational biochemistry)</td>
+<td>Human CPOX cDNA (wild-type and K404E mutant) expressed heterologously</td>
+<td>Not a whole-organism disease model, but the definitive functional evidence establishing K404E pathogenicity</td>
+<td>Demonstrated ~10-fold increased Km and reduced activity for K404E vs. wild-type CPOX, directly linking the mutation to defective substrate binding</td>
+<td>Schmitt et al. 2005, <em>Hum Mol Genet</em> 14:3089–3098 (via <a href="https://omim.org/entry/618892">OMIM #618892</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Key gap:</strong> No published mouse (or other organism) model specifically carries a homozygous or compound-heterozygous D400–K404-region variant reproducing the harderoporphyrin-excess, erythropoietic-dominant human harderoporphyria phenotype — all current murine CPOX-deficiency models more closely recapitulate classic hepatic HCP biochemistry. This represents a genuine modeling gap worth flagging explicitly in a <code>HUMAN_MODEL_MISMATCH</code>-type knowledge-gap annotation if this disease is curated into the dismech KB, since existing Cpox-mutant mice are informative for the broader CPOX-deficiency mechanism but do not validate the specific structural/kinetic hypothesis (premature harderoporphyrinogen release) proposed for the D400–K404 hot-region human variants.</p>
+<p>Sources: as cited per row above.</p>
+<hr />
+<h2>Summary of Key Evidence Gaps for Curation</h2>
+<ol>
+<li><strong>Prognosis/outcome data</strong> are essentially absent beyond individual case follow-up — no survival statistics, no quality-of-life instruments applied.</li>
+<li><strong>No harderoporphyria-specific treatment trial or guideline exists</strong>; all therapeutic recommendations are extrapolated from classic HCP or other erythropoietic porphyrias and should be curated with appropriately qualified evidence_source/confidence.</li>
+<li><strong>No animal model precisely recapitulates the harderoporphyrin-excess biochemical signature</strong> that defines this disease as distinct from ordinary homozygous HCP — existing Cpox-mutant mice model the broader HCP phenotype.</li>
+<li><strong>MONDO ID was not independently confirmed</strong> in this research pass and should be verified directly (e.g., via MONDO/OLS lookup) before curation.</li>
+<li><strong>Transfusion-dependency, splenectomy outcomes, and QoL data specific to harderoporphyria patients</strong> were not confirmed in primary sources during this pass — the supportive-care recommendations above are extrapolated from related erythropoietic porphyrias and should be flagged as such, or verified against the primary case reports (Nordmann 1983; Lamoril et al. 1998, <em>Blood</em> 91:1453; the H327R case report, <a href="https://pubmed.ncbi.nlm.nih.gov/21103937/" target="_blank" rel="noopener noreferrer">PMID 21103937</a>; and the compound-heterozygous lifelong-photosensitivity case report, <a href="https://pubmed.ncbi.nlm.nih.gov/30828546/" target="_blank" rel="noopener noreferrer">PMID 30828546</a>) before being asserted as harderoporphyria-specific findings with full confidence.</li>
+</ol>
+<hr />
+<h3>Sources (consolidated)</h3>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Harderoporphyria">Harderoporphyria — Wikipedia</a></li>
+<li><a href="https://omim.org/entry/618892">OMIM #618892 — Harderoporphyria; HARPO</a></li>
+<li><a href="https://omim.org/entry/121300">OMIM #121300 — Coproporphyria, Hereditary; HCP</a></li>
+<li><a href="https://omim.org/entry/612732">OMIM *612732 — Coproporphyrinogen Oxidase; CPOX</a></li>
+<li><a href="https://www.orpha.net/en/disease/gene/CPOX">Orphanet — CPOX-coproporphyrinogen oxidase</a></li>
+<li><a href="https://www.jci.org/articles/view/111039">Nordmann Y, et al. Harderoporphyria: a variant hereditary coproporphyria. J Clin Invest. 1983</a></li>
+<li><a href="https://ashpublications.org/blood/article/91/4/1453/139523/Neonatal-Hemolytic-Anemia-Due-to-Inherited">Lamoril J, et al. Neonatal hemolytic anemia due to inherited harderoporphyria: clinical characteristics and molecular basis. Blood. 1998;91(4):1453</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/9454777/">PubMed 9454777</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/21103937/">Harderoporphyria due to homozygosity for CPOX missense mutation H327R — PubMed 21103937</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S2214426918301484">Harderoporphyria: case of lifelong photosensitivity with compound heterozygous CPOX mutations — ScienceDirect / PubMed 30828546</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5740044/">Neonatal-Onset Hereditary Coproporphyria: A New Variant of HCP — PMC5740044</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK114807/">Hereditary Coproporphyria — GeneReviews®, NCBI Bookshelf NBK114807</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/453/">ClinVar Variation 453 (K404E)</a></li>
+<li><a href="https://ncbi.nlm.nih.gov/pmc/articles/PMC10036863">BALB.NCT-Cpoxnct is a unique mouse model of hereditary coproporphyria — PMC10036863</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/36967721/">PubMed 36967721</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23631845/">Hereditary cataract of the Nakano mouse: hypomorphic Cpox mutation — PubMed 23631845</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28600349/">A mouse model of hereditary coproporphyria from ENU mutagenesis screen — PubMed 28600349</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/14633981/">Crystal structure of coproporphyrinogen III oxidase — PubMed 14633981</a></li>
+<li><a href="https://www.jbc.org/article/S0021-9258(20)72951-0/fulltext">Crystal structure of the oxygen-dependent CPOX (Hem13p) of S. cerevisiae — JBC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/629747/">Factors determining sequence of oxidative decarboxylation by CPOX — PubMed 629747</a></li>
+<li><a href="https://www.icd10data.com/ICD10CM/Codes/E00-E89/E70-E88/E80-/E80.29">ICD-10-CM E80.29 — Other porphyria</a></li>
+<li><a href="https://ashpublications.org/blood/article/141/24/2921/494865/How-I-treat-erythropoietic-protoporphyria-and-X">How I treat erythropoietic protoporphyria and X-linked protoporphyria — ASH Blood 141:2921</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10170564/">Very Early Diagnosis and Management of Congenital Erythropoietic Porphyria — PMC10170564</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>16</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:1733615</code> (1 mention) - Fecal coproporphyrin isomers in hereditary coproporphyria.</li>
+<li>shared terms: porphyrin</li>
+<li><code>PMID:629747</code> (4 mentions) - Factors determining the sequence of oxidative decarboxylation of the 2- and 4-propionate substituents of coproporphyrinogen III by coproporphyrinogen oxidase in rat liver.</li>
+<li>shared terms: none</li>
+<li><code>PMID:14633981</code> (5 mentions) - Crystal structure of coproporphyrinogen III oxidase reveals cofactor geometry of Radical SAM enzymes.</li>
+<li>shared terms: none</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>harderoporphyria</code>, <code>hcp</code>, <code>cpox</code>, <code>classic</code>, <code>disease</code>, <code>porphyrin</code>, <code>variant</code>, <code>erythropoietic</code>, <code>photosensitivity</code>, <code>heterozygous</code>, <code>hepatic</code>, <code>neonatal</code>, <code>anemia</code>, <code>hemolysis</code>, <code>hemolytic</code>, <code>porphyria</code>, <code>phenotype</code>, <code>activity</code>, <code>genetic</code>, <code>harderoporphyria-specific</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0032263</code> (1 mention) - the report calls it "Coproporphyrinuria"; HP calls it <strong>Increased blood pressure</strong></li>
+<li><code>UBERON:0001155</code> (2 mentions) - the report calls it "liver"; UBERON calls it <strong>colon</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0070265</code> (obsolete necrotic cell death) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>UBERON:0002097</code> (2 mentions) - the report calls it "skin"; UBERON calls it <strong>skin of body</strong>, and lists "skin" among its other names</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Hao-Fountain_syndrome-asta.html">← Hao-Fountain syndrome (Asta)</a>
+                
+                
+                <a href="Hartnup_Disease-fallback.html">Hartnup Disease (Fallback) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Harderoporphyria.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Harderoporphyria-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

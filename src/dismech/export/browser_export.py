@@ -11,6 +11,7 @@ from typing import Any
 
 from oaklib import get_adapter
 
+from dismech import kb_cache, oak_db
 from dismech.export.utils import (
     count_classifications,
     count_comorbidities,
@@ -20,7 +21,6 @@ from dismech.export.utils import (
     slugify,
 )
 from dismech.graph import build_causal_graph
-from dismech.yaml_io import safe_load
 
 # Direct children of HP:0000118 (Phenotypic abnormality) — the broad phenotype categories.
 # Keys match PhenotypeCategoryEnum permissible_value keys in the schema.
@@ -51,17 +51,98 @@ HPO_TOP_LEVEL_CATEGORIES: dict[str, str] = {
 }
 _HPO_TOP_LEVEL_IDS = set(HPO_TOP_LEVEL_CATEGORIES.keys())
 
+HP_ADAPTER = "sqlite:obo:hp"
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# The committed cache, read as a fallback when `sqlite:obo:hp` is not available.
+# `render` reads the same file (as `render._HPO_CATEGORY_CACHE_PATH`) to group
+# phenotypes by category, so the constant is shared rather than restated. Note
+# that a full export writes its result next to its own output, which is this
+# path only when exporting to `app/` -- as `just gen-browser-data` does.
+HPO_CATEGORY_CACHE_PATH = _REPO_ROOT / "app" / "hpo_category_cache.json"
+
+
+def _load_seed_categories() -> dict[str, list[str]]:
+    """The committed HP-to-category answers, or an empty map if unreadable.
+
+    A missing file is an ordinary state -- a checkout with no `app/`, a test in
+    a temp directory -- and is silent. A file that exists but cannot be read is
+    not: that degrades every phenotype into "Other", which is exactly the kind
+    of silent failure this module is being changed to stop having.
+    """
+    if not HPO_CATEGORY_CACHE_PATH.is_file():
+        return {}
+    try:
+        data = json.loads(HPO_CATEGORY_CACHE_PATH.read_text())
+    except Exception as exc:
+        print(
+            f"WARNING: could not read {HPO_CATEGORY_CACHE_PATH}: {exc}. "
+            "HP terms will fall back to the ontology, or to no category."
+        )
+        return {}
+    if not isinstance(data, dict):
+        print(f"WARNING: {HPO_CATEGORY_CACHE_PATH} is not a JSON object; ignoring it.")
+        return {}
+    return {
+        key: [str(v) for v in value]
+        for key, value in data.items()
+        if isinstance(key, str) and isinstance(value, list)
+    }
+
 
 class HPOCategoryResolver:
-    """Resolve HP term IDs to their broad top-level phenotype categories."""
+    """Resolve HP term IDs to their broad top-level phenotype categories.
+
+    `get_adapter("sqlite:obo:hp")` does not fail on a machine without the build
+    — semsql fetches it, 440 MB uncompressed, silently — and this class builds
+    its adapter directly, so `conf/oak_config.yaml` (which routes HP to `ols:hp`
+    precisely to avoid that build) never saw it, and neither did the test
+    fixture in `tests/conftest.py`, which only wraps `render._get_oak_adapter`.
+    That is how a 440 MB download came to be one constructor call away
+    (issue #11299). So the adapter is opened only when the build is already on
+    disk, and the committed `app/hpo_category_cache.json` answers when it is not.
+
+    **The committed cache is a fallback, not a first choice, and the ordering is
+    the whole point.** Consulting it first would be faster, and would also make
+    it self-perpetuating: this class writes back what it resolved, so a term
+    that entered the cache would never be re-derived, and an HPO reclassification
+    could never reach it. That is the same freezing this module's own history is
+    a case study in. Ordering the ontology first means a page build — which
+    fetches the build deliberately (`just fetch-ontology-dbs hp`) — re-derives
+    every term on every run, exactly as it did before any of this, and the cache
+    only decides what a machine without the build reports.
+    """
 
     def __init__(self):
         self._adapter = None
         self._cache: dict[str, list[str]] = {}
+        self._seed: dict[str, list[str]] | None = None
+        self._unresolved: set[str] = set()
+
+    @property
+    def seed(self) -> dict[str, list[str]]:
+        """The committed cache, parsed on first use.
+
+        Lazy because the fallback ordering made it dead weight on the fast path:
+        a page build has the ontology, so it never reads this, and parsing ~1,400
+        entries in every constructor bought nothing. Read once, then memoised.
+        """
+        if self._seed is None:
+            self._seed = _load_seed_categories()
+        return self._seed
+
+    @property
+    def unresolved_count(self) -> int:
+        """How many distinct HP terms this run could not resolve at all."""
+        return len(self._unresolved)
 
     def _get_adapter(self):
+        """The HP adapter, or None when its build would have to be downloaded."""
         if self._adapter is None:
-            self._adapter = get_adapter("sqlite:obo:hp")
+            if not oak_db.local_build_present(HP_ADAPTER):
+                return None
+            self._adapter = get_adapter(HP_ADAPTER)
         return self._adapter
 
     def resolve(self, hp_id: str) -> list[str]:
@@ -76,15 +157,32 @@ class HPOCategoryResolver:
             return result
 
         adapter = self._get_adapter()
-        ancestors = set(adapter.ancestors(
-            hp_id, predicates=["rdfs:subClassOf"]))
+        if adapter is None:
+            seeded = self.seed.get(hp_id)
+            if seeded is not None:
+                self._cache[hp_id] = seeded
+                return seeded
+            # Deliberately not memoised into `self._cache`: that dict is what
+            # `_write_hpo_category_cache` commits, and writing "this term has no
+            # categories" because an ontology was missing would bake the gap in
+            # permanently. Note that a genuine empty list is a real answer the
+            # cache does hold — a MONDO CURIE bound in a `phenotype_term` sits
+            # under no HPO category — so "resolved to nothing" and "could not
+            # resolve" have to stay distinguishable. An unresolved term is left
+            # out, and counted so the caller can say so.
+            self._unresolved.add(hp_id)
+            return []
+
+        ancestors = set(adapter.ancestors(hp_id, predicates=["rdfs:subClassOf"]))
         hits = ancestors & _HPO_TOP_LEVEL_IDS
         result = sorted(HPO_TOP_LEVEL_CATEGORIES[h] for h in hits)
         self._cache[hp_id] = result
         return result
 
 
-def _build_adjacency(edges: list[tuple[str, str]]) -> tuple[dict[str, list[str]], set[str]]:
+def _build_adjacency(
+    edges: list[tuple[str, str]],
+) -> tuple[dict[str, list[str]], set[str]]:
     adj: dict[str, list[str]] = {}
     nodes: set[str] = set()
     for source, target in edges:
@@ -191,11 +289,12 @@ class BrowserExporter:
         self._hpo_resolver = HPOCategoryResolver()
 
     def load_disorder(self, file_path: Path) -> dict[str, Any]:
-        """Load a single disorder YAML file."""
-        with open(file_path) as f:
-            return safe_load(f)
+        """Load a single disorder YAML file (shared parse; read-only)."""
+        return kb_cache.load_document(file_path)
 
-    def extract_disorder(self, disorder: dict[str, Any], source_file: str) -> dict[str, Any]:
+    def extract_disorder(
+        self, disorder: dict[str, Any], source_file: str
+    ) -> dict[str, Any]:
         """
         Extract a disorder into a single searchable record.
         """
@@ -209,8 +308,11 @@ class BrowserExporter:
             disease_id = disorder["disease_term"]["term"].get("id")
 
         # Subtypes
-        subtypes = [s.get("name", "") for s in (
-            disorder.get("has_subtypes") or []) if s.get("name")]
+        subtypes = [
+            s.get("name", "")
+            for s in (disorder.get("has_subtypes") or [])
+            if s.get("name")
+        ]
 
         # Pathophysiology
         pathophysiology_names = []
@@ -218,18 +320,19 @@ class BrowserExporter:
         cell_type_ids = []
         biological_processes = []
 
-        for patho in (disorder.get("pathophysiology") or []):
+        for patho in disorder.get("pathophysiology") or []:
             if patho.get("name"):
                 pathophysiology_names.append(patho["name"])
-            for ct in (patho.get("cell_types") or []):
-                ct_name = ct.get("preferred_term") or ct.get(
-                    "term", {}).get("label", "")
+            for ct in patho.get("cell_types") or []:
+                ct_name = ct.get("preferred_term") or ct.get("term", {}).get(
+                    "label", ""
+                )
                 if ct_name and ct_name not in cell_types:
                     cell_types.append(ct_name)
                 ct_id = ct.get("term", {}).get("id")
                 if ct_id and ct_id not in cell_type_ids:
                     cell_type_ids.append(ct_id)
-            for bp in (patho.get("biological_processes") or []):
+            for bp in patho.get("biological_processes") or []:
                 bp_name = bp.get("preferred_term", "")
                 if bp_name and bp_name not in biological_processes:
                     biological_processes.append(bp_name)
@@ -241,7 +344,7 @@ class BrowserExporter:
         frequencies = []
         hpo_broad_categories: set[str] = set()
 
-        for pheno in (disorder.get("phenotypes") or []):
+        for pheno in disorder.get("phenotypes") or []:
             if pheno.get("name"):
                 phenotype_names.append(pheno["name"])
             if pheno.get("category") and pheno["category"] not in phenotype_categories:
@@ -254,24 +357,35 @@ class BrowserExporter:
                 if hp_id and hp_id not in phenotype_ids:
                     phenotype_ids.append(hp_id)
                 if hp_id:
-                    hpo_broad_categories.update(
-                        self._hpo_resolver.resolve(hp_id))
+                    hpo_broad_categories.update(self._hpo_resolver.resolve(hp_id))
 
         # Genetic associations
-        genes = [g.get("name", "")
-                 for g in (disorder.get("genetic") or []) if g.get("name")]
+        genes = [
+            g["name"]
+            for g in (disorder.get("genetic") or [])
+            if g.get("name") and (g.get("gene_term") or not g.get("affected_regions"))
+        ]
 
         # Treatments
-        treatments = [t.get("name", "") for t in (
-            disorder.get("treatments") or []) if t.get("name")]
+        treatments = [
+            t.get("name", "")
+            for t in (disorder.get("treatments") or [])
+            if t.get("name")
+        ]
 
         # Environmental factors
-        environmental = [e.get("name", "") for e in (
-            disorder.get("environmental") or []) if e.get("name")]
+        environmental = [
+            e.get("name", "")
+            for e in (disorder.get("environmental") or [])
+            if e.get("name")
+        ]
 
         # Biochemical markers
-        biochemical = [b.get("name", "") for b in (
-            disorder.get("biochemical") or []) if b.get("name")]
+        biochemical = [
+            b.get("name", "")
+            for b in (disorder.get("biochemical") or [])
+            if b.get("name")
+        ]
 
         # Build description from various sources
         description = disorder.get("description", "")
@@ -285,7 +399,8 @@ class BrowserExporter:
         graph = build_causal_graph(disorder)
         causal_edges = len(graph.edges)
         causal_longest_path = _longest_path_length(
-            [(edge.source, edge.target) for edge in graph.edges])
+            [(edge.source, edge.target) for edge in graph.edges]
+        )
         return {
             "name": name,
             "disease_id": disease_id,
@@ -336,7 +451,9 @@ class BrowserExporter:
         stay in lock-step with their dedicated section pages (issue #5567).
         """
         categories = {
-            category.strip() for disorder in disorders if (category := disorder.get("category"))
+            category.strip()
+            for disorder in disorders
+            if (category := disorder.get("category"))
         }
         phenotype_categories = {
             phenotype_category.strip()
@@ -401,7 +518,18 @@ class BrowserExporter:
         with open(cache_path, "w") as f:
             json.dump(self._hpo_resolver._cache, f, indent=2, sort_keys=True)
         print(
-            f"Wrote HPO category cache ({len(self._hpo_resolver._cache)} terms) to {cache_path}")
+            f"Wrote HPO category cache ({len(self._hpo_resolver._cache)} terms) to {cache_path}"
+        )
+        unresolved = self._hpo_resolver.unresolved_count
+        if unresolved:
+            # Say it rather than let the cache quietly shrink. A page build is
+            # meant to run with the build present; this is what it looks like
+            # when the fetch step is missing.
+            print(
+                f"WARNING: {unresolved} HP term(s) had no cached category and "
+                f"no local {HP_ADAPTER} build to resolve them against. Run "
+                "`just fetch-ontology-dbs hp` first if this is a page build."
+            )
 
     def export_to_json(self, disorder_files: list[Path], output_path: Path) -> None:
         """Export all disorder files to a single JSON file."""
@@ -457,17 +585,24 @@ def main():
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Export disorder data for browser")
-    parser.add_argument("--input-dir", "-i", default="kb/disorders",
-                        help="Input directory with YAML files")
+    parser = argparse.ArgumentParser(description="Export disorder data for browser")
     parser.add_argument(
-        "--output", "-o", default="app/data.js", help="Output file path")
+        "--input-dir",
+        "-i",
+        default="kb/disorders",
+        help="Input directory with YAML files",
+    )
     parser.add_argument(
-        "--format", "-f", choices=["json", "js"], default="js", help="Output format")
+        "--output", "-o", default="app/data.js", help="Output file path"
+    )
     parser.add_argument(
-        "--modules-dir", default="kb/modules",
-        help="Directory with mechanism module YAML files (for the module count metric)")
+        "--format", "-f", choices=["json", "js"], default="js", help="Output format"
+    )
+    parser.add_argument(
+        "--modules-dir",
+        default="kb/modules",
+        help="Directory with mechanism module YAML files (for the module count metric)",
+    )
 
     args = parser.parse_args()
 

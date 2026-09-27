@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Late-Onset Pompe Disease · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Late-Onset Pompe Disease</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Late-Onset Pompe Disease</h1>
+                
+                <p class="report-subtitle">Late-Onset Pompe Disease (LOPD): Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-01</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0018485" target="_blank" rel="noopener noreferrer">MONDO:0018485</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">70 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Late-Onset Pompe Disease (LOPD): Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Late-onset Pompe disease (LOPD) is a progressive, treatable metabolic (lysosomal storage) myopathy caused by partial deficiency of acid α-glucosidase (GAA, acid maltase), the enzyme that hydrolyzes lysosomal glycogen to glucose. It is a subtype of Pompe disease (glycogen storage disease type II, acid maltase deficiency), distinguished from infantile-onset Pompe disease (IOPD) by residual enzyme activity (typically 3–30% of normal, vs. &lt;3% in IOPD) and by later, more slowly progressive presentation. Convention defines LOPD as onset after 12 months of age, or onset under 12 months <strong>without cardiomyopathy</strong> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10526932/">PMC10526932</a>; <a href="https://www.mdpi.com/2218-273X/13/9/1279">MDPI 13:1279</a>). Clinically it presents as a progressive limb-girdle and axial myopathy with respiratory muscle involvement, often mimicking other neuromuscular disorders, which historically delayed diagnosis by years (<a href="https://www.neurologylive.com/view/evolution-pompe-disease-fatal-infantile-disorder-treatable-myopathy">NeurologyLive</a>).</p>
+<p><strong>Key identifiers:</strong>
+- OMIM: Pompe disease (GSD II) #232300; Late-onset Pompe disease specifically has its own OMIM phenotype entry, <strong>#621314 "POMPE DISEASE, LATE-ONSET; LOPD"</strong> (<a href="https://www.omim.org/entry/621314">OMIM:621314</a>)
+- Gene: GAA, OMIM *606800, chromosome 17q25.3
+- Orphanet: <a href="https://bioregistry.io/ORPHA:365667" target="_blank" rel="noopener noreferrer">ORPHA:365667</a> (Late-onset Pompe disease), part of <a href="https://bioregistry.io/ORPHA:365" target="_blank" rel="noopener noreferrer">ORPHA:365</a> (Glycogen storage disease due to acid maltase deficiency)
+- Synonyms: Acid maltase deficiency (AMD), glycogenosis type II, GSD II, adult/childhood/juvenile-onset acid maltase deficiency, alpha-1,4-glucosidase deficiency
+- Evidence base is largely aggregated (registries — the Pompe Registry, French National Pompe Registry, ADVANCE study cohort) supplemented by individual case reports/series and single-center retrospective cohorts (e.g., 68-patient single-center Chinese cohort, <a href="https://www.frontiersin.org/journals/nutrition/articles/10.3389/fnut.2026.1797345/full">Frontiers 2026</a>).</p>
+<h2>2. Etiology</h2>
+<p><strong>Causal factor:</strong> LOPD is monogenic and autosomal recessive, caused by biallelic pathogenic variants in <em>GAA</em>. Over 400–800+ pathogenic/likely pathogenic variants have been catalogued; a large international retrospective study of &gt;30,000 samples from 57 countries identified 723 confirmed cases with 283 distinct GAA alterations, 98 of them novel (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10526932/">PMC10526932</a>).</p>
+<p><strong>Genetic risk factors:</strong>
+- The dominant LOPD-associated allele is the intronic splice variant <strong>c.-32-13T&gt;G</strong>, located 13 nucleotides upstream of the intron 1 acceptor site of GAA. It is a "leaky" splice mutation — it permits a reduced amount of correctly spliced (normal) mRNA alongside aberrantly spliced transcripts lacking exon 2, yielding residual enzyme activity sufficient to avoid the infantile phenotype. It is present on at least one allele in ~90% of LOPD patients and accounts for roughly two-thirds of LOPD alleles overall (<a href="https://pubmed.ncbi.nlm.nih.gov/36401034/">PubMed:36401034</a>; <a href="https://atm.amegroups.org/article/view/25187/html">ATM Peruzzo</a>).
+- Population-specific alleles: <strong>c.2560C&gt;T (p.Arg854Ter)</strong> is the most common pathogenic variant in individuals of African/African-American ancestry, with a documented founder effect traced to North/Central Africa via the transatlantic slave trade (MAF ≈0.0019 in African/African-American gnomAD subpopulation) (<a href="https://www.rarediseaseadvisor.com/disease-info-pages/pompe-disease-etiology/">Rare Disease Advisor</a>).
+- Genotype-phenotype correlation: clinical severity correlates broadly with residual GAA activity — &lt;3% normal activity → classic infantile phenotype; 3–30% → late-onset phenotype (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7467391/">PMC7467391</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8228169/">PMC8228169</a>).
+- Pseudodeficiency alleles (e.g., common in Asian populations) reduce measured GAA enzymatic activity on screening assays without causing disease, complicating newborn screening and dried-blood-spot (DBS) interpretation and requiring confirmatory genetic testing (<a href="https://www.neurology.org/doi/10.1212/NXG.0000000000000623">Neurology Genetics</a>).</p>
+<p><strong>Environmental/other risk factors:</strong> No environmental, infectious, or lifestyle causal factors are established; LOPD is purely a monogenic disorder. Age and cumulative disease duration are the principal modifiers of severity/functional decline rather than external exposures.</p>
+<p><strong>Protective factors:</strong> No specific protective genetic or environmental factors have been robustly established; higher residual enzyme activity (a function of genotype) is the primary attenuating factor.</p>
+<h2>3. Phenotypes</h2>
+<p>The hallmark phenotype is a <strong>slowly progressive limb-girdle and axial myopathy with disproportionate respiratory muscle weakness</strong> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6642938/">PMC6642938</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency/Notes</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Proximal/limb-girdle muscle weakness</td>
+<td>Core, near-universal finding; pelvic girdle &gt; shoulder girdle</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003325" target="_blank" rel="noopener noreferrer">HP:0003325</a> (Limb-girdle muscle weakness)</td>
+</tr>
+<tr>
+<td>Axial (paraspinal/abdominal) weakness → lumbar hyperlordosis, rigid spine</td>
+<td>Common, often early</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003713" target="_blank" rel="noopener noreferrer">HP:0003713</a> (Axial muscle weakness); <a href="http://purl.obolibrary.org/obo/HP_0002943" target="_blank" rel="noopener noreferrer">HP:0002943</a> (Lumbar hyperlordosis)</td>
+</tr>
+<tr>
+<td>Exercise intolerance / exertional dyspnea</td>
+<td>Common presenting symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" rel="noopener noreferrer">HP:0003546</a> (Exercise intolerance)</td>
+</tr>
+<tr>
+<td>Respiratory muscle weakness / diaphragmatic weakness → chronic respiratory insufficiency</td>
+<td>Major driver of morbidity/mortality; occurs disproportionately relative to limb weakness in a subset</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" rel="noopener noreferrer">HP:0002093</a> (Respiratory insufficiency); <a href="http://purl.obolibrary.org/obo/HP_0009027" target="_blank" rel="noopener noreferrer">HP:0009027</a> (Diaphragmatic weakness)</td>
+</tr>
+<tr>
+<td>Scapular winging</td>
+<td>~1/3 of patients</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003691" target="_blank" rel="noopener noreferrer">HP:0003691</a> (Scapular winging)</td>
+</tr>
+<tr>
+<td>Ptosis (often asymmetric/unilateral)</td>
+<td>~1/4 of patients</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" rel="noopener noreferrer">HP:0000508</a> (Ptosis)</td>
+</tr>
+<tr>
+<td>Bulbar weakness — dysphagia, dysarthria, tongue weakness</td>
+<td>Present in a minority, tongue weakness may be early</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" rel="noopener noreferrer">HP:0002015</a> (Dysphagia); <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" rel="noopener noreferrer">HP:0001260</a> (Dysarthria)</td>
+</tr>
+<tr>
+<td>HyperCKemia</td>
+<td>Very common lab finding</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" rel="noopener noreferrer">HP:0003236</a> (Elevated CK)</td>
+</tr>
+<tr>
+<td>Wheelchair dependence</td>
+<td>~50% by long-term follow-up (mean 16 years)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002996" target="_blank" rel="noopener noreferrer">HP:0002996</a> (Wheelchair dependence, if modeled)</td>
+</tr>
+<tr>
+<td>Ventilator dependence</td>
+<td>~19% at long-term follow-up</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0040270" target="_blank" rel="noopener noreferrer">HP:0040270</a> (or descriptive)</td>
+</tr>
+<tr>
+<td>Cerebral/intracranial arteriopathy (dolichoectasia, aneurysm, stenosis)</td>
+<td>~77% (23/30) had abnormal MRA/CTA in one Chinese cohort; 7/30 had stroke/hemorrhage</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002617" target="_blank" rel="noopener noreferrer">HP:0002617</a> (Aneurysm); vascular dolichoectasia terms</td>
+</tr>
+<tr>
+<td>Cardiac conduction abnormalities (WPW, short PR)</td>
+<td>Present in both IOPD and LOPD, more common in IOPD but reported in LOPD</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001680" target="_blank" rel="noopener noreferrer">HP:0001680</a> (WPW pattern)</td>
+</tr>
+<tr>
+<td>Left ventricular hypertrophy</td>
+<td>Uncommon/mild in LOPD (~11.5% in one series), unlike IOPD</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" rel="noopener noreferrer">HP:0001712</a> (LVH)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6642938/">PMC6642938</a>, <a href="https://atm.amegroups.org/article/view/27142/html">ATM 27142</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5085764/">PMC5085764</a>, <a href="https://link.springer.com/article/10.1186/s13023-024-03282-y">Orphanet J Rare Dis 2024 intracranial vasculopathy</a>.</p>
+<p><strong>Onset/progression:</strong> Onset ranges from early childhood through late adulthood; median age at diagnosis in one large cohort was 38 years. Progression is typically slow, starting with trunk/lower-limb weakness and progressing to respiratory decline; course is progressive rather than episodic, though rate is variable across patients (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3135500/">PMC3135500</a>).</p>
+<p><strong>Quality of life:</strong> LOPD substantially impairs mobility, occupational function, and psychosocial well-being; qualitative interviews and EQ-5D-based utility studies (UK) document meaningful QoL decrements tied to mobility loss and respiratory support dependence (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9985911/">PMC9985911</a>).</p>
+<h2>4. Genetic/Molecular Information</h2>
+<ul>
+<li><strong>Causal gene:</strong> GAA (<a href="https://bioregistry.io/HGNC:4065" target="_blank" rel="noopener noreferrer">HGNC:4065</a>; OMIM *606800), chromosome 17q25.3; encodes a 110-kDa precursor polypeptide undergoing extensive ER/Golgi post-translational proteolytic processing to mature lysosomal forms (76 and 70 kDa) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10526932/">PMC10526932</a>).</li>
+<li><strong>Variant classification:</strong> ClinGen's Lysosomal Diseases Variant Curation Expert Panel has published ACMG/AMP specifications for GAA variant classification (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10872922/">PMC10872922</a>).</li>
+<li><strong>Predominant LOPD allele:</strong> c.-32-13T&gt;G (IVS1, leaky splice site variant), typically compound heterozygous with a second, more severe (often null/frameshift/nonsense) allele.</li>
+<li><strong>Variant types:</strong> missense, nonsense (e.g., c.2560C&gt;T/p.Arg854Ter), frameshift, splice-site (c.-32-13T&gt;G being the classic example), and structural variants.</li>
+<li><strong>Allele frequency:</strong> Population carrier frequency data derived from gnomAD/general population databases have been used to estimate genetic prevalence, generally exceeding clinically ascertained prevalence, implying underdiagnosis (<a href="https://www.sciencedirect.com/science/article/pii/S2214426921000288">ScienceDirect S2214426921000288</a>).</li>
+<li><strong>Somatic vs. germline:</strong> Exclusively germline (autosomal recessive Mendelian disease); no somatic mosaicism disease mechanism reported.</li>
+<li><strong>Functional consequence:</strong> Loss-of-function (partial) — reduced but non-zero residual GAA enzymatic activity in LOPD, contrasted with near-complete loss in IOPD.</li>
+<li><strong>Modifier genes:</strong> No robust modifier genes are established, though variability in phenotype among patients with identical genotypes (including twins) suggests undefined modifiers/epigenetic or stochastic factors.</li>
+<li><strong>Epigenetics:</strong> Not a primary described disease mechanism in LOPD; no major DiseaseMeth/ENCODE-cataloged epigenetic driver identified in the literature reviewed.</li>
+<li><strong>Chromosomal abnormalities:</strong> Not applicable — LOPD is not associated with aneuploidy or large chromosomal rearrangements; it is a single-gene point-mutation/small-indel disorder.</li>
+</ul>
+<h2>5. Environmental Information</h2>
+<p>LOPD has no established environmental, infectious, or toxin-related causal or risk factors — it is a purely genetic (Mendelian) disease. Environmental interaction is largely limited to disease-modifying activity: physical exertion can unmask/exacerbate exercise intolerance, and intercurrent respiratory infections can precipitate acute decompensation given underlying respiratory muscle weakness, but neither modifies underlying genetic risk (Gene-environment interaction: not established in the literature searched).</p>
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Ordered causal chain:</strong></p>
+<ol>
+<li>Biallelic pathogenic <em>GAA</em> variants (e.g., c.-32-13T&gt;G + a severe null allele) → leads to reduced synthesis/processing of functional lysosomal acid α-glucosidase enzyme, yielding <strong>residual activity of ~3–30% of normal</strong> (as opposed to &lt;3% in IOPD).</li>
+<li>Reduced GAA activity → results in <strong>impaired lysosomal hydrolysis of glycogen</strong>, causing progressive <strong>lysosomal glycogen accumulation</strong> predominantly in skeletal (and to a lesser extent cardiac and smooth) muscle (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10419125/">PMC10419125</a>).</li>
+<li>Glycogen-laden, enlarged lysosomes → leads to <strong>lysosomal membrane rupture/leakage</strong> and mechanical/structural disruption of myofibrillar architecture, contributing directly to muscle fiber damage.</li>
+<li>Concurrently, lysosomal acidification defects and dysregulated <strong>AMPK–TSC2 signaling</strong> suppress mTORC1 activity at the lysosome (mTORC1 is normally lysosome-recruited and activated by Rheb-GTP) → results in <strong>failure to inhibit autophagy initiation</strong> (loss of mTORC1-mediated ULK1/TFEB suppression) while simultaneously <strong>impairing autophagosome–lysosome fusion</strong> ("autophagic block") → leads to massive <strong>accumulation of autophagic debris (autophagic buildup)</strong>, which independently displaces contractile elements and worsens fiber damage. This is inferred largely from mouse/cell models but corroborated by human muscle biopsy pathology (<a href="https://www.embopress.org/doi/full/10.15252/emmm.201606547">EMBO Mol Med</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11118179/">PMC11118179</a>).</li>
+<li>In parallel, disrupted lysosomal glucose/glycogen handling triggers <strong>cytoplasmic (extralysosomal) glycogen metabolism dysregulation</strong> — upregulation of glycogenin (GYG1), glycogen synthase (GYS1), GLUT4, GBE1, and UGP2 — leading to additional <strong>cytoplasmic glycogen accumulation</strong> that further disrupts myofibrillar structural organization (demonstrated in Pompe mouse muscle and human LOPD biopsies) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10092494/">PMC10092494</a>).</li>
+<li>Chronic ER stress and unfolded protein response activation from proteostasis dysregulation → contributes to ongoing <strong>muscle proteostasis failure</strong>, active membrane remodeling, and p62/SQSTM1 accumulation, indicating imbalance in autophagic clearance (predominantly in mid-to-late disease stages, while glycogenin elevation is an earlier marker) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10419125/">PMC10419125</a>).</li>
+<li>Cumulative myofiber structural disruption, autophagic buildup, and secondary inflammation → leads to <strong>progressive muscle fiber atrophy/necrosis and replacement fibrosis</strong>, clinically manifesting as <strong>limb-girdle and axial muscle weakness</strong>.</li>
+<li>Independently, glycogen accumulation in <strong>diaphragmatic and other respiratory muscle fibers, and in motor neurons/phrenic nerve pathways</strong>, contributes to <strong>progressive respiratory insufficiency</strong>, a partly independent (branching) pathway from limb weakness, with etiology described as multifactorial (muscle + possible motor neuron pathology) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5085764/">PMC5085764</a>).</li>
+<li>Separately, glycogen accumulation in <strong>vascular smooth muscle cells</strong> of cerebral arteries, arterioles, and capillaries (demonstrated at autopsy) → leads to progressive <strong>arterial wall remodeling and dilative arteriopathy</strong> (dolichoectasia, fusiform dilation, aneurysm formation) → can result in <strong>cerebral infarction or hemorrhage</strong> in a subset of LOPD patients, and separately <strong>thoracic aortic dilation</strong>, representing a distinct vascular branch of the pathophysiology largely independent of skeletal myopathy severity (<a href="https://link.springer.com/article/10.1186/s13023-024-03282-y">Orphanet J Rare Dis 2024</a>; <a href="https://link.springer.com/article/10.1007/s00415-010-5618-0">J Neurol 2010</a>).</li>
+</ol>
+<p><strong>Molecular pathways:</strong> mTORC1/AMPK/TSC2 nutrient-sensing signaling axis (dysregulated); autophagy-lysosome pathway (ULK1, TFEB/TFE3); UPR/ER stress pathway.</p>
+<p><strong>Cellular processes:</strong> autophagy (defective flux/fusion), lysosomal dysfunction, cytoplasmic glycogen metabolism dysregulation, myofiber atrophy, chronic low-grade inflammation.</p>
+<p><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0005980" target="_blank" rel="noopener noreferrer">GO:0005980</a> (glycogen catabolic process), <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" rel="noopener noreferrer">GO:0006914</a> (autophagy), <a href="http://purl.obolibrary.org/obo/GO_0016236" target="_blank" rel="noopener noreferrer">GO:0016236</a> (macroautophagy), <a href="http://purl.obolibrary.org/obo/GO_0007041" target="_blank" rel="noopener noreferrer">GO:0007041</a> (lysosomal transport), <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" rel="noopener noreferrer">GO:0034976</a> (response to endoplasmic reticulum stress), <a href="http://purl.obolibrary.org/obo/GO_0004339" target="_blank" rel="noopener noreferrer">GO:0004339</a> (glycogen debranching enzyme activity — comparator pathway), <a href="http://purl.obolibrary.org/obo/GO_0004558" target="_blank" rel="noopener noreferrer">GO:0004558</a> (alpha-1,4-glucosidase activity).</p>
+<p><strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a> (skeletal muscle cell/myofiber), <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a> (cardiac muscle cell), <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" rel="noopener noreferrer">CL:0000192</a> (smooth muscle cell — vascular), <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a> (neuron — motor neuron/phrenic pathway involvement).</p>
+<p><strong>Molecular profiling:</strong> A muscle proteomic study comparing pre- and post-ERT tissue in LOPD patients found treatment-associated shifts in proteins related to glycolysis, oxidative stress, and cytoskeletal organization (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8001152/">PMC8001152</a>). iPSC-derived skeletal muscle models have been used to model infantile-onset disease and study proteostasis (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5647434/">PMC5647434</a>).</p>
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organs:</strong> skeletal muscle (proximal limb-girdle, axial/paraspinal, diaphragm/respiratory muscles), with cardiac muscle involvement typically mild/absent in LOPD (contrasting sharply with IOPD's severe hypertrophic cardiomyopathy).</li>
+<li><strong>Secondary/complication-level involvement:</strong> cerebral and thoracic aortic vasculature (dilative arteriopathy, aneurysm, stroke); peripheral/central motor neuron pathways potentially contributing to respiratory muscle dysfunction.</li>
+<li><strong>Body systems:</strong> musculoskeletal, respiratory, cardiovascular (conduction system and vasculature), and to a lesser degree nervous system (motor pathways, cerebrovascular).</li>
+<li><strong>Tissue/cell level:</strong> skeletal myofibers (type I/II), diaphragmatic muscle fibers, vascular smooth muscle cells of cerebral/aortic arteries, cardiac conduction tissue (accessory pathways implicated in WPW).</li>
+<li><strong>Subcellular level:</strong> lysosomes (primary site of glycogen accumulation and dysfunction; GO Cellular Component <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" rel="noopener noreferrer">GO:0005764</a>), autophagosomes, sarcoplasm/myofibrillar apparatus, endoplasmic reticulum (UPR activation).</li>
+<li><strong>Anatomical terms (UBERON):</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> (skeletal muscle tissue), <a href="http://purl.obolibrary.org/obo/UBERON_0001086" target="_blank" rel="noopener noreferrer">UBERON:0001086</a> (diaphragm), <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> (heart), <a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" rel="noopener noreferrer">UBERON:0001981</a> (blood vessel — cerebral/aortic).</li>
+<li><strong>Laterality:</strong> Predominantly bilateral/symmetric muscle weakness, though ptosis is frequently asymmetric/unilateral.</li>
+</ul>
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> LOPD spans onset from early childhood through late adulthood by definition (after 12 months of age, or infantile-onset without cardiomyopathy); onset pattern is typically insidious/subacute rather than acute.</li>
+<li><strong>Progression:</strong> Chronic, generally slowly progressive; longitudinal follow-up (mean 16 years) in Dutch cohorts showed pulmonary function decline of ~1.6%/year and gradual proximal weakness progression (<a href="https://pubmed.ncbi.nlm.nih.gov/15659425/">PubMed:15659425</a>; referenced in <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3135500/">PMC3135500</a>).</li>
+<li><strong>Course pattern:</strong> Progressive (not relapsing-remitting or episodic); rate is variable between individuals even with similar genotypes.</li>
+<li><strong>Disease duration:</strong> Chronic, lifelong.</li>
+<li><strong>Remission:</strong> No spontaneous remission; enzyme replacement therapy (ERT) can stabilize or slow — but generally not reverse — established damage; presymptomatic treatment (newborn-screening-identified) is being explored as a critical window to prevent irreversible myopathy (<a href="https://www.sciencedirect.com/science/article/pii/S0035378725006083">ScienceDirect S0035378725006083</a>).</li>
+<li><strong>Critical period:</strong> Early (presymptomatic) initiation of ERT — enabled by newborn screening — is increasingly recognized as a critical intervention window before irreversible muscle damage accrues.</li>
+</ul>
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong>
+- Global birth prevalence of Pompe disease overall: ~2.0 per 100,000 live births (95% CI 1.5–2.4); infantile-onset ~1.0/100,000; <strong>late-onset ~2.4/100,000 (95% CI 1.8–3.0)</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12057045/">PMC12057045</a>).
+- Newborn screening birth-prevalence estimates for LOPD vary geographically: 1 in 82,914 in Taiwan vs. 1 in 17,133 in Pennsylvania, reflecting both true population variation and pseudodeficiency-allele confounding (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7712483/">PMC7712483</a>; <a href="https://www.neurology.org/doi/10.1212/NXG.0000000000000623">Neurology Genetics</a>).
+- French National Pompe Registry: diagnosis rate rose from 2.6/year (pre-2001) to 12.8/year (2011–2015), reflecting improved diagnostic awareness/DBS testing rather than true incidence change.</p>
+<p><strong>Inheritance pattern:</strong> Autosomal recessive.
+<strong>Penetrance:</strong> Complete for biallelic pathogenic (non-pseudodeficiency) genotypes, though expressivity (age of onset, rate of progression) is highly variable.
+<strong>Expressivity:</strong> Markedly variable, even among patients sharing the c.-32-13T&gt;G/severe-allele genotype.
+<strong>Genetic anticipation:</strong> Not described as a feature of LOPD (no repeat-expansion mechanism).
+<strong>Founder effects:</strong> c.2560C&gt;T (p.Arg854Ter) — African/African-American founder allele traced to North/Central Africa; other population-specific founder variants reported in isolated populations (e.g., French Guiana Maroon population for infantile disease, <a href="https://pubmed.ncbi.nlm.nih.gov/29637184/">PubMed:29637184</a>).
+<strong>Carrier frequency:</strong> Estimated from population genomic databases (gnomAD-based); genetic-prevalence modeling suggests carrier frequency and "genetic prevalence" figures often exceed clinically ascertained prevalence, implying underdiagnosis (<a href="https://www.sciencedirect.com/science/article/pii/S2214426921000288">ScienceDirect S2214426921000288</a>).
+<strong>Population demographics:</strong> Higher LOPD prevalence reported in populations of African descent; higher frequency of pseudodeficiency alleles in Asian populations affecting screening specificity. No strong sex-ratio skew is characteristically reported for LOPD (autosomal disease).</p>
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>First-line test:</strong> GAA enzyme activity assay on <strong>dried blood spot (DBS)</strong>, using lysosomal enzyme testing at pH 3.8 with/without specific inhibition (<a href="https://www.nature.com/articles/s41431-020-00752-2">Nature EJHG</a>). Sensitivity limitations exist: in one cohort, reduced DBS activity was found in 7.6% of patients with elevated CK/limb-girdle weakness, but LOPD was molecularly confirmed in only 2.4%, indicating DBS alone can be inconclusive (<a href="https://pubmed.ncbi.nlm.nih.gov/29742245/">PubMed:29742245</a>).</li>
+<li><strong>Confirmatory testing:</strong> Molecular/genetic sequencing of all <em>GAA</em> coding exons and flanking intronic regions (to detect c.-32-13T&gt;G and other variants) is required to confirm diagnosis and exclude pseudodeficiency.</li>
+<li><strong>Biomarkers:</strong> Urinary/plasma glucose tetrasaccharide (Hex4/Glc4) and creatine kinase (CK) are used as disease-activity/treatment-response biomarkers (elevated pre-treatment, decline with effective ERT) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10834735/">PMC10834735</a>).</li>
+<li><strong>Electromyography:</strong> Myopathic changes with characteristic (though not universal) fibrillations/myotonic-like discharges especially in paraspinal muscles.</li>
+<li><strong>Muscle biopsy/histopathology:</strong> Vacuolar myopathy with PAS-positive glycogen accumulation, though biopsy can be falsely normal in some LOPD patients given patchy involvement — a key diagnostic pitfall.</li>
+<li><strong>Pulmonary function testing:</strong> Upright and supine forced vital capacity (FVC) — a critical functional biomarker for respiratory muscle involvement and treatment response, used as a primary endpoint in ERT trials.</li>
+<li><strong>Genetic testing overview:</strong> Single-gene <em>GAA</em> sequencing plus deletion/duplication analysis is generally sufficient (only one causal gene); broader neuromuscular gene panels or WES are used when GAA testing is negative but suspicion remains, and have identified previously unexplained LOPD cases among cohorts referred for "unexplained limb-girdle weakness" (e.g., 606-patient WES cohort, <a href="https://ojrd.biomedcentral.com/articles/10.1186/s13023-017-0722-1">Orphanet J Rare Dis</a>; global NGS cohort, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11638199/">PMC11638199</a>).</li>
+<li><strong>Differential diagnosis:</strong> limb-girdle muscular dystrophies, Becker muscular dystrophy, facioscapulohumeral muscular dystrophy, scapuloperoneal syndromes, rigid spine syndrome, myasthenia gravis, spinal muscular atrophy, polymyositis, other glycogen storage diseases (III, IV, V, VII), Danon disease, mitochondrial myopathies (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7467391/">PMC7467391</a>).</li>
+<li><strong>Screening:</strong> Newborn screening for Pompe disease (via DBS GAA activity, now implemented in many US states — Pennsylvania, Illinois, California, and internationally including Taiwan) identifies both IOPD and (presymptomatically) LOPD cases, raising management questions about when to initiate treatment in asymptomatic screen-positive infants/children (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7422979/">PMC7422979</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7422983/">PMC7422983</a>).</li>
+<li><strong>Imaging:</strong> Muscle MRI shows characteristic patterns of fatty infiltration/edema in paraspinal, gluteal, and thigh musculature, useful for diagnosis and monitoring, though not detailed further in the sources reviewed here.</li>
+</ul>
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Survival (natural history, pre-ERT):</strong> In a cohort of 268 untreated adults, median survival after diagnosis was 27 years, with median age at diagnosis 38 years. Median age at death was ~56 years, with <strong>respiratory failure accounting for &gt;70% of deaths</strong> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3135500/">PMC3135500</a>).</li>
+<li><strong>Functional decline:</strong> In a 16-year longitudinal follow-up of 16 LOPD patients, 50% became wheelchair-bound and 19% became ventilator-dependent; pulmonary function (FVC) declined ~1.6%/year at the group level.</li>
+<li><strong>Prognostic stratification:</strong> 5-year survival was 95% in patients without wheelchair/respiratory support at baseline vs. 74% in those who were wheelchair-bound and on respiratory support — mobility/respiratory status is a major prognostic factor.</li>
+<li><strong>Complications:</strong> chronic respiratory insufficiency/failure (leading cause of death), cerebrovascular events (aneurysm rupture, stroke), scoliosis/rigid spine, dysphagia-related aspiration risk, and cardiac conduction abnormalities in a minority.</li>
+<li><strong>Quality of life:</strong> Substantially reduced with disease progression, correlating strongly with mobility and respiratory-support dependence (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9985911/">PMC9985911</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4015278/">PMC4015278</a> discusses limitations of current LOPD outcome measures).</li>
+</ul>
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy — Enzyme Replacement Therapy (ERT), the mainstay of treatment:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Brand</th>
+<th>Mechanism/notes</th>
+<th>Suggested NCIT term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alglucosidase alfa</td>
+<td>Myozyme/Lumizyme</td>
+<td>First-generation recombinant human GAA (rhGAA); FDA-approved 2006</td>
+<td>NCIT:C15986 (Pharmacotherapy) + therapeutic_agent</td>
+</tr>
+<tr>
+<td>Avalglucosidase alfa</td>
+<td>Nexviazyme/Nexviadyme (Sanofi)</td>
+<td>Second-generation; engineered with enhanced bis-mannose-6-phosphate glycan content for improved cellular/M6P-receptor-mediated uptake; superior to alglucosidase alfa on upright FVC% and 6-minute walk test in the Phase 3 <strong>COMET</strong> trial (treatment-naïve LOPD adults, 49–97 weeks) (<a href="https://pubmed.ncbi.nlm.nih.gov/37036722/">PubMed:37036722</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10087094/">PMC10087094</a>)</td>
+<td>NCIT:C15986</td>
+</tr>
+<tr>
+<td>Cipaglucosidase alfa + miglustat</td>
+<td>Pombiliti + Opfolda (Amicus)</td>
+<td>Cipaglucosidase alfa uses naturally enriched bis-phosphorylated high-mannose glycans for uptake; miglustat is a small-molecule stabilizer preventing enzyme degradation in circulation; approved combination regimen (<a href="https://www.frontiersin.org/journals/neurology/articles/10.3389/fneur.2024.1451512/full">Frontiers 2024</a>)</td>
+<td>NCIT:C15986</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Real-world switch studies (alglucosidase alfa → avalglucosidase alfa) show statistically significant improvement in CK, Hex4, and AST biomarkers post-switch (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10834735/">PMC10834735</a>). Network meta-analyses comparing avalglucosidase alfa vs. cipaglucosidase+miglustat (no head-to-head RCT exists) have been published to guide relative positioning (<a href="https://becarispublishing.com/doi/10.57264/cer-2024-0045">Becaris CER-2024-0045</a>).</p>
+<p><strong>Immunogenicity management:</strong> ERT is limited by anti-drug antibody (ADA) development, more prominent and clinically consequential in CRIM-negative infantile patients but also observed in LOPD (antibody titers typically peak within first ~1000 days of ERT then decline with long-term exposure, generally without major efficacy loss). Immune tolerance induction (ITI) regimens — including bortezomib/rituximab/methotrexate/IVIG-based protocols — are used for patients with high-sustained anti-rhGAA titers (<a href="https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2024.1360369/full">Frontiers 2024</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10526476/">PMC10526476</a>).</p>
+<p><strong>Advanced/experimental therapeutics — Gene therapy:</strong>
+- <strong>ACTUS-101 (AAV2/8-LSPhGAA)</strong> (AskBio) — liver-directed gene therapy establishing a hepatic GAA-secretion depot to potentially replace chronic ERT; Phase 1/2 trial in LOPD showed all participants met ERT-withdrawal criteria at week 24 and remained off ERT through week 104 (<a href="https://www.askbio.com/first-patient-dosed-with-gene-therapy-in-phase-1-2-study-of-actus-101-in-patients-with-pompe-disease/">AskBio</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10494494/">PMC10494494</a>).
+- <strong>SPK-3006</strong> (Roche/Spark, AAVRh74-based liver-directed GAA gene therapy, RESOLUTE trial NCT04093349) — program <strong>discontinued</strong> by Roche (<a href="https://www.cgtlive.com/view/roche-drops-pompe-gene-therapy-program">CGTlive</a>).
+- Muscle-directed AAV approaches (e.g., AAVMYO3-Gaa) remain preclinical, showing normalized glycogen pathology, restored strength/mass, and normalized survival in mouse models (2024 study) (<a href="https://www.sciencedirect.com/science/article/pii/S2212877824000309">ScienceDirect S2212877824000309</a>).
+- As of February 2025, approximately 41 active/recruiting Pompe disease clinical trials span ERT, gene therapy, and substrate-reduction approaches (<a href="https://www.rarediseaseadvisor.com/hcp-resource/pompe-disease-clinical-trials/">Rare Disease Advisor</a>).</p>
+<p><strong>RNA-based/experimental splice-correction therapy:</strong>
+- Antisense oligonucleotides (splice-modulating phosphorodiamidate morpholino oligomers) designed to enhance GAA exon 2 inclusion in patients heterozygous for c.-32-13T&gt;G, restoring some acid α-glucosidase activity in patient-derived cells — an approach specific to the dominant LOPD splice variant (<a href="https://pubmed.ncbi.nlm.nih.gov/36401034/">PubMed:36401034</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7174337/">PMC7174337</a>).</p>
+<p><strong>Supportive/rehabilitative care:</strong> Non-invasive/invasive ventilatory support for respiratory insufficiency, physical/occupational therapy for mobility preservation, dietary/nutritional management, and mobility aids (wheelchairs) as disease progresses — NCIT:C15302 (Physical Therapy), NCIT:C15747 (Supportive Care).</p>
+<p><strong>Treatment strategy:</strong> Early diagnosis and presymptomatic/early initiation of ERT (facilitated by newborn screening) is emphasized as key to preserving muscle mass/function before irreversible fibrotic replacement occurs; case reports document improved muscle strength/respiratory function with early ERT initiation (<a href="https://link.springer.com/article/10.1186/s13256-024-04837-0">J Med Case Reports 2024</a>).</p>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not applicable in the traditional sense (monogenic recessive disease) — carrier screening and genetic counseling for at-risk families/populations (e.g., known founder-variant communities) is the main preventive lever, alongside prenatal/preimplantation genetic diagnosis for known-carrier couples.</li>
+<li><strong>Secondary prevention (screening/early detection):</strong> <strong>Newborn screening</strong> for GAA activity via DBS is implemented in numerous jurisdictions (Pennsylvania, Illinois, California, Taiwan, and others), enabling presymptomatic identification of both IOPD and LOPD cases and earlier treatment initiation (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7712483/">PMC7712483</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7422988/">PMC7422988</a>). Five-year outcomes of NBS-identified Pennsylvania patients have been reported (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11943203/">PMC11943203</a>).</li>
+<li><strong>Tertiary prevention:</strong> Regular pulmonary function monitoring, cardiac/vascular surveillance (given cerebral/aortic arteriopathy risk), and proactive rehabilitative care to prevent/delay complications (contractures, aspiration, respiratory failure) in diagnosed patients.</li>
+<li><strong>Genetic counseling:</strong> Recommended for families of affected individuals, particularly relevant given autosomal recessive inheritance and documented founder-effect populations.</li>
+<li><strong>Disparities:</strong> Documented gaps exist in following up NBS-identified LOPD patients, particularly across sociodemographic groups, highlighting a public-health/pediatric-practice challenge in translating screening into timely care (<a href="https://www.sciencedirect.com/science/article/abs/pii/S1096719223002639">ScienceDirect S1096719223002639</a>).</li>
+</ul>
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring veterinary/companion-animal Pompe disease (spontaneous GAA-deficiency) was identified in this search; available information concerns engineered laboratory models (see Section 15). No OMIA entries or veterinary case series for spontaneous canine/feline GSD II were surfaced by the queries run.</p>
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Gaa knockout mouse</strong> (B6;129-Gaatm1Rabn/J, Jackson Labs)</td>
+<td>Genetic knockout</td>
+<td>Full deletion of exon 6 (lacks human ortholog exon); classic Pompe mouse model widely used in preclinical ERT/gene therapy studies</td>
+</tr>
+<tr>
+<td><strong>Gaa c.1826dupA transgenic mouse</strong></td>
+<td>Patient-derived pathogenic variant knock-in, preserving endogenous Gaa gene structure</td>
+<td>Orthologous to human IOPD variant; recapitulates cardiac, myopathic, and biochemical phenotypes longitudinally (<a href="https://journals.biologists.com/dmm/article/19/3/dmm052611/371074/Longitudinal-characterization-of-Gaac-1826dupA">Dis Model Mech</a>)</td>
+</tr>
+<tr>
+<td><strong>Gaa c.1935C&gt;A (p.D645E) CRISPR knock-in mouse</strong></td>
+<td>CRISPR-Cas9 HDR knock-in</td>
+<td>Recapitulates multiple features of human infantile-onset Pompe disease (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9751086/">PMC9751086</a>; <a href="https://www.nature.com/articles/s41598-022-25914-8">Sci Rep</a>)</td>
+</tr>
+<tr>
+<td><strong>Novel early-onset mouse model with spinal cord/respiratory defects</strong></td>
+<td>Genetic</td>
+<td>Used to demonstrate rescue via secreted-GAA gene therapy (<a href="https://www.thelancet.com/journals/ebiom/article/PIIS2352-3964(20)30428-X/fulltext">eBioMedicine</a>)</td>
+</tr>
+<tr>
+<td><strong>Rat model (muscle-directed AAV studies)</strong></td>
+<td>Genetic/induced</td>
+<td>Used for infantile-onset Pompe muscle-directed AAV gene therapy testing (<a href="https://www.sciencedirect.com/science/article/pii/S2212877824000309">ScienceDirect S2212877824000309</a>)</td>
+</tr>
+<tr>
+<td><strong>Zebrafish, quail</strong></td>
+<td>Genetic models (referenced)</td>
+<td>Noted as additional animal models used in the field, though detail was not retrieved in this search</td>
+</tr>
+<tr>
+<td><strong>Patient-derived iPSC skeletal muscle model</strong></td>
+<td>Cellular/in vitro</td>
+<td>Modeling infantile-onset Pompe disease with patient-specific iPS cells, capturing proteostasis and structural phenotypes (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5647434/">PMC5647434</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Model limitations:</strong> Most published genetic mouse models best recapitulate the <strong>infantile-onset</strong> phenotype (severe/near-null activity); models specifically calibrated to reproduce the partial (leaky) residual-activity genotype characteristic of LOPD are less well represented in the literature surveyed, and cardiac hypertrophy (prominent in IOPD mouse models) is not a major LOPD feature, limiting direct translational relevance for the LOPD cardiac question. The exon-6-deletion knockout allele in the standard Jackson Labs model lacks a direct human orthologous mutation, which is a noted limitation for variant-specific modeling.</p>
+<p><strong>Applications:</strong> These models have been central to development and validation of ERT (alglucosidase/avalglucosidase alfa), muscle- and liver-directed AAV gene therapy (ACTUS-101 precursor studies, AAVMYO3-Gaa), and mechanistic studies of autophagy/mTORC1 dysregulation and cytoplasmic glycogen metabolism.</p>
+<hr />
+<h2>Summary of Suggested Ontology Bindings for KB Curation</h2>
+<ul>
+<li><strong>Gene:</strong> hgnc:4065 (GAA)</li>
+<li><strong>Disease terms:</strong> MONDO (LOPD-specific term, if available) with OMIM #621314 (specific), #232300 (parent GSD II); <a href="https://bioregistry.io/ORPHA:365667" target="_blank" rel="noopener noreferrer">ORPHA:365667</a></li>
+<li><strong>Key HP terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0003325" target="_blank" rel="noopener noreferrer">HP:0003325</a> (Limb-girdle muscle weakness), <a href="http://purl.obolibrary.org/obo/HP_0003713" target="_blank" rel="noopener noreferrer">HP:0003713</a> (Axial muscle weakness), <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" rel="noopener noreferrer">HP:0002093</a> (Respiratory insufficiency), <a href="http://purl.obolibrary.org/obo/HP_0003691" target="_blank" rel="noopener noreferrer">HP:0003691</a> (Scapular winging), <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" rel="noopener noreferrer">HP:0000508</a> (Ptosis), <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" rel="noopener noreferrer">HP:0002015</a> (Dysphagia), <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" rel="noopener noreferrer">HP:0003236</a> (Elevated CK), <a href="http://purl.obolibrary.org/obo/HP_0002617" target="_blank" rel="noopener noreferrer">HP:0002617</a> (Aneurysm)</li>
+<li><strong>Key GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0005980" target="_blank" rel="noopener noreferrer">GO:0005980</a> (glycogen catabolic process), <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" rel="noopener noreferrer">GO:0006914</a> (autophagy), <a href="http://purl.obolibrary.org/obo/GO_0004558" target="_blank" rel="noopener noreferrer">GO:0004558</a> (alpha-1,4-glucosidase activity)</li>
+<li><strong>Key CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a> (skeletal muscle myofiber), <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" rel="noopener noreferrer">CL:0000192</a> (vascular smooth muscle cell)</li>
+<li><strong>Key UBERON terms:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> (skeletal muscle tissue), <a href="http://purl.obolibrary.org/obo/UBERON_0001086" target="_blank" rel="noopener noreferrer">UBERON:0001086</a> (diaphragm)</li>
+<li><strong>Treatment NCIT terms:</strong> NCIT:C15986 (Pharmacotherapy) + therapeutic_agent bindings for alglucosidase alfa / avalglucosidase alfa / cipaglucosidase alfa; therapeutic_modality: PROTEIN_REPLACEMENT (ERT) or GENE_THERAPY (ACTUS-101/AAV programs)</li>
+</ul>
+<hr />
+<h3>Sources</h3>
+<ul>
+<li><a href="https://www.omim.org/entry/621314">OMIM #621314 — Pompe Disease, Late-Onset</a></li>
+<li><a href="https://www.omim.org/entry/606800">OMIM *606800 — GAA</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10526932/">A Comprehensive Update on Late-Onset Pompe Disease (PMC10526932)</a> / <a href="https://www.mdpi.com/2218-273X/13/9/1279">MDPI version</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10092494/">Lysosomal glycogen accumulation in Pompe disease results in disturbed cytoplasmic glycogen metabolism (PMC10092494)</a></li>
+<li><a href="https://www.frontiersin.org/journals/nutrition/articles/10.3389/fnut.2026.1797345/full">Clinical, pathological and genetic features of 68 patients with LOPD (Frontiers 2026)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/36401034/">Developing Therapeutic Splice-Correcting ASOs for Adult-Onset Pompe with c.-32-13T&gt;G (PubMed:36401034)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7174337/">Splice modulating ASOs restore GAA activity (PMC7174337)</a></li>
+<li><a href="https://atm.amegroups.org/article/view/25187/html">Molecular genetics of Pompe disease overview (ATM/Peruzzo)</a></li>
+<li><a href="https://www.rarediseaseadvisor.com/disease-info-pages/pompe-disease-etiology/">Pompe Disease Etiology — Rare Disease Advisor</a></li>
+<li><a href="https://www.neurology.org/doi/10.1212/NXG.0000000000000623">Investigating Late-Onset Pompe Prevalence in Neuromuscular Practices (Neurology Genetics)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12057045/">Global variations in diagnostic methods and epidemiological estimates in Pompe disease (PMC12057045)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7712483/">Newborn Screening for Pompe Disease: Pennsylvania Experience (PMC7712483)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11943203/">Five-Year Outcomes of NBS-Identified Pompe Patients, PA (PMC11943203)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7422983/">Newborn Screening for Pompe Disease in Illinois (PMC7422983)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7422988/">First Year Newborn Screening in California (PMC7422988)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S1096719223002639">Disparities in follow-up after NBS for Pompe disease (ScienceDirect)</a></li>
+<li><a href="https://www.frontiersin.org/journals/neurology/articles/10.3389/fneur.2024.1451512/full">Cipaglucosidase alfa plus miglustat mechanism-outcome linkage (Frontiers 2024)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10834735/">Real-world switch to avalglucosidase alfa (PMC10834735)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S1096719223007515">Avalglucosidase alfa PRO outcomes vs alglucosidase, COMET trial (ScienceDirect)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37036722/">Efficacy/Safety of Avalglucosidase Alfa, 97-week Phase 3 RCT (PubMed:37036722)</a> / <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10087094/">PMC10087094</a></li>
+<li><a href="https://becarispublishing.com/doi/10.57264/cer-2024-0045">Network meta-analysis, cipaglucosidase vs other ERTs (Becaris)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5693551/">Identification of GAA variants via WES in limb-girdle weakness cohort (PMC5693551)</a> / <a href="https://ojrd.biomedcentral.com/articles/10.1186/s13023-017-0722-1">Orphanet J Rare Dis</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29742245/">LOPD limb-girdle presentation prevalence (PubMed:29742245)</a></li>
+<li><a href="https://www.nature.com/articles/s41431-020-00752-2">Enzymatic diagnosis of Pompe disease, 28-year experience (Nature EJHG)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S0035378725006083">Presymptomatic LOPD: Optimizing timing of treatment (ScienceDirect)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7422979/">Newborn-screened presymptomatic LOPD infant case report (PMC7422979)</a></li>
+<li><a href="https://link.springer.com/article/10.1186/s13256-024-04837-0">Early diagnosis/treatment case report, J Med Case Reports 2024</a></li>
+<li><a href="https://www.nejm.org/doi/full/10.1056/NEJMoa2407766">AAV9 gene therapy for IOPD, NEJM 2024</a></li>
+<li><a href="https://www.cell.com/molecular-therapy-family/molecular-therapy/fulltext/S1525-0016(23)00077-1">Phase I liver depot gene therapy in LOPD, Molecular Therapy 2023</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10494494/">Screening data for AAV8 Phase I gene therapy trial (PMC10494494)</a></li>
+<li><a href="https://www.askbio.com/first-patient-dosed-with-gene-therapy-in-phase-1-2-study-of-actus-101-in-patients-with-pompe-disease/">ACTUS-101 first patient dosed (AskBio)</a></li>
+<li><a href="https://www.cgtlive.com/view/roche-drops-pompe-gene-therapy-program">Roche drops SPK-3006 gene therapy program (CGTlive)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S2212877824000309">Muscle-directed AAV gene therapy in rat model (ScienceDirect 2024)</a></li>
+<li><a href="https://journals.biologists.com/dmm/article/19/3/dmm052611/371074/Longitudinal-characterization-of-Gaac-1826dupA">Longitudinal Gaa c.1826dupA mouse model (Dis Model Mech)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9751086/">Gaa c.1935C&gt;A CRISPR knock-in mouse model (PMC9751086)</a> / <a href="https://www.nature.com/articles/s41598-022-25914-8">Sci Rep</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6642938/">Multisystem LOPD clinical update (PMC6642938)</a> / <a href="https://atm.amegroups.org/article/view/27142/html">ATM</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5085764/">Respiratory muscle weakness management recommendations (PMC5085764)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3135500/">Survival/prognostic factors, 268 untreated adults (PMC3135500)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9985911/">Quality of Life in LOPD, UK utility study (PMC9985911)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4015278/">Clinical relevance of LOPD outcome measures (PMC4015278)</a></li>
+<li><a href="https://link.springer.com/article/10.1186/s13023-024-03282-y">Intracranial vasculopathy in young LOPD adults, Orphanet J Rare Dis 2024</a> / <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11250947/">PMC11250947</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S1096719211001247">Dilated arteriopathy of thoracic aorta in LOPD (ScienceDirect)</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s00415-010-5618-0">Cerebral arterial abnormalities frequent in LOPD, J Neurol 2010</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s00415-017-8601-1">Genetic-radiological correlation, cerebral vascular anomalies, J Neurol 2017</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10419125/">From Acid Alpha-Glucosidase Deficiency to Autophagy (PMC10419125)</a></li>
+<li><a href="https://www.embopress.org/doi/full/10.15252/emmm.201606547">Modulation of mTOR signaling in Pompe disease (EMBO Mol Med)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11118179/">Failure of Autophagy in Pompe Disease (PMC11118179)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S1098360021045974">Cardiovascular abnormalities in LOPD and ERT response (ScienceDirect)</a></li>
+<li><a href="https://www.rarediseaseadvisor.com/insights/cardiovascular-pathologies-non-classic-pompe-disease/">Cardiovascular Pathologies in Non-Classic Pompe Disease (Rare Disease Advisor)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11638199/">Detection of GAA variants via NGS in global limb-girdle cohort (PMC11638199)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8228169/">GAA genotype-enzyme activity correlation, Hungarian cohort (PMC8228169)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7467391/">Pompe disease pathogenesis, molecular genetics, diagnosis review (PMC7467391)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S2214426921000288">Carrier frequency and genetic prevalence modeling (ScienceDirect)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29637184/">Incidence of infantile Pompe in French Guiana Maroon population (PubMed:29637184)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10872922/">ClinGen ACMG/AMP variant classification specifications for Pompe disease (PMC10872922)</a></li>
+<li><a href="https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2024.1360369/full">Anti-rhGAA antibody management, bortezomib ITI (Frontiers 2024)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10526476/">Are anti-rhGAA antibodies a determinant of treatment outcome in LOPD? Systematic review (PMC10526476)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5096052/">Long-term Myozyme exposure decreases anti-drug antibodies in LOPD (PMC5096052)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8001152/">Muscle proteomic profile before/after ERT in LOPD (PMC8001152)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5647434/">iPS cell skeletal muscle model of infantile Pompe disease (PMC5647434)</a></li>
+<li><a href="https://www.neurologylive.com/view/evolution-pompe-disease-fatal-infantile-disorder-treatable-myopathy">The Evolution of Pompe Disease — clinical review (NeurologyLive)</a></li>
+<li><a href="https://www.rarediseaseadvisor.com/hcp-resource/pompe-disease-clinical-trials/">Pompe Disease Clinical Trials landscape (Rare Disease Advisor)</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>47</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>47</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims with nothing to check against</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>47</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMC:PMC11638199</code> <em>(abstract only)</em>: "unexplained limb-girdle weakness"</li>
+<li>Text part not found as substring: 'unexplained limb-girdle weakness' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/39678382/" target="_blank" rel="noopener noreferrer">PMID:39678382</a>, full text may contain this excerpt)</li>
+</ul>
+<h3>Quotes that could not be checked</h3>
+<p>There was no text to compare these against, so they are neither confirmed nor contradicted:</p>
+<ul>
+<li><code>DOI:10.1186/s13023-017-0722-1</code>: "unexplained limb-girdle weakness"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>44</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>6</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0002996</code> (1 mention) - the report calls it "Wheelchair dependence, if modeled"; HP calls it <strong>Limited elbow movement</strong></li>
+<li><code>HP:0001680</code> (1 mention) - the report calls it "WPW pattern"; HP calls it <strong>Coarctation of aorta</strong></li>
+<li><code>HP:0001712</code> (1 mention) - the report calls it "LVH"; HP calls it <strong>Left ventricular hypertrophy</strong></li>
+<li><code>GO:0004339</code> (1 mention) - the report calls it "glycogen debranching enzyme activity — comparator pathway"; GO calls it <strong>glucan 1,4-alpha-glucosidase activity</strong></li>
+<li><code>CL:0000540</code> (1 mention) - the report calls it "neuron — motor neuron/phrenic pathway involvement"; CL calls it <strong>neuron</strong></li>
+<li><code>UBERON:0001086</code> (2 mentions) - the report calls it "diaphragm"; UBERON calls it <strong>obsolete articular cartilage</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>UBERON:0001086</code> (obsolete articular cartilage) (2 mentions)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0003713</code> (2 mentions) - the report calls it "Axial muscle weakness"; HP calls it <strong>Muscle fiber necrosis</strong></li>
+<li><code>HP:0003236</code> (2 mentions) - the report calls it "Elevated CK"; HP calls it <strong>Elevated circulating creatine kinase activity</strong>, and lists "Elevated serum CPK" among its other names</li>
+<li><code>HP:0002617</code> (2 mentions) - the report calls it "Aneurysm"; HP calls it <strong>Vascular dilatation</strong>, and lists "Aneurysm" among its other names</li>
+<li><code>CL:0000188</code> (2 mentions) - the report calls it "skeletal muscle cell/myofiber", "skeletal muscle myofiber"; CL calls it <strong>cell of skeletal muscle</strong>, and lists "skeletal muscle cell" among its other names</li>
+<li><code>CL:0000192</code> (2 mentions) - the report calls it "smooth muscle cell — vascular", "vascular smooth muscle cell"; CL calls it <strong>smooth muscle cell</strong></li>
+<li><code>UBERON:0001981</code> (1 mention) - the report calls it "blood vessel — cerebral/aortic"; UBERON calls it <strong>blood vessel</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>CL:0000188</code> - called "skeletal muscle cell/myofiber", "skeletal muscle myofiber"</li>
+<li><code>CL:0000192</code> - called "smooth muscle cell — vascular", "vascular smooth muscle cell"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>OMIM</code>, <code>ORPHA</code>, <code>PubMed</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Late_Complement_Component_Deficiency-falcon.html">← Late Complement Component Deficiency (Falcon)</a>
+                
+                
+                <a href="Late-Onset_Pompe_Disease-falcon.html">Late-Onset Pompe Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Late-Onset_Pompe_Disease.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Late-Onset_Pompe_Disease-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Late-Onset_Pompe_Disease-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Late-Onset_Pompe_Disease-openscientist.html"><span class="provider-pill provider-openscientist">OpenScientist</span></a>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
