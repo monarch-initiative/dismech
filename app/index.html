@@ -701,6 +701,12 @@
     <script src="data.js"></script>
     <script src="search_sort_state.js"></script>
     <script>
+        // Token separators for the search index. Apostrophes are included so
+        // "Parkinson's" indexes as "parkinson" and the query "Parkinson" is a
+        // full term hit rather than a downweighted prefix hit.
+        // Keep in sync with tests/js/search_ranking.test.mjs.
+        const SEARCH_TOKEN_SPLIT = /[\s\-_/,;:()'’]+/;
+
         class FacetedSearch {
             constructor() {
                 this.data = [];
@@ -777,7 +783,7 @@
                     fields: searchableFields,
                     idField: '_id',
                     storeFields: ['name'],
-                    tokenize: (text) => text.toLowerCase().split(/[\s\-_/,;:()]+/).filter(t => t.length > 1),
+                    tokenize: (text) => text.toLowerCase().split(SEARCH_TOKEN_SPLIT).filter(t => t.length > 1),
                     searchOptions: {
                         boost: this.schema.fieldBoosts || {},
                         prefix: true,
@@ -818,8 +824,19 @@
                         boostDocument: (_id, _term, storedFields) => {
                             const nameLower = (storedFields?.name || '').toLowerCase();
                             if (nameLower === queryLower) return 50;
-                            if (nameLower.startsWith(queryLower)) return 10;
-                            if (nameLower.includes(queryLower)) return 3;
+                            // Scale each tier by how much of the name the query
+                            // accounts for, so a short canonical name outranks a
+                            // long specific one that merely starts the same way
+                            // ("Parkinson" → Parkinson's Disease, not Parkinson
+                            // Disease, Mitochondrial). The floors keep the tiers
+                            // ordered by boost — a prefix match is always worth
+                            // at least 3, a substring match at most 3 — though
+                            // final rank is this boost times MiniSearch's own
+                            // relevance, so a richer substring match can still
+                            // come out ahead.
+                            const coverage = queryLower.length / nameLower.length;
+                            if (nameLower.startsWith(queryLower)) return Math.max(3, 30 * coverage);
+                            if (nameLower.includes(queryLower)) return 1 + 2 * coverage;
                             return 1;
                         },
                     });

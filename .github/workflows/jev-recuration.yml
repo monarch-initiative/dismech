@@ -1,0 +1,53 @@
+name: Jev Recuration Issues
+
+# Schedule is generated from .github/cron-profiles.yaml.
+on:
+  schedule:
+    - cron: "17 13 * * 2"  # weekly Tuesday intake from the latest Jev evaluation
+  workflow_dispatch:
+    inputs:
+      max_issues:
+        description: Maximum new disease review issues (1–25)
+        type: string
+        default: '5'
+      dry_run:
+        description: Preview issues without creating them
+        type: boolean
+        default: true
+
+concurrency:
+  group: jev-recuration-intake
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  enqueue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts
+            kb/disorders
+      - uses: astral-sh/setup-uv@v7
+      - name: Queue previously unqueued diseases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAX_ISSUES: ${{ inputs.max_issues || '5' }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--limit "$MAX_ISSUES")
+          if [[ "$EVENT_NAME" == schedule || "$DRY_RUN" == false ]]; then
+            args+=(--apply)
+          fi
+          uv run --no-project --with click --with httpx \
+            python scripts/jev_recuration_issues.py "${args[@]}" | tee "$RUNNER_TEMP/jev-intake.txt"
+          cat "$RUNNER_TEMP/jev-intake.txt" >> "$GITHUB_STEP_SUMMARY"

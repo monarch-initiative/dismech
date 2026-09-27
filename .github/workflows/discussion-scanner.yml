@@ -2,7 +2,7 @@ name: Discussion Scanner
 
 on:
   schedule:
-    - cron: "30 */6 * * *"  # every 6h
+    - cron: "30 * * * *"  # hourly
   workflow_dispatch:
     inputs:
       lookback_hours:
@@ -90,14 +90,35 @@ jobs:
             });
             core.setOutput('candidate_count', String(packet.candidates.length));
 
+      - name: Set up latest Claude Code
+        id: setup-claude-code
+        if: steps.discussion-candidates.outputs.candidate_count != '0'
+        uses: ./.github/actions/setup-claude-code
+
+      - name: Install uv for Langfuse tracing
+        if: steps.discussion-candidates.outputs.candidate_count != '0'
+        uses: astral-sh/setup-uv@v7
+
       - name: Run Discussion Scanner
         id: discussion-scanner
         if: steps.discussion-candidates.outputs.candidate_count != '0'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1
         env:
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+          CC_LANGFUSE_TRACE_TAGS: >-
+            ["repo:${{ github.repository }}", "workflow:discussion-scanner",
+            "run:${{ github.run_id }}", "attempt:${{ github.run_attempt }}", "job:${{ github.job }}"]
           GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.ai4c-token.outputs.token }}
         with:
+          path_to_claude_code_executable: ${{ steps.setup-claude-code.outputs.executable }}
+          # Keep the .git suffix: the action validates marketplace URLs.
+          plugin_marketplaces: |
+            https://github.com/langfuse/Claude-Observability-Plugin.git
+          plugins: |
+            langfuse-observability@langfuse-observability
           # Auth: prefer ANTHROPIC_API_KEY (pay-per-use, no weekly subscription
           # cap); fall back to the OAuth token only when no API key is set. The
           # conditional keeps exactly one non-empty, so the action never has to
@@ -115,7 +136,7 @@ jobs:
             LOOKBACK HOURS: ${{ env.LOOKBACK_HOURS }}
             MANUAL NOTE: ${{ inputs.note || '' }}
 
-            You are @dragon-ai-agent running the dismech discussion scanner.
+            You are @ai4c-agent running the dismech discussion scanner.
 
             Read `CLAUDE.md` first. Then read:
             `output/discussion-scanner/trusted-discussion-candidates.json`
@@ -167,7 +188,7 @@ jobs:
             General guardrails:
             - Follow repository conventions in `CLAUDE.md`.
             - Never create or hand-edit `references_cache/*.md`.
-            - Do not invoke `@dragon-ai-agent please`.
+            - Do not invoke `@ai4c-agent please`, or its `@dragon-ai-agent` alias.
             - Do not mention automation unless it helps explain the handoff.
 
       - name: Write step summary

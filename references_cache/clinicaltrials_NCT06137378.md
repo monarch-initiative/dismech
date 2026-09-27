@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06137378"
+reference_id: clinicaltrials:NCT06137378
 title: ELOS - Induction Chemotherapy With Docetaxel and Cisplatin Followed by Radiation Compared to Additional PD-1 Inhibition in CPS ≥1 Advanced Laryngeal/Hypopharyngeal Cancer Suitable for Laryngectomy Selected After Early Response Evaluation
 content_type: summary
+full_text_attempted: true
 ---
 
 # ELOS - Induction Chemotherapy With Docetaxel and Cisplatin Followed by Radiation Compared to Additional PD-1 Inhibition in CPS ≥1 Advanced Laryngeal/Hypopharyngeal Cancer Suitable for Laryngectomy Selected After Early Response Evaluation

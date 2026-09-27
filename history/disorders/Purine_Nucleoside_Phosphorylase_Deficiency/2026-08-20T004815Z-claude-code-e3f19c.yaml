@@ -1,0 +1,69 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Purine_Nucleoside_Phosphorylase_Deficiency
+  path: kb/disorders/Purine_Nucleoside_Phosphorylase_Deficiency.yaml
+session:
+  id: 2026-08-20T004815Z-claude-code-e3f19c
+  timestamp: '2026-08-20T00:48:15Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/9008
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - pathophysiology
+  - treatments
+  summary: Remove therapy-as-pathophysiology node and two motivation edges; give SAMHD1
+    node a causal parent
+  details: |
+    Proactive correction, not requested on this PR. The reviewer of PR #9007 flagged that a
+    pathophysiology edge encoding clinical motivation rather than causation exports to KGX/cx2
+    as a false causal assertion. Auditing this entry found the same pattern, and following it
+    through exposed a deeper category error.
+
+    The two offending edges were "Recurrent and Opportunistic Infection" -> HSCT node and
+    "Immune Dysregulation with Autoimmunity and EBV-Driven Lymphoma" -> HSCT node. Both
+    described why transplantation matters ("the lethality of infection is what makes timely
+    definitive correction the central therapeutic goal"; "EBV-driven lymphoma before transplant
+    is a principal cause of treatment failure") rather than what causes what.
+
+    Removing them would have isolated the "Haematopoietic Stem Cell Reconstitution as
+    Definitive Correction" node entirely, since it had no outgoing edges - and that is the
+    diagnostic. A node that only motivation edges can reach is not a pathophysiological
+    process. It is a therapy, and dismech already has the right place for a therapy: a
+    treatment with target_mechanisms. So the node was removed rather than patched, and the HSCT
+    treatment's target_mechanisms repointed to the two real nodes it actually acts on:
+      - "Loss of Purine Nucleoside Phosphorolysis" (INHIBITS) - donor haematopoiesis restores
+        the missing enzymatic step in the compartment carrying the substrate burden, which is
+        the metabolic logic of why replacing that compartment suffices.
+      - "Impaired Thymocyte Development and Reduced T-Cell Output" (INHIBITS) - restoring
+        enzyme-competent haematopoiesis re-establishes thymic output; the caveat that
+        established neurological disease is not reliably reversed is retained here.
+    No content was lost; it moved to where it belongs.
+
+    Separately, the SAMHD1 synthetic-lethality node was a second directed root. It now has a
+    causal parent, "Intracellular dGTP Pooling in Lymphoid Cells", with a description that
+    makes the mechanism explicit rather than merely wiring it up: the synthetic-lethal
+    interaction is not a standing property of the thymocyte but is created by the accumulating
+    dNTP load arriving in the one cell type that has physiologically stood down SAMHD1, its
+    disposal enzyme.
+
+    Result: 16 nodes, 18 edges, exactly ONE directed root (the trigger), all 16 connected, no
+    orphans, no dangling references from either downstream edges or treatment target_mechanisms.
+
+    Validation actually run and read:
+      just validate                -> All validations passed
+      just count-verified-snippets -> 83/83 verified
+      just validate-terms          -> Validation passed
+      just check-duplicate-keys    -> OK
+      check_snippet_length --against-ref origin/main -> OK
+      pytest -k "model_readout_targets_match_link or failure_to_recapitulate or treatment" -> 6486 passed

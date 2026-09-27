@@ -84,6 +84,79 @@ def test_safe_load_propagates_parse_errors():
         yaml_io.safe_load("key: [unclosed\n")
 
 
+def test_safe_load_silently_keeps_the_last_duplicate_key():
+    """The premise of find_duplicate_keys: the loader itself will not tell you.
+
+    If PyYAML ever starts rejecting duplicates, the separate guard becomes
+    redundant, and this test is where that shows up.
+    """
+    assert yaml_io.safe_load("classifications: {a: 1}\nclassifications: {b: 2}\n") == {
+        "classifications": {"b": 2}
+    }
+
+
+def test_find_duplicate_keys_reports_a_top_level_duplicate():
+    """The #8623 shape: one key repeated far apart in a long document."""
+    doc = (
+        "name: Example\n"
+        "classifications:\n"
+        "  harrisons_chapter: []\n"
+        "other: 1\n"
+        "classifications:\n"
+        "  harrisons_chapter: []\n"
+    )
+    assert yaml_io.find_duplicate_keys(doc) == [
+        ("<document root>", "classifications", 5)
+    ]
+
+
+def test_find_duplicate_keys_finds_nested_and_in_sequence_duplicates():
+    """Duplicates below the root must be caught too, with a locating path."""
+    doc = """
+phenotypes:
+  - name: Wheezing
+    frequency: FREQUENT
+    frequency: OCCASIONAL
+treatments:
+  first:
+    dose: 1
+    dose: 2
+"""
+    assert yaml_io.find_duplicate_keys(doc) == [
+        ("phenotypes[0]", "frequency", 5),
+        ("treatments.first", "dose", 9),
+    ]
+
+
+def test_find_duplicate_keys_accepts_a_clean_document():
+    assert yaml_io.find_duplicate_keys(DOC) == []
+
+
+def test_find_duplicate_keys_tolerates_an_empty_document():
+    """yaml.compose returns None for an empty stream; that must not raise."""
+    assert yaml_io.find_duplicate_keys("") == []
+
+
+def test_find_duplicate_keys_survives_a_yaml_complex_key():
+    """A complex key (``? [a, b]``) composes to an unhashable list value.
+
+    Nothing in ``kb/`` uses complex keys, but this runs over the whole corpus on
+    every build, where a crash would be worse than a miss.
+    """
+    assert yaml_io.find_duplicate_keys("? [a, b]\n: 1\nx: 2\n") == []
+
+    duplicated = yaml_io.find_duplicate_keys("? [a, b]\n: 1\n? [a, b]\n: 2\n")
+    assert len(duplicated) == 1
+    path, _key, line = duplicated[0]
+    assert (path, line) == ("<document root>", 3)
+
+
+def test_find_duplicate_keys_propagates_parse_errors():
+    """Callers distinguish "malformed" from "clean"; it must not read as clean."""
+    with pytest.raises(yaml.YAMLError):
+        yaml_io.find_duplicate_keys("key: [unclosed\n")
+
+
 def test_libyaml_is_available_in_this_environment():
     """Guard the performance win, but only where losing it is a real regression.
 

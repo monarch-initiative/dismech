@@ -1,0 +1,25 @@
+---
+reference_id: DOI:10.3390/cells15121051
+title: "The Lamin Proteins in Nuclear Structure, Functions, and Laminopathies"
+authors:
+- Gan Zhao
+- Ziheng Chen
+- Caifeng Yang
+- Mingzheng Liu
+- Weiyong Wang
+- Chuanmao Zhang
+journal: Cells
+year: '2026'
+doi: 10.3390/cells15121051
+content_type: abstract_only
+is_preprint: false
+---
+
+# The Lamin Proteins in Nuclear Structure, Functions, and Laminopathies
+**Authors:** Gan Zhao, Ziheng Chen, Caifeng Yang, Mingzheng Liu, Weiyong Wang, Chuanmao Zhang
+**Journal:** Cells (2026)
+**DOI:** [10.3390/cells15121051](https://doi.org/10.3390/cells15121051)
+
+## Content
+
+The lamin proteins are classified into A- and B-types, and together with their associated proteins, they form the nuclear lamina, which governs diverse nuclear structures and functions, including nuclear mechanics, chromatin organization, and gene regulation. Mutations of these proteins give rise to a strikingly diverse group of tissue-specific disorders, the laminopathies, including muscular dystrophies, cardiomyopathies, lipodystrophies, neuropathies, and premature aging syndromes, despite their broad expression. Unraveling the basis of this tissue selectivity has revealed that lamins function not merely as structural elements but as active regulators. While the A-type lamins modulate nuclear stiffness, transcription, and genome integrity, the B-type lamins ensure mechanical resilience and heterochromatin tethering. Pathogenic mutations of these proteins disrupt their functions through convergent mechanisms that manifest according to tissue-specific contexts, leading to impaired nuclear mechanics, aberrant gene regulation, defective DNA repair, and cellular senescence. Advances in patient-derived cellular models and animal systems have illuminated these vulnerabilities and catalyzed therapeutic progress, ranging from farnesyltransferase inhibitors to emerging genome-editing strategies. Collectively, studies of lamin protein function reveal how the nucleus maintains its structures and functions, while studies of laminopathies demonstrate how nuclear dysfunction drives systemic disease and points toward mechanism-based therapies.

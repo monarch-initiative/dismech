@@ -1,0 +1,114 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Heparin-Induced_Thrombocytopenia
+  path: kb/disorders/Heparin-Induced_Thrombocytopenia.yaml
+session:
+  id: 2026-08-16T034404Z-claude-code-06fc86
+  timestamp: '2026-08-16T03:44:04Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/8595
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - phenotypes
+  - pathophysiology
+  summary: Apply three edits lost by an aborted edit script; correct the over-claiming
+    history record
+  details: |
+    Corrective session. Applied three edits that the previous session claimed but
+    did not land, and corrected that session's history record.
+
+    What went wrong. The previous session ran a single Python script that applied
+    several string replacements in sequence and wrote the file only at the end. One
+    replacement raised an AssertionError because its target text had already been
+    changed by an earlier edit in the same run. The script aborted, and the whole
+    in-memory buffer was discarded without writing. Three edits were lost silently:
+    the HP:0005305 to HP:0033724 rebinding, the deletion of the standalone Limb
+    Amputation phenotype with the accompanying description change, and the extension
+    of a snippet that ended mid-word. A fourth replacement was then re-run on its own
+    and did land - the copy of the amputation evidence item onto Limb Gangrene -
+    which is why the fold ended up half-applied and the evidence item appeared twice
+    under two phenotypes still sharing one HP:0100758 binding. That was worse than
+    the state the suggestion had been meant to fix.
+
+    The failure was then compounded by reporting. The commit message, the history
+    record, and the PR comment all asserted the three edits had landed. None of
+    those claims was checked against the file. The reviewer caught it by diffing for
+    deletion lines, on the reasoning that a rebinding and a node removal must produce
+    deletions, and the commit had none - 484 insertions, 0 deletions.
+
+    This is the same class of failure as the file truncation earlier in this curation
+    series: an edit script whose atomicity was assumed rather than verified. The
+    durable fix is procedural, not textual - after any scripted edit, assert the
+    expected end state against the file itself. This session did that: each of the
+    three edits was followed by a grep confirming the intended presence or absence,
+    before validation was run or anything was claimed.
+
+    Edits applied in this session:
+
+    - Rebound the Cerebral Venous Sinus Thrombosis phenotype from HP:0005305
+      (Cerebral venous thrombosis) to HP:0033724 (Cerebral venous sinus thrombosis).
+      Verified: zero occurrences of HP:0005305, one of HP:0033724.
+    - Deleted the standalone Limb Amputation phenotype and extended the Limb Gangrene
+      description to record amputation as the surgical consequence of that phenotype
+      rather than a distinct manifestation. Verified: one occurrence of HP:0100758,
+      zero occurrences of the Limb Amputation node. The composite-endpoint snippet
+      now appears three times in the entry but under three genuinely distinct claims
+      with three distinct explanations - the thrombotic-occlusion node, its incoming
+      edge, and limb gangrene - which is reuse of a source sentence, not duplication
+      of an evidence item.
+    - Extended the snippet that ended mid-word at "disseminated intravascular coa" to
+      a clause boundary.
+
+    Provenance correction. The previous session's history record
+    (2026-08-16T033351Z-claude-code-f4004d.yaml) has been corrected in place rather
+    than superseded. That record has never been on main, so it is not yet published
+    provenance, and correcting it means the merged history is accurate from the
+    first commit rather than requiring a reader to follow a retraction. Its three
+    over-claiming paragraphs now state plainly what did not apply, and a CORRECTION
+    NOTE records the root cause. Its validation figures were left as written because
+    they were accurate and the reviewer independently reproduced the 97/97 snippet
+    count.
+
+    Two further edits were made later in this same session, after the reviewer
+    approved and raised them as non-blocking suggestions, and this record was
+    extended in place to cover them rather than a third record being opened for
+    the same sitting. First, the snippet on the Accelerated Platelet Consumption
+    and Thrombocytopenia node was extended through the clause "with associated
+    disseminated intravascular coagulation (DIC)". The earlier extension had
+    stopped one clause short of the coagulopathy the explanation relies on, so
+    the explanation was making a claim its own snippet no longer covered - the
+    same claim-versus-evidence gap this curation series has been caught on
+    before, and worth fixing even though the reviewer marked it optional.
+    Second, this record's own sections list gained pathophysiology, since one of
+    its edits was in that section rather than in phenotypes.
+
+    A third pass in the same sitting restored the head of that snippet. The tail
+    extension had been written as a replacement block starting mid-sentence,
+    which silently dropped the leading clause "Clinical syndromes associated
+    with aHIT include: delayed-onset HIT, persisting HIT, spontaneous HIT
+    syndrome, fondaparinux-associated HIT," - the clause that names aHIT, which
+    the explanation depends on just as much as the coagulopathy clause at the
+    other end. Fixing one end of a claim-versus-evidence gap had opened the
+    other. The quote now spans the whole sentence and the explanation says why
+    both ends are needed. Worth recording because the regression came from the
+    same habit as the earlier lost edits: writing a replacement block from
+    scratch rather than extending the existing text, so material outside the
+    intended change disappears without any error being raised.
+
+    Validation after these edits: just validate, just validate-terms, and the full
+    batched just validate-disorders sweep all pass; 96/96 snippets verified against
+    cached references. The count fell from 97 to 96 because removing the duplicated
+    Limb Amputation phenotype removed one evidence item; that is the expected
+    direction and is stated here so the drop is not mistaken for a lost check.
+    Folded-hyphen, snippet-length, and title-snippet gates clean.

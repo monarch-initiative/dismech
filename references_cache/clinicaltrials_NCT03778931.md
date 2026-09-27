@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03778931"
+reference_id: clinicaltrials:NCT03778931
 title: "Elacestrant Monotherapy vs. Standard of Care for the Treatment of Patients With ER+/HER2- Advanced Breast Cancer Following CDK4/6 Inhibitor Therapy: A Phase 3 Randomized, Open-label, Active-controlled, Multicenter Trial"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Elacestrant Monotherapy vs. Standard of Care for the Treatment of Patients With ER+/HER2- Advanced Breast Cancer Following CDK4/6 Inhibitor Therapy: A Phase 3 Randomized, Open-label, Active-controlled, Multicenter Trial

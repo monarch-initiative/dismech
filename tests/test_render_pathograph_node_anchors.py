@@ -120,6 +120,9 @@ def test_semantic_ref_nodes_fall_back_to_the_named_card(tmp_path: Path) -> None:
     disorder["pathophysiology"] = [
         {
             "name": "CFTR Dysfunction",
+            # `phenotype#` (not `phenotypes#`) on purpose: the aliases stay
+            # resolvable after the #9394 normalisation, and this is where the
+            # renderer side of that is exercised. Do not "tidy" the spelling.
             "downstream": [{"target": "phenotype#Pancreatic Insufficiency"}],
         }
     ]
