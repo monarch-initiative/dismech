@@ -120682,6 +120682,84 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Erysipelas",
+    "disease_id": "MONDO:0001266",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection"
+    ],
+    "creation_date": "2026-09-26T06:42:40Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Erysipelas is an acute bacterial infection of the superficial dermis and dermal lymphatics caused predominantly by beta-hemolytic streptococci. Skin barrier disruption and edema or lymphatic impairment predispose to dermal streptococcal inoculation, local streptococcal spread, and recurrence driven by persistent or infection-damaged lymphatic drainage.",
+    "pathophysiology": [
+      "Predisposing Lymphatic Impairment",
+      "Cutaneous Barrier Portal of Entry",
+      "Streptococcal Dermal Infection",
+      "Acute Dermal Inflammatory Response",
+      "Post-Erysipelas Lymphatic Damage"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Erythema",
+      "Fever",
+      "Chills",
+      "Pain",
+      "Lymphedema",
+      "Lymphangitis"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Constitutional",
+      "Lymphatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0010783",
+      "HP:0001945",
+      "HP:0025143",
+      "HP:0012531",
+      "HP:0001004"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Penicillin G therapy",
+      "Penicillin V recurrence prophylaxis",
+      "Toe-web intertrigo and wound care",
+      "Compression therapy for lymphedema prevention"
+    ],
+    "environmental": [
+      "Skin barrier disruption",
+      "Toe-web intertrigo and tinea pedis",
+      "Leg edema and lymphatic impairment"
+    ],
+    "biochemical": [],
+    "source_file": "Erysipelas.yaml",
+    "page_url": "../pages/disorders/Erysipelas.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Erysipelothrix Rhusiopathiae Infectious Disease",
     "disease_id": "MONDO:0006752",
     "category": "Infectious Disease",
@@ -338399,17 +338477,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3199,
+  "total_disorder_pages": 3200,
   "total_subtypes": 4301,
-  "total_disorders_and_subtypes": 7500,
-  "total_unique_evidence_sources": 46690,
-  "total_unique_publications": 43827,
+  "total_disorders_and_subtypes": 7501,
+  "total_unique_evidence_sources": 46700,
+  "total_unique_publications": 43837,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 287,
-  "total_pathographs": 3194,
-  "total_unique_pathological_events": 20286,
+  "total_pathographs": 3195,
+  "total_unique_pathological_events": 20291,
   "total_modules": 179,
-  "total_research_reports": 3314,
+  "total_research_reports": 3315,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 109
