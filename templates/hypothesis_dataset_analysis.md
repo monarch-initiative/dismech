@@ -75,6 +75,13 @@ Small diagnostic tables or figures may also be saved. Raw downloads must go in
 `{artifact_dir}/raw/`; they are local/recoverable inputs and will not be
 committed.
 
+Everything outside `raw/`, `local/`, and `controlled/` is committed to a Git
+repository, so **no file there may exceed 2 MB (2,097,152 bytes)**, and that
+includes the copies under `replay/`. Keep required tables compact: report the
+genes, probes, or features the objective names rather than a genome-wide table.
+If a larger intermediate is genuinely needed, write it under `local/`, do not
+list it in `outputs`, and describe it with its checksum in `limitations`.
+
 ## Manifest schema
 
 The runner checks `MANIFEST.yaml` mechanically, so field names matter: a field

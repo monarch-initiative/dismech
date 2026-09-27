@@ -343,6 +343,11 @@ Commit when reviewable and reasonably small:
 - small derived tables, network files, figures, and summaries needed to inspect
   the reported result.
 
+No committed bundle file may exceed 2 MB (2,097,152 bytes), `replay/` copies
+included. The analysis-run gate rejects a bundle holding one, and the runner
+names any such file in its run detail. `raw/`, `local/` and `controlled/` are
+exempt because `.gitignore` keeps them out of Git.
+
 Do not commit:
 
 - raw public downloads that can be recovered from a stable accession, a

@@ -28,6 +28,12 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _PREFIXED_SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 _REQUIRED_OUTPUT_ROLES = {"CODE", "ENVIRONMENT", "TABULAR_RESULT"}
 _RESERVED_OUTPUT_ROOTS = {"raw", "local", "controlled", "replay"}
+# Subdirectories .gitignore keeps out of Git; everything else in a bundle is
+# committed with the report.
+UNCOMMITTED_ARTIFACT_ROOTS = frozenset({"raw", "local", "controlled"})
+# Largest file a bundle may commit. A provider result bigger than this belongs
+# under local/ with its checksum recorded, not in Git.
+MAX_COMMITTED_ARTIFACT_BYTES = 2 * 1024 * 1024
 _SENSITIVE_QUERY_KEYS = {
     "access_key",
     "access_token",
@@ -74,6 +80,27 @@ def report_stem(provider: str, run_label: str | None = None) -> str:
             f"run label {run_label!r} must match {RUN_LABEL_PATTERN.pattern}"
         )
     return f"{provider}-{run_label}"
+
+
+def iter_oversized_committed_files(
+    artifact_dir: Path, limit: int = MAX_COMMITTED_ARTIFACT_BYTES
+) -> Iterable[tuple[Path, int]]:
+    """Yield ``(relative path, size)`` for committable files over ``limit`` bytes.
+
+    Files beneath ``raw/``, ``local/`` or ``controlled/`` are skipped because
+    ``.gitignore`` already keeps them out of Git.
+    """
+    if not artifact_dir.is_dir():
+        return
+    for path in sorted(artifact_dir.rglob("*")):
+        if path.is_symlink() or not path.is_file():
+            continue
+        relative = path.relative_to(artifact_dir)
+        if relative.parts and relative.parts[0] in UNCOMMITTED_ARTIFACT_ROOTS:
+            continue
+        size = path.stat().st_size
+        if size > limit:
+            yield relative, size
 
 
 def _nonempty(value: object) -> bool:
@@ -286,6 +313,13 @@ def iter_analysis_run_problems(
     except OSError as error:
         yield f"artifact directory {artifact_dir} cannot be read: {error}"
         return
+
+    for relative, size in iter_oversized_committed_files(artifact_dir):
+        yield (
+            f"{relative.as_posix()} is {size} bytes, over the "
+            f"{MAX_COMMITTED_ARTIFACT_BYTES}-byte limit for committed artifacts; "
+            "keep it under local/ and record its checksum instead"
+        )
 
     manifest_path = artifact_dir / "MANIFEST.yaml"
     if manifest_path.is_symlink():

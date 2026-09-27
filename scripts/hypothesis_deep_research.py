@@ -47,7 +47,12 @@ from dismech.deep_research_policy import (
     deep_research_subprocess_environment,
     explicitly_requests_biomni,
 )
-from dismech.hypothesis_analysis_run import iter_analysis_run_problems, report_stem
+from dismech.hypothesis_analysis_run import (
+    MAX_COMMITTED_ARTIFACT_BYTES,
+    iter_analysis_run_problems,
+    iter_oversized_committed_files,
+    report_stem,
+)
 from dismech.research_reports import AlignmentError, align_report_provider
 from dismech.yaml_io import safe_load
 
@@ -1027,6 +1032,16 @@ def run_record(
             elif analysis_contract_required:
                 notes.append(
                     "no OpenScientist job ID found; artifacts left as downloaded"
+                )
+        if analysis_contract_required:
+            oversized = [
+                f"{relative.as_posix()} ({size} bytes)"
+                for relative, size in iter_oversized_committed_files(artifact_dir)
+            ]
+            if oversized:
+                notes.append(
+                    f"do not commit, over {MAX_COMMITTED_ARTIFACT_BYTES} bytes "
+                    "outside raw/local/controlled: " + ", ".join(oversized)
                 )
         if result.returncode == 0 and output_ok:
             try:

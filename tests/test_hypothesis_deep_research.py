@@ -1034,6 +1034,7 @@ def test_openscientist_dataset_run_records_job_and_restores_bundle(
     )
 
     assert fetched == ["19cc0c3f-fbd2"]
+    assert "over 2097152 bytes" not in result.detail
     assert "openscientist_job_id=19cc0c3f-fbd2" in result.detail
     metadata = hypothesis_deep_research.read_report_frontmatter(output_file)
     assert metadata["openscientist_job_id"] == "19cc0c3f-fbd2"
@@ -1044,3 +1045,55 @@ def test_openscientist_dataset_run_records_job_and_restores_bundle(
     # rejects it -- on its content, not because the manifest is missing.
     assert result.status == "INVALID_ANALYSIS_RUN"
     assert result.detail.startswith("manifest provider is required")
+
+
+def test_runner_flags_oversized_committable_artifacts(tmp_path: Path, monkeypatch):
+    """A file too large to commit is named in the run detail, raw/ excepted."""
+    record = _dataset_record(tmp_path)
+    output_file = hypothesis_deep_research.output_file_for(
+        record, Path("kb/hypotheses"), "openscientist"
+    )
+    limit = hypothesis_deep_research.MAX_COMMITTED_ARTIFACT_BYTES
+    prefix = (
+        "kb/hypotheses/Long_COVID/canonical_persistence_immune_model/"
+        "openscientist_artifacts/"
+    )
+
+    def fake_run(command, **kwargs):
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        output_file.write_text(
+            "---\nprovider: openscientist\n---\n\n## Output\n\n"
+            "ANALYSIS_STATUS: FAILED\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(
+            command, 0, stdout="", stderr="OpenScientist job submitted: job-1\n"
+        )
+
+    def fake_fetch(job_id: str) -> bytes:
+        return _zip(
+            {
+                prefix + "MANIFEST.yaml": b"status: FAILED\n",
+                prefix + "all_probes.tsv": b"0" * (limit + 1),
+                prefix + "raw/matrix.gz": b"0" * (limit + 1),
+            }
+        )
+
+    monkeypatch.setattr(hypothesis_deep_research.subprocess, "run", fake_run)
+    monkeypatch.chdir(tmp_path)
+    result = hypothesis_deep_research.run_record(
+        record,
+        provider="openscientist",
+        output_root=Path("kb/hypotheses"),
+        template=ROOT / "templates" / "hypothesis_dataset_analysis.md",
+        extra_args=[],
+        timeout_seconds=1,
+        dry_run=False,
+        overwrite=False,
+        template_overrides=DATASET_VARS,
+        fetch_openscientist_artifacts=fake_fetch,
+    )
+
+    assert result.status == "ANALYSIS_FAILED"
+    assert f"all_probes.tsv ({limit + 1} bytes)" in result.detail
+    assert "matrix.gz" not in result.detail

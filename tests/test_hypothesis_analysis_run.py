@@ -8,7 +8,11 @@ from pathlib import Path
 
 import yaml
 
-from dismech.hypothesis_analysis_run import iter_analysis_run_problems, main
+from dismech.hypothesis_analysis_run import (
+    MAX_COMMITTED_ARTIFACT_BYTES,
+    iter_analysis_run_problems,
+    main,
+)
 
 
 def _record(path: Path, role: str) -> dict:
@@ -447,3 +451,22 @@ def test_dataset_template_manifest_example_uses_the_checked_field_names():
     assert {asset["path"] for asset in example["replay"]["assets"]} == {
         f"replay/{path}" for path in tabular
     }
+
+
+def test_committed_artifact_over_two_megabytes_fails_but_raw_does_not(tmp_path):
+    report, artifacts, _manifest = _fixture(tmp_path)
+    limit = MAX_COMMITTED_ARTIFACT_BYTES
+    (artifacts / "raw").mkdir()
+    (artifacts / "raw" / "download.zip").write_bytes(b"0" * (limit + 1))
+    (artifacts / "local").mkdir()
+    (artifacts / "local" / "big.tsv").write_bytes(b"0" * (limit + 1))
+    (artifacts / "exactly_at_limit.tsv").write_bytes(b"0" * limit)
+    assert _problems(report, artifacts) == []
+
+    (artifacts / "replay" / "huge.tsv").write_bytes(b"0" * (limit + 1))
+    problems = _problems(report, artifacts)
+    assert any(
+        problem.startswith(f"replay/huge.tsv is {limit + 1} bytes, over the")
+        for problem in problems
+    )
+    assert not any("download.zip" in p or "big.tsv" in p for p in problems)
