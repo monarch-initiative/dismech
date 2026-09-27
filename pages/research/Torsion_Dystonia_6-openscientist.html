@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Torsion Dystonia 6 · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Torsion Dystonia 6</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Torsion Dystonia 6</h1>
+                
+                <p class="report-subtitle">Torsion Dystonia 6 (DYT6 / DYT-THAP1): Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-12</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0011264" target="_blank" rel="noopener noreferrer">MONDO:0011264</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">37 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Torsion Dystonia 6 (DYT6 / DYT-THAP1): Comprehensive Disease Characteristics Report</h1>
+<p><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0011264" target="_blank" rel="noopener noreferrer">MONDO:0011264</a> · <strong>OMIM:</strong> #602629 (DYSTONIA 6, TORSION; DYT6) · <strong>Gene:</strong> <em>THAP1</em> (OMIM *609520; <a href="https://bioregistry.io/HGNC:20856" target="_blank" rel="noopener noreferrer">HGNC:20856</a>; 8p11.21) · <strong>Category:</strong> Mendelian, autosomal dominant</p>
+<blockquote>
+<p>Evidence base: This report is synthesized from primary human clinical/genetic studies, in-vitro molecular biology, structural biology, and animal models identified via PubMed (49 papers reviewed, 12 confirmed findings). Source types are flagged inline. Where a specific figure is not firmly established in the retrieved literature, this is stated explicitly. No patient-level data files were provided; this is a literature-derived, disease-level report.</p>
+</blockquote>
+<hr />
+<h2>Summary</h2>
+<p><strong>Torsion Dystonia 6 (DYT6, now designated DYT-THAP1)</strong> is a rare, autosomal dominant, incompletely penetrant form of isolated (primary) torsion dystonia caused by heterozygous loss-of-function mutations in <em>THAP1</em>, which encodes a THAP-domain zinc-finger transcription factor. It was the first transcription factor implicated in primary dystonia, established by Fuchs et al. (2009), who identified <em>THAP1</em> mutations in three Amish–Mennonite families with mixed-onset primary torsion dystonia (<a href="https://pubmed.ncbi.nlm.nih.gov/19182804/">PMID: 19182804</a>). DYT6 is clinically distinguished from DYT1 (TOR1A) dystonia by its predilection for the craniocervical region, larynx (producing spasmodic/laryngeal dysphonia), and upper limbs, with frequent progression to segmental or generalized dystonia. Mean age at onset is approximately <strong>16.8 years</strong> (range 3 to &gt;60), and penetrance is estimated at only <strong>40–60%</strong>.</p>
+<p>Mechanistically, DYT6 sits at the center of a shared dystonia gene-regulatory network. Wild-type THAP1 binds and represses the core promoter of <em>TOR1A</em> (the DYT1 gene) and autoregulates its own promoter; pathogenic mutations abolish DNA binding and de-repress these targets, linking DYT6 and DYT1 in a common transcriptional pathway. Downstream, THAP1 dysregulates gene programs largely through the SP1/SP4 transcription-factor family in a cell-type–dependent manner, affecting synaptic transmission, cytoskeletal genes, and dopaminergic (specifically D2-receptor / indirect-pathway) signaling in the basal ganglia, with additional convergent abnormalities in the deep cerebellar nuclei. There is no neurodegeneration; the disorder is a network-level functional dysregulation across the basal ganglia–thalamo-cortical and cerebellar circuits.</p>
+<p>Diagnosis is molecular (<em>THAP1</em> sequencing or whole-exome sequencing), and treatment is entirely symptomatic and stepwise: oral agents (anticholinergics, baclofen, benzodiazepines), botulinum toxin chemodenervation for focal features including laryngeal dystonia, and globus pallidus internus (GPi) deep brain stimulation for refractory generalized disease — the last being effective but generally less robust than in DYT1. No disease-modifying therapy exists.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>F001 — DYT6 is caused by autosomal dominant loss-of-function mutations in the transcription factor THAP1</h3>
+<p>DYT6 dystonia was defined molecularly when Fuchs and colleagues discovered mutations in <em>THAP1</em> in three Amish–Mennonite families with mixed-onset primary torsion dystonia. As stated in the primary paper: <em>"We report the discovery of a mutation in the THAP1 gene in three Amish-Mennonite families with mixed-onset primary torsion dystonia (also known as DYT6 dystonia)"</em> and <em>"We demonstrate that the missense mutation impairs DNA binding, suggesting that transcriptional dysregulation may contribute to the phenotype of DYT6 dystonia"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19182804/">PMID: 19182804</a>). THAP1 is the <strong>first transcription factor implicated in primary dystonia</strong>. The inheritance pattern and mechanism were confirmed by later work: <em>"Dystonia 6 (DYT6) is an autosomal dominant dystonia caused by loss-of-function mutations in the zinc finger transcription factor THAP1"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30590536/">PMID: 30590536</a>). A locus-specific database (UMD-THAP1 LSDB) subsequently cataloged 56 probands and 43 relatives, finding no clear genotype–phenotype correlation at that time (<a href="https://pubmed.ncbi.nlm.nih.gov/21793105/">PMID: 21793105</a>). <em>(Evidence: human genetic; in-vitro.)</em></p>
+<h3>F002 — THAP1 represses TOR1A (DYT1) and autoregulates its own promoter, linking the two primary dystonia genes</h3>
+<p>Two independent groups demonstrated a direct molecular link between DYT6 and DYT1. Kaiser et al. showed by EMSA/ChIP that <em>"THAP1 binds to the core promoter of TOR1A. Further, we report that wild type THAP1 represses the expression of TOR1A, whereas dystonia 6-associated mutant THAP1 results in decreased repression of TOR1A"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/20976771/">PMID: 20976771</a>). Gavarini et al. independently confirmed <em>"a physical interaction between THAP1 and the TOR1A promoter that is abolished by pathophysiologic mutations"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/20865765/">PMID: 20865765</a>). THAP1 also regulates itself: Erogullari et al. <em>"identified a feedback-loop in the regulation of THAP1 expression and demonstrated that mutant THAP1 leads to higher THAP1 expression levels. This compensatory autoregulation may contribute to the mean age at onset"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25088175/">PMID: 25088175</a>). This positions THAP1 as an upstream master regulator whose loss de-represses TOR1A and perturbs its own dosage. <em>(Evidence: in-vitro molecular biology.)</em></p>
+<h3>F003 — Pallidal (GPi) deep brain stimulation improves DYT6 but less robustly than DYT1</h3>
+<p>In a multicenter cohort (n=14, median 4.8-year follow-up), <em>"All benefited from surgery: dystonia severity was reduced by a median of 58%"</em> (BFMDRS motor, IQR 31–62) (<a href="https://pubmed.ncbi.nlm.nih.gov/31817799/">PMID: 31817799</a>). However, comparative work found <em>"DYT6 patients appear to respond less robustly to GPi-DBS than their DYT1 counterparts, most likely reflecting differences in the underlying pathophysiology of these distinct genetic disorders"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21949105/">PMID: 21949105</a>), with some regression observed in years 2–3 despite comparable GPi microelectrode firing patterns between the two genotypes. <em>(Evidence: human clinical.)</em></p>
+<h3>F004 — Characteristic phenotype: early-onset craniocervical, laryngeal, and brachial dystonia that often generalizes</h3>
+<p>Unlike DYT1, <em>"the symptoms of DYT6 dystonia frequently involve the craniocervical region"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19345148/">PMID: 19345148</a>). Laryngeal involvement is a signature feature: in three DYT6 families, <em>"In all three symptomatic MutC, early-onset laryngeal dystonia was a prominent feature. Laryngeal assessment demonstrated adductor-type dystonia in all of them"</em>, and transcranial sonography <em>"revealed increased substantia nigra (SN) hyperechogenicity in all MutC"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/20687193/">PMID: 20687193</a>). Spasmodic dysphonia (voice-affecting laryngeal dystonia) is therefore a hallmark early manifestation. <em>(Evidence: human clinical.)</em></p>
+<h3>F005 — THAP1 protein architecture: N-terminal DNA-binding zinc finger + C-terminal coiled-coil dimerization domain; most mutations are missense in the DNA-binding domain</h3>
+<p>The N-terminal atypical C2CH THAP zinc finger recognizes DNA via an unusual mechanism: <em>"The THAP zinc finger uses its double-stranded beta-sheet to fill the DNA major groove"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/20144952/">PMID: 20144952</a>). Variant distribution and consequences are well defined: <em>"most pathogenic THAP1 mutations are missense and are located in the DNA-binding domain. There are also nonsense mutations, which act as the equivalent of a null allele because they result in the generation of small mRNA species that are likely rapidly degraded via nonsense-mediated decay"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26376866/">PMID: 26376866</a>). The C-terminus contains <em>"a coiled-coil domain (amino acids 139-190) towards its C-terminus postulated as a protein-protein-binding motif"</em> that mediates homodimerization (<a href="https://pubmed.ncbi.nlm.nih.gov/28299530/">PMID: 28299530</a>). <em>(Evidence: structural biology; in-vitro.)</em></p>
+<h3>F006 — THAP1 accounts for ~1–2% of primary/isolated dystonia, enriched in early-onset, familial, non-focal cases</h3>
+<p>In a large Spanish cohort (n=1053), <em>"Pathogenic or likely pathogenic variants in TOR1A, THAP1 and GNAL were identified in 0.48%, 0.57% and 0.29% of our patients, respectively"</em>, and across the literature <em>"variations in TOR1A, THAP1 or GNAL accounted for about 6%, 1.8% and 1.1% of published dystonia patients, respectively"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33175450/">PMID: 33175450</a>). In a Chinese WES cohort of 88 isolated-dystonia patients, TOR1A + THAP1 together accounted for 47% of molecularly diagnosed cases (<a href="https://pubmed.ncbi.nlm.nih.gov/36648081/">PMID: 36648081</a>). Italian screening <em>"strengthen[ed] the association with upper body involvement, including the cranial and cervical districts that are usually spared in DYT1-PTD"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19908325/">PMID: 19908325</a>), and THAP1 mutations have been confirmed across ancestries (India, <a href="https://pubmed.ncbi.nlm.nih.gov/27913194/">PMID: 27913194</a>). <em>(Evidence: human genetic epidemiology.)</em></p>
+<h3>F007 — Thap1 animal models: no overt dystonia, but motor deficits, cerebellar and dopaminergic abnormalities, and convergent transcriptional changes</h3>
+<p>Mouse and rat models recapitulate molecular and motor but not overtly dystonic phenotypes. In the C54Y knock-in and null models, <em>"The projection neurons of the deep cerebellar nuclei are especially altered"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26376866/">PMID: 26376866</a>); homozygous germline null is embryonic lethal. Nervous-system Thap1 deletion causes locomotor deficits with transcriptional changes in synaptic transmission, cytoskeleton, gliosis, and dopamine signaling (<a href="https://pubmed.ncbi.nlm.nih.gov/30590536/">PMID: 30590536</a>). Pharmacological probing revealed <em>"depleting THAP1 specifically interferes with the D2 receptor responses, pointing to a selective misregulation of the indirect pathway in DYT6"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34802187/">PMID: 34802187</a>). The downstream effector network is largely SP1/SP4-mediated: <em>"THAP1 mutations lead to dysregulation of genes mainly through regulation of SP1 family members, SP1 and SP4, in a cell type dependent manner"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35015830/">PMID: 35015830</a>). <em>(Evidence: model organism.)</em></p>
+<h3>F008 — THAP1's canonical molecular function: pRB/E2F cell-cycle regulator partnering with HCF-1 and O-GlcNAc transferase, linking DYT6 to DYT3</h3>
+<p>THAP1 was first characterized as a cell-cycle regulator: <em>"THAP1-mediated growth inhibition is due to coordinated repression of pRB/E2F cell-cycle target genes"</em> including <em>RRM1</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/17003378/">PMID: 17003378</a>). It associates with the transcriptional coactivator HCF-1 and O-GlcNAc transferase (OGT), establishing <em>"a link between DYT6 and DYT3 dystonias"</em> — the X-linked dystonia-parkinsonism pathway (<a href="https://pubmed.ncbi.nlm.nih.gov/20200153/">PMID: 20200153</a>). This positions THAP1 within a broader transcriptional-regulatory hub connecting multiple monogenic dystonias. <em>(Evidence: in-vitro molecular biology.)</em></p>
+<h3>F009 — Treatment is symptomatic and stepwise</h3>
+<p>Dystonia management follows a tiered algorithm. <em>"Oral anticholinergics, baclofen and clonazepam are used off-label"</em> and <em>"Chemodenervation with botulinum toxin remains the treatment of choice for focal- or select-body regions in generalized and segmental dystonia"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31117876/">PMID: 31117876</a>). A recent review summarizes: <em>"Treatment follows a stepwise strategy, beginning with oral pharmacologic agents like anticholinergics and levodopa (especially in dopamine-related dystonias), progressing to botulinum toxin injections and deep brain stimulation of the globus pallidus internus in refractory cases"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40841848/">PMID: 40841848</a>). No disease-modifying therapy exists. <em>(Evidence: clinical guidelines/review.)</em></p>
+<h3>F010 — THAP1 is a rare cause of isolated laryngeal dystonia within a distributed network disorder with genotype-specific structural signatures</h3>
+<p>Screening of 86 spasmodic dysphonia patients found <em>"Two patients tested positive for novel/rare variants in THAP1 (DYT6)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27188707/">PMID: 27188707</a>). Imaging demonstrates that laryngeal dystonia is a network disorder with genotype-dependent structural correlates: <em>"Genotype-specific alterations were found in the left superior temporal gyrus, supplementary motor area, and the arcuate portion of the left superior longitudinal fasciculus"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28186656/">PMID: 28186656</a>). The broader isolated-dystonia network involves cerebellar/cholinergic dysfunction; e.g., in DYT1, <em>"In the cerebellar vermis, VAChT expression was also significantly decreased in patients versus controls"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33638639/">PMID: 33638639</a>). <em>(Evidence: human clinical/imaging.)</em></p>
+<h3>F011 — Quantitative natural history: mean onset ~16.8 years, neck most affected, genotype–phenotype correlation, penetrance 40–60%</h3>
+<p>A large screening study (&gt;1800 subjects) established that <em>"mean age of onset for THAP1 dystonia is 16.8 years and the most common sites of onset are the arm and neck, and the most frequently affected anatomical site is the neck"</em>, with more than half of patients having cranial or laryngeal involvement. Critically, a genotype–phenotype correlation exists: <em>"Protein truncating mutations and missense mutations within the THAP domain of THAP1 tend to manifest at an earlier age and exhibit more extensive anatomical distributions"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22377579/">PMID: 22377579</a>). Penetrance is incomplete — <em>"The incomplete penetrance of DYT-THAP1 dystonia, estimated at 40 to 60 %"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39732371/">PMID: 39732371</a>). <em>(Evidence: human clinical/genetic.)</em></p>
+<h3>F012 — Gene–environment "two-hit" model and metabolic dysregulation; cerebellar and late-onset presentations exist</h3>
+<p>A multi-omics study demonstrated an environmental trigger unmasking genetic predisposition: <em>"we performed a sciatic nerve crush injury in a genetically predisposed DYT-THAP1 heterozygous knockout mouse model"</em>, which induced dystonia-like movements and energy-metabolism dysregulation (<a href="https://pubmed.ncbi.nlm.nih.gov/39732371/">PMID: 39732371</a>). In-vivo human cerebellar involvement was shown in a 51-year-old carrier with ataxia: <em>"The lack of CBI [cerebellar brain inhibition] in our patient strongly suggests cerebellar involvement"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31367947/">PMID: 31367947</a>). Late-onset disease (onset ≥40y) is predominantly cranial and sporadic: <em>"Cranial dystonia was the most common site of onset (n = 22), followed by cervical (n = 13), while limb onset was uncommon"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42371050/">PMID: 42371050</a>). <em>(Evidence: model organism; human clinical.)</em></p>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Torsion Dystonia 6 (DYT6, DYT-THAP1) is a rare Mendelian, autosomal dominant form of isolated torsion dystonia — sustained or intermittent muscle contractions causing abnormal, often repetitive movements and postures — without neurodegeneration or additional neurological features in its pure form. It characteristically begins in childhood or adolescence in the craniocervical, laryngeal, or upper-limb regions and frequently spreads to become segmental or generalized (F001, F004, F011).</p>
+<p><strong>Key identifiers.</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0011264" target="_blank" rel="noopener noreferrer">MONDO:0011264</a> · OMIM #602629 (phenotype) / <em>THAP1</em> *609520 · Gene: <em>THAP1</em> (<a href="https://bioregistry.io/HGNC:20856" target="_blank" rel="noopener noreferrer">HGNC:20856</a>), 8p11.21. Orphanet: DYT-THAP1 (within isolated dystonia grouping). MeSH: Dystonic Disorders / Dystonia (no unique DYT6 heading). ICD-11: 8A02.1 (dystonia). ICD-10: G24.1 (idiopathic familial dystonia) / G24.8.</p>
+<p><strong>Synonyms.</strong> DYT6; DYT-THAP1; dystonia 6, torsion (autosomal dominant); THAP1-related dystonia; primary torsion dystonia type 6; mixed-onset primary torsion dystonia (historical, Amish–Mennonite).</p>
+<p><strong>Data source.</strong> Aggregated disease-level resources (OMIM, Orphanet, UMD-THAP1 LSDB [<a href="https://pubmed.ncbi.nlm.nih.gov/21793105/" target="_blank" rel="noopener noreferrer">PMID: 21793105</a>]) and published clinical case series/cohorts — not EHR/individual-patient registries.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors.</strong> Primary cause is genetic: heterozygous loss-of-function mutations in <em>THAP1</em> (F001). Most are missense in the DNA-binding THAP domain; nonsense/frameshift variants act as null alleles via nonsense-mediated decay (F005). Mechanism is transcriptional dysregulation (loss of DNA binding → de-repression of downstream targets).</p>
+<p><strong>Genetic risk factors.</strong> The causal <em>THAP1</em> variant is dominant. Genotype modifies severity: protein-truncating and THAP-domain missense mutations produce earlier onset and more extensive distribution (F011). A founder missense mutation was originally described in Amish–Mennonite families (F001, F006).</p>
+<p><strong>Environmental risk factors.</strong> No established human environmental risk factors. A gene–environment "two-hit" model is supported experimentally: peripheral nerve (sciatic crush) injury unmasks dystonia-like movements in Thap1+/- mice (F012) — plausible but unproven in humans.</p>
+<p><strong>Protective factors.</strong> None established. Incomplete penetrance (40–60%) implies unidentified genetic modifiers and/or environmental buffers protect a large fraction of carriers (F011).</p>
+<p><strong>Gene–environment interaction.</strong> The two-hit model (genetic predisposition + peripheral injury/metabolic stress) is the leading GxE framework (F012).</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Onset</th>
+<th>Severity/Course</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Torsion/isolated dystonia</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" rel="noopener noreferrer">HP:0001332</a> (Dystonia)</td>
+<td>Childhood–adolescence (mean 16.8 y)</td>
+<td>Progressive → generalized</td>
+<td>Defining, ~100%</td>
+</tr>
+<tr>
+<td>Cervical dystonia</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002408" target="_blank" rel="noopener noreferrer">HP:0002408</a> (Torticollis)</td>
+<td>Early</td>
+<td>Progressive</td>
+<td>Neck = most affected site</td>
+</tr>
+<tr>
+<td>Laryngeal dystonia / spasmodic dysphonia</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001350" target="_blank" rel="noopener noreferrer">HP:0001350</a> (Dysphonia)</td>
+<td>Early, prominent</td>
+<td>Chronic</td>
+<td>&gt;50% cranial/laryngeal</td>
+</tr>
+<tr>
+<td>Craniofacial (blepharospasm, oromandibular)</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000643" target="_blank" rel="noopener noreferrer">HP:0000643</a>; <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" rel="noopener noreferrer">HP:0002019</a></td>
+<td>Childhood–adult</td>
+<td>Segmental</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Dysarthria/speech difficulty</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" rel="noopener noreferrer">HP:0001260</a></td>
+<td>Early</td>
+<td>Chronic</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Limb (arm) dystonia</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004350" target="_blank" rel="noopener noreferrer">HP:0004350</a></td>
+<td>Common onset site</td>
+<td>Progressive</td>
+<td>Common onset</td>
+</tr>
+<tr>
+<td>Generalized dystonia</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007325" target="_blank" rel="noopener noreferrer">HP:0007325</a></td>
+<td>Follows focal onset</td>
+<td>Progressive</td>
+<td>Frequent</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics.</strong> Mean onset ~16.8 years (range 3 to &gt;60); most common onset sites arm and neck; neck most frequently affected; &gt;50% have cranial/laryngeal involvement; typically progressive from focal to segmental/generalized (F004, F011). Late-onset (≥40y) presentations are predominantly cranial and sporadic (F012). Severity is variable, consistent with incomplete penetrance and variable expressivity.</p>
+<p><strong>Quality of life.</strong> Laryngeal dystonia selectively impairs speech/communication; generalized dystonia impairs mobility and daily function. No DYT6-specific EQ-5D/SF-36 data available; general dystonia burden is substantial.</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Causal gene.</strong> <em>THAP1</em> (<a href="https://bioregistry.io/HGNC:20856" target="_blank" rel="noopener noreferrer">HGNC:20856</a>; OMIM 609520; 8p11.21), encoding a 213-aa zinc-finger transcription factor (F001, F005).</p>
+<p><strong>Protein architecture.</strong> N-terminal atypical C2CH THAP zinc-finger DNA-binding domain (double-stranded β-sheet inserted into the major groove; bipartite major+minor groove recognition, consensus ~TXXGGGX(A/T)); nuclear localization signal; C-terminal coiled-coil homodimerization domain (aa ~139–190) (F005; <a href="https://pubmed.ncbi.nlm.nih.gov/20010837/">PMID: 20010837</a>).</p>
+<p><strong>Pathogenic variants.</strong> Predominantly missense in the DNA-binding domain (e.g., Ser6Phe, Arg13His [also destabilizing], C54Y/C54F, L180S); also nonsense/frameshift acting as null alleles via NMD (F005). ClinVar/HGMD list dozens of P/LP variants; population allele frequencies are very low (rare disease); most are private/family-specific. Origin: germline; autosomal dominant. Functional consequence: <strong>loss of function</strong> (F001, F002, F005). Truncated mutants can mislocalize partly to cytoplasm; some missense mutants remain nuclear (<a href="https://pubmed.ncbi.nlm.nih.gov/22652465/">PMID: 22652465</a>).</p>
+<p><strong>Modifier genes.</strong> Not definitively identified; incomplete penetrance implies modifiers exist. THAP1 autoregulates (F002); downstream, SP1/SP4 mediate effects (F007).</p>
+<p><strong>Epigenetic information.</strong> THAP1 partners with HCF-1 and O-GlcNAc transferase (OGT), tying it to chromatin/coactivator complexes and linking DYT6 to DYT3 (F008). No disease-specific methylation signature established.</p>
+<p><strong>Chromosomal abnormalities.</strong> None characteristic; DYT6 is a single-gene point-mutation disorder.</p>
+<h3>5. Environmental Information</h3>
+<p>No established environmental toxin, radiation, lifestyle, or infectious etiology. The only experimental environmental contributor is peripheral nerve injury acting as a "second hit" in genetically predisposed Thap1+/- mice, with accompanying energy-metabolism dysregulation (F012). Infectious agents are not implicated (distinct from secondary dystonias such as post–Japanese encephalitis dystonia, <a href="https://pubmed.ncbi.nlm.nih.gov/35025122/">PMID: 35025122</a>).</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li>A heterozygous loss-of-function mutation in <em>THAP1</em> (missense in the DNA-binding domain, or an NMD-degraded null allele) <strong>leads to</strong> reduced functional THAP1 transcription-factor activity. <em>(demonstrated)</em></li>
+<li>Reduced THAP1 DNA-binding <strong>results in</strong> de-repression of its direct target <em>TOR1A</em> (the DYT1 gene) and dysregulated THAP1 autoregulation (altered THAP1 dosage). <em>(demonstrated in vitro)</em></li>
+<li>In parallel, loss of THAP1 <strong>leads to</strong> broad transcriptional dysregulation executed largely through the SP1/SP4 transcription-factor family in a cell-type–dependent manner. <em>(demonstrated in models)</em></li>
+<li>These transcriptional changes <strong>result in</strong> altered expression of genes governing synaptic transmission, cytoskeleton, and dopaminergic signaling — with selective impairment of D2-receptor/indirect-pathway responses in striatum, plus abnormalities of deep cerebellar nuclei projection neurons. <em>(demonstrated in mouse models)</em></li>
+<li><strong>Branch A (basal ganglia):</strong> indirect-pathway/D2 dysfunction <strong>leads to</strong> imbalanced basal ganglia–thalamo-cortical output. <strong>Branch B (cerebellum):</strong> deep cerebellar nuclei/vermis dysfunction <strong>leads to</strong> abnormal cerebellar contribution to the motor network. <em>(inferred: model + human imaging integration)</em></li>
+<li>Convergent basal ganglia + cerebellar network dysfunction <strong>results in</strong> aberrant sensorimotor integration and loss of surround inhibition. <em>(inferred)</em></li>
+<li>This <strong>manifests</strong> as isolated dystonia — craniocervical, laryngeal, and brachial, frequently generalizing — typically in adolescence, in ~40–60% of carriers. <em>(demonstrated clinically)</em></li>
+<li><strong>Optional environmental branch:</strong> a peripheral "second hit" (nerve injury/metabolic stress) <strong>can unmask or trigger</strong> dystonia in predisposed carriers. <em>(demonstrated in mice; inferred in humans)</em></li>
+</ol>
+<p><strong>Molecular pathways.</strong> THAP1 → <em>TOR1A</em> repression (F002); THAP1 → SP1/SP4-dependent network (F007); THAP1 → pRB/E2F cell-cycle targets incl. <em>RRM1</em> (canonical, F008); THAP1–HCF-1–OGT complex linking to DYT3 (F008). Suggested GO biological processes: <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" rel="noopener noreferrer">GO:0006355</a> (regulation of transcription), <a href="http://purl.obolibrary.org/obo/GO_0000122" target="_blank" rel="noopener noreferrer">GO:0000122</a> (negative regulation of transcription by RNA pol II), <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" rel="noopener noreferrer">GO:0007399</a> (nervous system development), <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" rel="noopener noreferrer">GO:0007268</a> (chemical synaptic transmission), dopamine receptor signaling (D2/indirect pathway).</p>
+<p><strong>Cellular processes.</strong> Neuronal transcriptional regulation; synaptic transmission; dopaminergic indirect-pathway signaling; cytoskeletal regulation; gliosis (F007). No apoptosis/neurodegeneration in the primary disease.</p>
+<p><strong>Cell types &amp; anatomy.</strong> Striatal D2 medium spiny neurons (indirect pathway; <a href="http://purl.obolibrary.org/obo/CL_0002613" target="_blank" rel="noopener noreferrer">CL:0002613</a>), deep cerebellar nuclei projection neurons, cortical sensorimotor neurons; neuron–glia interactions implicated (<a href="https://pubmed.ncbi.nlm.nih.gov/38737544/">PMID: 38737544</a>). Suggested CL terms: <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a> (neuron), <a href="http://purl.obolibrary.org/obo/CL_0002613" target="_blank" rel="noopener noreferrer">CL:0002613</a> (striatal neuron), <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a> (astrocyte).</p>
+<p><strong>Molecular profiling.</strong> Transcriptomic studies in Thap1 models show convergent dysregulation of synaptic, cytoskeletal, dopaminergic, and gliosis genes (F007). DTI in patients shows reduced fractional anisotropy in sensorimotor white matter ([<a href="https://pubmed.ncbi.nlm.nih.gov/22652465/" target="_blank" rel="noopener noreferrer">PMID: 22652465</a>]). Metabolic/energy-pathway dysregulation in the two-hit mouse (F012).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ/system:</strong> Central nervous system — motor control circuitry (<a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" rel="noopener noreferrer">UBERON:0001017</a> CNS; <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> brain). Body system: nervous system.</li>
+<li><strong>Primary regions:</strong> Basal ganglia (<a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" rel="noopener noreferrer">UBERON:0002420</a>), especially striatum/putamen (<a href="http://purl.obolibrary.org/obo/UBERON_0001874" target="_blank" rel="noopener noreferrer">UBERON:0001874</a>) and globus pallidus internus (DBS target, <a href="http://purl.obolibrary.org/obo/UBERON_0002477" target="_blank" rel="noopener noreferrer">UBERON:0002477</a>); substantia nigra (SN hyperechogenicity, F004); cerebellum (<a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a>), especially deep cerebellar nuclei and vermis (F007, F010, F012).</li>
+<li><strong>Cortical/network:</strong> Sensorimotor cortex, supplementary motor area, superior temporal gyrus, superior longitudinal fasciculus (genotype-specific structural changes, F010); thalamo-cortical loops.</li>
+<li><strong>Tissue/cell:</strong> Nervous tissue; striatal D2 medium spiny neurons, deep cerebellar nuclei projection neurons (F007).</li>
+<li><strong>Subcellular:</strong> Nucleus (transcription factor; <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>); mutant truncations partly cytoplasmic (<a href="http://purl.obolibrary.org/obo/GO_0005737" target="_blank" rel="noopener noreferrer">GO:0005737</a>) ([<a href="https://pubmed.ncbi.nlm.nih.gov/22652465/" target="_blank" rel="noopener noreferrer">PMID: 22652465</a>]).</li>
+<li><strong>Lateralization:</strong> May begin focally/asymmetrically but frequently becomes bilateral/segmental/generalized (F004, F011).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> Childhood to adolescence, mean ~16.8 years (range 3 to &gt;60); insidious/chronic onset (F011). Late-onset (≥40y) subset predominantly cranial and sporadic (F012).</li>
+<li><strong>Progression:</strong> Typically progressive spread from focal onset (arm/neck) to segmental or generalized dystonia; neck most affected (F004, F011). Chronic, lifelong; not self-limited. Genotype influences rate/extent — truncating and THAP-domain missense mutations → earlier, more extensive disease (F011).</li>
+<li><strong>Patterns:</strong> No characteristic spontaneous remission; symptomatic improvement is treatment-induced (botulinum toxin, DBS). Adolescence is the critical vulnerability window; DBS can benefit refractory cases (F003).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Inheritance:</strong> Autosomal dominant (F001).</li>
+<li><strong>Penetrance:</strong> Incomplete, ~40–60% (F011).</li>
+<li><strong>Expressivity:</strong> Variable — onset, distribution, and severity vary, partly by mutation type/location (F011).</li>
+<li><strong>Epidemiology:</strong> THAP1 pathogenic variants in ~0.57% of a large dystonia cohort and ~1.8% of published dystonia patients (F006). Absolute prevalence/incidence not precisely established (rare disease). Founder mutation in Amish–Mennonite populations; confirmed across European, Chinese, Indian ancestries (F006).</li>
+<li><strong>Anticipation/mosaicism/consanguinity:</strong> No repeat-expansion anticipation (point-mutation disorder). Germline mosaicism not specifically characterized. Consanguinity not required (dominant).</li>
+<li><strong>Sex ratio/age distribution:</strong> No strong sex predilection established; onset concentrated in childhood–adolescence with a late-onset tail.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Genetic testing (definitive):</strong> Sequencing of <em>THAP1</em> (single-gene or dystonia gene panel) or WES/WGS; WES is high-yield in early-onset/familial isolated dystonia (F006). Recommended: dystonia panel or WES including <em>TOR1A</em>, <em>THAP1</em>, <em>GNAL</em>, <em>TUBB4A</em>, <em>PRKRA</em>, <em>ANO3</em>.</li>
+<li><strong>Imaging:</strong> Brain MRI typically normal. Research findings: transcranial sonography SN hyperechogenicity (F004); DTI reduced sensorimotor white-matter FA ([<a href="https://pubmed.ncbi.nlm.nih.gov/22652465/" target="_blank" rel="noopener noreferrer">PMID: 22652465</a>]); network/QSM imaging shows distributed sensorimotor–basal ganglia–cerebellar abnormalities (F010).</li>
+<li><strong>Electrophysiology:</strong> TMS shows reduced cerebellar brain inhibition (CBI) in some carriers (F012); laryngeal EMG documents adductor-type laryngeal dystonia (F004).</li>
+<li><strong>Laboratory/biomarkers:</strong> No specific fluid biomarker; diagnosis is genetic and clinical.</li>
+<li><strong>Clinical criteria &amp; differential diagnosis:</strong> Isolated dystonia phenotype (MDS consensus classification). Differentials: DYT1 (TOR1A — limb onset, spares cranial region), DYT25 (GNAL, <a href="https://pubmed.ncbi.nlm.nih.gov/27093447/">PMID: 27093447</a>), DYT4 (TUBB4A), DYT-PRKRA (<a href="https://pubmed.ncbi.nlm.nih.gov/40879515/">PMID: 40879515</a>), dopa-responsive dystonia, Wilson disease, tardive/secondary dystonias.</li>
+<li><strong>Screening:</strong> No population newborn screening; cascade genetic testing and counseling for at-risk relatives is appropriate given AD inheritance with incomplete penetrance.</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Survival/mortality:</strong> Normal life expectancy; non-degenerative and not directly life-shortening.</li>
+<li><strong>Morbidity/function:</strong> Chronic motor disability from generalized/segmental dystonia; laryngeal involvement impairs speech/communication. Substantial QoL impact.</li>
+<li><strong>Disease course:</strong> Progressive spread is common but plateaus; chronic and lifelong (F011).</li>
+<li><strong>Recovery/treatment response:</strong> Symptomatic improvement achievable — GPi-DBS reduces severity by a median ~58%, less robustly than DYT1 with possible partial regression (F003).</li>
+<li><strong>Prognostic factors:</strong> Mutation type/location (truncating/THAP-domain missense → earlier, more extensive disease) (F011); genotype (DYT6 vs DYT1) predicts DBS response (F003).</li>
+</ul>
+<h3>12. Treatment</h3>
+<p>Stepwise, symptomatic, no disease-modifying therapy (F009):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Intervention</th>
+<th>Notes</th>
+<th>NCIT suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Oral anticholinergics (trihexyphenidyl), baclofen, benzodiazepines (clonazepam)</td>
+<td>Off-label; modest benefit in generalized dystonia</td>
+<td>NCIT:C285 (anticholinergic agent); NCIT:C61703 (baclofen)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Botulinum toxin chemodenervation (EMG-guided for laryngeal/focal)</td>
+<td>Treatment of choice for focal/select regions incl. spasmodic dysphonia</td>
+<td>NCIT:C1084 (botulinum toxin)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>GPi deep brain stimulation</td>
+<td>For refractory generalized/segmental disease; ~58% median improvement, less robust than DYT1</td>
+<td>NCIT:C38150 (deep brain stimulation)</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Pharmacogenomics:</strong> Not established for DYT6.</li>
+<li><strong>Advanced/experimental:</strong> No approved gene/RNA therapy; dosage-restoring or transcription-network-normalizing approaches are a future prospect. Levodopa is generally ineffective in DYT6 (reserved for dopa-responsive dystonias).</li>
+<li><strong>Surgical outcomes:</strong> GPi-DBS benefits all treated patients in cohorts, with genotype-dependent variability (F003). Pediatric DBS carries higher major-complication rates in movement disorders vs other indications (<a href="https://pubmed.ncbi.nlm.nih.gov/41071966/">PMID: 41071966</a>).</li>
+<li><strong>Rehabilitation/supportive:</strong> Physical, occupational, and speech therapy for functional support.</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> Not applicable beyond reproductive options. Genetic counseling for at-risk families; preimplantation/prenatal testing possible where a familial pathogenic variant is known.</li>
+<li><strong>Secondary prevention:</strong> Cascade genetic testing of relatives; early diagnosis enables timely symptomatic intervention.</li>
+<li><strong>Tertiary prevention:</strong> Optimizing botulinum toxin/DBS to prevent contractures and functional decline.</li>
+<li><strong>Counseling:</strong> Autosomal dominant with 40–60% penetrance and variable expressivity — key counseling points (F011). No immunization/public-health interventions applicable.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy/orthologs:</strong> <em>THAP1</em> orthologs exist in mouse (<em>Thap1</em>, NCBI Gene 100210), rat, and other mammals; THAP-domain proteins are conserved across eukaryotes (F005, F008).</li>
+<li><strong>Natural disease:</strong> No well-documented naturally occurring DYT6-equivalent dystonia in companion animals or wildlife (no established OMIA entry for this specific disorder).</li>
+<li><strong>Comparative biology:</strong> Mechanisms are studied via engineered rodent models, not natural animal disease. THAP-domain transcriptional regulation is evolutionarily conserved.</li>
+<li><strong>Transmission:</strong> Not applicable (non-infectious, non-zoonotic).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Mammalian models:</strong> Mouse <em>Thap1</em> C54Y knock-in and null alleles; homozygous germline null is embryonic lethal (F007). Nervous-system-specific conditional deletions cause locomotor deficits with transcriptional dysregulation (F007). Rat models also described.</li>
+<li><strong>Phenotype recapitulation:</strong> Models reproduce <strong>molecular</strong> (transcriptional dysregulation, D2/indirect-pathway deficits, deep cerebellar nuclei abnormalities) and <strong>motor</strong> phenotypes, but <strong>do not</strong> show overt dystonia — a key limitation (F007). Heterozygotes show mRNA autoregulation and typically no overt phenotype unless challenged by a second hit (nerve injury; F012).</li>
+<li><strong>Applications:</strong> Dissecting THAP1's transcriptional targets (SP1/SP4), dopaminergic circuitry, cerebellar contribution, and gene–environment interactions (F007, F012).</li>
+<li><strong>Resources:</strong> MGI (mouse <em>Thap1</em>); cellular systems (HEK-293T transfection of mutant clones, [<a href="https://pubmed.ncbi.nlm.nih.gov/22652465/" target="_blank" rel="noopener noreferrer">PMID: 22652465</a>]); iPSC/organoid models are emerging.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>   THAP1 LoF mutation (missense in DNA-binding domain, or NMD-degraded null)
+    │  (loss of DNA binding)
+    ▼
+Reduced THAP1 transcriptional repression
+  │                         │
+  ▼                         ▼
+   De-repression of TOR1A     SP1/SP4-dependent gene-network
+   (links DYT6 ↔ DYT1)        dysregulation (cell-type specific)
+  │                         │
+  └───────────┬─────────────┘
+      ▼
+   Altered synaptic / cytoskeletal / dopaminergic gene expression
+      │
+┌─────────────┴──────────────┐
+▼                            ▼
+  Basal ganglia branch:        Cerebellar branch:
+  D2 / indirect-pathway         deep cerebellar nuclei
+  dysfunction (striatum)        + vermis abnormalities
+└─────────────┬──────────────┘
+      ▼
+   Network-level sensorimotor dysintegration; loss of surround inhibition
+      │        ▲
+      │        └── optional &quot;second hit&quot;: peripheral nerve
+      ▼            injury / metabolic stress (unmasks disease)
+   Isolated dystonia: craniocervical, laryngeal, brachial → generalizes
+   (mean onset ~16.8 y; penetrance 40–60%; no neurodegeneration)
+</code></pre>
+<p>DYT6 is fundamentally a <strong>transcriptional-network disorder</strong> rather than a neurodegenerative one. THAP1 acts as an upstream hub whose loss propagates through two demonstrated arms — direct de-repression of <em>TOR1A</em> (unifying DYT6 with DYT1) and SP1/SP4-mediated dysregulation of neuronal gene programs — converging on dopaminergic (D2/indirect-pathway) and cerebellar circuit dysfunction. The clinical corollary is a distributed basal ganglia–thalamo-cortical + cerebellar network abnormality with genotype- and phenotype-specific structural signatures, explaining both the craniocervical/laryngeal predilection and the partial, less-robust response to GPi-DBS compared with DYT1. Incomplete penetrance plus the experimental two-hit model implies that manifestation depends on additional genetic modifiers and/or environmental triggers.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Supports</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19182804/">19182804</a></td>
+<td><em>THAP1 mutations cause DYT6</em></td>
+<td>F001 — gene discovery, LoF</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30590536/">30590536</a></td>
+<td><em>Loss of Thap1 → convergent transcriptional deficits</em></td>
+<td>F001, F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20976771/">20976771</a></td>
+<td><em>DYT1 repressed by THAP1</em></td>
+<td>F002 — TOR1A repression</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20865765/">20865765</a></td>
+<td><em>Direct DYT1–DYT6 interaction</em></td>
+<td>F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25088175/">25088175</a></td>
+<td><em>THAP1 autoregulation</em></td>
+<td>F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31817799/">31817799</a></td>
+<td><em>GPi-DBS in DYT6</em></td>
+<td>F003 — 58% improvement</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21949105/">21949105</a></td>
+<td><em>Pallidal DBS DYT6 vs DYT1</em></td>
+<td>F003 — less robust</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19345148/">19345148</a></td>
+<td><em>DYT6 + spasmodic dysphonia</em></td>
+<td>F004 — craniocervical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20687193/">20687193</a></td>
+<td><em>DYT6 imaging/electrophysiology</em></td>
+<td>F004 — laryngeal, SN echo</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20144952/">20144952</a></td>
+<td><em>THAP zinc finger structure</em></td>
+<td>F005 — DNA binding</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26376866/">26376866</a></td>
+<td><em>Thap1 mouse motor/cerebellar</em></td>
+<td>F005, F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28299530/">28299530</a></td>
+<td><em>THAP1 dimerization domain</em></td>
+<td>F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33175450/">33175450</a></td>
+<td><em>GNAL/THAP1/TOR1A spectrum</em></td>
+<td>F006 — frequency</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36648081/">36648081</a></td>
+<td><em>Chinese isolated dystonia WES</em></td>
+<td>F006</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19908325/">19908325</a></td>
+<td><em>THAP1 screening Italy</em></td>
+<td>F006 — upper-body</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34802187/">34802187</a></td>
+<td><em>D2 receptor deficits Thap1 null</em></td>
+<td>F007 — indirect pathway</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35015830/">35015830</a></td>
+<td><em>THAP1 regulates SP1 family</em></td>
+<td>F007 — SP1/SP4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17003378/">17003378</a></td>
+<td><em>THAP1 pRB/E2F cell cycle</em></td>
+<td>F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20200153/">20200153</a></td>
+<td><em>THAP1–HCF-1–OGT (DYT6↔DYT3)</em></td>
+<td>F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31117876/">31117876</a></td>
+<td><em>Emerging dystonia therapies</em></td>
+<td>F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40841848/">40841848</a></td>
+<td><em>Generalized dystonia treatment</em></td>
+<td>F009 — algorithm</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27188707/">27188707</a></td>
+<td><em>Dystonia mutations in spasmodic dysphonia</em></td>
+<td>F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28186656/">28186656</a></td>
+<td><em>Genotype-specific structure in SD</em></td>
+<td>F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33638639/">33638639</a></td>
+<td><em>VAChT disrupted in DYT1</em></td>
+<td>F010 — network</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22377579/">22377579</a></td>
+<td><em>THAP1 genotype-phenotype</em></td>
+<td>F011 — onset 16.8y</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39732371/">39732371</a></td>
+<td><em>Nerve injury two-hit + omics</em></td>
+<td>F011, F012</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31367947/">31367947</a></td>
+<td><em>Cerebellar involvement DYT-THAP1</em></td>
+<td>F012</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42371050/">42371050</a></td>
+<td><em>Late-onset THAP1 spectrum</em></td>
+<td>F012</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Corroborating / contextual:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/21793105/">21793105</a> (UMD-THAP1 LSDB), <a href="https://pubmed.ncbi.nlm.nih.gov/22652465/">22652465</a> (subcellular localization + DTI), <a href="https://pubmed.ncbi.nlm.nih.gov/20010837/">20010837</a> (bipartite DNA recognition), <a href="https://pubmed.ncbi.nlm.nih.gov/38737544/">38737544</a> (neuron–glia regulatory network), <a href="https://pubmed.ncbi.nlm.nih.gov/27913194/">27913194</a> (India cohort), <a href="https://pubmed.ncbi.nlm.nih.gov/27093447/">27093447</a> (GNAL differential), <a href="https://pubmed.ncbi.nlm.nih.gov/40879515/">40879515</a> (DYT-PRKRA differential).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>No overt dystonia in animal models.</strong> Thap1 rodents recapitulate molecular and motor phenotypes but not overt dystonia, limiting mechanistic and preclinical therapeutic testing (F007). The genotype-to-dystonia gap is unresolved.</li>
+<li><strong>Incomplete penetrance unexplained.</strong> The 40–60% penetrance implies unidentified genetic modifiers and/or environmental triggers (F011). No protective alleles are known.</li>
+<li><strong>Sparse quantitative epidemiology.</strong> Absolute prevalence/incidence of DYT6 are not well established; estimates derive from proportions within dystonia cohorts (F006).</li>
+<li><strong>No disease-specific biomarker or QoL instrument.</strong> Diagnosis is genetic; no fluid biomarker or DYT6-tailored QoL measure exists.</li>
+<li><strong>Human GxE evidence is indirect.</strong> The two-hit model is demonstrated only in mice; a peripheral-injury trigger in humans is plausible but unproven (F012).</li>
+<li><strong>DBS response variability.</strong> Predictors of GPi-DBS response in DYT6 and mechanisms of late partial regression are incompletely understood (F003).</li>
+<li><strong>No disease-modifying therapy.</strong> All treatments are symptomatic; gene- or transcription-targeted therapeutics remain conceptual.</li>
+</ul>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Modifier-gene / penetrance study.</strong> Genome-wide or targeted analysis comparing manifesting vs non-manifesting THAP1 carriers within families to identify penetrance modifiers (addresses F011).</li>
+<li><strong>Improved dystonia models.</strong> Develop conditional/humanized Thap1 models (cell-type-specific in striatal D2 neurons and deep cerebellar nuclei) with sensitized ("second-hit") paradigms to elicit overt dystonia and test the branch-specific model (F007, F012).</li>
+<li><strong>Single-cell / spatial transcriptomics</strong> of striatum and cerebellum in Thap1 models to map SP1/SP4-dependent, cell-type-specific dysregulation and pinpoint the causal node between transcriptional change and circuit dysfunction (F007).</li>
+<li><strong>Prospective DBS-response registry</strong> stratified by THAP1 genotype (truncating vs THAP-domain missense vs other) to define predictors and characterize late regression (F003, F011).</li>
+<li><strong>Human GxE investigation.</strong> Retrospective/prospective analysis of whether peripheral trauma or metabolic stress precedes symptom onset in THAP1 carriers, translating the mouse two-hit finding (F012).</li>
+<li><strong>Therapeutic proof-of-concept.</strong> Test dosage-restoring or SP1/SP4-network-normalizing strategies (e.g., ASO/gene supplementation) in models, given the loss-of-function, transcription-network mechanism (F001, F002, F007).</li>
+<li><strong>Biomarker discovery.</strong> Evaluate energy-metabolism/metabolomic signatures (from the two-hit omics study) as candidate peripheral biomarkers of disease activity or penetrance (F012).</li>
+</ol>
+<hr />
+<p><em>Report compiled from 12 confirmed findings and 49 reviewed papers over 5 investigation iterations. All mechanistic and clinical claims are cited to primary literature (PMID). Evidence source types span human clinical/genetic cohorts, engineered rodent/cellular models, in-vitro biochemistry/structural biology, and neuroimaging.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Torsion_Dystonia_6-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Torsion_Dystonia_6-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>37</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0002408</code> (1 mention) - the report calls it "Torticollis"; HP calls it <strong>Cerebral arteriovenous malformation</strong></li>
+<li><code>HP:0001350</code> (1 mention) - the report calls it "Dysphonia"; HP calls it <strong>Slurred speech</strong></li>
+<li><code>HP:0001260</code> (1 mention) - the report calls it "Symptom"; HP calls it <strong>Dysarthria</strong></li>
+<li><code>HP:0007325</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Generalized dystonia</strong></li>
+<li><code>NCIT:C1084</code> (1 mention) - the report calls it "botulinum toxin"; NCIT calls it <strong>Staphylococcal Enterotoxin B</strong></li>
+<li><code>NCIT:C38150</code> (1 mention) - the report calls it "deep brain stimulation"; NCIT calls it <strong>PEComa</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>HP:0004350</code> (1 mention), reported as "Clinical sign" - HP does not contain this term</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0006355</code> (1 mention) - the report calls it "regulation of transcription"; GO calls it <strong>regulation of DNA-templated transcription</strong></li>
+<li><code>GO:0000122</code> (1 mention) - the report calls it "negative regulation of transcription by RNA pol II"; GO calls it <strong>negative regulation of transcription by RNA polymerase II</strong></li>
+<li><code>CL:0002613</code> (2 mentions) - the report calls it "striatal neuron"; CL calls it <strong>striatum neuron</strong></li>
+<li><code>UBERON:0002420</code> (1 mention) - the report calls it "Primary regions:<strong> Basal ganglia"; UBERON calls it </strong>basal ganglion**, and lists "basal ganglia" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Torsade_De_Pointes_Syndrome_With_Short_Coupling_Interval-falcon.html">← Torsade de Pointes Syndrome With Short Coupling Interval (Falcon)</a>
+                
+                
+                <a href="Tourette_Syndrome-falcon.html">Tourette Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Torsion_Dystonia_6.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Torsion_Dystonia_6-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

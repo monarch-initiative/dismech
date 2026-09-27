@@ -1,99 +1,141 @@
-# Assessment of the OpenScientist embryonic nodal-cilia report
+# OpenScientist assessment: embryonic_nodal_cilia_laterality
 
-## Overall assessment
+Updated 5 September 2026. This replaces and expands the July narrative while preserving its useful claim judgments. The assessment YAML is authoritative.
 
-**Verdict on the mechanism: supported.**
+The genotype-restricted nodal-flow arm is supported. The report overstates mechanistic completeness, misclassifies non-ODA genes and cohort evidence, and misses direct mammalian mechanosensing experiments that already address a central proposed gap. This assessment expands and reconciles the July review after reading the complete provider report, citation sidecar, existing assessment, and disease YAML, and independently retrieving the material primary literature and current diagnostic/care guidance. No provider computation or primary omics analysis was reproduced.
 
-The genotype-scoped core is canonical and strongly supported. Motile cilia at
-the vertebrate left-right organizer generate directional extracellular flow;
-disruption of the machinery used by those cilia can randomize asymmetric
-signaling and organ situs. Direct flow manipulation, ciliary-mutant models,
-flow-sensing experiments, and human PCD cohorts all support this chain.
+## nodal-flow-core — RETAINED
 
-The report’s main weakness is overgeneralization. It moves from a strong,
-genotype-dependent mechanism to the incorrect rule that only outer-dynein-arm
-defects affect nodal cilia. It also treats several negative controls and the
-heterotaxy mechanism as more firmly established than their sources allow.
+Artificial-flow experiments, motile-cilia mutants, flow-sensing studies, and human PCD laterality distributions converge on the scoped mechanism. It should not be generalized to every PCD genotype because some affected structures are absent from nodal cilia.
 
-## Findings that should be retained
+[PMID:12097914](https://pubmed.ncbi.nlm.nih.gov/12097914/), [PMID:22983710](https://pubmed.ncbi.nlm.nih.gov/22983710/), [PMID:17515466](https://pubmed.ncbi.nlm.nih.gov/17515466/), [PMID:24577564](https://pubmed.ncbi.nlm.nih.gov/24577564/)
 
-Artificial rightward flow reversed situs in wild-type mouse embryos and directed
-situs in mutants with immotile cilia
-[PMID:12097914](https://pubmed.ncbi.nlm.nih.gov/12097914/). This is direct
-causal evidence that flow is instructive. Work on Pkd2/Pkd1l1 supports a
-flow-sensing mechanism at crown-cell cilia
-[PMID:22983710](https://pubmed.ncbi.nlm.nih.gov/22983710/),
-[PMID:21307093](https://pubmed.ncbi.nlm.nih.gov/21307093/), although the exact
-biophysics remains an active question.
+## artificial-flow-causality — RETAINED
 
-Human cohorts show the expected near-balanced situs-solitus/situs-inversus
-distribution plus a clinically important heterotaxy category
-[PMID:17515466](https://pubmed.ncbi.nlm.nih.gov/17515466/),
-[PMID:24577564](https://pubmed.ncbi.nlm.nih.gov/24577564/). RSPH1 is a strong
-negative control because the central-pair apparatus is absent and radial-spoke
-function is correspondingly dispensable at the node
-[PMID:24518672](https://pubmed.ncbi.nlm.nih.gov/24518672/).
-Small CCNO series are also consistent with laterality sparing because nodal
-monocilia do not require multiciliated-cell centriole amplification.
+Reversing flow reversed situs in wild-type embryos, and imposed flow directed situs in immotile-cilia mutants. This is unusually direct evidence that extracellular flow is causally instructive.
 
-## Material corrections and qualifications
+[PMID:12097914](https://pubmed.ncbi.nlm.nih.gov/12097914/)
 
-### Non-ODA defects can impair nodal cilia
+## exclusion-of-preexisting-asymmetry — QUALIFIED
 
-The report’s statement that “Only ODA-affecting mutations impair 9+0 cilia” is
-false. CCDC39 and CCDC40 defects disrupt the nexin-dynein regulatory
-complex/inner-dynein-arm organization and cause laterality abnormalities in
-human and model-organism data
-[PMID:21131972](https://pubmed.ncbi.nlm.nih.gov/21131972/),
-[PMID:21131974](https://pubmed.ncbi.nlm.nih.gov/21131974/). They therefore must
-not be grouped with RSPH1/RSPH4A as a laterality-sparing “IDA/CA” class.
+The experiment establishes that flow is sufficient to direct the downstream axis; it does not exclude cellular chirality upstream of flow. Subsequent work explicitly combines embryonic axes with the chirality of ciliary rotation to explain how leftward flow is generated.
 
-### DRC1 is not validated by the cited item
+[PMID:12097914](https://pubmed.ncbi.nlm.nih.gov/12097914/), [PMID:16035921](https://pubmed.ncbi.nlm.nih.gov/16035921/)
 
-The Kato citation [PMID:42185991](https://pubmed.ncbi.nlm.nih.gov/42185991/) is
-a single neonatal case report with a literature review. Its statement that
-DRC1 is often associated with situs solitus is background synthesis, not a new
-cohort result. A multicenter DRC1 phenotype comparison
-[PMID:41570615](https://pubmed.ncbi.nlm.nih.gov/41570615/) does not turn the
-case report into an independent laterality dataset. RSPH1, CCNO, and DRC1
-should not be labeled three equivalent “validated negative controls.”
+## mechanistic-completeness — QUALIFIED
 
-### Heterotaxy’s flow basis remains a hypothesis
+The broad model is well supported, while human nodal dynamics and discordant organ outcomes remain incompletely observed. The July assessment left mammalian mechanosensing too unresolved: existing 2023 mouse optical-tweezer evidence directly links ciliary bending to calcium and Dand5 decay, and parallel zebrafish manipulation supports the sensing principle. The September revision adds these and the 2021 BICC1/CNOT3 RNA-decay mechanism, without declaring every human intermediate resolved.
 
-The clinical cohorts establish that heterotaxy occurs in roughly 6–12 percent
-of PCD participants. They do not measure nodal flow. Partial or turbulent
-residual flow is a plausible explanation and a good proposed experiment, but
-not yet a demonstrated mechanism in those cohorts.
+[PMID:36603091](https://pubmed.ncbi.nlm.nih.gov/36603091/), [PMID:36603098](https://pubmed.ncbi.nlm.nih.gov/36603098/), [PMID:34210974](https://pubmed.ncbi.nlm.nih.gov/34210974/), [PMID:22983710](https://pubmed.ncbi.nlm.nih.gov/22983710/)
 
-### “Mechanistically complete” is too strong
+## heterotaxy-flow-mechanism — REJECTED
 
-The major sequence from ciliary motion through flow to asymmetric signaling is
-compelling, but direct human-node evidence is unavailable and flow-to-signal
-transduction remains debated. The artificial-flow result also does not exclude
-cellular chirality upstream of flow; later work explicitly invokes ciliary
-rotation chirality to explain how directional flow arises
-[PMID:16035921](https://pubmed.ncbi.nlm.nih.gov/16035921/).
+Heterotaxy cohorts do not directly measure embryonic flow. Partial or spatially disordered flow and signaling thresholds can be proposed, but a turbulent-flow explanation is not demonstrated and conflicts with the usual low-Reynolds-number nodal regime. Definitions and genotype mixtures explain variation in recorded frequencies without validating a particular flow mechanism.
 
-## Ontology and provenance
+[PMID:36342963](https://pubmed.ncbi.nlm.nih.gov/36342963/), [PMID:12097914](https://pubmed.ncbi.nlm.nih.gov/12097914/), [PMID:36603091](https://pubmed.ncbi.nlm.nih.gov/36603091/)
 
-Three proposed ontology mappings are wrong:
+## negative-control-genotypes — QUALIFIED
 
-- GO:0003351 is epithelial cilium movement involved in extracellular fluid
-  movement, not specifically left-right asymmetry.
-- GO:0060287 is epithelial cilium movement involved in determination of
-  left/right asymmetry, not ciliary body morphogenesis.
-- UBERON:0003080 is anterior neural tube, not ventral node; UBERON:0003062
-  (primitive knot) is the appropriate replacement.
+RSPH1 is a strong structure-based negative control and CCNO is a useful but still small clinical series. The deposited DRC1 evidence does not independently validate laterality sparing, so the three should not be presented as equivalent.
 
-The citation manifest exposes 37 unique PMIDs rather than a reproducible
-100-paper screened corpus. The larger count should remain unverified provider
-provenance.
+[PMID:24518672](https://pubmed.ncbi.nlm.nih.gov/24518672/), [PMID:26777464](https://pubmed.ncbi.nlm.nih.gov/26777464/), [PMID:34102041](https://pubmed.ncbi.nlm.nih.gov/34102041/), [PMID:42185991](https://pubmed.ncbi.nlm.nih.gov/42185991/)
 
-## Curation implication
+## drc1-cohort-characterization — REJECTED
 
-Retain the nodal-flow mechanism with an explicit genotype/structure scope.
-Preserve RSPH1 and cautiously CCNO as negative controls, but remove or narrow
-the DRC1 claim. Do not encode the ODA-only rule or group CCDC39/CCDC40 with
-laterality-sparing radial-spoke genes. Treat the partial-flow explanation for
-heterotaxy as a knowledge gap. Citations in this assessment are context only
-until they pass the normal disease-YAML evidence workflow.
+PMID:42185991 is a report of one neonatal DRC1 case plus a literature review. The quoted sentence is background synthesis, not a cohort result generated by that study. A separate DRC1 cohort supports a distinct clinical presentation but does not make this citation a primary laterality dataset.
+
+[PMID:42185991](https://pubmed.ncbi.nlm.nih.gov/42185991/), [PMID:41570615](https://pubmed.ncbi.nlm.nih.gov/41570615/)
+
+## oda-only-nodal-impairment — REJECTED
+
+CCDC39 and CCDC40 defects affect the nexin-dynein regulatory complex, inner dynein arms, and axonemal organization yet are associated with randomized laterality in humans and model organisms. Central-pair and radial-spoke defects may spare the node, but that fact cannot be extended to all non-ODA defects. These three citations were introduced by the assessor rather than drawn from the provider's citation manifest.
+
+[PMID:21131972](https://pubmed.ncbi.nlm.nih.gov/21131972/), [PMID:21131974](https://pubmed.ncbi.nlm.nih.gov/21131974/), [PMID:23255504](https://pubmed.ncbi.nlm.nih.gov/23255504/)
+
+## proposed-genotype-strata — REJECTED
+
+This grouping conflates biologically different defects. RSPH1/RSPH4A affect structures absent from 9+0 nodal cilia, whereas CCDC39/CCDC40 organize axonemal components needed at the node and are associated with laterality defects. The CCDC39/CCDC40 citations were introduced by the assessor rather than drawn from the provider's citation manifest.
+
+[PMID:21131972](https://pubmed.ncbi.nlm.nih.gov/21131972/), [PMID:21131974](https://pubmed.ncbi.nlm.nih.gov/21131974/), [PMID:24518672](https://pubmed.ncbi.nlm.nih.gov/24518672/)
+
+## go-ontology-mappings — REJECTED
+
+The labels are mismatched. GO:0003351 is epithelial cilium movement involved in extracellular fluid movement; GO:0060287 is epithelial cilium movement involved in determination of left/right asymmetry.
+
+## node-ontology-mapping — REJECTED
+
+UBERON:0003080 denotes anterior neural tube, not the ventral node. UBERON:0003062 (primitive knot, with primitive node among its synonyms) is the appropriate replacement. The proposed mapping must not be copied into curated data as written.
+
+## literature-count-provenance — NEEDS_VERIFICATION
+
+The citation manifest exposes 37 unique PMIDs and no search log or full screened corpus. The asserted total may reflect provider-internal work, but it cannot be reconstructed from the deposited artifacts.
+
+## omitted-direct-mechanosensing — REJECTED
+
+PMID:36603091 (Science 2023) directly bends immotile mouse nodal cilia with optical tweezers and measures calcium transients and Dand5 mRNA degradation, with directional PKD2 localization. Independent PMID:36603098 uses zebrafish optical tweezers, light-sheet microscopy and deep learning to show Pkd2-dependent intraciliary calcium and rescue/reversal of cardiac situs. These predate the report. Molecular details and human embryonic observation remain open, but the claimed absence of direct mammalian mechanosensory evidence is incorrect.
+
+[PMID:36603091](https://pubmed.ncbi.nlm.nih.gov/36603091/), [PMID:36603098](https://pubmed.ncbi.nlm.nih.gov/36603098/)
+
+## dand5-rna-intermediate — QUALIFIED
+
+The broad flow-to-NODAL pathway is supported, but the report skips experimentally resolved post-transcriptional intermediates. PMID:34210974 maps a flow-responsive Dand5 3′UTR region, PKD2/calcium and BICC1 regulation, and CNOT3/CCR4-NOT-dependent RNA decay in mouse crown cells. These findings strengthen a specified mechanistic chain without making human heterotaxy timing or every signaling intermediate completely resolved.
+
+[PMID:34210974](https://pubmed.ncbi.nlm.nih.gov/34210974/), [PMID:36603091](https://pubmed.ncbi.nlm.nih.gov/36603091/), [PMID:22983710](https://pubmed.ncbi.nlm.nih.gov/22983710/)
+
+## cohort-overlap-definitions — QUALIFIED
+
+The 337-person 2007 and 305-person 2014 North American studies use different definitions and can share recruiting cohorts; they are not automatically independent prevalence replications. The 559-person later study found 51.2% solitus, 38.5% complete inversion and 10.4% ambiguus, but only 14/559 (2.5%) met its narrower complex-cardiovascular heterotaxy definition. The model should retain genotype- and definition-dependent distributions rather than treat 6–12% as a universal fixed rate.
+
+[PMID:17515466](https://pubmed.ncbi.nlm.nih.gov/17515466/), [PMID:24577564](https://pubmed.ncbi.nlm.nih.gov/24577564/), [PMID:36342963](https://pubmed.ncbi.nlm.nih.gov/36342963/)
+
+## heterotaxy-surgery-population — QUALIFIED
+
+PMID:20884020 concerns 87 heterotaxy/CHD surgical patients versus 634 surgical controls, not a confirmed-PCD cohort. The postoperative death rate of 16.1% versus 4.7% and other complications cannot be assigned to every patient with PCD/heterotaxy. Ciliary dysfunction was a proposed contributor, not a tested explanation for all excess surgical risk.
+
+[PMID:20884020](https://pubmed.ncbi.nlm.nih.gov/20884020/)
+
+## chd-cohort-not-pcd-denominator — QUALIFIED
+
+PMID:40467998 begins with background PCD frequency statements but its own denominator is 18,781 CHD patients; 206 had laterality defects and 121 underwent sequencing. It is a reverse-ascertained CHD cohort, not a new 18,781-person PCD laterality study or independent confirmation of the 6.3% PCD estimate.
+
+[PMID:40467998](https://pubmed.ncbi.nlm.nih.gov/40467998/)
+
+## flow-turbulence-inference — REJECTED
+
+Clinical discordant situs does not measure embryonic flow speed or turbulence. Nodal microscale flow is in a low-Reynolds-number regime; irregular, weak or spatially altered flow and signaling thresholds are plausible hypotheses, but turbulent flow is not supported by the cited experiments or cohort data. No such causal edge is added.
+
+[PMID:12097914](https://pubmed.ncbi.nlm.nih.gov/12097914/), [PMID:36603091](https://pubmed.ncbi.nlm.nih.gov/36603091/), [PMID:37477290](https://pubmed.ncbi.nlm.nih.gov/37477290/)
+
+## negative-control-scope — QUALIFIED
+
+RSPH1 supports a structure-based nodal-sparing prediction and CCNO/MCIDAS provide multiciliogenesis-specific contrast. DRC1 report PMID:42185991 is one case plus review; PMID:41570615 supplies a separate 64-person Japanese clinical series but does not convert that case report into a cohort. C1d transport-defect research selected situs-solitus cases, so its lack of laterality cannot estimate unselected prevalence. The nodal prediction must remain gene specific, not extend to all N-DRC or IDA defects.
+
+[PMID:24568568](https://pubmed.ncbi.nlm.nih.gov/24568568/), [PMID:24747639](https://pubmed.ncbi.nlm.nih.gov/24747639/), [PMID:25048963](https://pubmed.ncbi.nlm.nih.gov/25048963/), [PMID:42185991](https://pubmed.ncbi.nlm.nih.gov/42185991/), [PMID:41570615](https://pubmed.ncbi.nlm.nih.gov/41570615/), [PMID:39362668](https://pubmed.ncbi.nlm.nih.gov/39362668/)
+
+## ccdc40-subcellular-location — QUALIFIED
+
+The report wrongly groups these with radial-spoke/central-apparatus genes for laterality prediction. PMID:21131974 shows CCDC40 required for left-right patterning, but reports no CCDC40 signal in 56 assessed nodal axonemes; it is apical cytoplasmic in node cells. Required function in the node does not imply demonstrated localization to its axoneme. The revised model therefore describes function rather than inventing nodal protein localization.
+
+[PMID:21131974](https://pubmed.ncbi.nlm.nih.gov/21131974/), [PMID:21131972](https://pubmed.ncbi.nlm.nih.gov/21131972/), [PMID:23255504](https://pubmed.ncbi.nlm.nih.gov/23255504/)
+
+## human-transcriptomic-test-limits — QUALIFIED
+
+Expression of ciliary genes in human gastrulation scRNA-seq would support cell identity and timing, not directly measure ciliary rotation, flow, mechanosensing or laterality outcomes. The proposed dataset analysis has no deposited accession or executed code in this report; it cannot by itself close the direct human embryonic mechanism gap.
+
+[PMID:36603091](https://pubmed.ncbi.nlm.nih.gov/36603091/), [PMID:36603098](https://pubmed.ncbi.nlm.nih.gov/36603098/)
+
+## conditional-pkd2-existing-evidence — QUALIFIED
+
+PMID:22983710 already localizes required Pkd2 function to crown-cell cilia and tests nodal flow sensing. New perturbations could resolve timing or interactions, but the proposed experiment should acknowledge prior cell-specific work and the subsequent 2023 mechanical-stimulation studies. Pkd2/Pkd1l1 sensor genes are not thereby general respiratory-PCD diagnostic genes.
+
+[PMID:22983710](https://pubmed.ncbi.nlm.nih.gov/22983710/), [PMID:21307093](https://pubmed.ncbi.nlm.nih.gov/21307093/), [PMID:36603091](https://pubmed.ncbi.nlm.nih.gov/36603091/)
+
+## gene-validity-not-laterality-ranking — QUALIFIED
+
+ClinGen/GenCC assess gene-disease validity rather than directly provide a quantitative laterality penetrance model. A missing outcome-specific grade is not a failure to establish the nodal mechanism. Gene validity, allele pathogenicity, tissue expression and observed laterality frequency need distinct evidence.
+
+[PMID:41005984](https://pubmed.ncbi.nlm.nih.gov/41005984/), [PMID:38871375](https://pubmed.ncbi.nlm.nih.gov/38871375/)
+
+## Dataset, artifact and analysis audit
+
+The full Markdown report and its `.md.citations.md` sidecar were read. 3 figure placeholders have no corresponding committed images. The literature search remains reported-only and all 5 named discriminating tests are future proposals. No provider raw-data execution or reproducible computational result is established. Current disease datasets were independently checked at GEO and their publications; that metadata review is not provider access or a new omics analysis.

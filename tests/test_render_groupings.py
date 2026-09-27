@@ -43,8 +43,14 @@ def test_render_grouping_index_shows_explicit_grouping_tree(tmp_path: Path) -> N
 
     html = output_path.read_text()
     assert "Grouping Tree" in html
-    assert "2 roots" in html
+    assert "1 nested tree" in html
     assert "1 nested relation" in html
+    assert "1 standalone" in html
+    # The standalone grouping is folded into the collapsed list, not drawn as
+    # a childless root beside the real tree.
+    assert "Standalone groupings (1)" in html
+    tree = html[html.index('class="tree-root-list"') : html.index('class="standalone"')]
+    assert "Tubulinopathies" not in tree
     assert (
         'href="Lysosomal_Storage_Disorders.html">Lysosomal Storage Disorders</a>'
         in html

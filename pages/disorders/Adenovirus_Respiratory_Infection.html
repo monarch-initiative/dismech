@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Adenovirus Respiratory Infection</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Adenovirus Respiratory Infection</h1>
             <div class="header-meta">
 
@@ -3965,6 +4108,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adenoviral-dna-polymerase-activity" data-dismech-node="Adenoviral DNA Polymerase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Adenoviral DNA Polymerase Activity</div>
 
+
                 <div class="item-desc">Adenoviral DNA polymerase copies the double-stranded DNA genome. The active diphosphorylated metabolite of cidofovir interacts with viral DNA polymerase, making this replication step a pharmacologic vulnerability, although clinical evidence for cidofovir in adenovirus disease remains limited.</div>
 
 
@@ -4080,7 +4224,10 @@ This pathophysiological event involves nucleotidyltransferase activity (GO:00167
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8701600" target="_blank">PMID:8701600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4105,6 +4252,7 @@ This pathophysiological event involves nucleotidyltransferase activity (GO:00167
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-epithelial-infection-and-viral-replication" data-dismech-node="Respiratory Epithelial Infection and Viral Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory Epithelial Infection and Viral Replication</div>
+
 
                 <div class="item-desc">Human adenovirus infects respiratory epithelial cells and replicates its DNA genome. Respiratory infection is usually mild and self-limited in immunocompetent hosts, but type and host context influence whether disease remains localized or progresses to pneumonia.</div>
 
@@ -4288,7 +4436,10 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27486739" target="_blank">PMID:27486739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4310,7 +4461,10 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33072092" target="_blank">PMID:33072092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4335,6 +4489,7 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-antiviral-response" data-dismech-node="Innate Antiviral Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate Antiviral Response</div>
+
 
                 <div class="item-desc">Intrinsic restriction factors, pattern-recognition receptors, and cytosolic DNA sensors mount an antiviral response to adenovirus and trigger interferon. Adenovirus early proteins and virus-associated RNAs counter several of these defenses, so the net response varies by cell and host context.</div>
 
@@ -4432,7 +4587,10 @@ This pathophysiological event involves defense response to virus (GO:0051607). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24512150" target="_blank">PMID:24512150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4457,6 +4615,7 @@ This pathophysiological event involves defense response to virus (GO:0051607). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airway-pro-inflammatory-cytokine-response" data-dismech-node="Airway Pro-inflammatory Cytokine Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Airway Pro-inflammatory Cytokine Response</div>
+
 
                 <div class="item-desc">In airway samples from children with adenovirus type 7 infection, multiple inflammatory cytokines are elevated. In airway epithelial models, infection activates p38/NF-kappaB signaling and IL-6 expression; excessive inflammation is a plausible contributor to tissue injury and severe symptoms.</div>
 
@@ -4614,7 +4773,10 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33072092" target="_blank">PMID:33072092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4639,6 +4801,7 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-upper-respiratory-clinical-syndrome" data-dismech-node="Upper Respiratory Clinical Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Upper Respiratory Clinical Syndrome</div>
+
 
                 <div class="item-desc">Respiratory adenovirus infection often produces a febrile pharyngitis syndrome with nasal congestion; the phenotype combination can resemble other viral respiratory infections.</div>
 
@@ -4724,7 +4887,10 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4749,6 +4915,7 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-adenovirus-pneumonia-and-lung-injury" data-dismech-node="Severe Adenovirus Pneumonia and Lung Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Adenovirus Pneumonia and Lung Injury</div>
+
 
                 <div class="item-desc">A minority of respiratory infections progress to severe lower-respiratory disease with extensive inflammatory lung injury. Severe pediatric pneumonia can require ventilatory support and may be followed by chronic small-airway obstruction, especially bronchiolitis obliterans.</div>
 
@@ -4880,7 +5047,10 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30321228" target="_blank">PMID:30321228</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4955,9 +5125,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(4)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4998,6 +5166,9 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5010,7 +5181,10 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27486739" target="_blank">PMID:27486739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5073,6 +5247,9 @@ This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5085,7 +5262,10 @@ This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5148,6 +5328,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5160,7 +5343,10 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5223,6 +5409,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5235,7 +5424,10 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5267,7 +5459,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pharyngitis" data-dismech-node="Pharyngitis" data-dismech-type="phenotype">
@@ -5298,6 +5490,9 @@ This clinical feature is Pharyngitis (HP:0025439). HP:0025439 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5310,7 +5505,10 @@ This clinical feature is Pharyngitis (HP:0025439). HP:0025439 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5364,6 +5562,9 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5376,7 +5577,10 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34712627" target="_blank">PMID:34712627</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5430,6 +5634,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5442,7 +5649,10 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37476615" target="_blank">PMID:37476615</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5496,6 +5706,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5508,7 +5721,10 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5533,15 +5749,6 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
                 </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bronchiolitis-obliterans" data-dismech-node="Bronchiolitis Obliterans" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5589,6 +5796,9 @@ This clinical feature is Bronchiolitis obliterans (HP:0011946), qualified as tem
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5601,7 +5811,10 @@ This clinical feature is Bronchiolitis obliterans (HP:0011946), qualified as tem
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30321228" target="_blank">PMID:30321228</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5663,6 +5876,9 @@ This clinical feature is Bronchiolitis obliterans (HP:0011946), qualified as tem
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5712,6 +5928,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Most respiratory adenovirus infections are self-limited. Severe pneumonia may require supplemental oxygen, ventilatory support, and other organ support; no adenovirus-specific drug is approved.</div>
 
 
@@ -5731,7 +5961,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37476615" target="_blank">PMID:37476615</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5753,7 +5986,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5838,6 +6074,31 @@ This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intravenous cidofovir is used off label in some transplant centers for severe, progressive, or disseminated adenovirus disease. This is not an approved general treatment for uncomplicated respiratory infection, prospective randomized efficacy data are absent, and nephrotoxicity limits use.</div>
 
 
@@ -5866,7 +6127,10 @@ This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8701600" target="_blank">PMID:8701600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5888,7 +6152,10 @@ This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15865216" target="_blank">PMID:15865216</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5929,7 +6196,10 @@ This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30859626" target="_blank">PMID:30859626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5951,7 +6221,10 @@ This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6015,6 +6288,31 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Vaccine</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">In U.S. military recruits, the live oral type 4/type 7 vaccine directly prevented type-4 febrile acute respiratory disease. Type 7 was not expected to circulate during the trial, so its primary endpoint was neutralizing-antibody seroconversion rather than clinical efficacy. This is a targeted prevention strategy, not treatment of established disease.</div>
 
 
@@ -6034,7 +6332,10 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23623865" target="_blank">PMID:23623865</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6056,7 +6357,10 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23623865" target="_blank">PMID:23623865</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6116,7 +6420,10 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27486739" target="_blank">PMID:27486739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6146,6 +6453,442 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-respiratory-specimen-adenovirus-pcr">
+                <div class="item-name">
+                    Respiratory-specimen adenovirus PCR
+
+                </div>
+
+                <div class="item-desc">Adenovirus nucleic-acid testing on respiratory specimens detects viral DNA and supports an etiologic diagnosis when interpreted with a compatible syndrome; multiplex respiratory PCR simultaneously assesses clinically overlapping causes.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Detection of adenovirus DNA in a compatible respiratory syndrome supports, but does not by itself establish, active etiologic infection.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28114362" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient blood and sputum samples were subjected to conventional culture, serology, and polymerase chain reaction tests for respiratory viruses and atypical pathogens."</div>
+
+
+                <div class="evidence-explanation">This clinical outbreak study used respiratory-specimen PCR as part of etiologic diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-quantitative-pcr-and-tissue-confirmation-in-severe-or-immunocompromised-disease">
+                <div class="item-name">
+                    Quantitative PCR and tissue confirmation in severe or immunocompromised disease
+
+                </div>
+
+                <div class="item-desc">In severe or disseminated disease, serial quantitative PCR can help follow viral burden; culture, molecular testing, and tissue sampling are interpreted with the affected-organ syndrome.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Rising or persistent adenovirus DNA with compatible organ disease supports progressive infection.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30859626" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30859626" target="_blank">PMID:30859626</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Serial quantitative PCR might play a role in the decision to initiate or assess response to therapy in a symptomatic patient."</div>
+
+
+                <div class="evidence-explanation">Transplant infectious-disease guidance supports serial quantitative PCR in symptomatic patients.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34856601" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34856601" target="_blank">PMID:34856601</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis requires astute clinical awareness of the patient&#39;s clinical presentation that would be compatible with adenovirus combined with cultures, molecular testing, polymerase chain reaction, and tissue sampling."</div>
+
+
+                <div class="evidence-explanation">This review supports multimodal confirmation in the relevant clinical context.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-human-mastadenovirus">
+                <div class="item-name">Human mastadenovirus</div>
+
+                <div class="item-desc">The human-infecting mastadenoviruses include multiple types with different tissue tropisms. Respiratory disease is especially associated with types in species B, C, and E, although the circulating type distribution varies by place and time.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Human mastadenovirus
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_3567875" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-30">NCBITaxon:3567875</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27486739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27486739" target="_blank">PMID:27486739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"More than 50 serotypes of AdV have been identified. Different serotypes display different tissue tropisms that correlate with clinical manifestations of infection."</div>
+
+
+                <div class="evidence-explanation">This review supports a type-diverse human adenovirus agent with type-dependent clinical tropism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-respiratory-tract-transmission">
+                <div class="item-name">Respiratory tract transmission</div>
+
+                <div class="item-desc">Human adenoviruses spread principally by the respiratory route, with contact and faecal-oral routes also recognised. Because tissue tropism is type-dependent, the dominant route differs between the respiratory, ocular and enteric adenovirus types.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37476615" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37476615" target="_blank">PMID:37476615</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Adenoviruses normally transmit through the respiratory tract, but other routes involve contact and fecal-oral transmission."</div>
+
+
+                <div class="evidence-explanation">States the respiratory route as the usual mode of adenovirus transmission and names contact and faecal-oral spread as the alternatives.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-spread-in-crowded-congregate-settings">
+                <div class="item-name">Spread in crowded congregate settings</div>
+
+                <div class="item-desc">Sustained person-to-person spread produces adenovirus outbreaks where people are in prolonged close contact - schools, military training centres and other congregate settings - which is where severe respiratory adenovirus disease in otherwise healthy people is concentrated.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40122244" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40122244" target="_blank">PMID:40122244</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Comparison of HAdV incidence rates during school terms and vacations showed that schools are the primary transmission setting for HAdV species B."</div>
+
+
+                <div class="evidence-explanation">National surveillance of 1.9 million acute respiratory infection cases identifies school attendance as the dominant transmission setting, evidence of person-to-person spread through sustained close contact.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6160,7 +6903,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-influenza">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Influenza.html">Influenza</a>
@@ -6205,7 +6948,10 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6230,7 +6976,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-respiratory-syncytial-virus-infection">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Respiratory_Syncytial_Virus_Infection.html">Respiratory syncytial virus infection</a>
@@ -6275,7 +7021,10 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6300,7 +7049,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mycoplasma-pneumoniae-pneumonia">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Mycoplasma_Pneumoniae_Pneumonia.html">Mycoplasma pneumoniae pneumonia</a>
@@ -6345,7 +7094,10 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6380,7 +7132,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse157240">
                 <div class="item-name">
                     RNAseq analysis of blood from respiratory viruses-infected patients and healthy controls
 
@@ -6491,6 +7243,42 @@ infectious_agent:
     explanation: &gt;-
       This review supports a type-diverse human adenovirus agent with
       type-dependent clinical tropism.
+transmission:
+- name: Respiratory tract transmission
+  description: &gt;-
+    Human adenoviruses spread principally by the respiratory route, with contact
+    and faecal-oral routes also recognised. Because tissue tropism is
+    type-dependent, the dominant route differs between the respiratory, ocular
+    and enteric adenovirus types.
+  evidence:
+  - reference: PMID:37476615
+    reference_title: &#34;Pediatric adenovirus pneumonia: clinical practice and current treatment.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Adenoviruses normally transmit through the respiratory tract, but
+      other routes involve contact and fecal-oral transmission.
+    explanation: &gt;-
+      States the respiratory route as the usual mode of adenovirus transmission
+      and names contact and faecal-oral spread as the alternatives.
+- name: Spread in crowded congregate settings
+  description: &gt;-
+    Sustained person-to-person spread produces adenovirus outbreaks where people
+    are in prolonged close contact - schools, military training centres and other
+    congregate settings - which is where severe respiratory adenovirus disease in
+    otherwise healthy people is concentrated.
+  evidence:
+  - reference: PMID:40122244
+    reference_title: &#34;Increased circulation of adenovirus in China during 2023-2024: Association with an increased prevalence of species B and school-associated transmission.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Comparison of HAdV incidence rates during school terms and vacations showed
+      that schools are the primary transmission setting for HAdV species B.
+    explanation: &gt;-
+      National surveillance of 1.9 million acute respiratory infection cases
+      identifies school attendance as the dominant transmission setting, evidence
+      of person-to-person spread through sustained close contact.
 pathophysiology:
 - name: Adenoviral DNA Polymerase Activity
   role: therapeutic_vulnerability
@@ -6632,7 +7420,7 @@ pathophysiology:
     evidence:
     - reference: PMID:27486739
       reference_title: &#34;Adenovirus: Epidemiology, Global Spread of Novel Serotypes, and Advances in Treatment and Prevention.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Adenoviruses (AdVs) are DNA viruses that typically cause mild infections
@@ -6718,7 +7506,7 @@ pathophysiology:
     evidence:
     - reference: PMID:28114362
       reference_title: Clinical Features and Courses of Adenovirus Pneumonia in Healthy Young Adults during an Outbreak among Korean Military Personnel.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         High and prolonged fever, nasal congestion, sore throat, and pharyngeal
@@ -6736,7 +7524,7 @@ pathophysiology:
     evidence:
     - reference: PMID:34712627
       reference_title: Analysis of Clinical Characteristics and Risk Factors of Severe Adenovirus Pneumonia in Children.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         All patients had cough, and 116 (92.8%) patients with mild cases and 82
@@ -6754,7 +7542,7 @@ pathophysiology:
     evidence:
     - reference: PMID:37476615
       reference_title: &#34;Pediatric adenovirus pneumonia: clinical practice and current treatment.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         As for pathogenesis, adenoviruses can directly damage target cells and
@@ -6793,7 +7581,7 @@ pathophysiology:
     evidence:
     - reference: PMID:28114362
       reference_title: Clinical Features and Courses of Adenovirus Pneumonia in Healthy Young Adults during an Outbreak among Korean Military Personnel.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         High and prolonged fever, nasal congestion, sore throat, and pharyngeal
@@ -6808,7 +7596,7 @@ pathophysiology:
     evidence:
     - reference: PMID:28114362
       reference_title: Clinical Features and Courses of Adenovirus Pneumonia in Healthy Young Adults during an Outbreak among Korean Military Personnel.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         High and prolonged fever, nasal congestion, sore throat, and pharyngeal
@@ -6824,7 +7612,7 @@ pathophysiology:
     evidence:
     - reference: PMID:28114362
       reference_title: Clinical Features and Courses of Adenovirus Pneumonia in Healthy Young Adults during an Outbreak among Korean Military Personnel.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         High and prolonged fever, nasal congestion, sore throat, and pharyngeal
@@ -6871,7 +7659,7 @@ pathophysiology:
     evidence:
     - reference: PMID:28114362
       reference_title: Clinical Features and Courses of Adenovirus Pneumonia in Healthy Young Adults during an Outbreak among Korean Military Personnel.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: HAdV pneumonia infected recruit trainees most frequently.
       explanation: &gt;-
@@ -6884,7 +7672,7 @@ pathophysiology:
     evidence:
     - reference: PMID:37476615
       reference_title: &#34;Pediatric adenovirus pneumonia: clinical practice and current treatment.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Early clinical recognition depends on patients&#39; symptoms and laboratory
@@ -6914,7 +7702,7 @@ pathophysiology:
     evidence:
     - reference: PMID:30321228
       reference_title: Epidemiology, clinical presentation and respiratory sequelae of adenovirus pneumonia in children in Kuala Lumpur, Malaysia.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Twenty-two percent developed respiratory complications, the commonest being
@@ -7429,7 +8217,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Adenovirus Respiratory Infection", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adenovirus_Respiratory_Infection", "yamlRevision": "8d63d3ef134d"};
+        const OS_CONFIG = {"diseaseName": "Adenovirus Respiratory Infection", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adenovirus_Respiratory_Infection", "yamlRevision": "e1913ae7f7fb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

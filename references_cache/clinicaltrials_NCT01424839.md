@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01424839"
+reference_id: clinicaltrials:NCT01424839
 title: "SIOP CNS GCT II: Prospective Trial for the Diagnosis and Treatment of Children, Adolescents and Young Adults With Intracranial Germ Cell Tumors"
 content_type: summary
+full_text_attempted: true
 ---
 
 # SIOP CNS GCT II: Prospective Trial for the Diagnosis and Treatment of Children, Adolescents and Young Adults With Intracranial Germ Cell Tumors

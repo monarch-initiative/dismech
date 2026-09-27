@@ -1,0 +1,12 @@
+---
+reference_id: GEO:GSE4060
+title: "Transcriptome of GIP- and ACTH-dependent Cushing's syndrome."
+content_type: summary
+full_text_attempted: true
+---
+
+# Transcriptome of GIP- and ACTH-dependent Cushing's syndrome.
+
+## Content
+
+Abstract submitted to the Journal of clinical encodcrinology and metabolism: The molecular mechanisms responsible for the ectopic expression of the GIP receptor in the adrenal cortex of patients with GIP-dependent Cushing’s syndrome (CS) are unknown. Chronic adrenal stimulation by ACTH in Cushing’s disease (CD) or by GIP in GIP-dependent AIMAH both lead to induction of a set of genes which stimulate adrenal proliferation and steroidogenesis. The objective of this study was to compare the whole genome expression profile of adrenal glands of five cases of GIP-dependent bilateral macronodular adrenal hyperplasia with CS, one case of GIP-dependent adenoma, compared to five cases of ACTH-dependant hyperplasias (CD) and a pool of adrenals from 62 normal individuals. We used the genome-spanning Affymetrix U133 plus 2.0 microarray oligochips to identify genes differentially expressed specifically in GIP-dependent CS and which would be candidate genes implicated in the ectopic expression of the GIP receptor in the adrenal cortex. After data normalization and filtering, genes with differential expression were identified with a multi-step statistical analysis involving a student’s t-test, a filter on flags and a SAM analysis. A total of 721 probesets were thus isolated with intensity levels robustly related to the presence of a GIP-dependent hyperplasia. We performed a functional classification to further define potentially important biological processes and signaling mechanism for the formation of GIP-dependent AIMAH. Various probesets were related to metabolic processes, cell-surface and intracellular signaling, tumorigenesis, transport and transcription factors. The most relevant genes had their expression profile confirmed by real-time RT-PCR. This study reports an extensive series of potentially novel targets in the identification of the molecular mechanisms of ectopic expression of the GIP-receptor in this pathology. Keywords: Comparative genomic analysis
