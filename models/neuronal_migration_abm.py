@@ -135,8 +135,19 @@ def input_defaults(spec: dict) -> dict:
     return defaults
 
 
-def simulate(spec: dict, params: Params, run_name: str) -> dict:
-    """Simulate one parameter set and return its readouts."""
+def simulate(
+    spec: dict,
+    params: Params,
+    run_name: str,
+    trace: dict | None = None,
+    trace_every: int = 4,
+) -> dict:
+    """Simulate one parameter set and return its readouts.
+
+    When ``trace`` is a dict, every ``trace_every`` steps a frame of agent
+    positions and states is appended to it (for visualisation only; the
+    committed results never include frames and the draws are unchanged).
+    """
     dom = spec["domain"]
     cohorts = spec["cohorts"]
     column = Column(
@@ -168,8 +179,31 @@ def simulate(spec: dict, params: Params, run_name: str) -> dict:
                 )
             )
 
+    if trace is not None:
+        trace["cohort"] = [n.cohort for n in neurons]
+        trace["affected"] = [int(n.affected) for n in neurons]
+        trace["domain"] = {
+            "vz_top": column.vz_top,
+            "plate_floor": column.plate_floor,
+            "pia": column.pia,
+        }
+        trace["frames"] = []
+    state_code = {"migrating": 0, "arrested": 1, "settled": 2}
+
     # Rules, applied per agent per step in the order the spec lists them.
     for t in range(t_end + 1):
+        if trace is not None and t % trace_every == 0:
+            trace["frames"].append(
+                {
+                    "t": t,
+                    "pos": [
+                        round(n.position, 1) if n.birth_time <= t else None
+                        for n in neurons
+                    ],
+                    "state": [state_code[n.state] for n in neurons],
+                    "plate_top": round(column.plate_top, 2),
+                }
+            )
         for n in neurons:
             if n.state != "migrating" or n.birth_time > t:
                 continue
@@ -410,12 +444,33 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--print", action="store_true", help="print a human-readable summary"
     )
+    parser.add_argument(
+        "--trace",
+        metavar="PATH",
+        help="also write per-scenario animation frames to PATH (for visualisation; not committed)",
+    )
     args = parser.parse_args(argv)
 
     spec = load_spec()
     results = build_results(spec)
     payload = json.dumps(results, indent=2, sort_keys=True) + "\n"
 
+    if args.trace:
+        traces = {}
+        defaults = input_defaults(spec)
+        for name, body in spec["scenarios"].items():
+            params = Params.from_mapping(body, defaults)
+            trace: dict = {}
+            readouts = simulate(spec, params, f"scenario:{name}", trace=trace)
+            trace["params"] = params.as_dict()
+            trace["readouts"] = readouts
+            trace["description"] = body.get("description", "")
+            traces[name] = trace
+        pathlib.Path(args.trace).write_text(
+            json.dumps(traces, separators=(",", ":")) + "\n"
+        )
+        print(f"wrote {args.trace}")
+        return 0
     if args.print:
         print(render(results))
         return 0
