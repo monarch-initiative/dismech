@@ -362,15 +362,40 @@ def classify(r: dict) -> str:
     return "diffuse_ectopia"
 
 
+def activated_phenotypes(spec: dict, readouts: dict) -> list[dict]:
+    """The HPO phenotypes whose spec `phenotype_mappings` conditions all hold."""
+    active = []
+    for mapping in spec.get("phenotype_mappings") or []:
+        holds = True
+        for cond in mapping["conditions"]:
+            value = readouts.get(cond["variable"])
+            if value is None:
+                holds = False
+                break
+            if cond["direction"] == "above":
+                holds = value >= cond["threshold"]
+            elif cond["direction"] == "below":
+                holds = value < cond["threshold"]
+            else:
+                raise ValueError(f"unknown direction {cond['direction']!r}")
+            if not holds:
+                break
+        if holds:
+            active.append(dict(mapping["phenotype"]))
+    return active
+
+
 def build_results(spec: dict) -> dict:
     defaults = input_defaults(spec)
     scenarios = {}
     for name, body in spec["scenarios"].items():
         params = Params.from_mapping(body, defaults)
+        readouts = simulate(spec, params, f"scenario:{name}")
         scenarios[name] = {
             "description": body.get("description", ""),
             "params": params.as_dict(),
-            "readouts": simulate(spec, params, f"scenario:{name}"),
+            "readouts": readouts,
+            "activated_phenotypes": activated_phenotypes(spec, readouts),
         }
     sweeps = {}
     for name, body in spec["sweeps"].items():
@@ -394,6 +419,9 @@ def build_results(spec: dict) -> dict:
                     ],
                     "unaffected_plate_fraction": readouts["unaffected_plate_fraction"],
                     "pattern": readouts["pattern"],
+                    "activated_phenotypes": [
+                        p["id"] for p in activated_phenotypes(spec, readouts)
+                    ],
                 }
             )
         sweeps[name] = {
@@ -420,6 +448,8 @@ def render(results: dict) -> str:
             f"  {name:32s} plate={r['cortical_plate_fraction']:.2f} arrested={r['arrested_fraction']:.2f} "
             f"in_transit={r['in_transit_fraction']:.2f} fidelity={r['lamination_fidelity']} "
             f"delay={r['mean_arrival_delay']} band={r['band_score']}  -> {r['pattern']}"
+            + "  "
+            + ", ".join(p["id"] for p in body["activated_phenotypes"])
         )
     for name, sweep in results["sweeps"].items():
         lines.append("")
@@ -464,6 +494,7 @@ def main(argv: list[str] | None = None) -> int:
             readouts = simulate(spec, params, f"scenario:{name}", trace=trace)
             trace["params"] = params.as_dict()
             trace["readouts"] = readouts
+            trace["activated_phenotypes"] = activated_phenotypes(spec, readouts)
             trace["description"] = body.get("description", "")
             traces[name] = trace
         pathlib.Path(args.trace).write_text(

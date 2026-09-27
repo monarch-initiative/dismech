@@ -162,3 +162,48 @@ def test_scenario_and_sweep_inputs_are_declared(spec_dict):
         )
         unknown = set(body.get("fixed", {})) - declared
         assert not unknown, f"sweep {name} fixes undeclared inputs {sorted(unknown)}"
+
+
+def test_phenotype_mappings_mirror_the_module_record(spec_dict, module_entry):
+    """The spec's phenotype_mappings and the KB record's variables[].mappings_list
+    must agree on term, threshold and direction, or the page and the results
+    file would tell different stories."""
+    model = next(
+        m
+        for m in module_entry["computational_models"]
+        if m.get("model_id") == spec_dict["model_id"]
+    )
+    kb = {}
+    for var in model.get("variables") or []:
+        for mapping in var.get("mappings_list") or []:
+            kb[(var["name"], mapping["term"]["id"])] = (
+                mapping["term"]["label"],
+                mapping["threshold"],
+                mapping["threshold_direction"],
+            )
+    spec_map = {}
+    for mapping in spec_dict["phenotype_mappings"]:
+        primary = mapping["conditions"][0]
+        spec_map[(primary["variable"], mapping["phenotype"]["id"])] = (
+            mapping["phenotype"]["label"],
+            primary["threshold"],
+            primary["direction"],
+        )
+    assert spec_map == kb
+
+
+def test_activated_phenotypes_follow_the_regimes(results):
+    """Wild type activates nothing; heterotopia needs the arrest rule; the band
+    term appears only where the pattern is band_heterotopia."""
+    scenarios = results["scenarios"]
+    assert scenarios["wild_type"]["activated_phenotypes"] == []
+    ids = {
+        n: {p["id"] for p in s["activated_phenotypes"]} for n, s in scenarios.items()
+    }
+    assert "HP:0002282" not in ids["delayed_migration"]
+    assert "HP:0032409" in ids["mosaic_severe"]
+    for sweep in results["sweeps"].values():
+        for row in sweep["rows"]:
+            assert ("HP:0032409" in row["activated_phenotypes"]) == (
+                row["pattern"] == "band_heterotopia"
+            )
