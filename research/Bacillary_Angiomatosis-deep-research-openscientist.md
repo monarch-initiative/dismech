@@ -31,7 +31,7 @@ reference_validation:
   confabulation_rate: 0.0
   relevance_assessed: 35
   on_topic: 33
-  validator_version: 0.3.0rc2
+  validator_version: 0.3.0rc3
 term_validation:
   total_terms: 56
   verified: 55
@@ -797,7 +797,7 @@ The relevant "molecular" players are **bacterial virulence genes** (host-microbe
 
 ## Reference Validation
 
-Checked with `linkml-reference-validator` 0.3.0rc2.
+Checked with `linkml-reference-validator` 0.3.0rc3.
 
 | Outcome | Count |
 | --- | --- |
