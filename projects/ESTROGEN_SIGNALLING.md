@@ -33,7 +33,7 @@ modules:
 
 # Estrogen Signalling Gap Filling
 
-Estrogen receptor 1 is the most heavily assayed target in ToxCast and the
+Estrogen receptor 1 is among the most heavily assayed targets in ToxCast and the
 receptor the US endocrine-disruptor screening statute was written around. It has
 almost no presence in the dismech pathograph. This project closes that gap, and
 this page is the scope and worklist for it.
@@ -51,9 +51,9 @@ Six tiers over `kb/disorders/`, loosest to strictest. Of roughly 3,200 entries,
 but only 12 bind `GO:0030520` *estrogen receptor signaling pathway*, and exactly
 one puts a receptor gene on a pathograph node.
 
-The gap is between those last two. Twelve entries annotate the pathway on a
-mechanism node while naming no gene, so the pathway is recorded and the receptor
-driving it is not. That is what the ToxCast mapping needs and what this project
+The gap is between those last two. Eleven of those entries (twelve nodes)
+annotate the pathway on a mechanism node while naming no gene, so the pathway is
+recorded and the receptor driving it is not. That is what the ToxCast mapping needs and what this project
 is mostly about.
 
 ## Scope

@@ -367,12 +367,19 @@ def render_markdown(entries: list[Entry], modules: list[tuple[str, bool, bool, b
 
     out.append("## Modules")
     out.append("")
+    gene_modules = [stem for stem, _, _, gene_bound in modules if gene_bound]
+    if gene_modules:
+        gene_sentence = "Modules binding either gene: " + ", ".join(
+            f"`{stem}`" for stem in gene_modules
+        ) + "."
+    else:
+        gene_sentence = "No module binds either gene."
     out.append(
         "Modules that mention estrogen or the receptor, and whether they bind "
         "it. \u201cIn module prose\u201d separates a module that models the receptor "
         "from one that merely cites a paper about it: a mention confined to "
         "`reference_title` or `snippet` is quoted source metadata, not a claim "
-        "the module makes. No module binds either gene. A module node binding "
+        f"the module makes. {gene_sentence} A module node binding "
         "is a design decision rather than a backfill, because a generic "
         "receptor binding may belong only in the conforming entries."
     )

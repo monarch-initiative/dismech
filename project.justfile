@@ -960,7 +960,7 @@ check-knowledge-gap-targets *files:
 #   just estrogen-census --out docs/reports/estrogen-signalling-coverage-census-<date>.md
 [group('QC')]
 estrogen-census *args="":
-    uv run python scripts/estrogen_signalling_census.py {{args}}
+    uv run python scripts/estrogen_signalling_census.py "$@"
 
 # Census of has_subtypes usage (how many subtypes are ever referenced by a
 # subtype: foreign key) plus the deterministic subtype-gene wiring check: a
