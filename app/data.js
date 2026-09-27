@@ -74066,6 +74066,98 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Chlamydia Pneumoniae Pneumonia",
+    "disease_id": null,
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Respiratory Infection"
+    ],
+    "creation_date": "2026-09-27T04:25:27Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chlamydia pneumoniae pneumonia is an atypical community-acquired pneumonia caused by the obligate intracellular bacterium Chlamydia pneumoniae. The infection spreads between people, replicates in epithelial cells inside a chlamydial inclusion, and requires cell-penetrant ribosome-active therapy such as a macrolide rather than a beta-lactam.\n",
+    "pathophysiology": [
+      "Droplet Exposure and Obligate Intracellular Infection",
+      "Respiratory Epithelial Cytadherence and IL-8 Signaling",
+      "Ciliated Bronchial Epithelial Ciliostasis",
+      "Epithelial Apoptosis Resistance",
+      "Apoptotic Neutrophil Macrophage Transfer",
+      "IFN-gamma-Induced Aberrant Body Persistence",
+      "Atypical Chlamydia pneumoniae Pneumonia",
+      "Requirement for Cell-Penetrant Antimicrobials",
+      "Chlamydial Ribosomal Translation (Macrolide Target)"
+    ],
+    "cell_types": [
+      "respiratory epithelial cell",
+      "bronchial epithelial cell",
+      "neutrophil",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0002632",
+      "CL:0002328",
+      "CL:0000775",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "symbiont entry into host cell",
+      "biological process involved in interaction with host",
+      "positive regulation of interleukin-8 production",
+      "neutrophil chemotaxis",
+      "cilium movement",
+      "negative regulation of apoptotic process",
+      "response to type II interferon",
+      "inflammatory response",
+      "response to antibiotic",
+      "translation"
+    ],
+    "phenotypes": [
+      "Pneumonia",
+      "Cough",
+      "Fever",
+      "Chest Pain",
+      "Eosinophilia",
+      "Increased Circulating IgA"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Constitutional",
+      "Hematologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Constitutional",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002090",
+      "HP:0012735",
+      "HP:0001945",
+      "HP:0100749",
+      "HP:0001880",
+      "HP:0003261"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Azithromycin"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Chlamydia_Pneumoniae_Pneumonia.yaml",
+    "page_url": "../pages/disorders/Chlamydia_Pneumoniae_Pneumonia.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Chlorophacinone Poisoning",
     "disease_id": null,
     "category": "Environmental",
@@ -180983,6 +181075,99 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Japanese Spotted Fever",
+    "disease_id": "MONDO:0000233",
+    "category": "Infectious Disease",
+    "parents": [
+      "Spotted fever rickettsiosis"
+    ],
+    "creation_date": "2026-09-27T08:33:00Z",
+    "updated_date": "2026-09-27T08:33:00Z",
+    "subtypes": [],
+    "description": "Japanese spotted fever is an acute tick-borne spotted-fever-group rickettsiosis caused by the obligately intracellular bacterium Rickettsia japonica. Infected Haemaphysalis ticks inoculate the organism into skin, where local infection can produce an eschar before systemic endothelial infection and small-vessel vasculitis drive fever, rash, purpura, hepatic enzyme elevation, and occasionally disseminated intravascular coagulation or multiorgan failure.",
+    "pathophysiology": [
+      "Tick-Borne Rickettsia japonica Inoculation",
+      "Intracytosolic Rickettsia japonica Niche",
+      "Rickettsial Ribosomal Translation (Tetracycline Target)",
+      "Small-Vessel Vasculitis",
+      "Hypercytokinemic Shock Response",
+      "Severe Coagulation Activation",
+      "Vasculitic Multiorgan Injury"
+    ],
+    "cell_types": [
+      "vascular endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002139"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "biological process involved in interaction with host",
+      "Translation",
+      "response to antibiotic",
+      "inflammatory response",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Skin Rash",
+      "Inoculation Eschar",
+      "Purpura",
+      "Hyponatremia",
+      "Elevated Hepatic Transaminases",
+      "Disseminated Intravascular Coagulation",
+      "Thrombocytopenia",
+      "Neurological Manifestations",
+      "Purpura Fulminans"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Dermatologic",
+      "Metabolic",
+      "Digestive System",
+      "Blood",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0000988",
+      "HP:6000793",
+      "HP:0000979",
+      "HP:0002902",
+      "HP:0002910",
+      "HP:0005521",
+      "HP:0001873",
+      "HP:0000707"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Early minocycline therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Japanese_Spotted_Fever.yaml",
+    "page_url": "../pages/disorders/Japanese_Spotted_Fever.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Jeavons Syndrome",
@@ -307279,6 +307464,102 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Streptococcal Pharyngitis",
+    "disease_id": "MONDO:0021783",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial infection"
+    ],
+    "creation_date": "2026-09-27T06:23:39Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Streptococcal pharyngitis is an acute group A Streptococcus upper-airway infection in which Streptococcus pyogenes adheres to and colonizes the pharyngeal and tonsillar epithelium, causing abrupt pharyngeal inflammation with fever, throat pain, odynophagia, and tender anterior cervical lymphadenopathy. Untreated infection can spread contiguously or seed post-streptococcal immune sequelae, motivating throat-swab confirmation and prompt narrow-spectrum antibiotic treatment.",
+    "pathophysiology": [
+      "Streptococcal Pharyngeal Adhesion and Colonization",
+      "SpeA-Mediated Tonsillar Immune Dysregulation",
+      "Acute Pharyngotonsillar Inflammation",
+      "Contiguous Suppurative Spread",
+      "Post-Streptococcal Immune Sequelae",
+      "Streptococcal Peptidoglycan Cross-Linking",
+      "Streptococcal Ribosomal Translation"
+    ],
+    "cell_types": [
+      "pharyngeal and tonsillar epithelial cell",
+      "tonsillar T cell",
+      "tonsillar B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000066",
+      "CL:0000084",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "adhesion of symbiont to host",
+      "response to bacterium",
+      "T cell activation",
+      "B-cell apoptotic process",
+      "inflammatory response",
+      "immune response",
+      "Peptidoglycan-Based Cell Wall Biogenesis",
+      "Translation"
+    ],
+    "phenotypes": [
+      "Pharyngitis",
+      "Pharyngalgia",
+      "Enlarged tonsils",
+      "Tonsillar exudate",
+      "Odynophagia",
+      "Fever",
+      "Cervical lymphadenopathy",
+      "Otitis media",
+      "Sinusitis",
+      "Peritonsillar abscess"
+    ],
+    "phenotype_categories": [
+      "Head and neck",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0025439",
+      "HP:0033050",
+      "HP:0030812",
+      "HP:0034035",
+      "HP:0032043",
+      "HP:0001945",
+      "HP:0025289",
+      "HP:0000388",
+      "HP:0000246"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Beta-lactam antibiotic therapy",
+      "Antipyretic and analgesic symptom relief",
+      "Alternative antibiotics for penicillin allergy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Streptococcal_Pharyngitis.yaml",
+    "page_url": "../pages/disorders/Streptococcal_Pharyngitis.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Striate Palmoplantar Keratoderma Type 2",
     "disease_id": "MONDO:0013034",
     "category": "Genetic",
@@ -337347,17 +337628,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3191,
+  "total_disorder_pages": 3194,
   "total_subtypes": 4290,
-  "total_disorders_and_subtypes": 7481,
-  "total_unique_evidence_sources": 46529,
-  "total_unique_publications": 43711,
+  "total_disorders_and_subtypes": 7484,
+  "total_unique_evidence_sources": 46563,
+  "total_unique_publications": 43745,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 287,
-  "total_pathographs": 3186,
-  "total_unique_pathological_events": 20182,
+  "total_pathographs": 3189,
+  "total_unique_pathological_events": 20203,
   "total_modules": 179,
-  "total_research_reports": 3305,
+  "total_research_reports": 3308,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 106
