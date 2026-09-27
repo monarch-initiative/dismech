@@ -231,7 +231,7 @@ thesis (broad-spectrum protection across viral families) and are prioritized acc
   disease_term — MONDO has only "adenovirus renal infection", flagged for a term request).
 
 **Bacterial pneumonia & atypicals**
-- Chlamydia_Pneumoniae_Pneumonia — ✓ created (de novo; species-scoped, with no exact species-level MONDO term)
+- *Chlamydophila pneumoniae* (atypical pneumonia)
 - *Haemophilus influenzae* and *Moraxella catarrhalis* LRTI
 - Hospital-acquired / ventilator-associated pneumonia
 
