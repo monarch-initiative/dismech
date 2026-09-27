@@ -22,8 +22,9 @@ import glob
 import os
 import re
 
-import yaml
 from oaklib import get_adapter
+
+from dismech.yaml_io import safe_load
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GROUPINGS = os.path.join(ROOT, "kb", "groupings")
@@ -38,7 +39,7 @@ def main():
     groups = sorted(glob.glob(os.path.join(GROUPINGS, "*.yaml")))
     mapped, unmapped, issues = [], [], []
     for p in groups:
-        d = yaml.safe_load(open(p))
+        d = safe_load(open(p))
         name = d.get("name") or os.path.basename(p)[:-5]
         mm = ((d.get("mappings") or {}).get("mondo_mappings")) or []
         entries = [(e.get("term") or {}) for e in mm if (e.get("term") or {}).get("id")]
@@ -72,7 +73,7 @@ def main():
     with_disease_term, with_mondo_ref, obsolete_refs = 0, [], []
     for p in modules:
         raw = open(p).read()
-        doc = yaml.safe_load(raw)
+        doc = safe_load(raw)
         name = os.path.basename(p)[:-5]
         if isinstance(doc, dict) and doc.get("disease_term"):
             with_disease_term += 1

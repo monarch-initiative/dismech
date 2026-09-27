@@ -1,0 +1,85 @@
+history_version: 1
+target:
+  kind: schema
+  slug: history
+  path: src/dismech/schema/history.yaml
+session:
+  id: 2026-08-02T202524Z-claude-code-ca0219
+  timestamp: '2026-08-02T20:25:24Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/7861
+  - https://github.com/monarch-initiative/dismech/issues/6938
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/7875
+  - https://github.com/monarch-initiative/dismech/pull/7833
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - history schema
+  - history documentation
+  - history tests
+  - new-history scaffolder
+  summary: Add target.superseded_by for renamed/retargeted history targets
+  details: |
+    Fixes the red main reported in #7861 (regression from #7833), which blocked every
+    PR refreshed from main.
+
+    Cause. #7833 began as a de-novo curation of Fanconi-ichthyosis-dysmorphism (FID) and
+    was correctly retargeted mid-curation to ARC syndrome once PMID:11668108 established
+    FID is not an independent entity. The first history record of that PR genuinely ran
+    under the old slug, so it still points at kb/disorders/Fanconi-Ichthyosis-Dysmorphism_Syndrome.yaml,
+    which no longer exists - and test_committed_history_records_follow_layout asserts
+    every record's target resolves on disk.
+
+    Approach. history/ is append-only, so rewriting the stale record's target.slug/path
+    would have made the provenance trail assert something that did not happen and erased
+    the evidence of the rename that the next record was written to document. Instead the
+    schema gained vocabulary for supersession, which also closes the hole for any future
+    rename rather than just this one.
+
+    Changes:
+    - src/dismech/schema/history.yaml: new optional HistoryTarget.superseded_by slot and
+      HistoryTargetSupersession class. slug, path, and reason are all required via
+      slot_usage - the block converts a hard layout failure into a pass, so the
+      justification has to be visible in review. The shared reason slot keeps a neutral
+      global description and is narrowed per class, matching how the type slot is handled.
+    - tests/test_history_schema.py: factored the layout check into a _layout_errors helper.
+      A missing target.path is accepted only when target.superseded_by.path resolves to an
+      existing file; an ordinary missing target still fails loudly. The record-directory
+      check now follows the successor slug, so all sessions for one entry stay together,
+      and superseded_by.slug must match the stem of superseded_by.path so a record cannot
+      be filed under an entry it does not point at. A malformed block reports a legible
+      layout error rather than raising KeyError. Added unit tests for the accept/reject
+      paths, the slug/path mismatch, schema validation of a superseded_by block, and
+      rejection of blocks missing slug/path or reason.
+    - history/disorders/Arthrogryposis-Renal_Dysfunction-Cholestasis_Syndrome/2026-08-02T020640Z-claude-code-c4868b.yaml:
+      backfilled superseded_by pointing at the ARC entry, with the retarget rationale in
+      reason. Its original target.slug/path are untouched.
+    - scripts/new_history.py: target_missing_warning() warns on stderr when scaffolding a
+      record whose target path does not exist yet, catching a bad slug at authoring time
+      instead of on main. It warns rather than refuses, since scaffolding ahead of creating
+      an entry is legitimate.
+    - docs/history.md: new "Renamed or retargeted targets" section documenting the
+      append-only rationale and the superseded_by shape, including the chained-rename
+      case - superseded_by describes current repository state, so unlike the frozen
+      target.slug/target.path it may be repointed in place if the successor is itself
+      renamed later.
+    - CLAUDE.md: same convention summarised in the History Records section.
+
+    Review follow-up: the three layout negative tests each assert a single cause. The
+    _supersession_record helper defaults the successor slug to the stem of its path, with
+    an explicit override only in the slug/stem mismatch test, and each negative test
+    asserts len(errors) == 1 before checking the message - so a negative test cannot keep
+    passing after the branch it exercises is deleted.
+
+    Validation: tests/test_history_schema.py passes (23 tests), including
+    test_committed_history_records_follow_layout; all 3116 committed history records
+    validate against the updated schema.

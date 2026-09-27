@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,7 +34,6 @@ DEFAULT_MONDO_DB = Path.home() / ".data" / "oaklib" / "mondo.db"
 DEFAULT_CLINGEN_CSV = REPO_ROOT / "cache" / "clingen" / "gene_validity.csv"
 DEFAULT_CONFIG = REPO_ROOT / "conf" / "mondo_prioritizer.yaml"
 
-YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 
 HIGH_CONFIDENCE = {"HIGH", "MEDIUM"}
 
@@ -256,11 +255,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_yaml(path: Path) -> Any:
-    with path.open(encoding="utf-8") as stream:
-        return yaml.load(stream, Loader=YAML_LOADER)
-
-
 def load_mondo_priority_helpers() -> tuple[Any, Any, Any, Any]:
     sys.path.insert(0, str(REPO_ROOT / "src"))
     from dismech.compare.mondo_priority import (
@@ -274,7 +268,7 @@ def load_mondo_priority_helpers() -> tuple[Any, Any, Any, Any]:
 
 
 def load_source_diseases(path: Path) -> list[dict[str, Any]]:
-    payload = load_yaml(path)
+    payload = safe_load_path(path)
     if not isinstance(payload, dict):
         raise ValueError(f"Expected YAML object in {path}")
     diseases = payload.get("diseases")

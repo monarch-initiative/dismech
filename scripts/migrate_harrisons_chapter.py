@@ -12,7 +12,7 @@ import re
 import sys
 from pathlib import Path
 
-import yaml
+from dismech.yaml_io import safe_load
 
 REPO = Path(__file__).resolve().parent.parent
 SCHEMA = REPO / "src" / "dismech" / "schema" / "dismech.yaml"
@@ -21,7 +21,7 @@ DISORDERS = REPO / "kb" / "disorders"
 
 def load_alias_map() -> dict[str, str]:
     with SCHEMA.open() as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
     pvs = data["enums"]["HarrisonsChapterEnum"]["permissible_values"]
     mapping: dict[str, str] = {}
     for key, body in pvs.items():

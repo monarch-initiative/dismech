@@ -17,10 +17,10 @@ Alias: examples
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
 | [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
-| [Stage](../classes/Stage.md) |  |  no  |
 | [Genetic](../classes/Genetic.md) |  |  no  |
+| [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
+| [Stage](../classes/Stage.md) |  |  no  |
 | [Treatment](../classes/Treatment.md) |  |  no  |
 
 

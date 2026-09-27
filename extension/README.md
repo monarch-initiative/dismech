@@ -9,10 +9,28 @@ Full docs: [`docs/browser-extension.md`](../docs/browser-extension.md).
 
 ## Quick start
 
-1. Open `chrome://extensions`, enable **Developer mode**.
-2. **Load unpacked** → pick this `extension/` folder.
-3. Open a paper (PubMed / DOI / bioRxiv) or disease page (Monarch / OMIM /
-   Orphanet), click the *dismech curator* icon, review, and **Create issue**.
+1. **[Download dismech-extension.zip](https://dismech.monarchinitiative.org/elements/downloads/dismech-extension.zip)**
+   to your computer. This GitHub page is source code; visiting it does not download
+   the extension. No Git or terminal is needed.
+2. Extract the ZIP: **Mac:** double-click in Finder. **Windows:** right-click →
+   **Extract All…**. Find the **dismech-extension** folder containing
+   `manifest.json` (Windows may put it inside another folder of the same name).
+   Move that folder to **Documents** and keep it there while installed.
+3. Paste `chrome://extensions` into Chrome's address bar (Edge:
+   `edge://extensions`), press Enter, and enable **Developer mode**.
+4. Click **Load unpacked** → **Documents** → select **dismech-extension** →
+   **Select** / **Select Folder**. Choose the folder containing `manifest.json`,
+   not the ZIP or an individual file. A **dismech curator** card should appear.
+5. Pin **dismech curator** from the browser's Extensions (puzzle-piece) menu.
+   Open a paper (PubMed / DOI / bioRxiv) or disease page (Monarch / OMIM /
+   Orphanet), click the curator icon, review, and **Create issue**.
+
+Allow **1–2 seconds** for the preview to appear after clicking the toolbar icon
+while the extension reads the page.
+
+[Full installation guide and troubleshooting](https://dismech.monarchinitiative.org/elements/browser-extension/#install-unpacked).
+If you already have a local checkout, you can load its `extension/` folder
+directly; no build step is needed.
 
 By default it opens GitHub's pre-filled issue form (no token needed). Optionally
 add a fine-grained PAT in **Settings** for true one-click creation via the API.
@@ -56,3 +74,10 @@ The page is read locally only when you click the button (`activeTab`). In
 default mode nothing leaves your machine except opening a GitHub URL. In token
 mode, the issue is sent only to `api.github.com`; the token is stored in
 `chrome.storage.local`.
+
+## Download packaging
+
+MkDocs builds the ZIP from the runtime files using
+`scripts/package_extension.py`. Run `python3 scripts/package_extension.py` to
+produce `docs/downloads/dismech-extension.zip` locally. The archive contains a
+`dismech-extension` folder and excludes tests and development scripts.

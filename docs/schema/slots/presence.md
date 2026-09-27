@@ -18,9 +18,9 @@ Alias: presence
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
+| [Genetic](../classes/Genetic.md) |  |  no  |
 | [Diagnosis](../classes/Diagnosis.md) |  |  no  |
 | [Biochemical](../classes/Biochemical.md) |  |  no  |
-| [Genetic](../classes/Genetic.md) |  |  no  |
 
 
 

@@ -80,6 +80,7 @@ URI: [dismech:class/Qualifier](https://w3id.org/monarch-initiative/dismech/class
 | [BiomarkerDescriptor](../classes/BiomarkerDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [GeneProductDescriptor](../classes/GeneProductDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
+| [ImagingFindingDescriptor](../classes/ImagingFindingDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [LifeCycleStageDescriptor](../classes/LifeCycleStageDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [PhenotypeDescriptor](../classes/PhenotypeDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |
 | [InheritanceDescriptor](../classes/InheritanceDescriptor.md) | [qualifiers](../slots/qualifiers.md) | range | [Qualifier](../classes/Qualifier.md) |

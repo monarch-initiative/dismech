@@ -25,6 +25,9 @@ from pathlib import Path
 
 import yaml
 
+from dismech.frontmatter import split_frontmatter
+from dismech.yaml_io import safe_load, safe_load_path
+
 ROOT = Path(__file__).resolve().parent.parent
 DISORDERS = ROOT / "kb" / "disorders"
 PROJECTS = ROOT / "projects"
@@ -35,7 +38,7 @@ OUT = ROOT / "pages" / "nih-topics" / "index.html"
 
 def _load_topics() -> dict[str, dict]:
     """key -> {number, title, expires, url} from the generated enum descriptions."""
-    doc = yaml.safe_load(ENUM_PATH.read_text())
+    doc = safe_load_path(ENUM_PATH)
     pvs = doc["enums"]["NIHResearchPriorityEnum"]["permissible_values"]
     topics: dict[str, dict] = {}
     for key, meta in pvs.items():
@@ -63,13 +66,12 @@ def _snapshot_date() -> str:
 
 
 def _split_front_matter(text: str) -> dict:
-    if not text.startswith("---"):
-        return {}
-    parts = text.split("---", 2)
-    if len(parts) < 3:
+    # Delimiter-aware (issue #7697): ``---`` inside a value is not a delimiter.
+    split = split_frontmatter(text)
+    if split is None:
         return {}
     try:
-        return yaml.safe_load(parts[1]) or {}
+        return safe_load(split.frontmatter) or {}
     except yaml.YAMLError:
         return {}
 
@@ -86,7 +88,7 @@ def _collect() -> dict[str, dict]:
         text = path.read_text()
         if "nih_research_priority" not in text:
             continue
-        data = yaml.safe_load(text) or {}
+        data = safe_load(text) or {}
         assignments = (
             (data.get("classifications") or {}).get("nih_research_priority") or []
         )
@@ -222,13 +224,40 @@ footer {{ color:var(--muted); font-size:.75rem; margin-top:1.5rem; }}
 /* Reader-facing AI-curation / not-medical-advice disclaimer. Mirrors
    src/dismech/templates/_disclaimer.html.j2 — keep the wording in step.
    Styled with this page's own tokens so it works in light and dark mode. */
-.dismech-disclaimer {{ display:block; width:100%; box-sizing:border-box; margin:0;
-  padding:10px 16px; background:var(--card); color:var(--muted);
-  border-bottom:1px solid var(--line); font-size:.85rem; line-height:1.5;
-  text-align:center; }}
-.dismech-disclaimer p {{ max-width:1000px; margin:0 auto; }}
+/* Flex rather than an absolutely positioned button: the dismiss control stays
+   in flow, so it can never overlap the text however the bar wraps. */
+.dismech-disclaimer {{ display:flex; align-items:center; gap:8px; width:100%;
+  box-sizing:border-box; margin:0; padding:10px 16px; background:var(--card);
+  color:var(--muted); border-bottom:1px solid var(--line); font-size:.85rem;
+  line-height:1.5; text-align:center; }}
+/* `display:flex` above outranks the UA rule for the `hidden` attribute. */
+.dismech-disclaimer[hidden] {{ display:none; }}
+.dismech-disclaimer p {{ flex:1 1 auto; min-width:0; max-width:1000px;
+  margin:0 auto; }}
 .dismech-disclaimer strong {{ color:var(--ink); }}
 .dismech-disclaimer a {{ color:var(--accent); text-decoration:underline; }}
+/* Hidden until the script confirms it can act on a click, so a reader without
+   JavaScript is never shown a dead control. */
+.dismech-disclaimer-dismiss {{ display:none; }}
+/* margin-right clears the Hypothes.is sidebar toolbar, which covers the
+   rightmost ~33px of the pages that embed the annotation client and swallows
+   clicks there. Applied everywhere for consistency. */
+.dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {{
+  display:flex; flex:0 0 auto; margin-right:28px;
+  align-items:center; justify-content:center;
+  width:28px; height:28px; padding:0; border:0; border-radius:4px;
+  background:none; color:inherit; font:inherit; font-size:1.15rem;
+  line-height:1; cursor:pointer; }}
+.dismech-disclaimer-dismiss:hover {{ background:var(--chip); }}
+.dismech-disclaimer-dismiss:focus-visible {{ outline:2px solid var(--accent);
+  outline-offset:2px; }}
+/* The button's footprint sits only on the right, so the centred text lands about
+   half that left of true centre. Mirroring it fixes that but costs the same width
+   again, so it applies only where there is room to spare. */
+@media (min-width: 900px) {{
+  .dismech-disclaimer.is-dismissible::before {{ content:""; flex:0 0 auto;
+    width:28px; margin-left:28px; }}
+}}
 </style>
 </head>
 <body>
@@ -240,7 +269,42 @@ footer {{ color:var(--muted); font-size:.75rem; margin-top:1.5rem; }}
     resources. Nothing here is intended to inform medical diagnosis or treatment.
     <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
   </p>
+  <button type="button" class="dismech-disclaimer-dismiss"
+          aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+    <span aria-hidden="true">&times;</span>
+  </button>
 </aside>
+<!-- Runs synchronously, immediately after the bar, so an already-dismissed bar is
+     hidden before first paint rather than flashing and disappearing. Dismissal is
+     kept for the browsing session in sessionStorage; see design-decisions.md §11. -->
+<script>
+  (function () {{
+    var KEY = 'dismech-disclaimer-dismissed';
+    var bar = document.querySelector('.dismech-disclaimer');
+    if (!bar) {{ return; }}
+    // sessionStorage access itself throws when storage is blocked (Safari
+    // private browsing, cookies-disabled), so every use is guarded.
+    var store = null;
+    try {{ store = window.sessionStorage; }} catch (err) {{ store = null; }}
+    try {{
+      if (store && store.getItem(KEY) === '1') {{ bar.hidden = true; return; }}
+    }} catch (err) {{ /* unreadable storage: show the bar */ }}
+    var button = bar.querySelector('.dismech-disclaimer-dismiss');
+    if (!button) {{ return; }}
+    bar.classList.add('is-dismissible');
+    button.addEventListener('click', function () {{
+      bar.hidden = true;
+      try {{ if (store) {{ store.setItem(KEY, '1'); }} }} catch (err) {{ /* not persisted */ }}
+      // Focus would otherwise fall back to <body>, losing a keyboard reader's
+      // place. preventScroll keeps the viewport where it was.
+      var next = document.querySelector('main, h1');
+      if (next) {{
+        if (!next.hasAttribute('tabindex')) {{ next.setAttribute('tabindex', '-1'); }}
+        try {{ next.focus({{ preventScroll: true }}); }} catch (err) {{ next.focus(); }}
+      }}
+    }});
+  }})();
+</script>
 <div class="wrap">
   <h1>NIH Funding-Topic Coverage</h1>
   <p class="sub">Secondary <code>nih_research_priority</code> tags across dismech disease

@@ -22,8 +22,8 @@ Alias: creation_date
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Disease](../classes/Disease.md) |  |  yes  |
 | [ComorbidityAssociation](../classes/ComorbidityAssociation.md) | An association between two conditions, including directionality, evidence, an... |  yes  |
+| [Disease](../classes/Disease.md) |  |  yes  |
 | [Grouping](../classes/Grouping.md) | An explicit, curated union of distinct Disease entries assembled below the le... |  yes  |
 
 

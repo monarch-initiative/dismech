@@ -8,10 +8,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
 from oaklib import get_adapter
 
-_HP_ADAPTER_SPEC = "sqlite:obo:hp"
+from dismech import oak_db
+from dismech.yaml_io import safe_load
+
+# Public so tests can ask `oak_db.local_build_present` about the same string
+# this module opens, rather than restating it and drifting from it.
+HP_ADAPTER_SPEC = "sqlite:obo:hp"
 _FREQUENCY_PRIORITY = {
     "OBLIGATE": 5,
     "VERY_FREQUENT": 4,
@@ -44,15 +48,31 @@ def _normalize_hp_id(term_id: str | None) -> str | None:
 
 
 class _HPOIsARelationshipResolver:
-    """Resolve strict is-a ancestry relationships using OAK and sqlite:obo:hp."""
+    """Resolve strict is-a ancestry relationships using OAK and sqlite:obo:hp.
+
+    Only when that build is already on disk. `get_adapter(HP_ADAPTER_SPEC)`
+    does not fail without it — semsql fetches it, 440 MB — so simply
+    constructing this resolver in a test pulled the whole of HPO down, silently,
+    on any machine that did not have it (issue #11299). `local_build_present` is
+    the guard #11251 established for exactly that.
+
+    Without the build there is no ancestry to report, so `ancestors` returns the
+    empty set — the same answer its `except` branch already gives when a lookup
+    fails, and one that makes `is_strict_descendant_of` report no relation rather
+    than a wrong one. Tests that need real HPO ancestry are marked `oak_db` and
+    skip instead.
+    """
 
     def __init__(self) -> None:
         self._adapter = None
         self._ancestor_cache: dict[str, set[str]] = {}
 
     def _get_adapter(self):
+        """The HP adapter, or None when its build would have to be downloaded."""
         if self._adapter is None:
-            self._adapter = get_adapter(_HP_ADAPTER_SPEC)
+            if not oak_db.local_build_present(HP_ADAPTER_SPEC):
+                return None
+            self._adapter = get_adapter(HP_ADAPTER_SPEC)
         return self._adapter
 
     def ancestors(self, term_id: str) -> set[str]:
@@ -64,6 +84,10 @@ class _HPOIsARelationshipResolver:
             return self._ancestor_cache[normalized]
 
         adapter = self._get_adapter()
+        if adapter is None:
+            # Not cached: a later call on a machine that has since fetched the
+            # build should get the real answer rather than this placeholder.
+            return set()
         try:
             ancestors = {
                 ancestor
@@ -220,7 +244,7 @@ def load_disease_model(disease_slug: str, kb_dir: Path | None = None) -> dict[st
     """Load a disease model YAML by dismech slug."""
     path = _resolve_disease_path(disease_slug, kb_dir=kb_dir)
     with open(path) as stream:
-        data = yaml.safe_load(stream)
+        data = safe_load(stream)
     if not isinstance(data, dict):
         raise ValueError(f"Disease YAML at {path} must be an object")
     return data

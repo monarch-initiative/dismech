@@ -17,12 +17,12 @@ Alias: genes
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md) | A structured perturbation, intervention, or exposure used in an experiment |  no  |
+| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
 | [Subtype](../classes/Subtype.md) |  |  no  |
 | [GeneticContext](../classes/GeneticContext.md) | A structured description of a genetic context that modifies phenotype frequen... |  no  |
-| [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
 | [Dataset](../classes/Dataset.md) | A reference to a publicly available omics or phenotype dataset |  no  |
 | [AnimalModel](../classes/AnimalModel.md) |  |  no  |
-| [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md) | A structured perturbation, intervention, or exposure used in an experiment |  no  |
 
 
 

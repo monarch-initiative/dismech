@@ -101,6 +101,13 @@ class _DisorderRecord:
     age_of_onset: list[str] = field(default_factory=list)
     # age of death categories
     age_of_death: list[str] = field(default_factory=list)
+    # disorder-disorder associations (e.g. deprecation/merge relations):
+    # list of (root_code, root_name, relation, target_code, target_name)
+    related_disorders: list[tuple[str, str, str, str, str]] = field(
+        default_factory=list
+    )
+    # non-empty-label disorder flags (e.g. "Deprecated entity", "Inactive")
+    status_flags: list[str] = field(default_factory=list)
 
 
 class OrphanetSource(StructuredSource):
@@ -205,6 +212,40 @@ class OrphanetSource(StructuredSource):
                 )
                 xrefs.append((source, ref, relation_short))
             rec.xrefs = xrefs
+            # disorder-disorder associations (e.g. "Moved to" deprecation/merge
+            # relations). One side of each association is this record itself,
+            # marked with cycle="true" and carrying no OrphaCode/Name children.
+            related: list[tuple[str, str, str, str, str]] = []
+            for assoc in d.findall(
+                "DisorderDisorderAssociationList/DisorderDisorderAssociation"
+            ):
+                root_el = assoc.find("RootDisorder")
+                target_el = assoc.find("TargetDisorder")
+                rel_type = _text(assoc.find("DisorderDisorderAssociationType/Name"))
+                if root_el is None or target_el is None or not rel_type:
+                    continue
+                if root_el.attrib.get("cycle") == "true":
+                    root_code, root_name = code, rec.name
+                else:
+                    root_code = _text(root_el.find("OrphaCode"))
+                    root_name = _text(root_el.find("Name"))
+                if target_el.attrib.get("cycle") == "true":
+                    target_code, target_name = code, rec.name
+                else:
+                    target_code = _text(target_el.find("OrphaCode"))
+                    target_name = _text(target_el.find("Name"))
+                if not root_code or not target_code:
+                    continue
+                related.append((root_code, root_name, rel_type, target_code, target_name))
+            rec.related_disorders = related
+            # status flags — deprecation/inactivation markers carry a Label.
+            rec.status_flags = sorted(
+                {
+                    _text(fl.find("Label"))
+                    for fl in d.findall("DisorderFlagList/DisorderFlag")
+                    if _text(fl.find("Label"))
+                }
+            )
         return snapshot
 
     def _load_product4(self, records: dict[str, _DisorderRecord]) -> None:
@@ -350,6 +391,10 @@ class OrphanetSource(StructuredSource):
         yield f"**ORPHA:{rec.orpha_code}** — {rec.name} ({type_str}, {group_str})"
         yield ""
 
+        if rec.status_flags:
+            yield f"**Status:** {'; '.join(rec.status_flags)}"
+            yield ""
+
         # Synonyms — bullets are friendlier than a table for short lists.
         if rec.synonyms:
             yield "## Synonyms"
@@ -445,6 +490,25 @@ class OrphanetSource(StructuredSource):
                     (f"{prefix}:{ref}", _RELATION_LABEL.get(relation, relation) or "-")
                 )
             yield from _md_table(["Reference", "Mapping"], rows_x)
+            yield ""
+
+        # Related disorders — markdown table. Captures Orphanet's
+        # disorder-disorder associations, notably "Moved to" deprecation/merge
+        # relations (e.g. a deprecated entity moved into a surviving concept).
+        if rec.related_disorders:
+            yield "## Related disorders"
+            yield ""
+            rows_r = sorted(
+                rec.related_disorders, key=lambda r: (r[2], int(r[0]), int(r[3]))
+            )
+            data_rows = [
+                (f"ORPHA:{root_code}", root_name or "-", rel, f"ORPHA:{target_code}", target_name or "-")
+                for root_code, root_name, rel, target_code, target_name in rows_r
+            ]
+            yield from _md_table(
+                ["Root", "Root Disorder", "Relation", "Target", "Target Disorder"],
+                data_rows,
+            )
             yield ""
 
         # Provenance footer — prose.

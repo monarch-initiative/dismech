@@ -51,6 +51,45 @@ def test_treats_edge_does_not_count_as_causal_connection() -> None:
     assert unconnected == ["Pain"]
 
 
+def test_causal_environmental_edge_connects_phenotype() -> None:
+    """A triggering exposure mechanistically explains a phenotype (#8033)."""
+    data = {
+        "phenotypes": [{"name": "Contact Dermatitis"}],
+        "environmental": [
+            {
+                "name": "Nickel exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Contact Dermatitis",
+                        "environmental_effect": "TRIGGERS",
+                    }
+                ],
+            }
+        ],
+    }
+    connected, total, unconnected = causal_inlink_coverage(data)
+    assert (connected, total) == (1, 1)
+    assert unconnected == []
+
+
+def test_noncausal_environmental_edges_do_not_connect_phenotype() -> None:
+    """Protective, predisposing and non-committal exposures do not explain a
+    phenotype, so they must not count toward causal-inlink coverage (#8033)."""
+    for effect in ["PROTECTS_AGAINST", "PREDISPOSES", "MODULATES", None]:
+        link = {"target": "Contact Dermatitis"}
+        if effect:
+            link["environmental_effect"] = effect
+        data = {
+            "phenotypes": [{"name": "Contact Dermatitis"}],
+            "environmental": [
+                {"name": "Some exposure", "influences_mechanisms": [link]}
+            ],
+        }
+        connected, total, unconnected = causal_inlink_coverage(data)
+        assert (connected, total) == (0, 1), f"unexpected wiring for {effect!r}"
+        assert unconnected == ["Contact Dermatitis"]
+
+
 def test_sequelae_chain_connects_downstream_phenotype() -> None:
     data = {
         "pathophysiology": [{"name": "M", "downstream": [{"target": "Pheno A"}]}],
@@ -82,7 +121,9 @@ def test_plugin_emits_graded_aggregated_score() -> None:
 
 
 def test_plugin_returns_no_score_when_no_phenotypes() -> None:
-    assert PhenotypeConnectivityPlugin().evaluate({"name": "x"}, QCConfig.default()) == []
+    assert (
+        PhenotypeConnectivityPlugin().evaluate({"name": "x"}, QCConfig.default()) == []
+    )
 
 
 def _mendelian() -> dict:
@@ -189,6 +230,45 @@ def test_augment_report_folds_in_connectivity_and_recomputes() -> None:
     # Weighted compliance drops: (2*1 + 1*2) / (2*1 + 2*2) = 4/6.
     assert round(base.weighted_compliance, 1) == 66.7
     # 50% < 90% threshold -> a violation is appended.
-    assert any(
-        v.slot_name == "causal_inlink" for v in base.threshold_violations
+    assert any(v.slot_name == "causal_inlink" for v in base.threshold_violations)
+
+
+def test_committed_causal_inlink_floor_is_set_and_never_lowered() -> None:
+    """The committed connectivity floor is a ratchet: it moves up, never down.
+
+    `phenotypes[].causal_inlink` carried `min_compliance: null` while the metric
+    was advisory. It is now enforced -- `just compliance-connectivity` exits
+    non-zero when the KB-wide aggregate falls below it, in `just qc` and as an
+    ungated whole-KB CI step.
+
+    The floor was set to 50.0 against a measured 53.9% (18989/35255 phenotype
+    nodes). This test pins two things a future edit could quietly undo: that a
+    floor exists at all (reverting to null disables the gate without touching
+    any code), and that it is not lowered below its starting value to get a red
+    build green. Raising it as coverage improves is the intended change and
+    requires editing the constant here too, which is the point -- lowering it
+    should be a deliberate, reviewed act rather than a one-character config fix.
+    """
+    from pathlib import Path
+
+    config = QCConfig.from_yaml(
+        str(Path(__file__).parent.parent / "conf" / "qc_config.yaml")
+    )
+    # Look the floor up exactly as the CLI does, through the plugin's own
+    # `path`/`slot_name`. `get_min_compliance` takes the container path
+    # ("phenotypes[]") and the slot separately and joins them; passing the
+    # joined "phenotypes[].causal_inlink" as the path silently returns None,
+    # which would make this test pass against a config that has no floor.
+    plugin = PhenotypeConnectivityPlugin()
+    floor = config.get_min_compliance(plugin.path, plugin.slot_name)
+
+    assert floor is not None, (
+        "phenotypes[].causal_inlink lost its min_compliance floor; a null here "
+        "silently disables the connectivity gate in `just qc` and CI."
+    )
+    assert floor >= 50.0, (
+        f"connectivity floor lowered to {floor}; it is a ratchet against erosion "
+        "and is only ever raised. If CI is failing, wire up floating phenotypes "
+        "(`just compliance-connectivity --list-unconnected`) rather than lowering "
+        "the floor."
     )

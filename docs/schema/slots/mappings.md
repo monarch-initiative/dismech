@@ -22,9 +22,9 @@ Alias: mappings
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Subtype](../classes/Subtype.md) |  |  no  |
 | [Disease](../classes/Disease.md) |  |  no  |
 | [Grouping](../classes/Grouping.md) | An explicit, curated union of distinct Disease entries assembled below the le... |  no  |
+| [Subtype](../classes/Subtype.md) |  |  no  |
 
 
 

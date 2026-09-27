@@ -1,6 +1,6 @@
 """Semantic YAML diff tool.
 
-Compares YAML files at the data level (post yaml.safe_load()),
+Compares YAML files at the data level (post safe_load()),
 ignoring serialization differences like key ordering, quoting, and wrapping.
 
 Usage:
@@ -21,10 +21,9 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
-from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load, safe_load_path
 
 KEY_CANDIDATES = ["name", "id", "reference", "hypothesis_group_id", "preferred_term"]
 
@@ -268,7 +267,7 @@ def load_yaml_from_git(ref: str, filepath: str) -> dict | None:
     )
     if result.returncode != 0:
         return None
-    return yaml.safe_load(result.stdout)
+    return safe_load(result.stdout)
 
 
 def _git_changed_files(
@@ -457,8 +456,8 @@ def main():
     ignore = {f.strip() for f in args.ignore_fields.split(",") if f.strip()}
 
     if args.command == "files":
-        old_data = yaml.safe_load(Path(args.old_file).read_text())
-        new_data = yaml.safe_load(Path(args.new_file).read_text())
+        old_data = safe_load_path(args.old_file)
+        new_data = safe_load_path(args.new_file)
         changes = diff_dicts(old_data, new_data, ignore_fields=ignore)
         result = FileDiffResult(
             filename=f"{args.old_file} -> {args.new_file}", changes=changes

@@ -12,8 +12,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from dismech.compare.mondo_export import (
     DEFAULT_MONDO_DB_PATH,
     _connect_mondo_db,
@@ -22,6 +20,7 @@ from dismech.compare.mondo_export import (
     _query_single_value_map,
 )
 from dismech.render import curie_to_url, slugify
+from dismech.yaml_io import safe_load
 
 UNCURATED_BLOCK_START = "<!-- DISMECH-UNCURATED-START -->"
 UNCURATED_BLOCK_END = "<!-- DISMECH-UNCURATED-END -->"
@@ -116,7 +115,7 @@ def _iter_disorder_files(kb_dir: Path) -> Iterable[Path]:
 def _load_disorders(kb_dir: Path) -> list[tuple[Path, dict[str, Any]]]:
     disorders: list[tuple[Path, dict[str, Any]]] = []
     for disorder_path in _iter_disorder_files(kb_dir):
-        disorder = yaml.safe_load(disorder_path.read_text(encoding="utf-8")) or {}
+        disorder = safe_load(disorder_path.read_text(encoding="utf-8")) or {}
         if isinstance(disorder, dict):
             disorders.append((disorder_path, disorder))
     return disorders
@@ -1264,7 +1263,7 @@ def inject_uncurated_link(
     summary: dict[str, Any],
 ) -> bool:
     """Insert or update the uncurated-links section in the dashboard index page."""
-    return _inject_block(
+    return inject_block(
         dashboard_index_path,
         start_sentinel=UNCURATED_BLOCK_START,
         end_sentinel=UNCURATED_BLOCK_END,
@@ -1272,14 +1271,19 @@ def inject_uncurated_link(
     )
 
 
-def _inject_block(
+def inject_block(
     dashboard_index_path: Path,
     *,
     start_sentinel: str,
     end_sentinel: str,
     block: str,
 ) -> bool:
-    """Insert or update a sentinel-delimited section in the dashboard index page."""
+    """Insert or update a sentinel-delimited section in the dashboard index page.
+
+    Shared by every supplemental dashboard report (capability metrics, uncurated
+    links, phenotype systems): each owns one start/end sentinel pair and replaces
+    only what sits between them, so the reports can be regenerated in any order.
+    """
     if not dashboard_index_path.exists():
         return False
 
@@ -1310,7 +1314,7 @@ def inject_capability_metrics_link(
     summary: dict[str, Any],
 ) -> bool:
     """Insert or update the capability-metrics section in the dashboard index page."""
-    return _inject_block(
+    return inject_block(
         dashboard_index_path,
         start_sentinel=CAPABILITY_BLOCK_START,
         end_sentinel=CAPABILITY_BLOCK_END,

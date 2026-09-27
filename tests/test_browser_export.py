@@ -3,9 +3,8 @@
 import tempfile
 from pathlib import Path
 
-import yaml
-
 from dismech.export.browser_export import BrowserExporter, count_mechanism_modules
+from dismech.yaml_io import safe_load
 
 
 def test_count_mechanism_modules():
@@ -121,7 +120,7 @@ biochemical:
 
         # Load it to verify it has None values
         with open(yaml_file) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         assert data["genetic"] is None
         assert data["treatments"] is None
 

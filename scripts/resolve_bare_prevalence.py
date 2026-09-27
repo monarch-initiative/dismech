@@ -36,7 +36,8 @@ import re
 from pathlib import Path
 
 import migrate_prevalence as M  # reuse parse/classify/upsert machinery
-import yaml as _pyyaml
+
+from dismech.yaml_io import safe_load
 
 ROOT = Path(__file__).resolve().parent.parent
 DISORDERS = ROOT / "kb" / "disorders"
@@ -162,7 +163,7 @@ def main():
         with open(path, "r", encoding="utf-8", newline="") as _fh:
             text = _fh.read()  # preserve CRLF/LF; never normalize
         try:
-            data = _pyyaml.safe_load(text)
+            data = safe_load(text)
         except Exception:
             continue
         if not isinstance(data, dict):

@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Johanson-Blizzard syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Johanson-Blizzard syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Johanson-Blizzard syndrome</h1>
+                
+                <p class="report-subtitle">Johanson-Blizzard Syndrome (JBS): Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-04</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0009479" target="_blank" rel="noopener noreferrer">MONDO:0009479</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">25 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Johanson-Blizzard Syndrome (JBS): Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Johanson-Blizzard syndrome (JBS) is a rare, multisystem autosomal recessive disorder first described in 1971 by Johanson and Blizzard in three unrelated girls with "congenital aplasia of the alae nasi, deafness, hypothyroidism, dwarfism, absent permanent teeth, and malabsorption" (<a href="https://rarediseases.org/rare-diseases/johanson-blizzard-syndrome/">NORD</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/22072859/">PubMed</a>). Overlapping cases had been reported earlier (Morris and Fisher 1967; Townes 1969) as "trypsinogen deficiency disease." The syndrome's molecular basis — biallelic loss-of-function mutations in <strong>UBR1</strong>, encoding an E3 ubiquitin ligase of the N-end rule pathway — was established in 2005 by Zenker et al. (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/16311597/">16311597</a>, <em>Nature Genetics</em>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM:</strong> #243800 (phenotype); <em>605981 (UBR1 gene) — <a href="https://omim.org/entry/243800">OMIM entry</a>
+- </em><em>Orphanet:</em><em> <a href="https://bioregistry.io/ORPHA:2315" target="_blank" rel="noopener noreferrer">ORPHA:2315</a> — <a href="https://www.orpha.net/en/disease/detail/2315">Orphanet</a>
+- </em><em>MONDO:</em><em> <a href="http://purl.obolibrary.org/obo/MONDO_0009479" target="_blank" rel="noopener noreferrer">MONDO:0009479</a>
+- </em><em>MeSH:</em><em> C535880
+- </em><em>UMLS CUI:</em><em> C0175692
+- </em><em>Disease Ontology:</em><em> <a href="http://purl.obolibrary.org/obo/DOID_14694" target="_blank" rel="noopener noreferrer">DOID:14694</a>
+- </em><em>ICD-10:</em><em> Q87.8 (other specified congenital malformation syndromes, not elsewhere classified) — no dedicated code; often mapped generically
+- </em><em>Gene:</em>* UBR1 (<a href="https://bioregistry.io/HGNC:16808" target="_blank" rel="noopener noreferrer">HGNC:16808</a>; NCBI Gene 197131; chr15q15.2, hg38 chr15:42,942,897–43,106,113)</p>
+<p><strong>Synonyms:</strong> JBS; UBR1-related exocrine pancreatic insufficiency with multiple malformations; "trypsinogen deficiency disease" (historical/overlapping earlier name).</p>
+<p><strong>Evidence base:</strong> Predominantly individual case reports and small case series aggregated into disease-level reviews (fewer than 100–150 patients reported worldwide as of the most recent literature reviews), plus one large genotype-phenotype correlation study (Sukalo et al.) and structured aggregators (OMIM, Orphanet, NORD, GARD).</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> JBS is caused by homozygous or compound heterozygous loss-of-function variants in <strong>UBR1</strong> (chr15q15.2), which encodes one of at least four functionally overlapping E3 ubiquitin ligases of the <strong>N-end rule (Arg/N-degron) pathway</strong>, a conserved proteolytic system that targets substrates bearing destabilizing N-terminal residues for ubiquitin-mediated degradation (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/16311597/">16311597</a>).</p>
+<p><strong>Mutational spectrum.</strong> As of the most recent comprehensive surveys, <strong>59 distinct UBR1 mutations</strong> have been reported: 15 nonsense, 14 splice-site, 9 small frameshift-causing deletions/duplications/insertions, 3 small in-frame deletions, and 18 missense variants, with some clustering of missense variants in the highly conserved UBR box domain (<a href="https://www.nature.com/articles/ejhg201365">EJHG Clinical Utility Gene Card</a>, PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/23652379/">23652379</a>). Whole-exon deletions/duplications detectable only by MLPA have also been described, expanding the mutational spectrum (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5702574/">PMC5702574</a>). Most mutations are private/family-specific; <strong>no predominant founder allele has been identified in any population</strong> to date.</p>
+<p><strong>Genetic risk factors:</strong> Biallelic (homozygous or compound heterozygous) UBR1 variants are both necessary and sufficient; there is no known oligogenic or digenic contribution. Consanguinity is a recognized risk factor given the autosomal recessive inheritance and rarity of the allele (noted in case reports from consanguineous Middle Eastern populations, e.g., Bahrain and Saudi Arabia cases — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11007587/">PMC11007587</a>).</p>
+<p><strong>Environmental/other factors:</strong> No environmental, infectious, or lifestyle causal or risk factors are established; JBS is a purely monogenic disorder.</p>
+<p><strong>Protective factors:</strong> None specifically documented; genotype-phenotype correlation data (below) suggest <strong>residual UBR1 catalytic activity</strong> is a modifier of severity rather than a distinct "protective" allele.</p>
+<p><strong>Gene-environment interaction:</strong> Not applicable/not reported — this is a fully penetrant monogenic disease without described environmental modulation of expressivity.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The clinical hallmark triad is <strong>exocrine pancreatic insufficiency (EPI), hypoplasia/aplasia of the nasal alae, and oligodontia/dental anomalies of permanent teeth</strong>. Below, phenotypes are grouped and annotated with suggested HP terms and approximate frequency where reported.</p>
+<h3>Craniofacial / ectodermal</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency/notes</th>
+<th>Suggested HP term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hypoplasia/aplasia of nasal alae ("beaked" small nose)</td>
+<td>Near-universal; most constant feature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000430" target="_blank" rel="noopener noreferrer">HP:0000430</a> (Hypoplastic alae nasi)</td>
+</tr>
+<tr>
+<td>Microcephaly</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a></td>
+</tr>
+<tr>
+<td>Scalp defects (aplasia cutis congenita, midline ectodermal defect, sparse/coarse hair)</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001060" target="_blank" rel="noopener noreferrer">HP:0001060</a> (Cutis aplasia); <a href="http://purl.obolibrary.org/obo/HP_0002212" target="_blank" rel="noopener noreferrer">HP:0002212</a> (Sparse scalp hair)</td>
+</tr>
+<tr>
+<td>Maxillary hypoplasia, small pointed chin</td>
+<td>Reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000327" target="_blank" rel="noopener noreferrer">HP:0000327</a>; <a href="http://purl.obolibrary.org/obo/HP_0000324" target="_blank" rel="noopener noreferrer">HP:0000324</a></td>
+</tr>
+<tr>
+<td>Cleft lip/palate</td>
+<td>Occasional</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" rel="noopener noreferrer">HP:0000175</a></td>
+</tr>
+<tr>
+<td>Lacrimal duct anomalies (aplasia of lacrimal puncta, nasolacrimal fistula)</td>
+<td>Occasional</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000579" target="_blank" rel="noopener noreferrer">HP:0000579</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Dental</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>HP term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Oligodontia/absence of permanent teeth</td>
+<td>Majority of cases (80–99%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000677" target="_blank" rel="noopener noreferrer">HP:0000677</a></td>
+</tr>
+<tr>
+<td>Malformed, cone-shaped, widely spaced primary teeth</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006486" target="_blank" rel="noopener noreferrer">HP:0006486</a> (microdontia)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Auditory/neurologic</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>HP term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sensorineural hearing loss (bilateral, severe-to-profound)</td>
+<td>~75% (<a href="https://www.google.com">search summary</a>); "one of the most common symptoms"</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a></td>
+</tr>
+<tr>
+<td>Intellectual disability / developmental delay</td>
+<td>~60% (variable — mild to severe; some patients have normal intelligence)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+</tr>
+<tr>
+<td>Hypotonia</td>
+<td>Reported in infancy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Growth</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>HP term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Short stature/dwarfism</td>
+<td>Majority (80–99%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></td>
+</tr>
+<tr>
+<td>Intrauterine growth restriction / low birth weight</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" rel="noopener noreferrer">HP:0001511</a> / <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" rel="noopener noreferrer">HP:0001518</a></td>
+</tr>
+<tr>
+<td>Failure to thrive</td>
+<td>Common in infancy, secondary to malabsorption</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Gastrointestinal/pancreatic</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>HP term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exocrine pancreatic insufficiency</td>
+<td>Near-universal (only one reported exception — Corona-Rivera et al., cited in <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11007587/">PMC11007587</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001738" target="_blank" rel="noopener noreferrer">HP:0001738</a></td>
+</tr>
+<tr>
+<td>Steatorrhea / malabsorption</td>
+<td>Consequence of EPI</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002570" target="_blank" rel="noopener noreferrer">HP:0002570</a> (loose stools)</td>
+</tr>
+<tr>
+<td>Imperforate anus / anal stenosis</td>
+<td>Reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002023" target="_blank" rel="noopener noreferrer">HP:0002023</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Endocrine</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>HP term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hypothyroidism</td>
+<td>~40% (NORD)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" rel="noopener noreferrer">HP:0000821</a></td>
+</tr>
+<tr>
+<td>Growth hormone deficiency / hypopituitarism</td>
+<td>Reported, screening recommended</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000824" target="_blank" rel="noopener noreferrer">HP:0000824</a></td>
+</tr>
+<tr>
+<td>Diabetes mellitus (juvenile/adolescent onset)</td>
+<td>"Presumably high risk" during adolescence/adulthood</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" rel="noopener noreferrer">HP:0000819</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Genitourinary / cardiac / other</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>HP term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Genitourinary anomalies (hypospadias, micropenis, urethrovaginal fistula, hydronephrosis)</td>
+<td>Reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000047" target="_blank" rel="noopener noreferrer">HP:0000047</a> / <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" rel="noopener noreferrer">HP:0000054</a></td>
+</tr>
+<tr>
+<td>Congenital heart defects (ASD, VSD, cardiomyopathy)</td>
+<td>Reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" rel="noopener noreferrer">HP:0001631</a> / <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" rel="noopener noreferrer">HP:0001629</a></td>
+</tr>
+<tr>
+<td>Situs inversus</td>
+<td>Occasionally reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003363" target="_blank" rel="noopener noreferrer">HP:0003363</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality of life impact:</strong> Chronic malabsorption/malnutrition, profound hearing loss, and variable intellectual disability substantially affect development, education, and communication. Cochlear-implanted children show measurable auditory gains but often limited spoken-language outcomes even after years of device use (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8571962/">PMC8571962</a>). No disease-specific QOL instrument was identified in the literature; management is multidisciplinary (gastroenterology, endocrinology, audiology, genetics, plastic surgery, speech therapy).</p>
+<p><strong>Onset/course:</strong> Congenital/neonatal for the hallmark triad (EPI often presents in the newborn/young infant with failure to thrive and oily stools); endocrinopathies (hypothyroidism, GH deficiency, diabetes) may manifest later in childhood/adolescence, warranting longitudinal screening.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal gene:</strong> UBR1 (OMIM *605981), 47 exons, encoding the recognition (N-recognin) component of the Arg/N-end rule branch of the ubiquitin-proteasome system.</p>
+<p><strong>Protein domains and mutation mechanism</strong> (from structural/functional analysis in PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/21931868/">21931868</a>/PMC3172311, "Ubiquitin Ligases of the N-End Rule Pathway: Assessment of Mutations in UBR1 That Cause the Johanson-Blizzard Syndrome"):
+- <strong>UBR box (N-terminal, ~70-residue zinc-coordinating domain):</strong> the type-1 substrate-binding site that recognizes unmodified basic (Arg, Lys, His) N-terminal residues. Coordinates three zinc ions. Missense mutations here (e.g., p.V122L near the substrate-binding β-strand; p.H136R disrupting Zn3 coordination) impair substrate recognition. Quote: <em>"The type-1 binding site of Ubr1 resides in the ∼70-residue UBR domain."</em>
+- <strong>RING-H2 domain (C-terminal):</strong> catalyzes ubiquitin transfer; mutations here (e.g., p.Q1102E) perturb the Zn-stabilized RING fold required for E2-ubiquitin ligase activity.
+- <strong>Functional assays</strong> (yeast-based substrate-instability assays) show a <strong>genotype-severity correlation</strong>: the fully catalytically dead mutant (p.H136R/legacy numbering H160R) was associated with the most severe clinical phenotype in the corresponding patient, whereas mutants retaining partial residual activity (p.V122L, p.Q1102E) correlated with <strong>milder disease</strong>. Quote: <em>"the relative mildness of symptoms in JBS patients #1 and #3 is most likely caused by a significant residual activity of the corresponding UBR1 mutants."</em></p>
+<p><strong>Variant classification/type:</strong> The full allelic series spans nonsense (15), splice-site (14), frameshift indels (9), in-frame small deletions (3), missense (18), and whole-exon deletions/duplications identified by MLPA (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5702574/">PMC5702574</a>). All are considered loss-of-function or hypomorphic; no gain-of-function or dominant-negative mechanism is described. Individual mutations are cataloged in ClinVar (e.g., RCV000004945 for c.2839+5G&gt;A).</p>
+<p><strong>Allele frequency/population genetics:</strong> No UBR1-specific gnomAD carrier-frequency figure was located in the structured sources searched; the disease's estimated European birth prevalence of ~1/250,000 implies an allele frequency consistent with a rare, non-founder recessive disorder. <strong>No obvious founder alleles are known for any population</strong> to date (<a href="https://www.nature.com/articles/ejhg201365">EJHG Clinical Utility Gene Card</a>).</p>
+<p><strong>Somatic vs. germline:</strong> Exclusively germline; no somatic/mosaic JBS cases were identified.</p>
+<p><strong>Epigenetics/chromosomal abnormalities:</strong> None reported; JBS is a classic single-gene recessive disorder with no known epigenetic or structural-chromosomal mechanism.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No environmental toxins, infectious agents, or lifestyle factors are implicated in causation. The disease is fully genetically determined; environmental factors are relevant only to secondary complications (e.g., nutritional status affects severity of malnutrition-related morbidity, but does not cause the syndrome).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li>Biallelic loss-of-function (or strongly hypomorphic) variants in <strong>UBR1</strong> → <strong>loss of/severely reduced UBR1 E3 ubiquitin ligase activity</strong> in the Arg/N-end rule (N-degron) proteolytic pathway (demonstrated directly: patient pancreas tissue "did not express UBR1" — PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/16311597/">16311597</a>).</li>
+<li>Loss of UBR1-mediated substrate degradation → <strong>failure to properly turn over specific N-end rule substrate proteins</strong>, with <strong>metabolic stabilization of specific substrates of the N-end rule pathway</strong> in affected tissues (inferred from the mouse knockout studies; the identity of the disease-relevant substrate(s) in human pancreas remains undefined — this is an acknowledged knowledge gap: <em>"It is yet unknown what specific pathophysiological relationship exists between altered protein degradation and the clinical abnormalities seen in JBS"</em> — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11007587/">PMC11007587</a>).</li>
+<li>In the exocrine pancreas specifically, UBR1 deficiency <strong>leads to</strong> disrupted acinar cell development/maintenance → <strong>intrauterine-onset destructive pancreatitis</strong>, with pathology showing <strong>impaired apoptosis, induced necrosis, and prominent inflammation</strong> in the developing gland (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/16311597/">16311597</a>; summarized in search results above).</li>
+<li>Progressive acinar destruction <strong>results in</strong> replacement of pancreatic parenchyma by fatty/fibrous tissue (visible on abdominal CT as fatty tissue replacement) → <strong>near-total loss of exocrine (zymogen-secreting) function</strong> → congenital/early-infantile <strong>exocrine pancreatic insufficiency</strong>.</li>
+<li>EPI <strong>leads to</strong> maldigestion and malabsorption of fat, protein, and fat-soluble vitamins → <strong>steatorrhea, hypoproteinemia, fat-soluble vitamin (A/D/E/K) deficiency, and failure to thrive/short stature</strong>.</li>
+<li>In parallel (branching), UBR1 loss during <strong>embryonic midline and craniofacial development (weeks 6–8 of gestation)</strong> disrupts N-end rule-dependent developmental protein turnover in non-pancreatic tissues, <strong>leading to</strong> the constellation of malformations: nasal ala hypoplasia/aplasia, scalp/midline ectodermal defects, oligodontia, and (in some patients) genitourinary, anorectal, and cardiac malformations. This branch is largely inferred from the co-occurrence of these anomalies with pancreatic disease and from UBR1's broad tissue expression, rather than from a tissue-specific developmental mechanism that has been directly demonstrated.</li>
+<li>A separate branch involves the inner ear and endocrine organs: UBR1 deficiency is associated with <strong>sensorineural hearing loss</strong> (cochlear mechanism not molecularly characterized) and with <strong>variable pituitary/thyroid/pancreatic endocrine dysfunction</strong> (hypopituitarism, hypothyroidism, adolescent-onset diabetes mellitus), suggesting a general vulnerability of secretory/glandular epithelia to UBR1 loss, though the specific downstream mechanism in these tissues is not established.</li>
+</ol>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathway:</strong> The Arg/N-end rule (N-degron) branch of the ubiquitin-proteasome system. UBR1's UBR box recognizes unmodified basic (Arg, Lys, His) and — together with other overlapping ligases — bulky hydrophobic (Leu, Phe, Tyr, Trp, Ile) destabilizing N-terminal residues; substrate ubiquitination is completed by the RING-H2 domain. Suggested GO terms: <strong><a href="http://purl.obolibrary.org/obo/GO_0004842" target="_blank" rel="noopener noreferrer">GO:0004842</a></strong> (ubiquitin-protein transferase activity), <strong><a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" rel="noopener noreferrer">GO:0043161</a></strong> (proteasome-mediated ubiquitin-dependent protein catabolic process), <strong><a href="http://purl.obolibrary.org/obo/GO_0071596" target="_blank" rel="noopener noreferrer">GO:0071596</a></strong> (ubiquitin-dependent protein catabolic process via the N-end rule pathway).</li>
+<li><strong>Cellular processes:</strong> Dysregulated apoptosis and increased necrosis in pancreatic acinar cells during prenatal development; associated inflammatory infiltration. Suggested GO terms: <strong><a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a></strong> (apoptotic process), <strong><a href="http://purl.obolibrary.org/obo/GO_0070265" target="_blank" rel="noopener noreferrer">GO:0070265</a></strong> (necrotic cell death), <strong><a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a></strong> (inflammatory response).</li>
+<li><strong>Protein dysfunction:</strong> Loss-of-function of the UBR1 E3 ligase (reduced/absent ubiquitin ligase activity by yeast functional assay); no misfolding/aggregation mechanism described for UBR1 itself, though downstream ER stress from accumulated unprocessed substrates has been <em>hypothesized</em> (not directly demonstrated) as contributing to acinar cell injury.</li>
+<li><strong>Tissue damage mechanism:</strong> Destructive, inflammatory pancreatitis-like process in utero, culminating in acinar cell loss and fibro-fatty replacement — this is the best-characterized organ-level mechanism in JBS.</li>
+<li><strong>Cell types involved:</strong> Pancreatic acinar cells (primary; suggested CL term <strong><a href="http://purl.obolibrary.org/obo/CL_0002064" target="_blank" rel="noopener noreferrer">CL:0002064</a></strong> pancreatic acinar cell); cochlear sensory hair cells (hearing loss, mechanism uncharacterized); craniofacial neural-crest-derived mesenchyme (nasal ala/midline defects, inferred); pituitary/thyroid endocrine cells (hypopituitarism/hypothyroidism, mechanism uncharacterized).</li>
+<li><strong>Molecular profiling / advanced technologies:</strong> No transcriptomic, proteomic, metabolomic, single-cell, or spatial-omics datasets specific to human JBS pancreas were identified in the literature searched; mechanistic data derive from targeted mutagenesis, yeast substrate-instability assays, and the Ubr1-knockout mouse (below), not from unbiased omics profiling. This is a notable gap for future characterization.</li>
+</ul>
+<p><strong>Animal model mechanistic data:</strong> <em>Ubr1⁻/⁻</em> mice show exocrine pancreatic insufficiency with impaired stimulus-secretion coupling and increased susceptibility to pancreatic injury, "presumably owing to metabolic stabilization of specific substrates of the N-end rule pathway," but the phenotype is <strong>markedly less severe than the destructive prenatal pancreatitis seen in human JBS patients</strong> (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/16311597/">16311597</a>) — an instructive human-model mismatch (see Section 15).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level (primary):</strong> Exocrine pancreas (<a href="http://purl.obolibrary.org/obo/UBERON_0001264" target="_blank" rel="noopener noreferrer">UBERON:0001264</a>); nasal alae/external nose (<a href="http://purl.obolibrary.org/obo/UBERON_0009471" target="_blank" rel="noopener noreferrer">UBERON:0009471</a>/<a href="http://purl.obolibrary.org/obo/UBERON_0000004" target="_blank" rel="noopener noreferrer">UBERON:0000004</a>); scalp (<a href="http://purl.obolibrary.org/obo/UBERON_0001037" target="_blank" rel="noopener noreferrer">UBERON:0001037</a>); teeth (<a href="http://purl.obolibrary.org/obo/UBERON_0001091" target="_blank" rel="noopener noreferrer">UBERON:0001091</a>); inner ear/cochlea (<a href="http://purl.obolibrary.org/obo/UBERON_0001846" target="_blank" rel="noopener noreferrer">UBERON:0001846</a>).</li>
+<li><strong>Organ level (secondary/complications):</strong> Thyroid gland (hypothyroidism), pituitary gland (GH deficiency/hypopituitarism), heart (septal defects, cardiomyopathy), kidneys/urinary tract (hydronephrosis), external genitalia (hypospadias), anorectum (imperforate anus).</li>
+<li><strong>Body systems involved:</strong> Digestive, endocrine, auditory/vestibular, craniofacial/skeletal, cardiovascular, genitourinary, integumentary (scalp/hair), and — variably — central nervous system (intellectual disability).</li>
+<li><strong>Tissue/cell level:</strong> Acinar epithelium of the exocrine pancreas (primary destructive target); cochlear neuroepithelium; craniofacial mesenchyme/neural crest derivatives; dental lamina/tooth germ epithelium.</li>
+<li><strong>Subcellular level:</strong> Ubiquitin-proteasome system components — cytosolic N-end rule substrate recognition and degradation machinery (GO Cellular Component: <strong><a href="http://purl.obolibrary.org/obo/GO_0005737" target="_blank" rel="noopener noreferrer">GO:0005737</a></strong> cytoplasm; ubiquitin ligase complex <strong><a href="http://purl.obolibrary.org/obo/GO_0000151" target="_blank" rel="noopener noreferrer">GO:0000151</a></strong>); ER stress has been hypothesized as a contributing subcellular mechanism in acinar cells but is not directly demonstrated.</li>
+<li><strong>Localization/laterality:</strong> Findings are generally bilateral and symmetric (bilateral SNHL, bilateral nasal ala involvement); situs inversus has been reported in rare cases, indicating occasional laterality defects.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Congenital — the hallmark craniofacial malformations (nasal ala hypoplasia) can be detected <strong>prenatally by ultrasound</strong> (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/10423811/">10423811</a>, showing "aplastic alae nasi (beak-like nose) and dilated sigmoid colon"). Exocrine pancreatic insufficiency typically presents in the <strong>neonatal/early infantile period</strong> with failure to thrive and steatorrhea. Endocrine complications (hypothyroidism, GH deficiency, diabetes) tend to manifest later, in childhood through adolescence.</li>
+<li><strong>Progression:</strong> The pancreatic lesion is thought to arise as an <strong>intrauterine destructive process</strong> (not a static malformation), so exocrine failure is often maximal at birth or in early infancy rather than progressive thereafter; growth failure/short stature is a stable lifelong feature once established, contingent on nutritional management. Endocrinopathies can newly emerge over the disease course, so longitudinal screening (thyroid function, growth hormone axis, glucose tolerance, cardiac evaluation) is recommended throughout childhood and adolescence.</li>
+<li><strong>Disease course pattern:</strong> Chronic, lifelong, multi-system, with variable severity — from patients with normal intelligence and mild features to those with profound multi-organ involvement and early mortality if untreated. No remitting-relapsing pattern is described; it is a stable, non-degenerative congenital condition whose morbidity is driven mainly by nutritional and endocrine complications rather than a progressive neurodegenerative or oncologic course.</li>
+<li><strong>Critical periods:</strong> Early recognition and initiation of pancreatic enzyme replacement/nutritional support in infancy is the key intervention window to prevent malnutrition-related mortality and optimize growth.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance pattern:</strong> Autosomal recessive (UBR1, chr15q15.2). Full penetrance reported for biallelic loss-of-function genotypes; some genotype-severity correlation exists (see Section 4) but no formal reduced-penetrance data.</li>
+<li><strong>Prevalence:</strong> Estimated at <strong>~1/250,000 live births in Europe</strong> (<a href="https://www.orpha.net/en/disease/detail/2315">Orphanet</a>; <a href="https://rarediseases.org/rare-diseases/johanson-blizzard-syndrome/">NORD</a>). Fewer than 150 cases have been documented in the world literature; one review states "less than 100 documented patients" globally as of its publication (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11007587/">PMC11007587</a>).</li>
+<li><strong>Incidence:</strong> Not separately reported; treated as birth prevalence given the congenital/lifelong nature of the condition.</li>
+<li><strong>Consanguinity:</strong> A recognized contributing factor to case ascertainment, particularly in reports from the Middle East (Bahrain, Saudi Arabia) given the rarity of the recessive allele.</li>
+<li><strong>Founder effects:</strong> None identified to date in any population studied.</li>
+<li><strong>Sex ratio:</strong> Reported to affect males and females equally (NORD).</li>
+<li><strong>Geographic distribution:</strong> Cases reported worldwide (Europe, Middle East, South Asia, Americas) without a described endemic region; original description was in the U.S. (Baltimore).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical diagnosis</strong> rests on recognition of the characteristic triad (EPI + hypoplastic/aplastic nasal alae + oligodontia of permanent teeth) plus supportive features (scalp defects, sensorineural hearing loss, short stature).</p>
+<p><strong>Laboratory tests:</strong>
+- Stool fat globules / fecal fat quantification
+- Fecal tryptic (or chymotrypsin) activity — dilution &lt;1:50 indicates pancreatic insufficiency
+- Serum amylase/lipase, trypsinogen levels
+- Fat-soluble vitamin panel (A, D, E, K)
+- Thyroid function tests (screening for hypothyroidism)
+- Glucose tolerance testing (screening for diabetes, particularly in adolescence)</p>
+<p><strong>Imaging:</strong>
+- Prenatal ultrasound: nasal ala hypoplasia/aplasia; occasionally dilated sigmoid colon
+- Abdominal CT/MRI: fatty replacement of pancreatic parenchyma
+- Brain CT/MRI: assessment for cochleovestibular anomalies
+- Orbital/facial CT: bony/nasal structural defects
+- Echocardiography: screening for congenital heart defects</p>
+<p><strong>Genetic testing:</strong> Direct sequencing (and, where negative, MLPA for exon-level deletions/duplications) of UBR1 confirms the molecular diagnosis. A gene panel approach for congenital EPI syndromes (including UBR1, along with SBDS for Shwachman-Diamond, CFTR for cystic fibrosis, PTF1A, RFX6, etc.) is the practical clinical strategy; whole-exome/genome sequencing is increasingly used when the phenotype is atypical.</p>
+<p><strong>Differential diagnosis:</strong>
+- <strong>Cystic fibrosis</strong> (exocrine pancreatic insufficiency without the craniofacial/dental features)
+- <strong>Shwachman-Diamond syndrome</strong> (EPI with bone marrow dysfunction/metaphyseal dysplasia rather than nasal/dental anomalies)
+- <strong>Pearson marrow-pancreas syndrome</strong> (sideroblastic anemia, pancreatic fibrosis)
+- <strong>Partial pancreatic agenesis</strong>
+- <strong>Oculodentodigital dysplasia</strong> (for isolated hypoplasia of the alae nasi)
+- <strong>Adams-Oliver syndrome</strong> (for aplasia cutis congenita component)</p>
+<p><strong>Screening:</strong> No population newborn-screening program exists for JBS specifically (it is far too rare and heterogeneous for a biochemical newborn screen); recognition relies on clinical/prenatal ultrasound findings and subsequent targeted molecular testing. Carrier and prenatal/preimplantation genetic testing are feasible once a family's UBR1 variants are known.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> Untreated pancreatic insufficiency and malnutrition can be <strong>fatal in infancy or early childhood</strong>; however, with early diagnosis and effective pancreatic enzyme replacement plus vitamin supplementation, <strong>survival into adulthood is not uncommon</strong>. No formal 5-/10-year survival statistics or population-based mortality registry data were located — figures derive from aggregated case-report experience rather than a cohort study.</li>
+<li><strong>Morbidity:</strong> Chronic malabsorption, growth failure/short stature persisting despite treatment, profound hearing loss with variable speech/language outcomes even after cochlear implantation, and variable intellectual disability are the dominant chronic morbidities. A case report notes growth parameters "remain below the 3rd percentile" despite adherence to nutritional treatment (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11007587/">PMC11007587</a>).</li>
+<li><strong>Complications:</strong> Infections and severe malnutrition if EPI is untreated; endocrine complications (hypothyroidism, hypopituitarism, diabetes) emerging through childhood/adolescence; congenital heart defects and genitourinary anomalies requiring surgical correction.</li>
+<li><strong>Prognostic factors:</strong> Severity appears to correlate with <strong>residual UBR1 catalytic activity</strong> at the molecular level (genotype-phenotype correlation from functional assays, Section 4) and, clinically, with timeliness of diagnosis and initiation of pancreatic enzyme replacement/nutritional support.</li>
+<li><strong>Quality-of-life trajectory:</strong> With multidisciplinary care (enzyme replacement, endocrine surveillance, hearing rehabilitation, reconstructive surgery, developmental support), many patients achieve reasonable social functioning and school attendance, though developmental delay commonly persists.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p>Treatment is entirely <strong>symptomatic and supportive</strong>; there is no disease-modifying or curative therapy targeting UBR1/N-end rule pathway dysfunction.</p>
+<p><strong>Pharmacotherapy:</strong>
+- <strong>Pancreatic enzyme replacement therapy (PERT)</strong> — e.g., pancrelipase/pancreatin (Creon), dosed per kilogram body weight, lifelong. Suggested NCIT term: <strong>NCIT:C1400</strong> (Pancrelipase) under <strong>NCIT:C15986</strong> (Pharmacotherapy).
+- <strong>Fat-soluble vitamin supplementation</strong> (A, D, E, K) and mineral/antioxidant supplementation.
+- <strong>Levothyroxine</strong> replacement for hypothyroidism (NCIT: Levothyroxine, <a href="http://purl.obolibrary.org/obo/CHEBI_6710" target="_blank" rel="noopener noreferrer">CHEBI:6710</a>).
+- <strong>Growth hormone therapy</strong> where GH deficiency/hypopituitarism is confirmed (not universally required — used per endocrine workup).
+- <strong>Insulin therapy</strong> if adolescent/adult-onset diabetes mellitus develops.</p>
+<p><strong>Nutritional/dietary intervention:</strong>
+- High-protein, easily-absorbed protein-hydrolysate formula/diet; specialized anti-regurgitation formulas in infancy. Suggested NCIT term: <strong>NCIT:C15447</strong> (Dietary Intervention).</p>
+<p><strong>Surgical/interventional:</strong>
+- Nasal and periorbital/eyelid reconstructive surgery (NCIT:C15329, Surgical Procedure)
+- Anoplasty or colostomy for imperforate anus
+- Correction of congenital heart defects, cleft lip/palate, and genitourinary malformations
+- <strong>Bilateral cochlear implantation</strong> for profound sensorineural hearing loss, followed by aural rehabilitation and speech therapy — shown to substantially improve hearing thresholds and sound/speech discrimination, though spoken-language outcomes can remain limited even after years of bilateral device use (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8571962/">PMC8571962</a>; PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/28576536/">28576536</a>). NCIT: cochlear device implantation → <strong>NCIT:C15329</strong> with device qualifier per dismech convention.</p>
+<p><strong>Supportive/rehabilitative care:</strong>
+- Hearing aids (pre-implant or for less severe loss)
+- Early intervention/special education programs
+- Dental management (bonding, prosthodontics/dentures) for oligodontia
+- Genetic counseling for families</p>
+<p><strong>Experimental therapies:</strong> No gene therapy, cell therapy, RNA-based therapy, or targeted molecular therapy specific to JBS/UBR1 was identified in the searched literature or clinical trial registries; no relevant NCT-registered interventional trials for JBS were found.</p>
+<p><strong>Treatment algorithm/strategy:</strong> Multidisciplinary coordinated care (gastroenterology/pancreatology, endocrinology, otolaryngology/audiology, clinical genetics, plastic/reconstructive surgery, dentistry, speech-language pathology) with lifelong surveillance for emerging endocrine and cardiac complications is the standard approach; no formal published clinical practice guideline algorithm (e.g., NCCN-style) exists given the rarity of the condition.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not applicable in the classic sense (monogenic congenital disorder), but <strong>genetic counseling</strong> for known carrier couples, and <strong>prenatal diagnosis</strong> (once familial UBR1 variants are known, or via characteristic prenatal ultrasound findings of nasal ala aplasia) allow informed reproductive decision-making, including preimplantation genetic testing.</li>
+<li><strong>Secondary prevention:</strong> Early postnatal recognition and prompt initiation of PERT and vitamin supplementation prevents the most severe malnutrition-related morbidity/mortality.</li>
+<li><strong>Tertiary prevention:</strong> Systematic surveillance/screening protocols for hypothyroidism, hypopituitarism, diabetes, and congenital heart defects in affected infants and children, as recommended by NORD, to catch and treat complications before they become severe.</li>
+<li><strong>Screening/genetic counseling:</strong> Carrier screening is feasible in known-affected families but is not part of any standard population carrier-screening panel given extreme rarity; genetic counseling emphasizes the 25% recurrence risk for future pregnancies of carrier couples.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> No naturally occurring JBS-like disease has been reported in non-human species (NCBITaxon:9606, human, is the only species with the described syndrome).</li>
+<li><strong>Orthologous gene:</strong> Mouse <em>Ubr1</em> (<a href="https://bioregistry.io/MGI:1277977" target="_blank" rel="noopener noreferrer">MGI:1277977</a>), located on mouse chromosome 2, is the well-characterized ortholog used for the engineered knockout model (see Section 15) — this is an induced/engineered model, not a naturally occurring veterinary disease.</li>
+<li><strong>Comparative biology:</strong> The N-end rule pathway and UBR1 are evolutionarily conserved from yeast (<em>Saccharomyces cerevisiae</em> UBR1, used for functional/mutagenesis assays) to mammals, underscoring the pathway's fundamental role in protein quality control and turnover across taxa.</li>
+<li><strong>Zoonotic potential:</strong> Not applicable — this is a purely genetic, non-transmissible disorder.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Ubr1-knockout mouse (<em>Ubr1⁻/⁻</em>)</strong> — the principal animal model, generated and characterized alongside the original human UBR1 discovery (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/16311597/">16311597</a>):
+- <strong>Phenotype recapitulation:</strong> Exhibits exocrine pancreatic insufficiency with impaired stimulus-secretion coupling and increased susceptibility to pancreatic injury — directionally consistent with the human disease.
+- <strong>Model limitations:</strong> The mouse pancreatic phenotype is <strong>"similar to but less severe than the pancreatic phenotype of JBS patients."</strong> Mice lack the destructive, inflammatory, apoptosis/necrosis-driven prenatal pancreatitis seen in humans, and do not reproduce the craniofacial (nasal ala), dental, or auditory phenotypes of human JBS. This is a clear case for a <strong>HUMAN_MODEL_MISMATCH</strong> framing in mechanistic curation: the model supports the pancreatic-insufficiency mechanism at a partial/attenuated level but does not recapitulate the destructive prenatal pancreatic pathology or the extra-pancreatic malformation spectrum.
+- <strong>Related model:</strong> <em>Ubr1⁻/⁻;Ubr2⁻/⁻</em> double-knockout mice show <strong>impaired neurogenesis and cardiovascular development</strong> and embryonic/perinatal lethality (PNAS, "Impaired neurogenesis and cardiovascular development in mice lacking the E3 ubiquitin ligases UBR1 and UBR2 of the N-end rule pathway"), indicating redundancy between UBR1 and UBR2 in mice that likely buffers the single-<em>Ubr1</em>-knockout phenotype and may explain why the single knockout under-recapitulates the destructive human pancreatic and malformation phenotype.</p>
+<p><strong>Cellular/in vitro models:</strong>
+- <strong>Yeast (<em>S. cerevisiae</em>) Ubr1 substrate-instability assays</strong> — used to functionally characterize human missense UBR1 alleles (β-galactosidase reporter fusions with destabilizing N-terminal residues), establishing the genotype-severity correlation described in Section 4 (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/21931868/">21931868</a> / <a href="https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0024925">PLOS ONE</a>). This is a heterologous, non-mammalian system: it establishes relative catalytic activity of mutant alleles but cannot address human-tissue-specific consequences.</p>
+<p><strong>No iPSC-derived, organoid, zebrafish, or other vertebrate/invertebrate JBS models were identified</strong> in the literature searched — this represents a clear gap in modeling of the craniofacial, dental, and auditory phenotypes, all of which remain mechanistically uncharacterized beyond correlation with UBR1 loss.</p>
+<hr />
+<h2>Summary Table of Key Ontology Term Suggestions</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Suggested terms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0009479" target="_blank" rel="noopener noreferrer">MONDO:0009479</a>; <a href="https://bioregistry.io/OMIM:243800" target="_blank" rel="noopener noreferrer">OMIM:243800</a>; <a href="https://bioregistry.io/ORPHA:2315" target="_blank" rel="noopener noreferrer">ORPHA:2315</a>; <a href="http://purl.obolibrary.org/obo/DOID_14694" target="_blank" rel="noopener noreferrer">DOID:14694</a></td>
+</tr>
+<tr>
+<td>Gene</td>
+<td><a href="https://bioregistry.io/HGNC:16808" target="_blank" rel="noopener noreferrer">HGNC:16808</a> (UBR1); hgnc:16808</td>
+</tr>
+<tr>
+<td>Key phenotypes (HP)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000430" target="_blank" rel="noopener noreferrer">HP:0000430</a> (hypoplastic alae nasi), <a href="http://purl.obolibrary.org/obo/HP_0001738" target="_blank" rel="noopener noreferrer">HP:0001738</a> (exocrine pancreatic insufficiency), <a href="http://purl.obolibrary.org/obo/HP_0000677" target="_blank" rel="noopener noreferrer">HP:0000677</a> (oligodontia), <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a> (SNHL), <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a> (short stature), <a href="http://purl.obolibrary.org/obo/HP_0001060" target="_blank" rel="noopener noreferrer">HP:0001060</a> (aplasia cutis), <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" rel="noopener noreferrer">HP:0000821</a> (hypothyroidism), <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> (intellectual disability), <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" rel="noopener noreferrer">HP:0000819</a> (diabetes mellitus)</td>
+</tr>
+<tr>
+<td>GO biological process</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0071596" target="_blank" rel="noopener noreferrer">GO:0071596</a> (N-end rule pathway proteolysis), <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" rel="noopener noreferrer">GO:0043161</a> (proteasome-mediated ubiquitin-dependent catabolism), <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptosis), <a href="http://purl.obolibrary.org/obo/GO_0070265" target="_blank" rel="noopener noreferrer">GO:0070265</a> (necrotic cell death)</td>
+</tr>
+<tr>
+<td>GO molecular function</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0004842" target="_blank" rel="noopener noreferrer">GO:0004842</a> (ubiquitin-protein transferase activity)</td>
+</tr>
+<tr>
+<td>Cell type (CL)</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0002064" target="_blank" rel="noopener noreferrer">CL:0002064</a> (pancreatic acinar cell)</td>
+</tr>
+<tr>
+<td>Anatomy (UBERON)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001264" target="_blank" rel="noopener noreferrer">UBERON:0001264</a> (pancreas), <a href="http://purl.obolibrary.org/obo/UBERON_0001037" target="_blank" rel="noopener noreferrer">UBERON:0001037</a> (scalp), <a href="http://purl.obolibrary.org/obo/UBERON_0001091" target="_blank" rel="noopener noreferrer">UBERON:0001091</a> (tooth), <a href="http://purl.obolibrary.org/obo/UBERON_0001846" target="_blank" rel="noopener noreferrer">UBERON:0001846</a> (cochlea)</td>
+</tr>
+<tr>
+<td>Treatment (NCIT)</td>
+<td>NCIT:C1400 (pancrelipase), NCIT:C15986 (pharmacotherapy), NCIT:C15329 (surgical procedure), NCIT:C15447 (dietary intervention)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://omim.org/entry/243800">OMIM #243800 — Johanson-Blizzard Syndrome</a></li>
+<li><a href="https://omim.org/entry/605981">OMIM *605981 — UBR1</a></li>
+<li><a href="https://www.orpha.net/en/disease/detail/2315">Orphanet: Johanson-Blizzard syndrome (ORPHA:2315)</a></li>
+<li><a href="https://rarediseases.org/rare-diseases/johanson-blizzard-syndrome/">NORD: Johanson-Blizzard Syndrome</a></li>
+<li><a href="https://rarediseases.info.nih.gov/diseases/80/johanson-blizzard-syndrome">GARD: Johanson-Blizzard syndrome</a></li>
+<li>Zenker M, et al. "Deficiency of UBR1, a ubiquitin ligase of the N-end rule pathway, causes pancreatic dysfunction, malformations and mental retardation (Johanson-Blizzard syndrome)." Nat Genet. 2005. PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/16311597/">16311597</a></li>
+<li>"Ubiquitin Ligases of the N-End Rule Pathway: Assessment of Mutations in UBR1 That Cause the Johanson-Blizzard Syndrome." PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/21931868/">21931868</a> / <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3172311/">PMC3172311</a> / <a href="https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0024925">PLOS ONE</a></li>
+<li>Sukalo M, Fiedler A, Guzmán C, et al. "Expanding the mutational spectrum in Johanson-Blizzard syndrome: identification of whole exon deletions and duplications in the UBR1 gene by MLPA analysis." Mol Genet Genomic Med. 2017. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5702574/">PMC5702574</a></li>
+<li>Sukalo M, Mayerle J, Zenker M. "Clinical utility gene card for: Johanson-Blizzard syndrome." Eur J Hum Genet. 2013. PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/23652379/">23652379</a> / <a href="https://www.nature.com/articles/ejhg201365">Nature EJHG</a></li>
+<li>"Johanson-Blizzard syndrome." Review, PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/22072859/">22072859</a></li>
+<li>"Johanson-Blizzard Syndrome: A Case Report From Bahrain With a Literature Review." <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11007587/">PMC11007587</a></li>
+<li>"Performance of Children With Johanson-Blizzard Syndrome After Cochlear Implantation." PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/34760428/">34760428</a> / <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8571962/">PMC8571962</a></li>
+<li>Bilateral cochlear implantation case report. PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/28576536/">28576536</a></li>
+<li>"Johanson-Blizzard syndrome: a prenatal ultrasonographic diagnosis." PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/10423811/">10423811</a></li>
+<li>"Impaired neurogenesis and cardiovascular development in mice lacking the E3 ubiquitin ligases UBR1 and UBR2 of the N-end rule pathway." PNAS. <a href="https://www.pnas.org/doi/10.1073/pnas.0601700103">Link</a></li>
+<li>UBR1 gene — <a href="https://www.genecards.org/cgi-bin/carddisp.pl?gene=UBR1">GeneCards</a>, <a href="https://www.ncbi.nlm.nih.gov/gene?Db=gene&amp;Cmd=DetailsSearch&amp;Term=197131">NCBI Gene</a>, <a href="https://www.ncbi.nlm.nih.gov/gtr/genes/197131/">NIH GTR</a></li>
+<li>Mouse <em>Ubr1</em> — <a href="https://www.informatics.jax.org/marker/MGI:1277977">MGI:1277977</a></li>
+</ul>
+<p><strong>Note on evidence gaps:</strong> Given JBS's extreme rarity, most clinical data derive from aggregated case reports/small series rather than large cohort studies, registries, or randomized trials; several sections above (omics profiling, prevention trial data, mortality statistics, GH-deficiency management protocols) reflect an absence of dedicated primary literature rather than a negative finding, and should be flagged as such in any downstream curation.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Jeune_Asphyxiating_Thoracic_Dystrophy-falcon.html">← Jeune Asphyxiating Thoracic Dystrophy (Falcon)</a>
+                
+                
+                <a href="Joint_Laxity_Short_Stature_and_Myopia-openscientist.html">Joint Laxity, Short Stature, and Myopia (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Johanson-Blizzard_syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Johanson-Blizzard_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

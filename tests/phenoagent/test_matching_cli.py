@@ -5,6 +5,7 @@ from pathlib import Path
 
 import yaml
 
+from dismech.yaml_io import safe_load
 from phenoagent.matching import resolve_disease_reference
 from phenoagent.matching_cli import create_initial_matching_file
 
@@ -88,7 +89,7 @@ def test_create_initial_matching_file_default_output(tmp_path: Path, monkeypatch
     assert output_path.resolve() == (tmp_path / "output" / "matching" / "test_ppkt_001__Test_Disease.yaml").resolve()
 
     with open(output_path) as stream:
-        data = yaml.safe_load(stream)
+        data = safe_load(stream)
 
     assert data["case_id"] == "test_ppkt_001"
     assert data["disease_slug"] == "Test_Disease"

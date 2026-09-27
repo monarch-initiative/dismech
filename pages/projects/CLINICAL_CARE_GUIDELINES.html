@@ -52,6 +52,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -167,6 +286,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -212,7 +374,7 @@
                 
                 
                 <div class="panel">
-                    <h2>Diseases (50)</h2>
+                    <h2>Diseases (47)</h2>
                     <div class="chip-list">
                         
                             
@@ -240,7 +402,7 @@
                             
                         
                             
-                            <a class="chip" href="../disorders/Metastatic_Prostate_Cancer.html">Metastatic Prostate Cancer</a>
+                            <a class="chip" href="../disorders/Prostate_Adenocarcinoma.html">Prostate Adenocarcinoma</a>
                             
                         
                             
@@ -268,7 +430,7 @@
                             
                         
                             
-                            <a class="chip" href="../disorders/Metastatic_Colorectal_Cancer.html">Metastatic Colorectal Cancer</a>
+                            <a class="chip" href="../disorders/Colon_Adenocarcinoma.html">Colon Adenocarcinoma</a>
                             
                         
                             
@@ -281,10 +443,6 @@
                         
                             
                             <a class="chip" href="../disorders/Hepatocellular_Carcinoma.html">Hepatocellular Carcinoma</a>
-                            
-                        
-                            
-                            <a class="chip" href="../disorders/Metastatic_Hepatocellular_Carcinoma.html">Metastatic HCC</a>
                             
                         
                             
@@ -301,10 +459,6 @@
                         
                             
                             <a class="chip" href="../disorders/Psoriasis.html">Psoriasis</a>
-                            
-                        
-                            
-                            <a class="chip" href="../disorders/Infectious_Disease.html">Infectious Disease</a>
                             
                         
                             
@@ -357,10 +511,6 @@
                         
                             
                             <a class="chip" href="../disorders/Ischemic_Stroke.html">Ischemic Stroke</a>
-                            
-                        
-                            
-                            <a class="chip" href="../disorders/Metastatic_Renal_Cell_Carcinoma.html">Metastatic Renal Cell Carcinoma</a>
                             
                         
                             
@@ -434,7 +584,10 @@
         </aside>
 
         <article class="content">
-            <h1 id="clinical-care-guideline-collection">Clinical Care Guideline Collection</h1>
+            <blockquote>
+<p><strong>Note (2026-08-28):</strong> the <code>Metastatic_*</code> entries named in this project were folded into their histologic parent entries per design decisions §3a (Metastatic_Prostate_Cancer → <a href="../disorders/Prostate_Adenocarcinoma.html">Prostate Adenocarcinoma</a>, Metastatic_Colorectal_Cancer → <a href="../disorders/Colon_Adenocarcinoma.html">Colon Adenocarcinoma</a>, Metastatic_HCC → <a href="../disorders/Hepatocellular_Carcinoma.html">Hepatocellular Carcinoma</a>, Metastatic_Renal_Cell_Carcinoma → <a href="../disorders/Renal_Cell_Carcinoma.html">Renal Cell Carcinoma</a>). Historical tables below retain the old names.</p>
+</blockquote>
+<h1 id="clinical-care-guideline-collection">Clinical Care Guideline Collection</h1>
 <h2 id="task">Task</h2>
 <p>Issue <a href="https://github.com/monarch-initiative/dismech/issues/4878">#4878</a> —
 "collect clinical care guidelines" (Melissa Haendel): <em>"we need to prioritize
@@ -538,7 +691,7 @@ sampled rows for high-volume conditions).</p>
 </tr>
 <tr>
 <td style="text-align: right;">7</td>
-<td><a href="../disorders/Metastatic_Prostate_Cancer.html">Metastatic Prostate Cancer</a></td>
+<td>Metastatic_Prostate_Cancer</td>
 <td>prostate cancer</td>
 <td style="text-align: right;">162</td>
 </tr>
@@ -580,7 +733,7 @@ sampled rows for high-volume conditions).</p>
 </tr>
 <tr>
 <td style="text-align: right;">14</td>
-<td><a href="../disorders/Metastatic_Colorectal_Cancer.html">Metastatic Colorectal Cancer</a></td>
+<td>Metastatic_Colorectal_Cancer</td>
 <td>colorectal cancer</td>
 <td style="text-align: right;">129</td>
 </tr>
@@ -604,7 +757,7 @@ sampled rows for high-volume conditions).</p>
 </tr>
 <tr>
 <td style="text-align: right;">18</td>
-<td><a href="../disorders/Metastatic_Hepatocellular_Carcinoma.html">Metastatic HCC</a></td>
+<td>Metastatic_HCC</td>
 <td>hepatocellular carcinoma</td>
 <td style="text-align: right;">111</td>
 </tr>
@@ -634,7 +787,7 @@ sampled rows for high-volume conditions).</p>
 </tr>
 <tr>
 <td style="text-align: right;">23</td>
-<td><a href="../disorders/Infectious_Disease.html">Infectious Disease</a></td>
+<td>Infectious_Disease</td>
 <td>Infectious Disease</td>
 <td style="text-align: right;">96</td>
 </tr>
@@ -718,7 +871,7 @@ sampled rows for high-volume conditions).</p>
 </tr>
 <tr>
 <td style="text-align: right;">37</td>
-<td><a href="../disorders/Metastatic_Renal_Cell_Carcinoma.html">Metastatic Renal Cell Carcinoma</a></td>
+<td>Metastatic_Renal_Cell_Carcinoma</td>
 <td>renal cell carcinoma</td>
 <td style="text-align: right;">51</td>
 </tr>
@@ -872,7 +1025,10 @@ usable <em>citation</em>.</p>
   for the parent disease, not the specific subtype. Dedupe by <code>search_name</code>
   before mining.</li>
 <li><strong>Umbrella entries.</strong> <code>Lymphoma</code> and <code>Infectious_Disease</code> match a very broad
-  MeSH term; their counts overstate <em>specific</em> care relevance.</li>
+  MeSH term; their counts overstate <em>specific</em> care relevance.
+  <code>Infectious_Disease</code> has since been retired as a rung-0 abstraction (design
+  decisions §3e, issue #10115) and is no longer a dismech entry, so its row in
+  the table above records the search only; there is no entry to mine for.</li>
 <li><strong>Candidate list, not evidence.</strong> Automatic Term Mapping favors recall. Every
   citation is a <em>lead</em> — spot-check that the top hits are actually about the
   intended disease.</li>
@@ -999,7 +1155,7 @@ than describe process.</p>
 <h2 id="evidence-policy">Evidence policy</h2>
 <p>This is a <strong>discovery</strong> artifact. Any citation ultimately used as dismech
 evidence must still pass the standard snippet-verification workflow
-(<code>just fetch-reference PMID:…</code>, then <code>just validate-references</code>). Guideline
+(<code>just fetch-reference PMID:…</code>, then <code>just validate-kb-references</code>). Guideline
 provenance alone does <strong>not</strong> satisfy the dismech PMID + verified-snippet policy
 — the same discipline applied when the FA <code>.hpoa</code> (evidence code <code>TAS</code>) terms
 were each independently re-sourced.</p>

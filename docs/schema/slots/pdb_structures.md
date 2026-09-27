@@ -22,8 +22,8 @@ Alias: pdb_structures
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Treatment](../classes/Treatment.md) |  |  no  |
 | [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [Treatment](../classes/Treatment.md) |  |  no  |
 
 
 

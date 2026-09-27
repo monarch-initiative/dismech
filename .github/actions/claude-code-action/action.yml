@@ -47,17 +47,20 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Install uvx
-      shell: bash
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        source $HOME/.cargo/env
-        which uvx || echo "uvx not found in PATH, installing via pip"
-        pip install uv || true
+    - name: Install uv for tools and Langfuse tracing
+      uses: astral-sh/setup-uv@v7
 
     - name: Install Claude Code
       shell: bash
       run: npm install -g @anthropic-ai/claude-code
+
+    - name: Install Langfuse tracing plugin
+      # A tracing outage must not prevent the agent from running.
+      continue-on-error: true
+      shell: bash
+      run: |
+        claude plugin marketplace add https://github.com/langfuse/Claude-Observability-Plugin.git
+        claude plugin install langfuse-observability@langfuse-observability
 
     - name: Install GitHub MCP Server
       if: inputs.install_github_mcp == 'true'
@@ -130,13 +133,6 @@ runs:
       id: run_claude
       run: |
 
-        if [ ! -z "${{ inputs.claude_code_oauth_token }}" ]; then
-          echo CLAUDE AUTH TOKEN IS NOT SET
-        else
-          echo CLAUDE AUTH TOKEN IS SET
-          export ANTHROPIC_API_KEY=
-        fi
-
         ALLOWED_TOOLS_ARG=""
         if [ ! -z "${{ inputs.allowed_tools }}" ]; then
           ALLOWED_TOOLS_ARG="--allowedTools ${{ inputs.allowed_tools }}"
@@ -170,11 +166,14 @@ runs:
 
           echo "Complete output saved to output.json, final response saved to ${{ inputs.output_file }}"
         fi
-      
+
       env:
+        # Auth: prefer the API key (pay-per-use, no weekly subscription cap); fall
+        # back to the OAuth token only when no API key is supplied. Exactly one is
+        # ever non-empty, so the CLI has no precedence decision to make.
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
         # ANTHROPIC_AUTH_TOKEN: ${{ inputs.cborg_api_key }}
-        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude_code_oauth_token }}
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.anthropic_api_key == '' && inputs.claude_code_oauth_token || '' }}
         GITHUB_TOKEN: ${{ inputs.github_token }}
         # ANTHROPIC_BASE_URL: "https://api.cborg.lbl.gov"
         # DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1"

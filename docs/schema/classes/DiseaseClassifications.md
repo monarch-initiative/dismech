@@ -52,6 +52,28 @@ URI: [dismech:class/DiseaseClassifications](https://w3id.org/monarch-initiative/
     
 
         
+      DiseaseClassifications : icimd_category
+        
+          
+    
+        
+        
+        DiseaseClassifications --> "*" ICIMDAssignment : icimd_category
+        click ICIMDAssignment href "../../classes/ICIMDAssignment/"
+    
+
+        
+      DiseaseClassifications : isds_skeletal_category
+        
+          
+    
+        
+        
+        DiseaseClassifications --> "*" ISDSNosologyAssignment : isds_skeletal_category
+        click ISDSNosologyAssignment href "../../classes/ISDSNosologyAssignment/"
+    
+
+        
       DiseaseClassifications : iuis_category
         
           
@@ -85,6 +107,17 @@ URI: [dismech:class/DiseaseClassifications](https://w3id.org/monarch-initiative/
     
 
         
+      DiseaseClassifications : nih_research_priority
+        
+          
+    
+        
+        
+        DiseaseClassifications --> "*" NIHResearchPriorityAssignment : nih_research_priority
+        click NIHResearchPriorityAssignment href "../../classes/NIHResearchPriorityAssignment/"
+    
+
+        
       
 ```
 
@@ -103,6 +136,9 @@ URI: [dismech:class/DiseaseClassifications](https://w3id.org/monarch-initiative/
 | [mechanistic_category](../slots/mechanistic_category.md) | * <br/> [MechanisticNosologyAssignment](../classes/MechanisticNosologyAssignment.md) | Mechanistic/pathway-based disease classification | direct |
 | [iuis_category](../slots/iuis_category.md) | 0..1 <br/> [IUISAssignment](../classes/IUISAssignment.md) | IUIS primary immunodeficiency classification | direct |
 | [channelopathy_category](../slots/channelopathy_category.md) | 0..1 <br/> [ChannelopathyAssignment](../classes/ChannelopathyAssignment.md) | Channelopathy organ system classification | direct |
+| [icimd_category](../slots/icimd_category.md) | * <br/> [ICIMDAssignment](../classes/ICIMDAssignment.md) | International Classification of Inherited Metabolic Disorders (ICIMD) categor... | direct |
+| [isds_skeletal_category](../slots/isds_skeletal_category.md) | * <br/> [ISDSNosologyAssignment](../classes/ISDSNosologyAssignment.md) | ISDS Nosology and Classification of Genetic Skeletal Disorders group assignme... | direct |
+| [nih_research_priority](../slots/nih_research_priority.md) | * <br/> [NIHResearchPriorityAssignment](../classes/NIHResearchPriorityAssignment.md) | NIH "Highlighted Topics" funding-priority area(s) this disease is relevant to | direct |
 
 
 
@@ -169,6 +205,9 @@ slots:
 - mechanistic_category
 - iuis_category
 - channelopathy_category
+- icimd_category
+- isds_skeletal_category
+- nih_research_priority
 
 ```
 </details>
@@ -248,6 +287,48 @@ attributes:
     domain_of:
     - DiseaseClassifications
     range: ChannelopathyAssignment
+    inlined: true
+  icimd_category:
+    name: icimd_category
+    description: International Classification of Inherited Metabolic Disorders (ICIMD)
+      category/group classification (for inherited metabolic disorders)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: icimd_category
+    owner: DiseaseClassifications
+    domain_of:
+    - DiseaseClassifications
+    range: ICIMDAssignment
+    multivalued: true
+    inlined: true
+  isds_skeletal_category:
+    name: isds_skeletal_category
+    description: ISDS Nosology and Classification of Genetic Skeletal Disorders group
+      assignment (for genetic skeletal disorders). Assign only to entries the Nosology
+      itself lists (or an unambiguous subtype/synonym of one); a single listed disorder
+      carries exactly one group.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: isds_skeletal_category
+    owner: DiseaseClassifications
+    domain_of:
+    - DiseaseClassifications
+    range: ISDSNosologyAssignment
+    multivalued: true
+    inlined: true
+  nih_research_priority:
+    name: nih_research_priority
+    description: NIH "Highlighted Topics" funding-priority area(s) this disease is
+      relevant to. A secondary, soft, grant-strategy classification (NOT a nosology);
+      an entry may carry several or none.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: nih_research_priority
+    owner: DiseaseClassifications
+    domain_of:
+    - DiseaseClassifications
+    range: NIHResearchPriorityAssignment
+    multivalued: true
     inlined: true
 
 ```

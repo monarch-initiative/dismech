@@ -22,9 +22,10 @@ import glob
 import os
 from collections import defaultdict
 
-import yaml
 from oaklib import get_adapter
 from oaklib.datamodels.vocabulary import IS_A
+
+from dismech.yaml_io import safe_load
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DISORDERS = os.path.join(ROOT, "kb", "disorders")
@@ -55,7 +56,7 @@ def main():
     # covered: MONDO id -> dismech disorder name(s) that anchor it (disease- or subtype-level)
     covered = {}
     for path in sorted(glob.glob(os.path.join(DISORDERS, "*.yaml"))):
-        doc = yaml.safe_load(open(path))
+        doc = safe_load(open(path))
         name = os.path.basename(path)[:-5]
         # A disorder's disease_term anchor is what we look for children of; subtype anchors
         # only expand the "covered" set (so a subtype already in the KB isn't re-flagged).

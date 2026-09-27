@@ -17,9 +17,9 @@ Alias: phenotypes
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Disease](../classes/Disease.md) |  |  no  |
-| [ComorbidityAssociation](../classes/ComorbidityAssociation.md) | An association between two conditions, including directionality, evidence, an... |  no  |
 | [DifferentialDiagnosis](../classes/DifferentialDiagnosis.md) | A disease or condition that presents similarly to the focal disease and must ... |  no  |
+| [ComorbidityAssociation](../classes/ComorbidityAssociation.md) | An association between two conditions, including directionality, evidence, an... |  no  |
+| [Disease](../classes/Disease.md) |  |  no  |
 
 
 

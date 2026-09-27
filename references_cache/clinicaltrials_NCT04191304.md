@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04191304"
+reference_id: clinicaltrials:NCT04191304
 title: "A Multicentre, Randomised, Double-blind, Parallel-group, Placebo-controlled, 24-Week Phase III Study With an Open-label Extension to Evaluate the Efficacy and Safety of Benralizumab in Patients With Hypereosinophilic Syndrome (HES)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Multicentre, Randomised, Double-blind, Parallel-group, Placebo-controlled, 24-Week Phase III Study With an Open-label Extension to Evaluate the Efficacy and Safety of Benralizumab in Patients With Hypereosinophilic Syndrome (HES)

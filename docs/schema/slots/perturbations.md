@@ -22,9 +22,9 @@ Alias: perturbations
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ComputationalModel](../classes/ComputationalModel.md) | A computational or in-silico model relevant to understanding disease mechanis... |  no  |
 | [Experiment](../classes/Experiment.md) | A structured experiment or protocol-level study design that can be proposed t... |  yes  |
 | [ExperimentalControl](../classes/ExperimentalControl.md) | A comparator or control condition for an experiment, such as an isogenic wild... |  yes  |
+| [ComputationalModel](../classes/ComputationalModel.md) | A computational or in-silico model relevant to understanding disease mechanis... |  no  |
 
 
 

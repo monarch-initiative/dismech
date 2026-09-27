@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00126399"
+reference_id: clinicaltrials:NCT00126399
 title: A Clinical Trial to Determine the Effects of 40 Mg Doxycycline Versus a Placebo Control for the Treatment of Rosacea
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Clinical Trial to Determine the Effects of 40 Mg Doxycycline Versus a Placebo Control for the Treatment of Rosacea

@@ -23,6 +23,7 @@ Alias: endpoint_context
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [BiomarkerReadout](../classes/BiomarkerReadout.md) | Links a biochemical biomarker to a pathograph node that it measures, reflects... |  yes  |
+| [PhenotypeReadout](../classes/PhenotypeReadout.md) | Links an investigation-readout phenotype (an abnormal electrophysiology, func... |  yes  |
 
 
 
@@ -36,7 +37,7 @@ Alias: endpoint_context
 | Property | Value |
 | --- | --- |
 | Range | [BiomarkerEndpointContextEnum](../enums/BiomarkerEndpointContextEnum.md) |
-| Domain Of | [BiomarkerReadout](../classes/BiomarkerReadout.md) |
+| Domain Of | [BiomarkerReadout](../classes/BiomarkerReadout.md), [PhenotypeReadout](../classes/PhenotypeReadout.md) |
 
 ### Cardinality and Requirements
 
@@ -87,6 +88,7 @@ rank: 1000
 alias: endpoint_context
 domain_of:
 - BiomarkerReadout
+- PhenotypeReadout
 range: BiomarkerEndpointContextEnum
 
 ```

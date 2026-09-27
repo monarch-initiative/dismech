@@ -51,6 +51,8 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
         click GeneProductDescriptor href "../../classes/GeneProductDescriptor/"
       Descriptor <|-- HistopathologyFindingDescriptor
         click HistopathologyFindingDescriptor href "../../classes/HistopathologyFindingDescriptor/"
+      Descriptor <|-- ImagingFindingDescriptor
+        click ImagingFindingDescriptor href "../../classes/ImagingFindingDescriptor/"
       Descriptor <|-- LifeCycleStageDescriptor
         click LifeCycleStageDescriptor href "../../classes/LifeCycleStageDescriptor/"
       Descriptor <|-- PhenotypeDescriptor
@@ -216,6 +218,7 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
     * [BiomarkerDescriptor](../classes/BiomarkerDescriptor.md)
     * [GeneProductDescriptor](../classes/GeneProductDescriptor.md)
     * [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md)
+    * [ImagingFindingDescriptor](../classes/ImagingFindingDescriptor.md)
     * [LifeCycleStageDescriptor](../classes/LifeCycleStageDescriptor.md)
     * [PhenotypeDescriptor](../classes/PhenotypeDescriptor.md)
     * [InheritanceDescriptor](../classes/InheritanceDescriptor.md)
@@ -245,7 +248,7 @@ URI: [dismech:class/Descriptor](https://w3id.org/monarch-initiative/dismech/clas
 | [onset](../slots/onset.md) | 0..1 <br/> [OnsetDescriptor](../classes/OnsetDescriptor.md) | Structured age of onset descriptor | direct |
 | [temporality](../slots/temporality.md) | 0..1 <br/> [TemporalityEnum](../enums/TemporalityEnum.md) | Temporal qualifier for this descriptor (e | direct |
 | [clinical_course](../slots/clinical_course.md) | 0..1 <br/> [ClinicalCourseEnum](../enums/ClinicalCourseEnum.md) | Clinical course qualifier for this descriptor (e | direct |
-| [severity](../slots/severity.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md)&nbsp;or&nbsp;<br />[SeverityQualifierEnum](../enums/SeverityQualifierEnum.md) |  | direct |
+| [severity](../slots/severity.md) | 0..1 <br/> [SeverityQualifierEnum](../enums/SeverityQualifierEnum.md)&nbsp;or&nbsp;<br />[Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md) |  | direct |
 | [qualifiers](../slots/qualifiers.md) | * <br/> [Qualifier](../classes/Qualifier.md) | List of predicate-value pairs for formal post-composition | direct |
 
 
@@ -402,6 +405,7 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - SurrogateEndpointCollection
     - ProteinStructure
     - ExternalAssertion
@@ -409,6 +413,7 @@ attributes:
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -463,6 +468,7 @@ attributes:
     owner: Descriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     - DifferentiatingMechanism
     range: ModifierEnum
   located_in:
@@ -475,6 +481,7 @@ attributes:
     owner: Descriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: AnatomicalEntityDescriptor
     inlined: true
   laterality:
@@ -486,6 +493,7 @@ attributes:
     owner: Descriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: LateralityEnum
   spatial_extent:
     name: spatial_extent
@@ -497,6 +505,7 @@ attributes:
     owner: Descriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: SpatialExtentEnum
   onset:
     name: onset

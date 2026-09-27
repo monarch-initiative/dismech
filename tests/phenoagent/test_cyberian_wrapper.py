@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 from cyberian.models import Task
 
+from dismech.yaml_io import safe_load_path
 from phenoagent import cyberian_wrapper
 
 
@@ -95,7 +96,7 @@ def test_default_matching_workdir_shape(tmp_path: Path):
 def test_workflow_yaml_is_valid_cyberian_task():
     workflow_file = cyberian_wrapper.WORKFLOW_FILE
     assert workflow_file.exists()
-    data = yaml.safe_load(workflow_file.read_text())
+    data = safe_load_path(workflow_file)
     task = Task(**data)
     assert task.name == "phenoagent_explanation_completion"
     assert task.loop_until is not None
@@ -104,7 +105,7 @@ def test_workflow_yaml_is_valid_cyberian_task():
 
 def test_workflow_success_criteria_runs_in_restricted_namespace(tmp_path: Path):
     workflow_file = cyberian_wrapper.WORKFLOW_FILE
-    data = yaml.safe_load(workflow_file.read_text())
+    data = safe_load_path(workflow_file)
     task = Task(**data)
     assert task.success_criteria is not None
     assert task.success_criteria.python is not None
@@ -171,7 +172,7 @@ def test_workflow_success_criteria_runs_in_restricted_namespace(tmp_path: Path):
 
 def test_workflow_success_criteria_fails_for_exact_false_without_explanation(tmp_path: Path):
     workflow_file = cyberian_wrapper.WORKFLOW_FILE
-    data = yaml.safe_load(workflow_file.read_text())
+    data = safe_load_path(workflow_file)
     task = Task(**data)
     assert task.success_criteria is not None
     assert task.success_criteria.python is not None

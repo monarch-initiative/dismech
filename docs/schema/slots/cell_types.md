@@ -18,8 +18,8 @@ Alias: cell_types
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [ExperimentalModel](../classes/ExperimentalModel.md) | A disease-relevant non-animal experimental model system |  no  |
-| [Biochemical](../classes/Biochemical.md) |  |  no  |
 | [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [Biochemical](../classes/Biochemical.md) |  |  no  |
 
 
 

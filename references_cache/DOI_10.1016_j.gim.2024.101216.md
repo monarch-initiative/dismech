@@ -1,0 +1,166 @@
+---
+reference_id: DOI:10.1016/j.gim.2024.101216
+title: Expanding the genetics and phenotypes of ocular congenital cranial dysinnervation disorders
+authors:
+- Julie A. Jurgens
+- Brenda J. Barry
+- Wai-Man Chan
+- Sarah MacKinnon
+- Mary C. Whitman
+- Paola M. Matos Ruiz
+- Brandon M. Pratt
+- Eleina M. England
+- Lynn Pais
+- Gabrielle Lemire
+- Emily Groopman
+- Carmen Glaze
+- Kathryn A. Russell
+- Moriel Singer-Berk
+- Silvio Alessandro Di Gioia
+- Arthur S. Lee
+- Caroline Andrews
+- Sherin Shaaban
+- Megan M. Wirth
+- Sarah Bekele
+- Melissa Toffoloni
+- Victoria R. Bradford
+- Emma E. Foster
+- Lindsay Berube
+- Cristina Rivera-Quiles
+- Fiona M. Mensching
+- Alba Sanchis-Juan
+- Jack M. Fu
+- Isaac Wong
+- Xuefang Zhao
+- Michael W. Wilson
+- Ben Weisburd
+- Monkol Lek
+- Hugo Abarca-Barriga
+- Christiane Al-Haddad
+- Jeffrey L. Berman
+- Erick D. Bothun
+- Jenina Capasso
+- Oscar Francisco Chacon-Camacho
+- Lan Chang
+- Stephen P. Christiansen
+- Maria Laura Ciccarelli
+- Monique Cordonnier
+- Gerald F. Cox
+- Cynthia J. Curry
+- Linda R. Dagi
+- Thomas Lee Dahm
+- Karen L. David
+- Bradley V. Davitt
+- Teresa De Berardinis
+- Joseph L. Demer
+- Julie Désir
+- Fabiana D’Esposito
+- Arlene V. Drack
+- Eric Eggenberger
+- James E. Elder
+- Alexandra T. Elliott
+- K. David Epley
+- Hagit Baris Feldman
+- Carlos R. Ferreira
+- Maree P. Flaherty
+- Anne B. Fulton
+- Christina Gerth-Kahlert
+- Irene Gottlob
+- Stephen Grill
+- Dorothy J. Halliday
+- Frank Hanisch
+- Eleanor Hay
+- Gena Heidary
+- Christopher Holder
+- Jonathan C. Horton
+- Alessandro Iannaccone
+- Sherwin J. Isenberg
+- Suzanne C. Johnston
+- Alon Kahana
+- James A. Katowitz
+- Melanie Kazlas
+- Natalie C. Kerr
+- Virginia Kimonis
+- Melissa W. Ko
+- Feray Koc
+- Dorte Ancher Larsen
+- Guillermo Lay-Son
+- Danielle M. Ledoux
+- Alex V. Levin
+- Richard L. Levy
+- Christopher J. Lyons
+- David A. Mackey
+- Adriano Magli
+- Iason S. Mantagos
+- Candice Marti
+- Isabelle Maystadt
+- Fiona McKenzie
+- Manoj P. Menezes
+- Claudia N. Mikail
+- David T. Miller
+- Kathryn Bisceglia Miller
+- Monte D. Mills
+- Kaori Miyana
+- H.U. Moller
+- Lisa Mullineaux
+- Julie K. Nishimura
+- A. Gwendolyn Noble
+- Pramod Kumar Pandey
+- Piero Pavone
+- Johann Penzien
+- Robert Petersen
+- James A. Phalen
+- Annapurna Poduri
+- Claudia R. Polo
+- Lev Prasov
+- Feliciano J. Ramos
+- Maria Ramos-Caceres
+- Richard M. Robb
+- Béatrice Rossillion
+- Mustafa Sahin
+- Harvey S. Singer
+- Lois E.H. Smith
+- Jeffrey A. Sorkin
+- Janet S. Soul
+- Sandra E. Staffieri
+- Heather J. Stalker
+- Steven F. Stasheff
+- Sonya Strassberg
+- Mitchell B. Strominger
+- Deepa Ajay Taranath
+- Ioan Talfryn Thomas
+- Elias I. Traboulsi
+- Maria Cristina Ugrin
+- Deborah K. VanderVeen
+- Andrea L. Vincent
+- Marlene C. Vogel G
+- Bettina Wabbels
+- Agnes M.F. Wong
+- C. Geoffrey Woods
+- Carolyn Wu
+- Edward Yang
+- Alison Yeung
+- Terri L. Young
+- Juan C. Zenteno
+- Alexandra A. Zubcov-Iwantscheff
+- Johan Zwaan
+- Harrison Brand
+- Michael E. Talkowski
+- Daniel G. MacArthur
+- Anne O’Donnell-Luria
+- Caroline D. Robson
+- David G. Hunter
+- Elizabeth C. Engle
+journal: Genetics in Medicine
+year: '2025'
+doi: 10.1016/j.gim.2024.101216
+content_type: unavailable
+is_preprint: false
+---
+
+# Expanding the genetics and phenotypes of ocular congenital cranial dysinnervation disorders
+**Authors:** Julie A. Jurgens, Brenda J. Barry, Wai-Man Chan, Sarah MacKinnon, Mary C. Whitman, Paola M. Matos Ruiz, Brandon M. Pratt, Eleina M. England, Lynn Pais, Gabrielle Lemire, Emily Groopman, Carmen Glaze, Kathryn A. Russell, Moriel Singer-Berk, Silvio Alessandro Di Gioia, Arthur S. Lee, Caroline Andrews, Sherin Shaaban, Megan M. Wirth, Sarah Bekele, Melissa Toffoloni, Victoria R. Bradford, Emma E. Foster, Lindsay Berube, Cristina Rivera-Quiles, Fiona M. Mensching, Alba Sanchis-Juan, Jack M. Fu, Isaac Wong, Xuefang Zhao, Michael W. Wilson, Ben Weisburd, Monkol Lek, Hugo Abarca-Barriga, Christiane Al-Haddad, Jeffrey L. Berman, Erick D. Bothun, Jenina Capasso, Oscar Francisco Chacon-Camacho, Lan Chang, Stephen P. Christiansen, Maria Laura Ciccarelli, Monique Cordonnier, Gerald F. Cox, Cynthia J. Curry, Linda R. Dagi, Thomas Lee Dahm, Karen L. David, Bradley V. Davitt, Teresa De Berardinis, Joseph L. Demer, Julie Désir, Fabiana D’Esposito, Arlene V. Drack, Eric Eggenberger, James E. Elder, Alexandra T. Elliott, K. David Epley, Hagit Baris Feldman, Carlos R. Ferreira, Maree P. Flaherty, Anne B. Fulton, Christina Gerth-Kahlert, Irene Gottlob, Stephen Grill, Dorothy J. Halliday, Frank Hanisch, Eleanor Hay, Gena Heidary, Christopher Holder, Jonathan C. Horton, Alessandro Iannaccone, Sherwin J. Isenberg, Suzanne C. Johnston, Alon Kahana, James A. Katowitz, Melanie Kazlas, Natalie C. Kerr, Virginia Kimonis, Melissa W. Ko, Feray Koc, Dorte Ancher Larsen, Guillermo Lay-Son, Danielle M. Ledoux, Alex V. Levin, Richard L. Levy, Christopher J. Lyons, David A. Mackey, Adriano Magli, Iason S. Mantagos, Candice Marti, Isabelle Maystadt, Fiona McKenzie, Manoj P. Menezes, Claudia N. Mikail, David T. Miller, Kathryn Bisceglia Miller, Monte D. Mills, Kaori Miyana, H.U. Moller, Lisa Mullineaux, Julie K. Nishimura, A. Gwendolyn Noble, Pramod Kumar Pandey, Piero Pavone, Johann Penzien, Robert Petersen, James A. Phalen, Annapurna Poduri, Claudia R. Polo, Lev Prasov, Feliciano J. Ramos, Maria Ramos-Caceres, Richard M. Robb, Béatrice Rossillion, Mustafa Sahin, Harvey S. Singer, Lois E.H. Smith, Jeffrey A. Sorkin, Janet S. Soul, Sandra E. Staffieri, Heather J. Stalker, Steven F. Stasheff, Sonya Strassberg, Mitchell B. Strominger, Deepa Ajay Taranath, Ioan Talfryn Thomas, Elias I. Traboulsi, Maria Cristina Ugrin, Deborah K. VanderVeen, Andrea L. Vincent, Marlene C. Vogel G, Bettina Wabbels, Agnes M.F. Wong, C. Geoffrey Woods, Carolyn Wu, Edward Yang, Alison Yeung, Terri L. Young, Juan C. Zenteno, Alexandra A. Zubcov-Iwantscheff, Johan Zwaan, Harrison Brand, Michael E. Talkowski, Daniel G. MacArthur, Anne O’Donnell-Luria, Caroline D. Robson, David G. Hunter, Elizabeth C. Engle
+**Journal:** Genetics in Medicine (2025)
+**DOI:** [10.1016/j.gim.2024.101216](https://doi.org/10.1016/j.gim.2024.101216)
+
+## Content
